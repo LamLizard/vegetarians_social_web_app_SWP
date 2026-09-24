@@ -1,0 +1,37 @@
+.wrap { position: relative; margin: 0; }
+
+.icon {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ac-muted);
+  pointer-events: none;
+}
+:global(.spinner-border).icon { margin-top: -0.5rem; transform: none; }
+
+.input {
+  padding-left: 2.3rem;
+  padding-right: 2.3rem;
+  background: var(--ac-field-bg);
+  border-color: transparent;
+}
+.input:focus { background: var(--ac-card); }
+.input::-webkit-search-cancel-button { display: none; }
+
+.clear {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ac-muted);
+}
+.clear:hover { color: var(--ac-ink); }
+.clear:focus-visible { outline: 3px solid var(--ac-focus-ring); }

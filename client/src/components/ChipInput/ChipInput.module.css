@@ -1,0 +1,35 @@
+.box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: calc(1.5em + 0.75rem + 2px);
+  padding: 0.3rem 0.5rem;
+  cursor: text;
+}
+.box:focus-within { border-color: var(--ac-matcha); box-shadow: 0 0 0 0.25rem var(--ac-focus-ring); }
+.disabled { opacity: .6; }
+.input {
+  flex: 1 1 120px;
+  min-width: 0;
+  padding: 0.15rem 0.25rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ac-ink);
+}
+.input::placeholder { color: var(--ac-muted); }
+
+.suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; font-size: 0.8rem; color: var(--ac-muted); }
+.sugBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem 0.15rem 0.35rem;
+  border: 1px dashed var(--ac-border-strong);
+  border-radius: var(--ac-radius-full);
+  background: transparent;
+  color: var(--ac-ink);
+  font-size: 0.8rem;
+}
+.sugBtn:hover { border-color: var(--ac-matcha); color: var(--ac-moss); }
+.sugBtn:focus-visible { outline: 3px solid var(--ac-focus-ring); }

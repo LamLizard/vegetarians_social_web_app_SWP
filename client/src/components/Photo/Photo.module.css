@@ -1,0 +1,13 @@
+.img { display: block; width: 100%; object-fit: cover; background: var(--ac-track); }
+
+.fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  background: var(--ac-photo-fallback);
+  color: var(--ac-photo-fallback-icon);
+  font-size: 2rem;
+}
+
+.leaf { border-radius: var(--ac-radius-leaf); }
+.rounded { border-radius: var(--ac-radius-lg); }

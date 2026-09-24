@@ -1,0 +1,11 @@
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1.5rem; margin-bottom: 1.25rem; }
+.text { display: grid; gap: 0.3rem; min-width: 0; }
+.crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.4rem; margin: 0; padding: 0; list-style: none; font-size: 0.8rem; }
+.crumbs li { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ac-muted); }
+.crumbs a { color: var(--ac-muted); text-decoration: none; }
+.crumbs a:hover { color: var(--ac-moss); text-decoration: underline; }
+.crumbs [aria-current] { color: var(--ac-ink); font-weight: 600; }
+.crumbs i { font-size: 0.65rem; }
+.title { margin: 0; font-size: clamp(1.45rem, 2.4vw, 1.9rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.03em; }
+.desc { margin: 0; max-width: 62ch; color: var(--ac-muted); font-size: 0.95rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }

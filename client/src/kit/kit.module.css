@@ -1,0 +1,307 @@
+/* CSS riêng của trang Review Kit – KHÔNG dùng trong app thật */
+
+/* ---------- Khung trang ---------- */
+.topbar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 16px;
+  border-bottom: 1px solid var(--ac-border);
+  background: var(--ac-card);
+}
+.brand { display: flex; align-items: center; gap: 0.55rem; font-weight: 800; letter-spacing: -0.01em; }
+.brandMark {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ac-radius-leaf);
+  background: var(--ac-moss);
+  color: var(--ac-on-accent);
+  font-size: 0.95rem;
+}
+.version {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--ac-radius-full);
+  background: var(--ac-tag-bg);
+  color: var(--ac-moss);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.spacer { flex: 1; }
+
+.layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.side {
+  position: sticky;
+  top: calc(51px + env(safe-area-inset-top, 0px));
+  align-self: start;
+  max-height: calc(100dvh - 51px);
+  overflow-y: auto;
+  padding: 1.25rem 0.75rem 2rem 16px;
+  border-right: 1px solid var(--ac-border);
+}
+.sideGroup { margin-bottom: 1.1rem; }
+.sideTitle {
+  display: block;
+  margin: 0 0 0.35rem 0.55rem;
+  color: var(--ac-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.side a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.55rem;
+  border-radius: 6px;
+  color: var(--ac-ink);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+.side a:hover { background: var(--ac-tip-bg); }
+.side a span { color: var(--ac-muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.sidePending { padding: 0.32rem 0.55rem; color: var(--ac-muted); font-size: 0.8rem; }
+
+.page { min-width: 0; padding: 2rem 16px 4rem 2.25rem; }
+
+@media (max-width: 991.98px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side { display: none; }
+  .page { padding: 1.5rem 16px 3rem; }
+}
+
+/* ---------- Phần mở đầu ---------- */
+.intro h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.5rem; }
+.intro p { max-width: 720px; color: var(--ac-muted); margin-bottom: 0.5rem; }
+
+.rules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.rules li {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-card);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.rules b { display: block; margin-bottom: 0.2rem; font-size: 0.92rem; }
+.rules i { margin-right: 0.35rem; color: var(--ac-moss); }
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin: 3rem 0 0;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--ac-ink);
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+.groupTitle small { color: var(--ac-muted); font-size: 0.85rem; font-weight: 500; }
+
+/* ---------- Mỗi mục ---------- */
+.section { scroll-margin-top: 64px; padding: 1.9rem 0 0.6rem; border-bottom: 1px dashed var(--ac-border-strong); }
+.sectionHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; margin-bottom: 0.4rem; }
+.code {
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  background: var(--ac-highlight);
+  color: var(--ac-on-highlight);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.sectionTitle { margin: 0; font-size: 1.2rem; font-weight: 700; }
+.file { font-size: 0.76rem; color: var(--ac-muted); background: transparent; }
+.when { max-width: 820px; margin-bottom: 0.35rem; font-size: 0.9rem; }
+.note { max-width: 820px; margin-bottom: 0.9rem; color: var(--ac-muted); font-size: 0.86rem; }
+
+.demo > * { min-width: 0; }
+.demo {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-cream);
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--ac-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.box { padding: 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); }
+
+/* ---------- Bảng props ---------- */
+.props, .usage { margin-top: 0.6rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius); }
+.props { background: var(--ac-card); }
+.props summary, .usage summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.props summary::-webkit-details-marker, .usage summary::-webkit-details-marker { display: none; }
+.props[open] summary { border-bottom: 1px solid var(--ac-border); }
+.tableWrap { overflow-x: auto; }
+.props table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.82rem; }
+.props th, .props td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--ac-border); text-align: left; vertical-align: top; }
+.props th { color: var(--ac-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.props tr:last-child td { border-bottom: 0; }
+.props td:first-child code { color: var(--ac-moss); font-weight: 600; }
+.type { color: var(--ac-muted); white-space: nowrap; }
+.dash { color: var(--ac-muted); }
+
+/* ---------- Khối code ---------- */
+.usage { background: var(--ac-toast-bg); color: var(--ac-toast-fg); }
+.usage[open] summary { border-bottom: 1px solid var(--ac-border-strong); }
+.usage pre { margin: 0; padding: 0.85rem 1rem; overflow-x: auto; }
+.usage code { color: inherit; font-size: 0.8rem; line-height: 1.6; }
+.copy {
+  padding: 0.15rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  opacity: .85;
+}
+.copy:hover { opacity: 1; }
+
+/* ---------- Token ---------- */
+.tokenGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+.tokenCard { padding: 0.9rem 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); }
+.tokenCard h4 { margin: 0; font-size: 0.95rem; font-weight: 700; }
+.tokenCard > small { display: block; margin-bottom: 0.6rem; color: var(--ac-muted); font-size: 0.78rem; }
+.swatch { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0; font-size: 0.82rem; }
+.swatch i { width: 28px; height: 28px; flex: none; border: 1px solid var(--ac-border-strong); border-radius: 7px; }
+.swatch span { flex: 1; min-width: 0; }
+.swatch code { color: var(--ac-muted); font-size: 0.7rem; }
+
+/* ---------- Bảng trạng thái ---------- */
+.statusTable { display: grid; gap: 0.75rem; }
+.statusRow { display: grid; grid-template-columns: 170px 1fr; gap: 0.75rem; align-items: start; }
+.statusRow > b { font-size: 0.85rem; }
+.statusRow > b code { display: block; color: var(--ac-muted); font-size: 0.72rem; font-weight: 400; }
+.statusItem { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; margin: 0 0.75rem 0.5rem 0; }
+.statusItem code { color: var(--ac-muted); font-size: 0.7rem; }
+@media (max-width: 575.98px) {
+  .statusRow { grid-template-columns: 1fr; gap: 0.35rem; }
+}
+
+.foot { margin-top: 3rem; color: var(--ac-muted); font-size: 0.82rem; text-align: center; }
+
+/* ---------- Form mẫu ---------- */
+.form { display: grid; gap: 1.1rem; }
+.formActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; padding-top: 0.25rem; }
+.stackSm { display: grid; align-content: start; gap: 0.75rem; }
+
+/* ---------- Trang mẫu chi tiết bài ---------- */
+.detail { display: grid; gap: 1.25rem; max-width: 720px; }
+.article {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.25rem;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-surface);
+  background: var(--ac-card);
+}
+.chipsRow { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.articleTitle { margin: 0; font-size: clamp(1.4rem, 3.5vw, 1.9rem); font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; text-wrap: balance; }
+.byline { display: flex; align-items: center; gap: 0.7rem; }
+.byline > div { display: grid; line-height: 1.3; }
+.byline span { color: var(--ac-muted); font-size: 0.82rem; }
+.spacer { flex: 1; }
+.prose { font-size: 1rem; line-height: 1.7; max-width: 65ch; }
+.prose h3 { margin: 1.1rem 0 0.4rem; font-size: 1.1rem; font-weight: 700; }
+.prose ul { padding-left: 1.2rem; }
+.articleActions { display: flex; flex-wrap: wrap; gap: 0.35rem; padding-top: 0.75rem; border-top: 1px solid var(--ac-border); }
+
+/* ---------- Đợt 4: trang mẫu món / công thức / quán ---------- */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.toolbar > :first-child { min-width: 0; }
+.dishHead { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 1.25rem; align-items: center; }
+.recipeCols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 1.5rem; align-items: start; }
+.recipeHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.recipeHead h4, .recipeH4 { margin: 0; font-size: 1rem; font-weight: 700; }
+.menuList { margin: 0; padding: 0 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); list-style: none; }
+.payload {
+  max-height: 320px;
+  margin: 0;
+  padding: 0.9rem 1rem;
+  overflow: auto;
+  border-radius: var(--ac-radius);
+  background: var(--ac-tip-bg);
+  color: var(--ac-ink);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+@media (max-width: 767.98px) {
+  .dishHead, .recipeCols { grid-template-columns: 1fr; }
+}
+
+/* ---------- Đợt 5 ---------- */
+.grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+.subTitle { margin: 1.5rem 0 0.75rem; font-size: 1rem; font-weight: 700; }
+.chatDemo { display: flex; flex-direction: column; gap: 0.9rem; max-width: 720px; }
+.chatFrame {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  max-width: 820px;
+  overflow: hidden;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-surface);
+  background: var(--ac-cream);
+}
+.chatHead { display: flex; align-items: center; gap: 0.6rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--ac-border); background: var(--ac-card); }
+.chatHead div { display: grid; line-height: 1.25; }
+.chatHead small { color: var(--ac-muted); font-size: 0.78rem; }
+.chatMark, .chatMarkLg { display: grid; place-items: center; border-radius: 12px 4px 12px 4px; background: var(--ac-moss); color: var(--ac-on-accent); }
+.chatMark { width: 36px; height: 36px; }
+.chatMarkLg { width: 56px; height: 56px; font-size: 1.5rem; border-radius: 18px 6px 18px 6px; }
+.chatBody { flex: 1; padding: 0 1rem; }
+.chatEmpty { display: grid; justify-items: center; gap: 0.5rem; max-width: 520px; text-align: center; }
+.chatEmpty h4 { margin: 0.4rem 0 0; font-size: 1.2rem; font-weight: 800; }
+.chatEmpty p { margin: 0 0 0.5rem; color: var(--ac-muted); }
+.promptGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; width: 100%; }
+.chatFoot { padding: 0.6rem 1rem 0.75rem; border-top: 1px solid var(--ac-border); background: var(--ac-card); }
+.shellFrame {
+  --shell-h: 640px;
+  overflow: hidden;
+  border: 1px solid var(--ac-border-strong);
+  border-radius: var(--ac-radius-lg);
+  transform: translateZ(0);   /* thanh tab "fixed" nằm trong khung xem thử */
+}
+.asideBox { display: flex; align-items: center; gap: 0.5rem; padding: 0.9rem 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); font-size: 0.86rem; }
+.popoverDemo { padding: 0.5rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-elevated); box-shadow: var(--ac-shadow-md); }
+@media (max-width: 575.98px) { .chatFrame { height: 560px; } .chatBody, .chatFoot { padding-inline: 0.6rem; } }

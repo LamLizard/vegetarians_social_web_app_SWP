@@ -1,0 +1,33 @@
+.sk {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--ac-skeleton);
+}
+.sk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--ac-skeleton-shine), transparent);
+  animation: shine 1.4s ease-in-out infinite;
+}
+@keyframes shine { to { transform: translateX(100%); } }
+
+.lines { display: grid; gap: 0.5rem; width: 100%; }
+.text { height: 0.8rem; border-radius: 4px; }
+.block { width: 100%; border-radius: var(--ac-radius); }
+.circle { border-radius: 50%; }
+
+.card {
+  overflow: hidden;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-card);
+}
+.card > .block { border-radius: 0; }
+.cardBody { display: grid; gap: 0.75rem; padding: 1rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk::after { animation: none; }
+}
