@@ -25,6 +25,7 @@ export { default as Menu } from './Menu/Menu';
 export { default as Tabs } from './Tabs/Tabs';
 export { default as Panel } from './Panel/Panel';
 export { default as EmptyState } from './EmptyState/EmptyState';
+export { default as ThemeToggle } from './ThemeToggle/ThemeToggle';
 
 // ---- Đợt 2 · Form (mọi ô nhập: onChange nhận THẲNG giá trị) -----------
 export { default as Field, useFieldId } from './Field/Field';

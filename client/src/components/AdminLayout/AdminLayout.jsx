@@ -7,7 +7,7 @@ import Logo from '../AppShell/Logo';
 import cx from '../cx';
 import { getLink } from '../link';
 import { APP_NAME } from '../../constants/domain';
-import { useTheme } from '../../utils/theme';
+import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import styles from './AdminLayout.module.css';
 
 /**
@@ -27,7 +27,6 @@ export default function AdminLayout({
   nav = [], activeKey, linkAs, title = 'Quản trị', user, accountMenu = [], actions, contained = false, className, children,
 }) {
   const [drawer, setDrawer] = useState(false);
-  const [theme, toggleTheme] = useTheme();
 
   const renderNav = (onNavigate) => (
     <div className={styles.navInner}>
@@ -71,7 +70,7 @@ export default function AdminLayout({
             <b>{title}</b>
           </div>
           {actions}
-          <IconButton variant="ghost" icon={theme === 'dark' ? 'sun' : 'moon-stars'} label={theme === 'dark' ? 'Chuyển sang chế độ Ngày' : 'Chuyển sang chế độ Đêm'} onClick={toggleTheme} />
+          <ThemeToggle buttonVariant="ghost" />
           {user && (
             <Menu width={240} items={accountMenu} renderTrigger={(p) => (
               <button type="button" className={styles.topUser} aria-label="Tài khoản quản trị" {...p}>

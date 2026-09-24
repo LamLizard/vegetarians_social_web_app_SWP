@@ -5,6 +5,7 @@ import Menu from '../Menu/Menu';
 import cx from '../cx';
 import { getLink } from '../link';
 import { useTheme } from '../../utils/theme';
+import ThemeToggle from '../ThemeToggle/ThemeToggle';
 import Logo from './Logo';
 import styles from './AppShell.module.css';
 
@@ -37,7 +38,7 @@ export default function AppShell({
 }) {
   const [theme, toggleTheme] = useTheme();
   const tabs = (mobileNavKeys ? nav.filter((n) => mobileNavKeys.includes(n.key)) : nav).slice(0, 4);
-  const themeLabel = theme === 'dark' ? 'Chuyển sang chế độ Ngày' : 'Chuyển sang chế độ Đêm';
+  const themeLabel = theme === 'dark' ? 'Chuyển sang chế độ Sáng' : 'Chuyển sang chế độ Tối';
 
   const bell = renderNotifications && ((side, w) => (
     <Menu side={side} width={w} renderTrigger={(p) => (
@@ -88,7 +89,7 @@ export default function AppShell({
           )))}
         </div>
         <div className={styles.dockBottom}>
-          {!user && <IconButton variant="ghost" icon={theme === 'dark' ? 'sun' : 'moon-stars'} label={themeLabel} onClick={toggleTheme} />}
+          {!user && <ThemeToggle buttonVariant="ghost" />}
           {user && bell?.('right', 360)}
           {account('right', 40)}
           {!user && onLogin && <IconButton variant="solid" icon="box-arrow-in-right" label="Đăng nhập" onClick={onLogin} />}

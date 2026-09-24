@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import {
   Avatar, Button, Chip, ConfirmDialog, EmptyState, HighlightChip, IconButton, Menu, Modal,
-  Notice, Panel, Photo, Skeleton, SkeletonCard, Spinner, StatusBadge, Tabs, useToast,
+  Logo, Notice, Panel, Photo, Skeleton, SkeletonCard, Spinner, StatusBadge, Tabs, TextField, ThemeToggle, useToast,
   STATUS, ENTITY_LABEL,
 } from '../components';
-import { useTheme } from '../utils/theme';
 import Section, { DemoLabel } from './Section';
 import Batch2 from './Batch2';
 import Batch3 from './Batch3';
@@ -26,7 +25,7 @@ const NAV = [
       ['1-01', 'Button'], ['1-02', 'IconButton'], ['1-03', 'Spinner · Skeleton'],
       ['1-04', 'Avatar · Photo'], ['1-05', 'StatusBadge'], ['1-06', 'Chip · HighlightChip'],
       ['1-07', 'Notice · Toast'], ['1-08', 'Modal'], ['1-09', 'ConfirmDialog'],
-      ['1-10', 'Menu'], ['1-11', 'Tabs'], ['1-12', 'Panel · EmptyState'],
+      ['1-10', 'Menu'], ['1-11', 'Tabs'], ['1-12', 'Panel · EmptyState'], ['1-13', 'ThemeToggle'],
     ],
   },
   {
@@ -105,7 +104,6 @@ const MENU_ITEMS = [
 ];
 
 export default function ReviewKit() {
-  const [theme, toggleTheme] = useTheme();
   const toast = useToast();
 
   const [saving, setSaving] = useState(false);
@@ -142,11 +140,7 @@ export default function ReviewKit() {
         </span>
         <span className={styles.version}>Hoàn tất 5 / 5</span>
         <span className={styles.spacer} />
-        <IconButton
-          icon={theme === 'dark' ? 'sun' : 'moon-stars'}
-          label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang chế độ Đêm'}
-          onClick={toggleTheme}
-        />
+        <ThemeToggle />
       </header>
 
       <div className={styles.layout}>
@@ -249,7 +243,7 @@ toOptions(HEALTH_GOAL)           // [{ value: 'lose_weight', label: 'Giảm cân
           </Section>
 
           {/* ============================ ĐỢT 1 ============================ */}
-          <h2 className={styles.groupTitle}>Đợt 1 · Nền tảng <small>12 mục</small></h2>
+          <h2 className={styles.groupTitle}>Đợt 1 · Nền tảng <small>13 mục</small></h2>
 
           <Section
             code="1-01"
@@ -741,6 +735,58 @@ toast('Đã gửi bài, đang chờ Admin duyệt', { tone: 'info' });`}
                   Chia sẻ công thức hoặc video nấu ăn chay của bạn với cộng đồng.
                 </EmptyState>
               </Panel>
+            </div>
+          </Section>
+
+          <Section
+            code="1-13"
+            title="ThemeToggle"
+            file="components/ThemeToggle"
+            when="đổi nền Sáng / Tối. Tự đọc và lưu lựa chọn, trang không cần giữ state. Dạng nút tròn cho trang không có khung (Đăng nhập, Đăng ký, 404); dạng 3 lựa chọn Sáng · Tối · Theo máy cho trang Cài đặt / Hồ sơ. AppShell và AdminLayout đã gắn sẵn."
+            note="Bấm thử: cả trang Review Kit đổi màu theo. Chọn 'Theo máy' rồi đổi chế độ tối trong cài đặt Windows, trang tự đổi theo."
+            props={[
+              ['variant', "'icon'|'segmented'", "'icon'", ''],
+              ['buttonVariant', "'soft'|'ghost'|'solid'", "'soft'", 'Kiểu nút khi icon'],
+              ['size', "'sm'|'md'|'lg'", "'md'", 'Cỡ nút khi icon'],
+              ['label', 'string', "'Giao diện'", 'Nhãn khi segmented'],
+              ['showHint', 'boolean', 'true', 'Dòng giải thích dưới 3 lựa chọn'],
+            ]}
+            usage={`// Trang Đăng nhập (M-17): nút ở góc phải trên
+<div className="auth-page">
+  <ThemeToggle className="auth-theme" />
+  ...
+</div>
+
+// Trang Cài đặt / Hồ sơ
+<ThemeToggle variant="segmented" />
+
+// Tự làm nút khác (hiếm): dùng hook
+const [theme, toggle, preference] = useTheme();   // preference: 'light' | 'dark' | 'system'
+setTheme('system');`}
+          >
+            <div className={styles.grid2}>
+              <div className={styles.stackSm}>
+                <DemoLabel>Nút tròn: soft · ghost · solid · nhỏ</DemoLabel>
+                <div className={styles.row}>
+                  <ThemeToggle />
+                  <ThemeToggle buttonVariant="ghost" />
+                  <ThemeToggle buttonVariant="solid" />
+                  <ThemeToggle size="sm" />
+                </div>
+                <DemoLabel>Góc trang Đăng nhập (M-17)</DemoLabel>
+                <div className={styles.authDemo}>
+                  <ThemeToggle className={styles.authToggle} />
+                  <Logo showName href="#1-13" />
+                  <TextField label="Email" type="email" value="" onChange={() => {}} placeholder="ban@example.com" />
+                  <Button block>Đăng nhập</Button>
+                </div>
+              </div>
+              <div className={styles.stackSm}>
+                <DemoLabel>Trang Cài đặt / Hồ sơ</DemoLabel>
+                <Panel title="Giao diện" icon="palette">
+                  <ThemeToggle variant="segmented" label="Chế độ màu" />
+                </Panel>
+              </div>
             </div>
           </Section>
 
