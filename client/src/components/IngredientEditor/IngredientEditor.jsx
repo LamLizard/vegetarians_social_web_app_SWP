@@ -32,7 +32,7 @@ export default function IngredientEditor({
   const id = useId();
   const nameListId = `${id}-names`;
   const unitListId = `${id}-units`;
-  const [amountText, setAmountText] = useState({}); // key → chữ đang gõ (giữ "0," khi đang gõ dở)
+  const [amountText, setAmountText] = useState({});
   const nameRefs = useRef({});
   const focusKey = useRef(null);
 
@@ -71,7 +71,7 @@ export default function IngredientEditor({
 
   const onEnter = (e, index) => {
     if (e.key !== 'Enter') return;
-    e.preventDefault(); // không gửi form
+    e.preventDefault();
     if (index === rows.length - 1) add();
     else nameRefs.current[rows[index + 1].key]?.focus();
   };
@@ -79,15 +79,9 @@ export default function IngredientEditor({
   const filled = rows.filter((r) => r.name.trim()).length;
 
   return (
-    <Field
-      id={id}
-      as="legend"
-      label={label}
-      required={required}
-      error={error}
-      hint={hint ?? 'Mỗi dòng 1 nguyên liệu. Đơn vị "ít", "vừa đủ" không cần số lượng. Enter để thêm dòng.'}
-      className={className}
-    >
+    <Field id={id} as="legend" label={label} required={required}
+      error={error} hint={hint ?? 'Mỗi dòng 1 nguyên liệu. Đơn vị "ít", "vừa đủ" không cần số lượng. Enter để thêm dòng.'}
+      className={className}>
       <div className={styles.head} aria-hidden="true">
         <span>Tên nguyên liệu</span><span>Số lượng</span><span>Đơn vị</span><span />
       </div>
@@ -102,55 +96,29 @@ export default function IngredientEditor({
               <input
                 ref={(el) => { nameRefs.current[r.key] = el; }}
                 className={cx('form-control', styles.name, err?.name && 'is-invalid')}
-                value={r.name}
-                list={nameListId}
-                placeholder="vd: Đậu hũ non"
-                maxLength={120}
-                aria-label={`Tên nguyên liệu ${n}`}
-                aria-invalid={err?.name ? true : undefined}
-                disabled={disabled}
-                onChange={(e) => update(r.key, { name: e.target.value })}
+                value={r.name} list={nameListId} placeholder="vd: Đậu hũ non" maxLength={120}
+                aria-label={`Tên nguyên liệu ${n}`} aria-invalid={err?.name ? true : undefined}
+                disabled={disabled} onChange={(e) => update(r.key, { name: e.target.value })}
                 onKeyDown={(e) => onEnter(e, i)}
               />
               <input
                 className={cx('form-control', styles.amount, err?.amount && 'is-invalid')}
-                inputMode="decimal"
-                value={amountText[r.key] ?? (r.amount == null ? '' : formatAmount(r.amount))}
-                placeholder={noAmount ? '' : '0'}
-                aria-label={`Số lượng nguyên liệu ${n}`}
-                aria-invalid={err?.amount ? true : undefined}
-                disabled={disabled || noAmount}
-                onChange={(e) => {
-                  const text = e.target.value;
-                  setAmountText((t) => ({ ...t, [r.key]: text }));
-                  update(r.key, { amount: parseAmount(text) });
-                }}
-                onBlur={() => setAmountText(({ [r.key]: _, ...rest }) => rest)}
+                inputMode="decimal" value={amountText[r.key] ?? (r.amount == null ? '' : formatAmount(r.amount))}
+                placeholder={noAmount ? '' : '0'} aria-label={`Số lượng nguyên liệu ${n}`}
+                aria-invalid={err?.amount ? true : undefined} disabled={disabled || noAmount}
+                onChange={(e) => { const text = e.target.value; setAmountText((t) => ({ ...t, [r.key]: text })); update(r.key, { amount: parseAmount(text) }); }}
+                onBlur={() => setAmountText(({ [r.key]: unused, ...rest }) => { void unused; return rest; })}
                 onKeyDown={(e) => onEnter(e, i)}
               />
               <input
-                className={cx('form-control', styles.unit)}
-                value={r.unit}
-                list={unitListId}
-                placeholder="g, muỗng..."
-                maxLength={30}
-                aria-label={`Đơn vị nguyên liệu ${n}`}
+                className={cx('form-control', styles.unit)} value={r.unit} list={unitListId}
+                placeholder="g, muỗng..." maxLength={30} aria-label={`Đơn vị nguyên liệu ${n}`}
                 disabled={disabled}
-                onChange={(e) => {
-                  const unit = e.target.value;
-                  update(r.key, isNoAmountUnit(unit) ? { unit, amount: null } : { unit });
-                }}
+                onChange={(e) => { const unit = e.target.value; update(r.key, isNoAmountUnit(unit) ? { unit, amount: null } : { unit }); }}
                 onKeyDown={(e) => onEnter(e, i)}
               />
-              <IconButton
-                icon="x-lg"
-                label={`Xoá nguyên liệu ${r.name || n}`}
-                variant="ghost"
-                size="sm"
-                className={styles.remove}
-                onClick={() => remove(r.key)}
-                disabled={disabled}
-              />
+              <IconButton icon="x-lg" label={`Xoá nguyên liệu ${r.name || n}`} variant="ghost" size="sm"
+                className={styles.remove} onClick={() => remove(r.key)} disabled={disabled} />
               {err && (err.name || err.amount) && (
                 <span className={styles.rowError} role="alert">
                   <i className="bi bi-exclamation-circle" aria-hidden="true" /> Dòng {n}: {[err.name, err.amount].filter(Boolean).join(' · ')}
@@ -164,7 +132,6 @@ export default function IngredientEditor({
         <Button variant="subtle" size="sm" icon="plus-lg" onClick={add} disabled={disabled || rows.length >= max}>Thêm nguyên liệu</Button>
         <span className={styles.count}>{filled} nguyên liệu</span>
       </div>
-
       <datalist id={nameListId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
       <datalist id={unitListId}>{INGREDIENT_UNIT.map((u) => <option key={u.value} value={u.value} />)}</datalist>
     </Field>

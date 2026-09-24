@@ -54,8 +54,8 @@ export function validateIngredients(rows = [], { min = 1 } = {}) {
   return { error, rowErrors, hasError: !!error || rowErrors.some(Boolean) };
 }
 
-/** Bỏ dòng trống + `key` → đúng dữ liệu gửi API. */
+/** Bỏ dòng trống + UI-only fields → đúng dữ liệu gửi API. */
 export const cleanIngredients = (rows = []) =>
   rows
     .filter((r) => r.name.trim())
-    .map(({ key, ...r }) => ({ ...r, name: r.name.trim(), unit: r.unit.trim() }));
+    .map(({ name, amount, unit }) => ({ name: name.trim(), amount, unit: unit.trim() }));
