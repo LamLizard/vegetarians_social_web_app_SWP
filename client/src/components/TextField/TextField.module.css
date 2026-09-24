@@ -1,0 +1,28 @@
+.wrap { position: relative; }
+.icon {
+  position: absolute;
+  top: 50%;
+  left: 0.8rem;
+  transform: translateY(-50%);
+  color: var(--ac-muted);
+  pointer-events: none;
+}
+.suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.85rem;
+  transform: translateY(-50%);
+  color: var(--ac-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+.hasIcon input { padding-left: 2.3rem; }
+.hasSuffix input { padding-right: 3.2rem; }
+/* Bootstrap chèn icon lỗi ở góc phải → nhường chỗ cho đơn vị */
+.hasSuffix input:global(.is-invalid) { background-image: none; }
+
+/* Ẩn nút tăng giảm mặc định của ô number (dùng NumberStepper nếu cần nút) */
+.wrap input[type="number"]::-webkit-inner-spin-button,
+.wrap input[type="number"]::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.wrap input[type="number"] { -moz-appearance: textfield; }

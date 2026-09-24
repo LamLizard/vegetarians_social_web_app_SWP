@@ -1,0 +1,62 @@
+/* Lưới 1 dòng: số thứ tự · tên · số lượng · đơn vị · nút xoá */
+.head,
+.row {
+  display: grid;
+  grid-template-columns: 1.6rem minmax(0, 1fr) 5.5rem 8.5rem 2rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.head {
+  padding-inline: 0 0;
+  color: var(--ac-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.head span:first-child { grid-column: 2; }
+
+.list { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.num {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--ac-tip-bg);
+  color: var(--ac-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.amount { text-align: right; font-variant-numeric: tabular-nums; }
+/* ô nhỏ: bỏ icon lỗi của Bootstrap để không đè lên số */
+.amount:global(.is-invalid), .unit:global(.is-invalid) { padding-right: 0.75rem; background-image: none; }
+.amount:disabled { background: var(--ac-tip-bg); }
+.rowError {
+  grid-column: 2 / -1;
+  display: inline-flex;
+  gap: 0.35rem;
+  color: var(--ac-bad-fg);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.15rem; }
+.count { color: var(--ac-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+
+/* Điện thoại: tên 1 hàng riêng, số lượng + đơn vị + xoá ở hàng dưới */
+@media (max-width: 575.98px) {
+  .head { display: none; }
+  .row {
+    grid-template-columns: 1.6rem minmax(0, 1fr) minmax(0, 1.2fr) 2rem;
+    row-gap: 0.4rem;
+    padding: 0.55rem 0.5rem;
+    border: 1px solid var(--ac-border);
+    border-radius: var(--ac-radius);
+    background: var(--ac-card);
+  }
+  .name { grid-column: 2 / -1; }
+  .amount { grid-column: 2; grid-row: 2; }
+  .unit { grid-column: 3; grid-row: 2; }
+  .remove { grid-column: 4; grid-row: 2; }
+  .num { grid-row: 1; }
+}

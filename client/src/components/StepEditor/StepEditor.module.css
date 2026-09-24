@@ -1,0 +1,23 @@
+.list { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+.step { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: start; gap: 0.5rem; }
+.num {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.3rem;
+  border-radius: 50%;
+  background: var(--ac-moss);
+  color: var(--ac-on-accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.text { gap: 0.15rem; }
+.tools { display: flex; gap: 0.1rem; padding-top: 0.25rem; }
+.foot { display: flex; }
+
+@media (max-width: 575.98px) {
+  .step { grid-template-columns: 1.75rem minmax(0, 1fr); }
+  .num { width: 1.75rem; height: 1.75rem; }
+  .tools { grid-column: 2; justify-content: flex-end; padding-top: 0; }
+}

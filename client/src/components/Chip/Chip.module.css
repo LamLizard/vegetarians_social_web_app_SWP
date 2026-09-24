@@ -1,0 +1,52 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: var(--ac-tag-bg);
+  color: var(--ac-moss);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.clickable {
+  cursor: pointer;
+  background: var(--ac-card);
+  border-color: var(--ac-border-strong);
+  color: var(--ac-muted);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.clickable:hover { border-color: var(--ac-matcha); color: var(--ac-moss); }
+.clickable:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 1px; }
+
+.active,
+.active:hover {
+  background: var(--ac-moss);
+  border-color: var(--ac-moss);
+  color: var(--ac-on-accent);
+}
+.clickable:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Có nút × để bỏ */
+.removable { padding-right: 0.2rem; }
+.remove {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+}
+.remove:hover { background: var(--ac-track); }
+.remove:focus-visible { outline: 2px solid var(--ac-focus-ring); }

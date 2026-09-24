@@ -1,0 +1,56 @@
+.hidden { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.option { position: relative; cursor: pointer; }
+.disabled { opacity: .5; cursor: not-allowed; }
+.text { display: grid; gap: 0.1rem; }
+.optLabel { font-weight: 500; }
+.desc { color: var(--ac-muted); font-size: 0.8rem; line-height: 1.4; }
+
+/* ---------- list ---------- */
+.list { display: grid; gap: 0.55rem; }
+.list .option { display: flex; align-items: flex-start; gap: 0.6rem; }
+.list :global(.form-check-input) { flex: none; margin-top: 0.2rem; }
+
+/* ---------- segmented ---------- */
+.segmented {
+  justify-self: start;
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid var(--ac-border-strong);
+  border-radius: 10px;
+  background: var(--ac-card);
+}
+.segmented .option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.9rem;
+  border-radius: 7px;
+  color: var(--ac-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.segmented .optLabel { font-weight: inherit; }
+.segmented .option:hover { color: var(--ac-ink); }
+.segmented .checked, .segmented .checked:hover { background: var(--ac-moss); color: var(--ac-on-accent); }
+.segmented .option:has(input:focus-visible) { outline: 3px solid var(--ac-focus-ring); }
+
+/* ---------- card ---------- */
+.card { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+.card .option {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  padding: 0.9rem 1rem;
+  border: 1.5px solid var(--ac-border-strong);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-card);
+  transition: border-color .15s, background-color .15s;
+}
+.card .option:hover { border-color: var(--ac-matcha); }
+.card .checked, .card .checked:hover { border-color: var(--ac-moss); background: var(--ac-tag-bg); }
+.card .option:has(input:focus-visible) { outline: 3px solid var(--ac-focus-ring); outline-offset: 1px; }
+.cardIcon { color: var(--ac-moss); font-size: 1.35rem; }
+.tick { position: absolute; top: 0.6rem; right: 0.65rem; color: var(--ac-moss); opacity: 0; transition: opacity .15s; }
+.checked .tick { opacity: 1; }

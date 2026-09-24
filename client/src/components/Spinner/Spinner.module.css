@@ -1,0 +1,21 @@
+.wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+.ring {
+  display: inline-block;
+  flex: none;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+.sm { width: 1em; height: 1em; }
+.md { width: 24px; height: 24px; color: var(--ac-moss); }
+.lg { width: 40px; height: 40px; border-width: 3px; color: var(--ac-moss); }
+
+.text { color: var(--ac-muted); font-size: 0.88rem; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ring { animation-duration: 2s; }
+}

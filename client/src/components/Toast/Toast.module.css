@@ -1,0 +1,54 @@
+.stack {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2000;
+  display: grid;
+  gap: 0.5rem;
+  max-width: min(380px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+/* Toast luôn là bề mặt "đảo màu" (tối trên nền sáng, sáng trên nền tối) */
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 10px;
+  background: var(--ac-toast-bg);
+  color: var(--ac-toast-fg);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  box-shadow: var(--ac-shadow-lg);
+  pointer-events: auto;
+  animation: rise .18s ease-out;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+.toast i { line-height: 1.45; }
+.msg { flex: 1; }
+.success i { color: var(--ac-toast-ok); }
+.info i { color: var(--ac-toast-info); }
+.alert i { color: var(--ac-toast-bad); }
+
+.action {
+  flex: none;
+  margin: -0.2rem -0.35rem -0.2rem 0.25rem;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.action:focus-visible { outline: 2px solid var(--ac-toast-info); }
+
+/* Trên điện thoại chừa chỗ cho thanh tab dưới đáy */
+@media (max-width: 767.98px) {
+  .stack { bottom: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
