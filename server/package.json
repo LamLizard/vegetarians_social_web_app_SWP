@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "db:test": "node src/config/test-db.js"
   },
   "keywords": [],
   "author": "",
