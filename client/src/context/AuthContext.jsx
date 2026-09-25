@@ -1,0 +1,1 @@
+// "bộ não phiên": giữ user+token, lưu localStorage, logout, check phiên

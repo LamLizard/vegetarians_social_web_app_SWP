@@ -1,0 +1,1 @@
+// requireAuth — verify JWT cho route cần bảo vệ
