@@ -1,0 +1,79 @@
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.6rem; }
+.single { grid-template-columns: minmax(0, 360px); }
+
+.item {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-track);
+}
+.img { width: 100%; height: 100%; object-fit: cover; }
+.item .img { min-height: 0 !important; }
+.dim { opacity: .45; }
+.failed { border-color: var(--ac-alert); }
+
+.tools { position: absolute; top: 0.4rem; right: 0.4rem; display: flex; gap: 0.3rem; }
+.tool {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--ac-overlay-bg);
+  color: var(--ac-on-overlay);
+}
+.tool:hover { background: var(--ac-ink); color: var(--ac-cream); }
+.tool:focus-visible { outline: 3px solid var(--ac-focus-ring); }
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: var(--ac-overlay-bg);
+  color: var(--ac-on-overlay);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.percent { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bar { width: 80%; height: 5px; overflow: hidden; border-radius: 3px; background: var(--ac-backdrop); }
+.bar span { display: block; height: 100%; background: var(--ac-highlight); transition: width .2s; }
+.msg { line-height: 1.35; }
+.actions { display: flex; gap: 0.75rem; }
+.link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ac-on-overlay);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+.overlay i { color: var(--ac-highlight); font-size: 1.1rem; }
+
+.drop {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px dashed var(--ac-border-strong);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-card);
+  color: var(--ac-muted);
+  font-size: 0.8rem;
+  transition: border-color .15s, background-color .15s;
+}
+.drop i { color: var(--ac-moss); font-size: 1.6rem; }
+.drop b { color: var(--ac-ink); font-size: 0.9rem; }
+.drop:hover:not(:disabled), .over { border-color: var(--ac-moss); background: var(--ac-tag-bg); }
+.drop:focus-visible { outline: 3px solid var(--ac-focus-ring); }
+.drop:disabled { opacity: .5; cursor: not-allowed; }
+.invalid { border-color: var(--ac-alert); }

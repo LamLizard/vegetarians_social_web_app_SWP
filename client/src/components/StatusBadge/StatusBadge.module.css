@@ -1,0 +1,19 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.badge i { font-size: 0.8em; }
+
+.ok      { background: var(--ac-ok-bg);      color: var(--ac-ok-fg); }
+.warn    { background: var(--ac-warn-bg);    color: var(--ac-warn-fg); }
+.bad     { background: var(--ac-bad-bg);     color: var(--ac-bad-fg); }
+.neutral { background: var(--ac-neutral-bg); color: var(--ac-neutral-fg); }
+
+.sm { padding: 0.1rem 0.45rem; font-size: 0.7rem; }

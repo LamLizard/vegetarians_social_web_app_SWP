@@ -1,0 +1,6 @@
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.invalid { padding: 0.4rem; border: 1px dashed var(--ac-alert); border-radius: var(--ac-radius); }
+.none { color: var(--ac-muted); font-size: 0.85rem; }
+.search { position: relative; max-width: 280px; }
+.search i { position: absolute; top: 50%; left: 0.7rem; transform: translateY(-50%); color: var(--ac-muted); font-size: 0.8rem; }
+.search input { padding-left: 2rem; }

@@ -1,0 +1,41 @@
+.btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ac-ink);
+  transition: background-color .15s, color .15s;
+}
+.btn:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 1px; }
+.btn:disabled { opacity: .5; }
+
+.sm { width: 32px; height: 32px; font-size: 0.95rem; }
+.md { width: 40px; height: 40px; font-size: 1.15rem; }
+.lg { width: 48px; height: 48px; font-size: 1.35rem; }
+
+.soft  { background: var(--ac-track); }
+.soft:hover { background: var(--ac-border); }
+.ghost { background: transparent; color: var(--ac-muted); }
+.ghost:hover { background: var(--ac-tip-bg); color: var(--ac-ink); }
+.solid { background: var(--ac-moss); color: var(--ac-on-accent); }
+.solid:hover { filter: brightness(1.08); }
+
+.active, .active:hover { background: var(--ac-tag-bg); color: var(--ac-moss); }
+
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border: 2px solid var(--ac-card);
+  border-radius: 10px;
+  background: var(--ac-alert);
+  color: var(--ac-on-alert);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 15px;
+}

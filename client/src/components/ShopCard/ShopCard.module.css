@@ -1,0 +1,61 @@
+.card,
+.row {
+  min-width: 0;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-card);
+}
+.card { display: flex; flex-direction: column; gap: 0.7rem; padding: 0.6rem 0.6rem 0.75rem; }
+.row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 0.9rem; align-items: start; padding: 0.7rem; }
+
+.media { display: block; overflow: hidden; border-radius: var(--ac-radius-lg); }
+.img { transition: transform .3s var(--ac-ease-out), filter .2s; }
+.media:hover .img { transform: scale(1.03); }
+.isClosed .img { filter: saturate(.55); }
+
+.body { display: flex; flex: 1; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.card .body { padding-inline: 0.3rem; }
+.titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.6rem; }
+.name { margin: 0; font-size: 1.05rem; font-weight: 700; line-height: 1.35; }
+.name a { color: var(--ac-ink); text-decoration: none; }
+.name a:hover { color: var(--ac-moss); text-decoration: underline; }
+
+.line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.45rem; color: var(--ac-muted); font-size: 0.86rem; line-height: 1.45; }
+.line > i { color: var(--ac-moss); }
+.addr { flex: 1; min-width: 0; }
+.hours { color: var(--ac-ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.matched {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--ac-radius);
+  background: var(--ac-ok-soft);
+  color: var(--ac-ink);
+  font-size: 0.86rem;
+}
+.matched i { color: var(--ac-moss); }
+.matched span:nth-child(2) { flex: 1; min-width: 0; }
+.price { color: var(--ac-moss); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+  margin-top: auto;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--ac-border);
+  color: var(--ac-muted);
+  font-size: 0.8rem;
+}
+.foot a { color: var(--ac-muted); text-decoration: none; }
+.foot a:hover { color: var(--ac-moss); text-decoration: underline; }
+.foot .dir { margin-left: auto; color: var(--ac-moss); font-weight: 600; }
+.note { margin: 0; font-size: 0.8rem; line-height: 1.45; }
+.note b { color: var(--ac-bad-fg); }
+
+@media (max-width: 479.98px) {
+  .row { grid-template-columns: 72px minmax(0, 1fr); gap: 0.7rem; }
+}

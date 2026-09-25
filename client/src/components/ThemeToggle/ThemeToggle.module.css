@@ -1,0 +1,12 @@
+/* Icon xoay nhẹ khi đổi để người dùng thấy nút vừa có tác dụng */
+@media (prefers-reduced-motion: no-preference) {
+  .icon i { transition: transform .35s var(--ac-ease-out); }
+  .icon:active i { transform: rotate(-30deg) scale(.9); }
+}
+.segmented { justify-items: start; }
+/* 3 lựa chọn luôn nằm 1 hàng, kể cả màn 360px */
+.segmented :global([role="radiogroup"]) { flex-wrap: nowrap; }
+.segmented label { white-space: nowrap; }
+@media (max-width: 479.98px) {
+  .segmented label { padding-inline: 0.65rem; }
+}

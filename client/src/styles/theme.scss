@@ -1,0 +1,277 @@
+// =====================================================================
+//  THEME — cho Bootstrap build lại bằng màu của app.
+//  Import file này 1 lần duy nhất trong main.jsx.
+//  Sau đó cứ dùng class Bootstrap (btn-primary, badge, alert...) như bình thường.
+// =====================================================================
+@import "tokens";
+
+// ---- 1. Ghi đè biến Bootstrap (phải đặt TRƯỚC khi import bootstrap) ----
+$primary:   $ac-moss;
+$secondary: $ac-muted;
+$success:   #2F7A4B;
+$info:      #2F6F7E;
+$warning:   $ac-highlight;
+$danger:    $ac-alert;
+$light:     #F2EDE0;
+$dark:      $ac-ink;
+
+$color-contrast-dark:  $ac-ink;
+$color-contrast-light: $ac-card;
+
+$body-bg:              $ac-cream;
+$body-color:           $ac-ink;
+$body-secondary-color: $ac-muted;
+$border-color:         $ac-border;
+$link-color:           $ac-moss;
+$link-decoration:      none;
+$link-hover-decoration: underline;
+$code-color:           #8A4F22;  // thay màu hồng mặc định của Bootstrap
+
+$font-family-sans-serif: $ac-font-body;
+$headings-font-family:   $ac-font-head;
+$headings-font-weight:   700;
+
+$border-radius:    $ac-radius;
+$border-radius-sm: 6px;
+$border-radius-lg: $ac-radius-lg;
+$enable-shadows:   false;
+$box-shadow-sm:    0 1px 2px rgba(42, 38, 32, .06);
+
+$btn-font-weight:        600;
+$btn-padding-x:          1rem;
+$input-bg:               $ac-card;
+$input-border-color:     $ac-border-strong;
+$input-focus-border-color: $ac-matcha;
+$input-btn-focus-color:  rgba($ac-moss, .22);
+$input-placeholder-color: #A39A8A;
+
+$card-bg:            $ac-card;
+$card-border-color:  $ac-border;
+$card-border-radius: $ac-radius-lg;
+
+$badge-font-weight:  600;
+$badge-border-radius: 6px;
+$alert-border-radius: 12px;
+$progress-bg:        $ac-track;
+$progress-height:    .5rem;
+$nav-pills-link-active-bg: $ac-moss;
+$form-check-input-checked-bg-color:     $ac-moss;
+$form-check-input-checked-border-color: $ac-moss;
+
+@import "bootstrap/scss/bootstrap";
+
+// ---- 2. Token dạng biến CSS – dùng trong các file *.module.css ----
+:root {
+  --ac-moss: #{$ac-moss};
+  --ac-matcha: #{$ac-matcha};
+  --ac-cream: #{$ac-cream};
+  --ac-card: #{$ac-card};
+  --ac-ink: #{$ac-ink};
+  --ac-muted: #{$ac-muted};
+  --ac-border: #{$ac-border};
+  --ac-border-strong: #{$ac-border-strong};
+  --ac-track: #{$ac-track};
+  --ac-tip-bg: #{$ac-tip-bg};
+  --ac-field-bg: #F4EFE3;   // nền ô tìm kiếm
+  --ac-tag-bg: #E7EDE1;     // nền Tag nội dung
+
+  --ac-highlight: #{$ac-highlight};
+  --ac-alert: #{$ac-alert};
+  --ac-alert-soft: #{$ac-alert-soft};
+
+  --ac-protein: #{$ac-protein};
+  --ac-carb: #{$ac-carb};
+  --ac-fat: #{$ac-fat};
+  --ac-fiber: #{$ac-fiber};
+
+  --ac-ok-bg: #{$ac-ok-bg};           --ac-ok-fg: #{$ac-ok-fg};
+  --ac-warn-bg: #{$ac-warn-bg};       --ac-warn-fg: #{$ac-warn-fg};
+  --ac-bad-bg: #{$ac-bad-bg};         --ac-bad-fg: #{$ac-bad-fg};
+  --ac-neutral-bg: #{$ac-neutral-bg}; --ac-neutral-fg: #{$ac-neutral-fg};
+
+  --ac-font-head: #{$ac-font-head};
+  --ac-radius: #{$ac-radius};
+  --ac-radius-lg: #{$ac-radius-lg};
+  --ac-radius-leaf: #{$ac-radius-leaf};
+  --ac-radius-sm: 6px;
+  --ac-radius-leaf-lg: 18px;
+  --ac-radius-full: 999px;
+  --ac-radius-surface: 20px;   // bề mặt lớn: thẻ bài viết, khối cột phải
+  --ac-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  // Khoảng cách – khớp biến space/1…6 trong Figma
+  --ac-space-1: 4px;
+  --ac-space-2: 8px;
+  --ac-space-3: 12px;
+  --ac-space-4: 16px;
+  --ac-space-5: 20px;
+  --ac-space-6: 24px;
+
+  // Màu chữ đặt TRÊN nền màu (để chế độ Đêm đổi được mà không vỡ tương phản)
+  --ac-on-accent: #{$ac-card};     // chữ trên nền rêu / matcha
+  --ac-on-highlight: #{$ac-ink};   // chữ trên nền vàng cúc – luôn tối
+  --ac-alert-line: #E7B9AC;
+  --ac-ok-soft: #EEF5EF;
+  --ac-ok-line: #C7DEC9;
+  --ac-info-soft: #F4F1E8;
+  --ac-hover-soft: #F5F8F1;
+  --ac-elevated: #{$ac-card};      // menu, hộp thoại, thẻ nổi
+  --ac-shadow: 0 1px 2px rgba(42, 38, 32, .05), 0 8px 24px -12px rgba(42, 38, 32, .18);
+
+  // Token gom lại từ các giá trị trước đây viết cứng trong component (GIỮ NGUYÊN giá trị màu)
+  --ac-focus-ring: rgba(61, 90, 61, .25);          // viền focus bàn phím
+  --ac-on-alert: #fff;                              // chữ trên nền đất nung (số thông báo)
+  --ac-backdrop: rgba(42, 38, 32, .45);             // nền tối sau hộp thoại
+  --ac-shadow-lg: 0 18px 48px rgba(42, 38, 32, .22);   // hộp thoại
+  --ac-shadow-md: 0 12px 32px rgba(42, 38, 32, .16);   // menu thả xuống
+  --ac-photo-fallback: linear-gradient(135deg, #B5C79C 0%, #{$ac-matcha} 55%, #{$ac-moss} 100%);
+  --ac-photo-fallback-icon: rgba(255, 253, 248, .55);
+  --ac-overlay-bg: rgba(42, 38, 32, .78);        // nhãn đè lên ảnh (kcal trên ảnh món)
+  --ac-on-overlay: #fff;
+  --ac-skeleton: #{$ac-track};
+  --ac-skeleton-shine: rgba(255, 253, 248, .6);
+  // Toast luôn "đảo màu": nền tối trên giao diện sáng
+  --ac-toast-bg: #{$ac-ink};
+  --ac-toast-fg: #{$ac-cream};
+  --ac-toast-ok: #8FD1A5;
+  --ac-toast-info: #C9D9BF;
+  --ac-toast-bad: #F2A48E;
+  // Logo + khung trang (giữ đúng màu bản app-an-chay-ui_1)
+  --ac-logo-leaf: #CFE3BF;
+  --ac-logo-vein: #{$ac-moss};
+  --ac-bar-bg: color-mix(in srgb, var(--ac-cream) 82%, transparent);   // thanh trên mờ kính
+  --ac-create-bg: #{$ac-ink};                                         // nút "Đăng bài" trên dock
+  --ac-create-fg: #{$ac-cream};
+  color-scheme: light;
+}
+
+// ---- Chế độ Đêm "Vườn đêm" – cùng hệ màu rêu + vàng cúc, nền rừng sâu ----
+// Bật bằng <html data-theme="dark">. Component chỉ cần dùng var(--ac-…) là tự đổi.
+:root[data-theme="dark"] {
+  --ac-moss: #8DB580;          // rêu sáng – dùng làm chữ/link được trên nền tối
+  --ac-matcha: #7FA372;
+  --ac-cream: #0E1611;
+  --ac-card: #152019;
+  --ac-elevated: #1B281F;
+  --ac-ink: #E8EDE3;
+  --ac-muted: #9DAA98;
+  --ac-border: #25322A;
+  --ac-border-strong: #3A4A3E;
+  --ac-track: #223027;
+  --ac-tip-bg: #1B2820;
+  --ac-field-bg: #1A261E;
+  --ac-tag-bg: #213326;
+  --ac-on-accent: #0E1611;
+
+  --ac-alert: #E07A5F;
+  --ac-alert-soft: #2A1A15;
+  --ac-alert-line: #5C2E24;
+  --ac-ok-soft: #15281D;
+  --ac-ok-line: #28503A;
+  --ac-info-soft: #1B2820;
+  --ac-hover-soft: #1F2E24;
+
+  --ac-protein: #3FAE72;
+  --ac-carb: #E0A526;
+  --ac-fat: #D9694C;
+  --ac-fiber: #A77BC2;
+
+  --ac-ok-bg: #183324;      --ac-ok-fg: #8FD1A5;
+  --ac-warn-bg: #3A2E12;    --ac-warn-fg: #F2C46B;
+  --ac-bad-bg: #3A1D16;     --ac-bad-fg: #F19A82;
+  --ac-neutral-bg: #242E27; --ac-neutral-fg: #B8C2B3;
+  --ac-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -12px rgba(0, 0, 0, .6);
+  --ac-focus-ring: rgba(141, 181, 128, .35);
+  --ac-backdrop: rgba(0, 0, 0, .6);
+  --ac-shadow-lg: 0 18px 48px rgba(0, 0, 0, .55);
+  --ac-shadow-md: 0 12px 32px rgba(0, 0, 0, .45);
+  --ac-skeleton-shine: rgba(232, 237, 227, .06);
+  --ac-toast-bg: #E8EDE3;
+  --ac-toast-fg: #0E1611;
+  --ac-toast-ok: #1D5E38;
+  --ac-toast-info: #3D5A3D;
+  --ac-toast-bad: #8E3520;
+  --ac-logo-leaf: #1B2A20;
+  --ac-logo-vein: #CFE3BF;
+  --ac-create-bg: #E8EDE3;
+  --ac-create-fg: #0E1611;
+  color-scheme: dark;
+
+  // Cầu nối sang biến của Bootstrap
+  --bs-body-bg: var(--ac-cream);
+  --bs-body-color: var(--ac-ink);
+  --bs-secondary-color: var(--ac-muted);
+  --bs-border-color: var(--ac-border);
+  --bs-link-color: #8DB580;
+  --bs-link-color-rgb: 141, 181, 128;
+  --bs-link-hover-color: #A9CC9D;
+  --bs-link-hover-color-rgb: 169, 204, 157;
+  --bs-heading-color: var(--ac-ink);
+  --bs-emphasis-color: var(--ac-ink);
+  --bs-form-invalid-color: #F19A82;
+  --bs-form-invalid-border-color: #E07A5F;
+
+  .form-control, .form-select {
+    background-color: var(--ac-field-bg);
+    border-color: var(--ac-border-strong);
+    color: var(--ac-ink);
+  }
+  .form-control::placeholder { color: #7D8A78; }
+  .form-control:focus, .form-select:focus { background-color: var(--ac-field-bg); color: var(--ac-ink); }
+  .form-check-input { background-color: var(--ac-field-bg); border-color: var(--ac-border-strong); }
+  .form-check-input:checked { background-color: #5E8A55; border-color: #5E8A55; }
+  .btn-light {
+    --bs-btn-bg: var(--ac-tip-bg);
+    --bs-btn-border-color: var(--ac-tip-bg);
+    --bs-btn-color: var(--ac-ink);
+    --bs-btn-hover-bg: var(--ac-track);
+    --bs-btn-hover-border-color: var(--ac-track);
+    --bs-btn-hover-color: var(--ac-ink);
+    --bs-btn-active-bg: var(--ac-border-strong);
+    --bs-btn-active-color: var(--ac-ink);
+  }
+  .btn-outline-primary {
+    --bs-btn-color: #A9CC9D;
+    --bs-btn-border-color: #4F6E4B;
+    --bs-btn-hover-bg: #253A28;
+    --bs-btn-hover-border-color: #8DB580;
+    --bs-btn-hover-color: #D6E8CF;
+    --bs-btn-active-bg: #2D4630;
+    --bs-btn-active-color: #D6E8CF;
+  }
+  .btn-primary {
+    --bs-btn-bg: #4E7A4A;
+    --bs-btn-border-color: #4E7A4A;
+    --bs-btn-hover-bg: #5E8A55;
+    --bs-btn-hover-border-color: #5E8A55;
+    --bs-btn-disabled-bg: #34503A;
+    --bs-btn-disabled-border-color: #34503A;
+  }
+}
+
+// ---- 3. Vài class tiện ích riêng của app ----
+.font-head { font-family: $ac-font-head; }
+.text-ink  { color: $ac-ink; }
+
+// ---- 4. Quy tắc nền chung (trước nằm ở app.css của bản demo) ----
+body {
+  background: var(--ac-cream);
+  color: var(--ac-ink);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+// Tiêu đề lớn: cùng font, chỉ khác độ đậm
+.display { font-weight: 800; letter-spacing: -0.035em; line-height: 1.08; }
+
+::selection { background: rgba($ac-highlight, .35); color: inherit; }
+
+// Tôn trọng người dùng tắt hiệu ứng chuyển động
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

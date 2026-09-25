@@ -1,0 +1,4 @@
+.thread { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 1rem; }
+.thread:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: -3px; }
+.list { display: flex; flex-direction: column; gap: 0.9rem; padding: 1rem 0.25rem; }
+.empty { display: grid; place-items: center; min-height: 100%; padding: 1.5rem 0.5rem; }
