@@ -1,4 +1,4 @@
-gitignore
+.gitignore
 node_modules/
 .env
 .env.local
@@ -12,6 +12,7 @@ Thumbs.db
 .idea/
 .vscode/
 coverage/
+docs/skill-answer-to-lam.md
 
 # Vite
 # Logs
