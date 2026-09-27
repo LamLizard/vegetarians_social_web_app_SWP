@@ -13,6 +13,8 @@ Thumbs.db
 .vscode/
 coverage/
 docs/skill-answer-to-lam.md
+client/admin-preview.html
+client/src/preview-admin.jsx
 
 # Vite
 # Logs

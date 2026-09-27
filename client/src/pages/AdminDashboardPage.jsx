@@ -1,12 +1,14 @@
 // Trang chủ khu quản trị (M-14) — route dự kiến /admin
-// Page cầm dữ liệu rồi truyền props; component kit KHÔNG gọi API.
+// Page giữ UI + config, còn dữ liệu lấy qua services/admin.service.js (component kit KHÔNG gọi API).
+import { useEffect, useState } from 'react';
 import {
-  AdminLayout, Button, DataTable, PageHeader, Panel, StatCard, StatusBadge, formatDate,
+  AdminLayout, Button, DataTable, ENTITY_LABEL, Notice, PageHeader, Panel, StatCard, StatusBadge, formatDate,
 } from '../components';
+import adminService from '../services/admin.service';
 
 // ---------------------------------------------------------------------
-// DỮ LIỆU TẠM — chưa có API admin, khai báo ngay trong page
-// TODO: thay bằng admin.service.js khi có API
+// CONFIG UI + USER TẠM — số liệu & hàng chờ lấy từ admin.service.js
+// TODO: lấy user thật từ AuthContext khi có route /admin
 // ---------------------------------------------------------------------
 
 const ADMIN_USER = { name: 'Quản trị viên', avatarUrl: '' };
@@ -26,36 +28,75 @@ const ADMIN_ACCOUNT_MENU = [
   { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert' },
 ];
 
+// 4 ô số liệu: label/icon/hint/href là config UI (chỉ dùng ở đây), còn `value` lấy từ API theo `key`
 // href trỏ sẵn sang đúng hàng chờ (chưa có react-router → kit tự dùng thẻ <a>)
-// TODO: thay bằng admin.service.js khi có API (GET /admin/stats)
-const STATS = [
-  { key: 'post', label: 'Post chờ duyệt', value: 8, icon: 'journal-text', hint: 'Bài đăng do thành viên gửi', href: '/admin/moderation?type=post' },
-  { key: 'dish', label: 'Dish chờ duyệt', value: 5, icon: 'egg-fried', hint: 'Món mới do thành viên tạo', href: '/admin/moderation?type=dish' },
-  { key: 'shop', label: 'Shop chờ xác minh', value: 3, icon: 'shop', hint: 'Quán đăng ký tham gia', href: '/admin/moderation?type=shop' },
-  { key: 'report', label: 'Report chờ xử lý', value: 4, icon: 'flag', hint: 'Báo cáo vi phạm từ người dùng', href: '/admin/moderation?type=report' },
-];
-
-// 5 dòng mẫu cho "Hàng chờ gần đây"
-// TODO: thay bằng admin.service.js khi có API (GET /admin/moderation?limit=5)
-const RECENT_QUEUE = [
-  { id: 1, entity: 'post', typeLabel: 'Bài đăng', title: 'Bún riêu chay nấm rơm — công thức của mẹ', createdAt: '2026-09-27T08:35:00', status: 'pending' },
-  { id: 2, entity: 'dish', typeLabel: 'Món ăn', title: 'Đậu hũ sốt nấm đông cô', createdAt: '2026-09-27T07:10:00', status: 'pending' },
-  { id: 3, entity: 'shop', typeLabel: 'Quán', title: 'Quán chay An Nhiên (Q.1)', createdAt: '2026-09-26T19:40:00', status: 'pending' },
-  { id: 4, entity: 'report', typeLabel: 'Báo cáo', title: "Báo cáo bình luận quảng cáo trong bài 'Gỏi cuốn chay'", createdAt: '2026-09-26T15:05:00', status: 'pending' },
-  { id: 5, entity: 'dish', typeLabel: 'Món ăn', title: 'Gỏi cuốn chay chấm tương đậu', createdAt: '2026-09-25T21:20:00', status: 'pending' },
+const STAT_CARDS = [
+  { key: 'post', label: 'Post chờ duyệt', icon: 'journal-text', hint: 'Bài đăng do thành viên gửi', href: '/admin/moderation?type=post' },
+  { key: 'dish', label: 'Dish chờ duyệt', icon: 'egg-fried', hint: 'Món mới do thành viên tạo', href: '/admin/moderation?type=dish' },
+  { key: 'shop', label: 'Shop chờ xác minh', icon: 'shop', hint: 'Quán đăng ký tham gia', href: '/admin/moderation?type=shop' },
+  { key: 'report', label: 'Report chờ xử lý', icon: 'flag', hint: 'Báo cáo vi phạm từ người dùng', href: '/admin/moderation?type=report' },
 ];
 
 // Cột của bảng: Loại · Tiêu đề · Ngày gửi · Trạng thái
 const QUEUE_COLUMNS = [
-  { key: 'typeLabel', header: 'Loại', width: 140 },
+  { key: 'typeLabel', header: 'Loại', width: 140, render: (row) => ENTITY_LABEL[row.entity] ?? row.entity },
   { key: 'title', header: 'Tiêu đề', primary: true },
   { key: 'createdAt', header: 'Ngày gửi', width: 160, render: (row) => formatDate(row.createdAt) },
   { key: 'status', header: 'Trạng thái', width: 170, render: (row) => <StatusBadge entity={row.entity} status={row.status} size="sm" /> },
 ];
 
 export default function AdminDashboardPage() {
-  const pendingTotal = STATS.reduce((sum, stat) => sum + stat.value, 0);
-  const nav = ADMIN_NAV.map((item) => (item.key === 'moderation' ? { ...item, badge: pendingTotal } : item));
+  const [stats, setStats] = useState([]);
+  const [queue, setQueue] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Page cầm dữ liệu. Bấm "Thử lại" → tăng reloadKey → effect chạy lại.
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(null);
+
+    Promise.all([adminService.getDashboardStats(), adminService.getRecentQueue(5)])
+      .then(([nextStats, nextQueue]) => {
+        if (!alive) return;
+        setStats(nextStats);
+        setQueue(nextQueue);
+      })
+      .catch((err) => { if (alive) setError(err); })
+      .finally(() => { if (alive) setLoading(false); });
+
+    return () => { alive = false; };
+  }, [reloadKey]);
+
+  const retry = () => setReloadKey((k) => k + 1);
+  const valueOf = (key) => stats.find((stat) => stat.key === key)?.value ?? 0;
+  const pendingTotal = stats.reduce((sum, stat) => sum + (Number(stat.value) || 0), 0);
+  const nav = ADMIN_NAV.map((item) => (item.key === 'moderation' && pendingTotal > 0 ? { ...item, badge: pendingTotal } : item));
+
+  // Khu số liệu: vẫn là StatCard thật + prop loading của kit (kit tự vẽ Skeleton) → giữ nguyên bố cục
+  const statCards = (
+    <div className="row g-3 mb-4" aria-busy={loading || undefined}>
+      {STAT_CARDS.map((card) => {
+        const value = valueOf(card.key);
+        return (
+          <div key={card.key} className="col-12 col-md-6 col-xl-3">
+            <StatCard
+              label={card.label}
+              value={value}
+              unit="mục"
+              icon={card.icon}
+              tone={value > 0 ? 'warn' : 'ok'}
+              hint={card.hint}
+              href={card.href}
+              loading={loading}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <AdminLayout
@@ -70,40 +111,39 @@ export default function AdminDashboardPage() {
         description="Tổng quan việc cần xử lý trong khu quản trị. Bấm vào ô số liệu để mở đúng hàng chờ."
       />
 
-      <div className="row g-3 mb-4">
-        {STATS.map((stat) => (
-          <div key={stat.key} className="col-12 col-md-6 col-xl-3">
-            <StatCard
-              label={stat.label}
-              value={stat.value}
-              unit="mục"
-              icon={stat.icon}
-              tone={stat.value > 0 ? 'warn' : 'ok'}
-              hint={stat.hint}
-              href={stat.href}
-            />
-          </div>
-        ))}
-      </div>
+      {error ? (
+        <Notice
+          tone="alert"
+          title="Không tải được dữ liệu quản trị"
+          action={{ label: 'Thử lại', onClick: retry }}
+        >
+          {error.message || 'Vui lòng kiểm tra kết nối rồi thử lại.'}
+        </Notice>
+      ) : (
+        <>
+          {statCards}
 
-      <Panel
-        flush
-        title="Hàng chờ gần đây"
-        icon="clock-history"
-        action={(
-          <Button as="a" href="/admin/moderation" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">
-            Xem tất cả
-          </Button>
-        )}
-      >
-        <DataTable
-          caption="5 mục mới nhất đang chờ duyệt"
-          columns={QUEUE_COLUMNS}
-          rows={RECENT_QUEUE}
-          rowKey="id"
-          empty={{ icon: 'check2-circle', title: 'Đã xử lý hết', children: 'Không còn mục nào chờ duyệt.' }}
-        />
-      </Panel>
+          <Panel
+            flush
+            title="Hàng chờ gần đây"
+            icon="clock-history"
+            action={(
+              <Button as="a" href="/admin/moderation" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">
+                Xem tất cả
+              </Button>
+            )}
+          >
+            <DataTable
+              caption="5 mục mới nhất đang chờ duyệt"
+              columns={QUEUE_COLUMNS}
+              rows={queue}
+              rowKey="id"
+              loading={loading}
+              empty={{ icon: 'check2-circle', title: 'Đã xử lý hết', children: 'Không còn mục nào chờ duyệt.' }}
+            />
+          </Panel>
+        </>
+      )}
     </AdminLayout>
   );
 }
