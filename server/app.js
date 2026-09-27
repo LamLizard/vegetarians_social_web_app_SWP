@@ -8,7 +8,7 @@ app.use(express.json());
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // ---- Mỗi tính năng của nhóm thêm 2 dòng ở đây ----
-// const authRoutes = require('./src/routes/auth.routes');
-// app.use('/api/auth', authRoutes);
+const authRoutes = require('./src/routes/auth.routes');
+app.use('/api/auth', authRoutes);
 
 module.exports = app;

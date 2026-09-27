@@ -12,7 +12,7 @@ import './styles/theme.scss';
 import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
 import { AuthProvider } from './context/AuthContext';
-import AuthPage from './pages/AuthPage';
+import App from './App';
 
 initTheme();
 
@@ -20,7 +20,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>
       <AuthProvider>
-        <AuthPage />
+        <App />
       </AuthProvider>
     </ToastProvider>
   </StrictMode>,
