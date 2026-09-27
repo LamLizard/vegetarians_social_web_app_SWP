@@ -1,0 +1,32 @@
+.page { display: grid; gap: 1.25rem; }
+.sessionBar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; padding: .65rem 1rem; border: 1px dashed var(--ac-border-strong); border-radius: var(--ac-radius); color: var(--ac-muted); font-size: .85rem; }
+.sessionBar > span, .sessionBar > div { display: flex; align-items: center; gap: .5rem; }
+.listSection { overflow: hidden; min-width: 0; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); }
+.listSection > div:first-child { padding-inline: 1rem; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; }
+.search { flex: 1; max-width: 480px; }
+.total { white-space: nowrap; color: var(--ac-muted); font-size: .85rem; }
+.shopName, .owner { display: grid; gap: .25rem; }
+.shopName b { color: var(--ac-ink); }
+.shopName small, .owner small { color: var(--ac-muted); font-size: .75rem; overflow-wrap: anywhere; }
+.address { display: block; max-width: 240px; overflow-wrap: anywhere; }
+.errorBox { padding: 0 1rem 1rem; }
+.loading { display: flex; align-items: center; justify-content: center; gap: .75rem; padding: 3rem 1rem; color: var(--ac-muted); }
+.detailContent { display: grid; gap: 1.5rem; }
+.detailHeading { display: flex; align-items: center; gap: 1rem; }
+.detailHeading h3 { margin: 0 0 .5rem; font-size: 1.2rem; overflow-wrap: anywhere; }
+.shopIcon { display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: var(--ac-radius-lg); background: var(--ac-tag-bg); color: var(--ac-moss); font-size: 1.5rem; }
+.detailGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem 1.5rem; margin: 0; }
+.detailGrid dt { color: var(--ac-muted); font-size: .8rem; font-weight: 500; margin-bottom: .3rem; }
+.detailGrid dd { margin: 0; color: var(--ac-ink); font-size: .9rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.fullWidth { grid-column: 1 / -1; }
+.resultBox { padding: 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius); background: var(--ac-tip-bg); }
+.resultBox h3 { font-size: 1rem; margin-bottom: 1rem; }
+.decisionError { display: block; margin-top: .75rem; color: var(--ac-alert); }
+.tokenForm { display: grid; }
+@media (max-width: 575.98px) {
+  .toolbar { align-items: stretch; flex-direction: column; gap: .6rem; }
+  .search { max-width: none; }
+  .detailGrid { grid-template-columns: 1fr; }
+  .address { max-width: none; }
+}

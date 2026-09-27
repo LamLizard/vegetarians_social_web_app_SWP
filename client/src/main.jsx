@@ -12,17 +12,16 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles/theme.scss'; // Bootstrap đã đổi màu theo theme của app (+ chế độ Đêm)
 import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
-import ReviewKit from './kit/ReviewKit';
+import App from './App';
 
 
 initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 
-// Thư mục này chỉ chứa thư viện component + trang Review Kit.
-// Repo app thật: copy src/components, src/constants, src/styles, src/utils sang và bọc <ToastProvider> như dưới.
+// Font, theme và ToastProvider dùng chung cho page và trang Review Kit.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>
-      <ReviewKit />
+      <App />
     </ToastProvider>
   </StrictMode>,
 );
