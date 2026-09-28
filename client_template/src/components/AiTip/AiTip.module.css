@@ -1,0 +1,37 @@
+.box {
+  padding: 1rem 1.1rem;
+  border-radius: var(--ac-radius-lg);
+  border-left: 3px solid var(--ac-moss);
+  background: var(--ac-tip-bg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--ac-moss);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ac-moss);
+  color: var(--ac-on-accent);
+  font-size: 0.8rem;
+}
+
+.text {
+  margin: 0;
+  font-family: var(--ac-font-head);
+  font-style: italic;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.label { margin: 0.9rem 0 0.4rem; font-size: 0.75rem; font-weight: 600; color: var(--ac-muted); }
+.prompts { display: flex; flex-wrap: wrap; gap: 0.4rem; }

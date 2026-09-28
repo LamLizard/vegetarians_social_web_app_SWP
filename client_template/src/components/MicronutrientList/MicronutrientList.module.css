@@ -1,0 +1,24 @@
+.list { list-style: none; margin: 0; padding: 0; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--ac-border);
+}
+.row:last-child { border-bottom: 0; }
+
+.symbol {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ac-tip-bg);
+  color: var(--ac-moss);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.name { flex: 1; display: flex; flex-direction: column; font-size: 0.9rem; font-weight: 500; line-height: 1.3; }
+.name small { color: var(--ac-muted); font-size: 0.75rem; font-weight: 400; }

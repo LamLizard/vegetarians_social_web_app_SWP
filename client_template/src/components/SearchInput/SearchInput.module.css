@@ -1,0 +1,17 @@
+.wrap { position: relative; }
+
+.icon {
+  position: absolute;
+  left: 0.8rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ac-muted);
+  pointer-events: none;
+}
+
+.input {
+  padding-left: 2.3rem;
+  background: var(--ac-field-bg);
+  border-color: transparent;
+}
+.input:focus { background: var(--ac-card); }

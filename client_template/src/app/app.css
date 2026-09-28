@@ -1,0 +1,51 @@
+/* =====================================================================
+   GIAO DIỆN "VƯỜN" – biến bố cục & quy tắc chung (màu nằm ở styles/theme.scss)
+
+   Quy tắc bo góc (giữ nhất quán toàn app):
+     • Bề mặt lớn (thẻ bài viết, khối cột phải)  → --ac-radius-surface (20px)
+     • Ảnh món ăn / thẻ món                        → bo lệch "lá" 18/6 (nét riêng của app)
+     • Nút, ô nhập, chip                           → 8px (theo kit) · nút tròn icon → tròn
+   ===================================================================== */
+:root {
+  --dock-w: 92px;
+  --rail-w: 368px;
+  --feed-w: 660px;
+  --page-max: calc(var(--feed-w) + 28px + var(--rail-w));
+  --bar-h: 64px;
+  --tab-h: 64px;
+  --ac-radius-surface: 20px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body {
+  background: var(--ac-cream);
+  color: var(--ac-ink);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .3s var(--ease-out);
+}
+
+h1, h2, h3, h4 { letter-spacing: -0.02em; }
+
+/* Tiêu đề lớn: cùng font Be Vietnam Pro, chỉ khác độ đậm (góp ý nhóm: 1 font) */
+.display {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.08;
+}
+
+::selection { background: rgba(249, 166, 32, .35); color: inherit; }
+
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--ac-matcha) 60%, transparent); outline-offset: 2px; }
+
+/* Cuộn tới #bài-viết không bị thanh trên che */
+html { scroll-padding-top: calc(var(--bar-h) + 16px); }
+
+/* Tôn trọng người dùng tắt hiệu ứng chuyển động */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
