@@ -13,9 +13,15 @@ import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
+import ReviewKit from './kit/ReviewKit';
+import PostFeedPage from './pages/PostFeedPage';
 
-initTheme();
 
+
+initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
+
+// Thư mục này chỉ chứa thư viện component + trang Review Kit.
+// Repo app thật: copy src/components, src/constants, src/styles, src/utils sang và bọc <ToastProvider> như dưới.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>
