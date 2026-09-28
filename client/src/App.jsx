@@ -6,6 +6,10 @@ import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 
+// Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
+import AdminModerationPage from './pages/AdminModerationPage';
+
+
 export default function App() {
   const { user, isAuthenticated, isCheckingSession, logout } = useAuth();
 
@@ -23,6 +27,15 @@ export default function App() {
 
   // Chưa đăng nhập → màn Đăng nhập / Đăng ký
   if (!isAuthenticated) return <AuthPage />;
+
+  // Tung's code: Sau khi khôi phục phiên và kiểm tra đăng nhập, chỉ Admin được mở
+  // trang kiểm duyệt tại /admin/moderation (chấp nhận cả dấu / ở cuối URL).
+  // Trang mới tự đọc query type=post/report và stale=1 từ các link trên dashboard.
+  // Các URL Admin khác tiếp tục đi vào nhánh dashboard hiện có bên dưới.
+  if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
+    return <AdminModerationPage />;
+  }
+  // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
   // Quản trị viên → khu quản trị
   if (isAdmin) return <AdminDashboardPage />;

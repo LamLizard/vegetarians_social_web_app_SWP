@@ -11,6 +11,18 @@
 - Trong bản kế hoạch UI, **liệt kê component sẽ dùng theo danh mục này TRƯỚC khi code**.
 - Props chi tiết: mở file component tương ứng — JSDoc trong đó rất đầy đủ.
 
+### Lưu ý trạng thái Post cập nhật ngày 28/09/2026
+
+- Nguồn chuẩn là `database/ERD_SWP_PostgreSQL_v4_1.sql`: Post chỉ có `pending/public/reported/deleted`; Report có `pending/accepted/rejected`.
+- Từ chối/gỡ Post dùng `deleted`, kèm lý do và AdminLog; không truyền `rejected/hidden` cho `StatusBadge entity="post"`.
+- Danh mục dưới đây mô tả component hiện có. `constants/status.js` còn lệch schema: thiếu Post `reported`, thừa `rejected/hidden`; cần thống nhất tích hợp trước khi sửa code dùng chung.
+- `ReportDialog` dùng để thành viên gửi báo cáo; Admin xử lý báo cáo qua trang quản trị và `ConfirmDialog`, không dùng `ReportDialog` làm hộp xử lý.
+
+<!-- Tung's code: Bổ sung quy tắc hiển thị reported và ngôn ngữ quyết định đã được người dùng chốt. -->
+- Post `reported` vẫn hiển thị công khai. Bảng tin/search cần lấy cả `public/reported`, loại `pending/deleted`; không hiểu reported là bị ẩn.
+- Trong module của Tung, dùng Chip hiện có với nhãn Công khai — có báo cáo; nhãn Report dùng Chấp nhận gỡ bài/Từ chối gỡ bài. Enum và component kit dùng chung giữ nguyên.
+<!-- Tung's code: Kết thúc ghi chú; không thay đổi code thư viện dùng chung. -->
+
 ## 1. Chọn nhanh — "cần gì → dùng em nào"
 - Nút có chữ → **Button** (primary / outline / subtle / alert)
 - Nút chỉ có icon (tim, chuông...) → **IconButton**
