@@ -17,11 +17,8 @@ import ReviewKit from './kit/ReviewKit';
 import PostFeedPage from './pages/PostFeedPage';
 
 
-
 initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 
-// Thư mục này chỉ chứa thư viện component + trang Review Kit.
-// Repo app thật: copy src/components, src/constants, src/styles, src/utils sang và bọc <ToastProvider> như dưới.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>

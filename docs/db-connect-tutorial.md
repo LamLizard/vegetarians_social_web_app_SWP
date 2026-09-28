@@ -110,12 +110,12 @@ server/
 server/.env
 ```
 
-6. Dán Connection String vào biến `DB_URL`.
+6. Dán Connection String vào biến `DATABASE_URL`.
 
 Ví dụ:
 
 ```env
-DB_URL=postgresql://username:password@host/database
+DATABASE_URL=postgresql://username:password@host/database?sslmode=require
 ```
 
 ---
@@ -151,10 +151,30 @@ Neon → Connect
         ↓
 Copy Connection String
         ↓
-Dán vào DB_URL trong server/.env
+Dán vào DATABASE_URL trong server/.env
         ↓
 npm run db:test
 ```
+
+## Schema tài khoản
+
+Ứng dụng dùng email làm định danh đăng nhập và chỉ đọc/ghi các trường hồ sơ đã có trong schema hiện tại. Không tự chạy migration thay đổi bảng `account`; mọi thay đổi schema trên database dùng chung cần được cả nhóm thống nhất trước.
+
+## Chạy ứng dụng local
+
+Mở hai terminal:
+
+```bash
+cd server
+npm run dev
+```
+
+```bash
+cd client
+npm run dev
+```
+
+API mặc định chạy tại `http://localhost:5000`; Vite hiển thị URL frontend sau khi khởi động.
 
 ## Lưu ý
 
