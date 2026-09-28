@@ -13,6 +13,15 @@ import './styles/theme.scss'; // Bootstrap đã đổi màu theo theme của app
 import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
 import ReviewKit from './kit/ReviewKit';
+import PostFeedPage from './pages/PostFeedPage';
+
+// TẠM để test trang Bảng tin khi chưa có Auth/router (xoá khi merge nhánh Auth → App lo việc này):
+//   /feed        → xem như thành viên (user giả)
+//   /feed?guest  → xem như khách
+const DEV_USER = { id: '1', fullName: 'Lâm Anh Khôi', avatarUrl: null };
+const isFeed = window.location.pathname.startsWith('/feed');
+const asGuest = new URLSearchParams(window.location.search).has('guest');
+const devLogin = () => window.location.assign('/feed');
 
 
 initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
@@ -22,7 +31,14 @@ initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>
-      <ReviewKit />
+      {isFeed ? (
+        <PostFeedPage
+          user={asGuest ? null : DEV_USER}
+          onLogin={devLogin}
+          onRegister={devLogin}
+          accountMenu={[{ icon: 'box-arrow-right', label: 'Đăng xuất', onClick: () => window.location.assign('/feed?guest') }]}
+        />
+      ) : <ReviewKit />}
     </ToastProvider>
   </StrictMode>,
 );
