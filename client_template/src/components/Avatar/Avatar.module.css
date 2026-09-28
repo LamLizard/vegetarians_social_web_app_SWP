@@ -1,0 +1,9 @@
+.avatar { flex: none; border-radius: 50%; object-fit: cover; }
+.initial {
+  display: inline-grid;
+  place-items: center;
+  background: var(--ac-matcha);
+  color: var(--ac-on-accent);
+  font-weight: 700;
+  line-height: 1;
+}

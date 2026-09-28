@@ -1,0 +1,9 @@
+.img { display: block; object-fit: cover; background: var(--ac-track); }
+
+.fallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #B5C79C 0%, var(--ac-matcha) 55%, var(--ac-moss) 100%);
+  color: rgba(255, 253, 248, .55);
+  font-size: 2rem;
+}

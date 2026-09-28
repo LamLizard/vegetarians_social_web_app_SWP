@@ -1,0 +1,10 @@
+.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.8rem; }
+
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.3rem; font-size: 0.85rem; }
+.name { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 500; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.value { color: var(--ac-muted); font-variant-numeric: tabular-nums; }
+.value b { color: var(--ac-ink); font-weight: 600; }
+
+.track { height: 8px; border-radius: 4px; background: var(--ac-track); overflow: hidden; }
+.fill { height: 100%; border-radius: 4px; transition: width .4s ease; }
