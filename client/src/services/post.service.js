@@ -7,7 +7,9 @@
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
 //   POST /posts/:id/comments  { content } → Comment
-//   POST /reports { targetType, targetId, reasonCode, reasonText } → { id }
+//   POST /posts/:id/report           { reasonCode, reasonText } → { id }   báo cáo bài
+//   POST /posts/comments/:id/report  { reasonCode, reasonText } → { id }   báo cáo bình luận
+//   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
 //             createdAt, author: { id, fullName, avatarUrl }, categories: [{ id, name }], isVoted }
@@ -34,7 +36,10 @@ const real = {
   addComment: (postId, content) => apiFetch(`/posts/${postId}/comments`, {
     method: 'POST', body: JSON.stringify({ content }),
   }),
-  report: (payload) => apiFetch('/reports', { method: 'POST', body: JSON.stringify(payload) }),
+  report: ({ targetType, targetId, reasonCode, reasonText }) => apiFetch(
+    targetType === 'comment' ? `/posts/comments/${targetId}/report` : `/posts/${targetId}/report`,
+    { method: 'POST', body: JSON.stringify({ reasonCode, reasonText }) },
+  ),
 };
 
 // =====================================================================
