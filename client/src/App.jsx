@@ -1,42 +1,122 @@
-// Gốc app: chọn màn hình theo trạng thái đăng nhập + vai trò (account.role).
-// Chưa có react-router nên điều hướng bằng render theo điều kiện;
-// khi nhóm thêm react-router thì thay đúng chỗ này bằng <Routes>.
-import { Button, EmptyState, ROLE, Spinner } from './components';
-import useAuth from './hooks/useAuth';
-import AuthPage from './pages/AuthPage';
-import AdminDashboardPage from './pages/AdminDashboardPage';
+import { useState } from 'react'
+import heroImg from './assets/hero.png'
+import reactLogo from './assets/react.svg'
+import viteLogo from './assets/vite.svg'
+import './App.css'
 
-export default function App() {
-  const { user, isAuthenticated, isCheckingSession, logout } = useAuth();
+function App() {
+  const [count, setCount] = useState(0)
 
-  // 'admin' là key trong ROLE (constants/domain.js) — DB: role 2 = admin
-  const isAdmin = user?.role === 'admin';
-
-  // Đang gọi /auth/me để khôi phục phiên từ token trong localStorage
-  if (isCheckingSession) {
-    return (
-      <main className="d-flex justify-content-center align-items-center min-vh-100">
-        <Spinner label="Đang kiểm tra phiên đăng nhập..." showLabel />
-      </main>
-    );
-  }
-
-  // Chưa đăng nhập → màn Đăng nhập / Đăng ký
-  if (!isAuthenticated) return <AuthPage />;
-
-  // Quản trị viên → khu quản trị
-  if (isAdmin) return <AdminDashboardPage />;
-
-  // TODO: thay bằng trang chủ thành viên (M-01) khi nhóm làm xong
   return (
-    <main className="container py-5">
-      <EmptyState
-        icon="cone-striped"
-        title="Khu thành viên chưa làm"
-        action={<Button variant="outline" icon="box-arrow-right" onClick={logout}>Đăng xuất</Button>}
-      >
-        Bạn đang đăng nhập với vai trò <b>{ROLE[user?.role] ?? user?.role}</b>. Trang chủ thành viên sẽ làm ở bước sau.
-      </EmptyState>
-    </main>
-  );
+    <>
+      <section id="center">
+        <div className="hero">
+          <img src={heroImg} className="base" width="170" height="179" alt="" />
+          <img src={reactLogo} className="framework" alt="React logo" />
+          <img src={viteLogo} className="vite" alt="Vite logo" />
+        </div>
+        <div>
+          <h1>Get started</h1>
+          <p>
+            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+          </p>
+        </div>
+        <button
+          type="button"
+          className="counter"
+          onClick={() => setCount((count) => count + 1)}
+        >
+          Count is {count}
+        </button>
+      </section>
+
+      <div className="ticks"></div>
+
+      <section id="next-steps">
+        <div id="docs">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#documentation-icon"></use>
+          </svg>
+          <h2>Documentation</h2>
+          <p>Your questions, answered</p>
+          <ul>
+            <li>
+              <a href="https://vite.dev/" target="_blank">
+                <img className="logo" src={viteLogo} alt="" />
+                Explore Vite
+              </a>
+            </li>
+            <li>
+              <a href="https://react.dev/" target="_blank">
+                <img className="button-icon" src={reactLogo} alt="" />
+                Learn more
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div id="social">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#social-icon"></use>
+          </svg>
+          <h2>Connect with us</h2>
+          <p>Join the Vite community</p>
+          <ul>
+            <li>
+              <a href="https://github.com/vitejs/vite" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#github-icon"></use>
+                </svg>
+                GitHub
+              </a>
+            </li>
+            <li>
+              <a href="https://chat.vite.dev/" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#discord-icon"></use>
+                </svg>
+                Discord
+              </a>
+            </li>
+            <li>
+              <a href="https://x.com/vite_js" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#x-icon"></use>
+                </svg>
+                X.com
+              </a>
+            </li>
+            <li>
+              <a href="https://bsky.app/profile/vite.dev" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#bluesky-icon"></use>
+                </svg>
+                Bluesky
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <div className="ticks"></div>
+      <section id="spacer"></section>
+    </>
+  )
 }
+
+export default App

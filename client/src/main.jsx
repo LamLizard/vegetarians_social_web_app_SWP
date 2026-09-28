@@ -12,8 +12,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles/theme.scss'; // Bootstrap đã đổi màu theo theme của app (+ chế độ Đêm)
 import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
-import { AuthProvider } from './context/AuthContext';
-import App from './App';
+import ReviewKit from './kit/ReviewKit';
 
 
 initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
@@ -23,9 +22,7 @@ initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ToastProvider>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <ReviewKit />
     </ToastProvider>
   </StrictMode>,
 );
