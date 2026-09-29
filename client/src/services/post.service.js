@@ -1,5 +1,5 @@
 // Gọi API cho trang Bảng tin (User Post Page · ID01).
-// BE CHƯA CÓ endpoint → đang chạy MOCK. Khi BE xong: đổi USE_MOCK = false, KHÔNG phải sửa trang.
+// Đã nối BE thật (/api/posts). Muốn chạy thử không cần server: đổi USE_MOCK = true.
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
@@ -16,7 +16,7 @@
 // Comment = { id, content, createdAt, author: { id, fullName, avatarUrl }, isOwner }
 import { apiFetch } from './api';
 
-const USE_MOCK = true; // TODO: tắt khi BE có /api/posts
+const USE_MOCK = false; // true = chạy dữ liệu giả bên dưới (khi BE tắt)
 const MOCK_DELAY_MS = 450;
 export const FEED_PAGE_SIZE = 5;
 

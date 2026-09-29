@@ -18,4 +18,7 @@ const postModerationRoutes = require('./src/routes/postModeration.routes');
 app.use('/api/admin/moderation', postModerationRoutes);
 // Tung's code: Kết thúc điểm nối API kiểm duyệt; giữ nguyên các route hiện có.
 
+// Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
+app.use('/api/posts', require('./src/routes/post.routes'));
+
 module.exports = app;

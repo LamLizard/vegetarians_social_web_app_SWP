@@ -13,9 +13,6 @@ import { initTheme } from './utils/theme';
 import { ToastProvider } from './components';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
-import ReviewKit from './kit/ReviewKit';
-import PostFeedPage from './pages/PostFeedPage';
-
 
 initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 
