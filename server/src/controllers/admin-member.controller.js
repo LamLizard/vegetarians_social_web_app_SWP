@@ -17,11 +17,11 @@ async function setMemberStatus(req, res, next) {
     if (!/^\d+$/.test(accountId) || !['active', 'locked'].includes(status)) {
       return res.status(400).json({ message: 'Trạng thái hoặc mã thành viên không hợp lệ.' });
     }
-    if (accountId === req.auth.accountId) {
+    if (accountId === String(req.account.id)) {
       return res.status(400).json({ message: 'Không thể tự khóa tài khoản admin đang đăng nhập.' });
     }
 
-    const member = await updateMemberStatus({ adminId: req.auth.accountId, accountId, status });
+    const member = await updateMemberStatus({ adminId: req.account.id, accountId, status });
     if (!member) return res.status(404).json({ message: 'Không tìm thấy thành viên.' });
     return res.json(member);
   } catch (error) {

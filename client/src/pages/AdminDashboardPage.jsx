@@ -3,25 +3,16 @@
 // Page giữ UI + config, còn dữ liệu lấy qua services/admin.service.js (component kit KHÔNG gọi API).
 import { useEffect, useState } from 'react';
 import {
-  AdminLayout, Avatar, Button, ConfirmDialog, DataTable, EmptyState, ENTITY_LABEL, Menu, Notice,
+  AdminLayout, Avatar, Button, ConfirmDialog, DataTable, EmptyState, ENTITY_LABEL, Notice,
   PageHeader, Panel, Skeleton, StatCard, formatDate, timeAgo, useToast,
 } from '../components';
 import useAuth from '../hooks/useAuth';
 import adminService from '../services/admin.service';
+import postModerationService from '../services/postModeration.service';
 
 // ---------------------------------------------------------------------
 // CONFIG UI — số liệu/cảnh báo/hàng đợi lấy từ admin.service.js
 // ---------------------------------------------------------------------
-
-const ADMIN_NAV = [
-  { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
-  { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
-  { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
-  { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
-  { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
-  { divider: true },
-  { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
-];
 
 // 1 · Việc cần xử lý — mỗi ô bấm được; `key` khớp field trong pendingStats
 const PENDING_CARDS = [
@@ -54,8 +45,7 @@ const AUDIT_COLUMNS = [
   { key: 'reason', header: 'Lý do', hideOnMobile: true },
 ];
 
-const HOURS_STALE = 48;
-const isStale = (createdAt) => Date.now() - new Date(createdAt).getTime() > HOURS_STALE * 3600_000;
+const isStale = (createdAt) => Date.now() - new Date(createdAt).getTime() > 48 * 3600_000;
 
 export default function AdminDashboardPage() {
   const toast = useToast();
@@ -66,15 +56,11 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [rejecting, setRejecting] = useState(null);
+  const [decision, setDecision] = useState(null);
+  const [actionError, setActionError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Tài khoản đang đăng nhập lấy từ AuthContext (App.jsx đã chặn chỉ admin vào được đây)
-  const adminUser = { name: user?.fullName || 'Quản trị viên', avatarUrl: user?.avatarUrl || '' };
-  // TODO: thêm mục "Về bảng tin" khi có trang chủ thành viên
-  const adminAccountMenu = [
-    { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
-  ];
+  const handleLogout = () => { logout(); window.location.assign('/'); };
 
   // Page cầm dữ liệu. "Thử lại" → tăng reloadKey → effect chạy lại.
   useEffect(() => {
@@ -99,38 +85,33 @@ export default function AdminDashboardPage() {
   const alerts = board?.alerts ?? [];
   const community = board?.community ?? [];
   const auditLog = board?.auditLog ?? [];
-  const admins = board?.admins ?? [];
-  const pendingTotal = (pending.post ?? 0) + (pending.report ?? 0) + (pending.stale ?? 0);
-  const nav = ADMIN_NAV.map((item) => {
-    if (item.key === 'moderation' && pendingTotal > 0) return { ...item, badge: pendingTotal };
-    if (item.key === 'appeals' && pending.appeals > 0) return { ...item, count: pending.appeals };
-    return item;
-  });
 
   // Chưa có react-router → điều hướng tạm bằng location; sau này truyền linkAs cho kit là xong
   const openList = (href) => { window.location.assign(href); };
 
-  // TODO: nối API thật — PATCH /admin/moderation/:id { action: 'approve' }
-  const approve = (row) => {
-    setQueue((list) => list.filter((item) => item.id !== row.id));
-    toast(`Đã duyệt #${row.id} — TODO: nối API`);
+  const openDecision = (row, action) => {
+    setActionError('');
+    setDecision({ row, action });
   };
 
-  // TODO: nối API thật — PATCH /admin/moderation/:id { action: 'reject', note }
-  const reject = async (note) => {
-    const row = rejecting;
+  const confirmDecision = async (note) => {
+    if (!decision || saving) return;
+    const { row, action } = decision;
     setSaving(true);
-    await new Promise((resolve) => { setTimeout(resolve, 400); }); // giả lập độ trễ API
-    setSaving(false);
-    setRejecting(null);
-    setQueue((list) => list.filter((item) => item.id !== row.id));
-    toast(`Đã từ chối #${row.id} · lý do: ${note} — TODO: nối API`);
-  };
-
-  // TODO: nối API thật — PATCH /admin/moderation/:id { assignee }
-  const assign = (row, adminName) => {
-    setQueue((list) => list.map((item) => (item.id === row.id ? { ...item, assignee: adminName } : item)));
-    toast(`Đã chuyển #${row.id} cho ${adminName} — TODO: nối API`);
+    setActionError('');
+    try {
+      const save = row.entity === 'post' ? postModerationService.decidePost : postModerationService.decideReport;
+      await save(row.id, action, note);
+      toast(row.entity === 'post'
+        ? (action === 'approve' ? 'Đã duyệt bài viết.' : 'Đã từ chối bài viết; bài chuyển sang Đã xóa.')
+        : (action === 'accept' ? 'Đã chấp nhận gỡ bài theo báo cáo.' : 'Đã từ chối gỡ bài theo báo cáo.'));
+      setDecision(null);
+      retry();
+    } catch (err) {
+      setActionError(err.message || 'Không thể lưu quyết định. Vui lòng thử lại.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // 3 · Cột hàng đợi — render gọi handler của page, kit vẫn không gọi API
@@ -162,28 +143,18 @@ export default function AdminDashboardPage() {
         );
       },
     },
-    { key: 'assignee', header: 'Phụ trách', width: 140, render: (row) => row.assignee ?? '—' },
     {
       key: 'actions',
       header: '',
       align: 'right',
       render: (row) => (
         <>
-          <Button size="sm" icon="check-lg" onClick={() => approve(row)}>Duyệt</Button>
-          <Button size="sm" variant="alert" icon="x-lg" onClick={() => setRejecting(row)}>Từ chối</Button>
-          <Menu
-            align="end"
-            width={220}
-            renderTrigger={(triggerProps) => (
-              <Button size="sm" variant="subtle" icon="person-gear" {...triggerProps}>Chuyển</Button>
-            )}
-            items={admins.map((name) => ({
-              icon: name === row.assignee ? 'check2' : 'person',
-              label: name,
-              hint: name === row.assignee ? 'Đang phụ trách' : undefined,
-              onClick: () => assign(row, name),
-            }))}
-          />
+          <Button size="sm" icon="check-lg" disabled={saving} onClick={() => openDecision(row, row.entity === 'post' ? 'approve' : 'accept')}>
+            {row.entity === 'post' ? 'Duyệt' : 'Chấp nhận gỡ'}
+          </Button>
+          <Button size="sm" variant="alert" icon="x-lg" disabled={saving} onClick={() => openDecision(row, 'reject')}>
+            {row.entity === 'post' ? 'Từ chối' : 'Từ chối gỡ'}
+          </Button>
         </>
       ),
     },
@@ -203,11 +174,10 @@ export default function AdminDashboardPage() {
 
   return (
     <AdminLayout
-      nav={nav}
       activeKey="dashboard"
       title="Bảng điều khiển"
-      user={adminUser}
-      accountMenu={adminAccountMenu}
+      user={user}
+      onLogout={handleLogout}
     >
       <PageHeader
         title="Bảng điều khiển"
@@ -282,10 +252,10 @@ export default function AdminDashboardPage() {
             )}
           >
             <DataTable
-              caption="Hàng đợi kiểm duyệt: nội dung, loại, tác giả, lý do, thời gian chờ, người phụ trách"
+              caption="Hàng đợi kiểm duyệt: nội dung, loại, tác giả, lý do, thời gian chờ"
               columns={queueColumns}
               rows={queue}
-              rowKey="id"
+              rowKey={(row) => `${row.entity}-${row.id}`}
               loading={loading}
               empty={{ icon: 'check2-circle', title: 'Đã xử lý hết', children: 'Không còn mục nào trong hàng đợi.' }}
             />
@@ -336,14 +306,23 @@ export default function AdminDashboardPage() {
       )}
 
       <ConfirmDialog
-        open={!!rejecting}
-        title={`Từ chối mục #${rejecting?.id ?? ''}?`}
-        message="Nội dung sẽ bị trả lại kèm lý do bên dưới và được ghi vào nhật ký quản trị."
-        confirmLabel="Từ chối"
-        reason={{ label: 'Lý do từ chối', placeholder: 'VD: Ảnh không liên quan tới chủ đề', required: true }}
+        open={!!decision}
+        title={decision?.entity === 'report'
+          ? (decision.action === 'accept' ? 'Chấp nhận gỡ bài theo báo cáo?' : 'Từ chối gỡ bài theo báo cáo?')
+          : (decision?.action === 'approve' ? 'Duyệt bài viết?' : 'Từ chối bài viết?')}
+        message={<>Quyết định sẽ được lưu vào hệ thống và ghi vào nhật ký quản trị.{actionError && <><br /><strong role="alert" className="text-danger">Chưa lưu được quyết định: {actionError}</strong></>}</>}
+        confirmLabel={decision?.entity === 'report'
+          ? (decision.action === 'accept' ? 'Chấp nhận gỡ bài' : 'Từ chối gỡ bài')
+          : (decision?.action === 'approve' ? 'Duyệt bài' : 'Từ chối')}
+        tone={decision?.action === 'approve' ? 'primary' : 'alert'}
+        reason={decision?.entity === 'post' && decision.action === 'approve' ? false : {
+          label: decision?.entity === 'report' && decision.action === 'accept' ? 'Lý do chấp nhận gỡ bài' : 'Lý do từ chối',
+          placeholder: 'Nhập lý do xử lý',
+          required: true,
+        }}
         loading={saving}
-        onConfirm={reject}
-        onCancel={() => setRejecting(null)}
+        onConfirm={confirmDecision}
+        onCancel={() => { if (!saving) setDecision(null); }}
       />
     </AdminLayout>
   );

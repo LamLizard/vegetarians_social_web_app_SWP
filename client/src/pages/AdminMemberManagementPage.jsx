@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DataTable } from '../components';
+import { AdminLayout, DataTable } from '../components';
+import useAuth from '../hooks/useAuth';
 import { getMembers, setMemberStatus } from '../services/admin-member.service';
 
 export default function AdminMemberManagementPage() {
+  const { user, logout } = useAuth();
   const [showOnlyReported, setShowOnlyReported] = useState(true);
   const [search, setSearch] = useState('');
   const [members, setMembersState] = useState([]);
@@ -91,7 +93,10 @@ export default function AdminMemberManagementPage() {
     },
   ];
 
+  const handleLogout = () => { logout(); window.location.assign('/'); };
+
   return (
+    <AdminLayout activeKey="accounts" title="Quản lý tài khoản" user={user} onLogout={handleLogout}>
     <div className="container py-4">
       <div className="card shadow-sm border-0">
         <div className="card-body p-4">
@@ -140,5 +145,6 @@ export default function AdminMemberManagementPage() {
         </div>
       </div>
     </div>
+    </AdminLayout>
   );
 }

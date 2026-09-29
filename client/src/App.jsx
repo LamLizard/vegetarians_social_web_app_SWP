@@ -5,6 +5,7 @@ import { Spinner } from './components';
 import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
@@ -64,6 +65,9 @@ export default function App() {
   // Các URL Admin khác tiếp tục đi vào nhánh dashboard hiện có bên dưới.
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
+  }
+  if (isAdmin && path === '/admin/accounts') {
+    return <AdminMemberManagementPage />;
   }
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 

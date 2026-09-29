@@ -78,6 +78,7 @@ export { default as NotificationList } from './NotificationList/NotificationList
 export { default as PageHeader } from './PageHeader/PageHeader';
 export { default as AppShell } from './AppShell/AppShell';
 export { default as Logo } from './AppShell/Logo';
+export { default as AdminSidebar } from './AdminSidebar/AdminSidebar';
 export { default as AdminLayout } from './AdminLayout/AdminLayout';
 
 // ---- Hằng số nghiệp vụ dùng chung -------------------------------------
