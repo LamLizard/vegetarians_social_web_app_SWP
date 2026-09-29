@@ -74,9 +74,15 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     // Luật validate + câu tiếng Việt giữ nguyên như cũ
     if (isRegister && form.fullName.trim().length < 2) return setError('Vui lòng nhập họ và tên.');
     if (!EMAIL_RE.test(form.email.trim())) return setError('Vui lòng nhập email hợp lệ.');
-    if (form.password.length < 8) return setError('Mật khẩu cần ít nhất 8 ký tự.');
+    if (isRegister && (form.password.length < 8 || form.password.length > 20)) {
+      return setError('Mật khẩu cần từ 8 đến 20 ký tự.');
+    }
+    if (isRegister && form.password.toLowerCase() === form.email.trim().toLowerCase()) {
+      return setError('Mật khẩu không được trùng với email.');
+    }
+    if (!isRegister && form.password.length < 8) return setError('Mật khẩu cần ít nhất 8 ký tự.');
     if (isRegister && form.password !== form.confirmPassword) return setError('Mật khẩu nhập lại chưa khớp.');
-    if (isRegister && !form.agree) return setError('Vui lòng đồng ý với điều khoản sử dụng để tiếp tục.');
+    if (isRegister && !form.agree) return setError('Bạn cần đồng ý với các chính sách để tiếp tục.');
 
     setIsSubmitting(true);
     try {
@@ -146,7 +152,7 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
                 required={isRegister}
                 autoComplete={isRegister ? 'new-password' : 'current-password'}
                 placeholder={isRegister ? undefined : 'Nhập mật khẩu'}
-                hint={isRegister ? 'Ít nhất 8 ký tự.' : undefined}
+                hint={isRegister ? 'Từ 8 đến 20 ký tự; không được trùng với email.' : undefined}
                 value={form.password}
                 onChange={setField('password')}
               />
@@ -164,10 +170,27 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
             )}
 
             {isRegister && (
-              <Checkbox className={styles['auth-agree']} checked={form.agree} onChange={setField('agree')}>
-                Tôi đồng ý với <a href="#dieu-khoan" onClick={(e) => e.preventDefault()}>Điều khoản sử dụng</a> và{' '}
-                <a href="#quy-tac" onClick={(e) => e.preventDefault()}>Quy tắc cộng đồng</a>
-              </Checkbox>
+              <>
+                <details className={styles['auth-policies']}>
+                  <summary>Xem 6 chính sách của cộng đồng</summary>
+                  <ol>
+                    <li><a href="#">Điều khoản sử dụng</a> — Quy định điều kiện tham gia cộng đồng, hành vi được/không được phép, quyền của admin.</li>
+                    <li><a href="#">Chính sách quyền riêng tư</a> — Hệ thống thu thập, dùng, lưu, chia sẻ và bảo vệ dữ liệu cá nhân thế nào.</li>
+                    <li><a href="#">Chính sách cộng đồng</a> — Quản lý bài viết, bình luận, tranh cãi về ăn chay, quảng cáo, nội dung gây hại.</li>
+                    <li><a href="#">Chính sách cookie</a> — Cookie đăng nhập, cookie phân tích, cookie quảng cáo (nếu có).</li>
+                    <li><a href="#">Chính sách xóa tài khoản/dữ liệu</a> — Cách yêu cầu xóa hoặc chỉnh sửa thông tin.</li>
+                    <li><a href="#">Chính sách nội dung &amp; báo cáo vi phạm</a> — Cách report bài viết/tài khoản, quy trình xử lý của admin.</li>
+                  </ol>
+                </details>
+                <Checkbox
+                  className={styles['auth-agree']}
+                  checked={form.agree}
+                  onChange={(_checked, event) => setField('agree')(event.target.checked)}
+                  required
+                >
+                  Tôi đồng ý với các chính sách trên, bao gồm việc thu thập và chia sẻ dữ liệu cá nhân theo Chính sách quyền riêng tư.
+                </Checkbox>
+              </>
             )}
 
             <Button type="submit" size="lg" block loading={isSubmitting}>

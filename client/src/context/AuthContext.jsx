@@ -68,8 +68,6 @@ export function AuthProvider({ children }) {
     return payload;
   }, []);
 
-  const changePassword = useCallback((details) => authService.changePassword(details), []);
-
   const value = useMemo(() => ({
     user,
     token,
@@ -78,8 +76,7 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
-    changePassword,
-  }), [changePassword, isCheckingSession, login, logout, register, token, user]);
+  }), [isCheckingSession, login, logout, register, token, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

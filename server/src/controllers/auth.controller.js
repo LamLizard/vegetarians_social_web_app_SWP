@@ -1,4 +1,4 @@
-// register · login · getMe · changePassword — KHÔNG có logout (FE tự xoá token)
+// register · login · getMe — logout phía FE; đổi mật khẩu thuộc module Hồ sơ (user.*)
 const bcrypt = require('bcrypt');
 const accountModel = require('../models/account.model');
 const { signToken } = require('../utils/jwt');
@@ -10,7 +10,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MSG = {
   invalidCredentials: 'Email hoặc mật khẩu không đúng.', // dùng CHUNG cho sai email lẫn sai mật khẩu
   emailTaken: 'Email này đã được sử dụng.',
-  invalidSession: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.',
   server: 'Có lỗi xảy ra, vui lòng thử lại sau.',
 };
 
@@ -25,7 +24,12 @@ async function register(req, res) {
 
     if (fullName.length < 2) return reply(res, 400, { message: 'Vui lòng nhập họ và tên (ít nhất 2 ký tự).' });
     if (!EMAIL_RE.test(email)) return reply(res, 400, { message: 'Email không hợp lệ.' });
-    if (password.length < 8) return reply(res, 400, { message: 'Mật khẩu cần ít nhất 8 ký tự.' });
+    if (password.length < 8 || password.length > 20) {
+      return reply(res, 400, { message: 'Mật khẩu cần từ 8 đến 20 ký tự.' });
+    }
+    if (password.toLowerCase() === email.toLowerCase()) {
+      return reply(res, 400, { message: 'Mật khẩu không được trùng với email.' });
+    }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const created = await accountModel.create({ email, passwordHash, fullName });
@@ -81,29 +85,4 @@ async function getMe(req, res) {
   }
 }
 
-/** POST /api/auth/change-password — body { currentPassword, newPassword } */
-async function changePassword(req, res) {
-  try {
-    const currentPassword = String(req.body?.currentPassword ?? '');
-    const newPassword = String(req.body?.newPassword ?? '');
-
-    if (newPassword.length < 8) return reply(res, 400, { message: 'Mật khẩu mới cần ít nhất 8 ký tự.' });
-
-    // req.account đã lược password_hash → phải đọc lại bản ghi để so mật khẩu hiện tại
-    const account = await accountModel.findById(req.account.id);
-    if (!account) return reply(res, 401, { message: MSG.invalidSession });
-
-    const currentOk = await bcrypt.compare(currentPassword, account.passwordHash);
-    if (!currentOk) return reply(res, 400, { message: 'Mật khẩu hiện tại không đúng.' });
-
-    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-    await accountModel.updatePassword(account.id, passwordHash);
-
-    return reply(res, 200, { message: 'Đổi mật khẩu thành công.' });
-  } catch (error) {
-    console.error('[auth.changePassword]', error);
-    return reply(res, 500, { message: MSG.server });
-  }
-}
-
-module.exports = { register, login, getMe, changePassword };
+module.exports = { register, login, getMe };

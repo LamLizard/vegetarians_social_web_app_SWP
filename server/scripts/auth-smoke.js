@@ -1,11 +1,10 @@
-// Smoke test tầng auth — chạy: node scripts/auth-smoke.js
+// Smoke test tầng auth — register · login · me · chính sách mật khẩu — chạy: node scripts/auth-smoke.js
 // Cần: BE đang chạy (npm start ở server/) + Node 18+ (có fetch sẵn).
 // Đổi URL khi cần: set SMOKE_BASE_URL=http://localhost:5000/api/auth
 const BASE_URL = process.env.SMOKE_BASE_URL || 'http://localhost:5000/api/auth';
 
 const email = `smoke+${Date.now()}@test.com`;
-const password = '12345678';
-const newPassword = '87654321';
+const password = 'smoke1234';
 
 let token = null;
 let failed = 0;
@@ -36,33 +35,51 @@ const leaksHash = (user) => !user || user.passwordHash !== undefined || user.pas
 async function main() {
   console.log(`==> Smoke test ${BASE_URL}\n    email: ${email}\n`);
 
-  // 1 · Đăng ký → 201 + token luôn
+  // 1 · Mật khẩu đăng ký ngắn hơn giới hạn → 400
+  const tooShort = await call('POST', '/register', { fullName: 'Smoke Test', email, password: '1234567' });
+  check(
+    '1. register password 7 ký tự → 400',
+    tooShort.status === 400 && tooShort.data?.message === 'Mật khẩu cần từ 8 đến 20 ký tự.',
+    `status=${tooShort.status} ${JSON.stringify(tooShort.data)}`,
+  );
+
+  // 2 · Mật khẩu trùng email (không phân biệt hoa/thường) → 400
+  const sameAsEmail = await call('POST', '/register', {
+    fullName: 'Smoke Test', email: 'test@example.com', password: 'TEST@EXAMPLE.COM',
+  });
+  check(
+    '2. register password trùng email → 400',
+    sameAsEmail.status === 400 && sameAsEmail.data?.message === 'Mật khẩu không được trùng với email.',
+    `status=${sameAsEmail.status} ${JSON.stringify(sameAsEmail.data)}`,
+  );
+
+  // 3 · Mật khẩu dài hơn giới hạn → 400
+  const tooLong = await call('POST', '/register', { fullName: 'Smoke Test', email, password: '1'.repeat(21) });
+  check(
+    '3. register password 21 ký tự → 400',
+    tooLong.status === 400 && tooLong.data?.message === 'Mật khẩu cần từ 8 đến 20 ký tự.',
+    `status=${tooLong.status} ${JSON.stringify(tooLong.data)}`,
+  );
+
+  // 4 · Đăng ký với mật khẩu hợp lệ (8–20 ký tự) → 201 + token
   const registered = await call('POST', '/register', { fullName: 'Smoke Test', email, password });
-  check('1. register → 201', registered.status === 201, `status=${registered.status} ${JSON.stringify(registered.data)}`);
-  check('1b. register trả token + không lộ password_hash', Boolean(registered.data?.token) && !leaksHash(registered.data?.user));
+  check('4. register password hợp lệ → 201', registered.status === 201, `status=${registered.status} ${JSON.stringify(registered.data)}`);
+  check('4b. register trả token + không lộ password_hash', Boolean(registered.data?.token) && !leaksHash(registered.data?.user));
   token = registered.data?.token ?? null;
 
-  // 2 · Đăng nhập bằng mật khẩu vừa đăng ký
+  // 5 · Đăng nhập bằng mật khẩu vừa đăng ký
   const loggedIn = await call('POST', '/login', { email, password });
-  check('2. login → 200', loggedIn.status === 200, `status=${loggedIn.status} ${JSON.stringify(loggedIn.data)}`);
+  check('5. login → 200', loggedIn.status === 200, `status=${loggedIn.status} ${JSON.stringify(loggedIn.data)}`);
   token = loggedIn.data?.token ?? token;
 
-  // 3 · Lấy thông tin tài khoản từ token
+  // 6 · Lấy thông tin tài khoản từ token
   const me = await call('GET', '/me', null, true);
-  check('3. me → 200 đúng email', me.status === 200 && me.data?.user?.email === email, `status=${me.status} user=${JSON.stringify(me.data?.user)}`);
-  check('3b. me không lộ password_hash', !leaksHash(me.data?.user));
+  check('6. me → 200 đúng email', me.status === 200 && me.data?.user?.email === email, `status=${me.status} user=${JSON.stringify(me.data?.user)}`);
+  check('6b. me không lộ password_hash', !leaksHash(me.data?.user));
 
-  // 4 · Đổi mật khẩu
-  const changed = await call('POST', '/change-password', { currentPassword: password, newPassword }, true);
-  check('4. change-password → 200', changed.status === 200, `status=${changed.status} ${JSON.stringify(changed.data)}`);
-
-  // 5 · Đăng nhập lại bằng mật khẩu mới
-  const reLogin = await call('POST', '/login', { email, password: newPassword });
-  check('5. login lại bằng mật khẩu mới → 200', reLogin.status === 200, `status=${reLogin.status} ${JSON.stringify(reLogin.data)}`);
-
-  // 6 · Mật khẩu cũ phải hỏng (chứng minh bước 4 có tác dụng thật)
-  const oldPassword = await call('POST', '/login', { email, password });
-  check('6. login bằng mật khẩu CŨ → 401', oldPassword.status === 401, `status=${oldPassword.status}`);
+  // 7 · Đổi mật khẩu không còn thuộc auth → 404
+  const removedRoute = await call('POST', '/change-password', { currentPassword: password, newPassword: 'newpassword' }, true);
+  check('7. POST /change-password → 404', removedRoute.status === 404, `status=${removedRoute.status}`);
 
   console.log(failed === 0 ? '\n✅ Tất cả bước PASS' : `\n❌ ${failed} bước FAIL`);
   process.exit(failed === 0 ? 0 : 1);
