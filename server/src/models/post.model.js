@@ -21,7 +21,7 @@ class PostError extends Error {
 }
 
 // Cột trả về cho FE — đúng dạng Post trong client/src/services/post.service.js.
-// $1 luôn là id người xem (NULL = khách) để tính isVoted.
+// $1 luôn là id người xem (NULL = khách) để tính isVoted và hasReported.
 const POST_FIELDS = `
   p.post_id::text      AS id,
   p.post_type          AS type,
@@ -39,7 +39,13 @@ const POST_FIELDS = `
     FROM post_category pc JOIN category c ON c.category_id = pc.category_id
     WHERE pc.post_id = p.post_id AND c.is_active
   ), '[]'::json)       AS categories,
-  EXISTS (SELECT 1 FROM post_vote v WHERE v.post_id = p.post_id AND v.account_id = $1::bigint) AS "isVoted"
+  EXISTS (SELECT 1 FROM post_vote v WHERE v.post_id = p.post_id AND v.account_id = $1::bigint) AS "isVoted",
+  -- Người xem đã báo cáo bài này và Admin chưa xử lý → FE hiện "Đã báo cáo" (khách: luôn false)
+  EXISTS (
+    SELECT 1 FROM report r
+    WHERE r.target_type = 'post' AND r.target_id = p.post_id
+      AND r.reporter_id = $1::bigint AND r.status = 'pending'
+  ) AS "hasReported"
 `;
 const FROM_POST = 'FROM post p JOIN account a ON a.account_id = p.account_id';
 

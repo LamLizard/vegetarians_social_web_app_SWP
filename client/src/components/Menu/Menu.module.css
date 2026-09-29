@@ -34,6 +34,8 @@
 .item span { display: flex; flex-direction: column; line-height: 1.35; }
 .item small { color: var(--ac-muted); font-size: 0.75rem; font-weight: 400; }
 .item:hover, .item:focus-visible { background: var(--ac-tip-bg); outline: 0; }
+.item:disabled { cursor: default; opacity: 0.6; }
+.item:disabled:hover { background: transparent; }
 
 .alert, .alert i { color: var(--ac-bad-fg); }
 .alert:hover { background: var(--ac-alert-soft); }

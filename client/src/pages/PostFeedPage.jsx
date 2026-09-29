@@ -121,9 +121,21 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const askReport = (target) => (isGuest ? requireLogin() : setReportTarget(target));
 
   const submitReport = async ({ reasonCode, reasonText }) => {
-    await postService.report({ targetType: reportTarget.type, targetId: reportTarget.id, reasonCode, reasonText });
+    const { type, id } = reportTarget;
+    try {
+      await postService.report({ targetType: type, targetId: id, reasonCode, reasonText });
+    } catch (err) {
+      // 409 = đã báo cáo từ trước (vd ở tab khác) → vẫn đánh dấu để nút đổi thành "Đã báo cáo"
+      if (err.status === 409 && type === 'post') patchPost(id, { hasReported: true });
+      throw err; // ReportDialog tự hiện câu lỗi
+    }
+    // Bài bị báo cáo: BE đã đổi public → reported, FE đổi theo cho khớp mà không cần tải lại
+    if (type === 'post') patchPost(id, { hasReported: true, status: 'reported' });
     toast('Đã gửi báo cáo. Admin sẽ xem xét sớm.');
   };
+
+  /** Bài của chính mình → không có nút báo cáo (BE cũng chặn) */
+  const isMine = (post) => !isGuest && post.author?.id === String(user.id);
 
   const search = (value) => {
     if (isGuest) { requireLogin(); return; }
@@ -202,7 +214,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             onVote={() => vote(post)}
             onOpen={() => setOpened({ id: post.id, toComments: false })}
             onComment={() => setOpened({ id: post.id, toComments: true })}
-            onReport={() => askReport({ type: 'post', id: post.id, title: post.title })}
+            onReport={isMine(post) ? undefined : () => askReport({ type: 'post', id: post.id, title: post.title })}
+            reported={post.hasReported}
           />
         ))}
 
@@ -240,6 +253,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onClose={() => setOpened(null)}
         onVote={vote}
         onReport={askReport}
+        isMine={openedPost ? isMine(openedPost) : false}
         onRequireLogin={requireLogin}
         onCommentAdded={(id) => setItems((list) => list.map((p) => (p.id === id ? { ...p, commentCount: p.commentCount + 1 } : p)))}
       />
@@ -266,7 +280,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 // =====================================================================
 //  Chi tiết bài (mở tại chỗ như Facebook) — chỉ trang này dùng nên để chung file
 // =====================================================================
-function PostDetailModal({ post, toComments, user, onClose, onVote, onReport, onRequireLogin, onCommentAdded }) {
+function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onReport, onRequireLogin, onCommentAdded }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const postId = post?.id;
@@ -321,9 +335,13 @@ function PostDetailModal({ post, toComments, user, onClose, onVote, onReport, on
 
         <div className={styles.detailActions}>
           <VoteButton voted={post.isVoted} count={post.voteCount} onToggle={() => onVote(post)} />
-          <Button size="sm" variant="subtle" icon="flag" onClick={() => onReport({ type: 'post', id: post.id, title: post.title })}>
-            Báo cáo
-          </Button>
+          {!isMine && (post.hasReported
+            ? <Button size="sm" variant="subtle" icon="flag-fill" disabled>Đã báo cáo</Button>
+            : (
+              <Button size="sm" variant="subtle" icon="flag" onClick={() => onReport({ type: 'post', id: post.id, title: post.title })}>
+                Báo cáo
+              </Button>
+            ))}
         </div>
 
         <CommentSection

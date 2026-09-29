@@ -12,7 +12,8 @@
 //   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
-//             createdAt, author: { id, fullName, avatarUrl }, categories: [{ id, name }], isVoted }
+//             createdAt, author: { id, fullName, avatarUrl }, categories: [{ id, name }], isVoted,
+//             hasReported }   hasReported = người xem có báo cáo bài này đang chờ Admin xử lý
 // Comment = { id, content, createdAt, author: { id, fullName, avatarUrl }, isOwner }
 import { apiFetch } from './api';
 
@@ -93,7 +94,7 @@ const reportedKeys = new Set();
 let seq = 100;
 
 const VISIBLE = ['public', 'reported'];
-const withVote = (p) => ({ ...clone(p), isVoted: votedIds.has(p.id) });
+const withVote = (p) => ({ ...clone(p), isVoted: votedIds.has(p.id), hasReported: reportedKeys.has(`post:${p.id}`) });
 
 /** Giống SQL ở BE: bài trước hôm nay, ngày gần nhất trước, trong ngày thì bài sớm nhất trước, lấy 3 */
 function mockPreview() {
@@ -106,7 +107,7 @@ function mockPreview() {
       ? new Date(a.createdAt) - new Date(b.createdAt)   // cùng ngày: sớm → muộn
       : dayStart(b.createdAt) - dayStart(a.createdAt)))  // khác ngày: gần → xa
     .slice(0, 3)
-    .map((p) => ({ ...withVote(p), isVoted: false })); // khách chưa vote gì
+    .map((p) => ({ ...withVote(p), isVoted: false, hasReported: false })); // khách chưa vote/báo cáo gì
 }
 
 const mock = {
@@ -155,8 +156,10 @@ const mock = {
   async report({ targetType, targetId }) {
     await wait();
     const key = `${targetType}:${targetId}`;
-    if (reportedKeys.has(key)) throw new Error('Bạn đã báo cáo nội dung này rồi, Admin đang xem xét.');
+    if (reportedKeys.has(key)) throw Object.assign(new Error('Bạn đã báo cáo nội dung này rồi, Admin đang xem xét.'), { status: 409 });
     reportedKeys.add(key);
+    const post = targetType === 'post' && posts.find((p) => p.id === targetId);
+    if (post && post.status === 'public') post.status = 'reported';
     return { id: String(seq += 1) };
   },
 };
