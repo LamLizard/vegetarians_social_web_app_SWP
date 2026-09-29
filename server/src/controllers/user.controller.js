@@ -21,7 +21,7 @@ async function saveMyProfile(req, res, next) {
   try {
     const fullName = normalizeFullName(req.body?.fullName); /* Duy's code: Nhận đúng trường fullName của account. */
     const email = normalizeEmail(req.body?.email); /* Duy's code: Nhận email mới từ trang hồ sơ. */
-    const { password, currentPassword } = req.body;
+    const { password, confirmPassword, currentPassword } = req.body; /* Duy's code: Nhận cả hai giá trị để backend xác thực mật khẩu mới. */
     if (!EMAIL_REGEX.test(email)) { /* Duy's code: Từ chối email không khớp định dạng đã chốt. */
       return res.status(400).json({ message: 'Email chưa đúng định dạng, ví dụ ten@gmail.com' }); /* Duy's code: Trả lỗi xác thực email rõ ràng. */
     }
@@ -31,13 +31,28 @@ async function saveMyProfile(req, res, next) {
     const currentProfile = await findProfileById(req.account.id); /* Duy's code: Lấy đúng hồ sơ của tài khoản đã xác thực. */
     if (!currentProfile) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
     const emailChanged = email !== currentProfile.email.toLowerCase(); /* Duy's code: Phát hiện thay đổi email để yêu cầu xác nhận mật khẩu. */
+    if (password && /\s/u.test(password)) { /* Duy's code: Không cho lưu mật khẩu mới có ký tự khoảng trắng. */
+      return res.status(400).json({ message: 'Mật khẩu mới không được chứa khoảng trắng.' }); /* Duy's code: Áp dụng ràng buộc cả khi gọi API trực tiếp. */
+    }
+    if (confirmPassword && /\s/u.test(confirmPassword)) { /* Duy's code: Kiểm tra whitespace độc lập trên trường xác nhận. */
+      return res.status(400).json({ message: 'Mật khẩu xác nhận không được chứa khoảng trắng.' }); /* Duy's code: Không cho xác nhận có whitespace lọt qua API. */
+    }
     if (password && (password.length < 8 || password.length > 20 || password.toLowerCase() === email)) { /* Duy's code: So password mới với email sau cập nhật. */
       return res.status(400).json({ message: 'Mật khẩu mới phải dài 8-20 ký tự và không được trùng email đăng nhập.' });
+    }
+    if (password && password !== confirmPassword) { /* Duy's code: Không cho cập nhật nếu xác nhận mật khẩu mới không khớp. */
+      return res.status(400).json({ message: 'Mật khẩu xác nhận không khớp.' }); /* Duy's code: Trả lỗi rõ ràng cho client. */
+    }
+    if (!password && confirmPassword) { /* Duy's code: Không nhận xác nhận mật khẩu nếu người dùng không nhập mật khẩu mới. */
+      return res.status(400).json({ message: 'Hãy nhập mật khẩu mới trước khi xác nhận.' }); /* Duy's code: Giữ cặp mật khẩu mới nhất quán. */
     }
     if (emailChanged || password) { /* Duy's code: Bắt buộc mật khẩu hiện tại khi đổi email hoặc đổi mật khẩu. */
       const passwordHash = await findPasswordHashById(req.account.id); /* Duy's code: Đọc hash mật khẩu của đúng tài khoản. */
       if (!passwordHash || !currentPassword || !(await bcrypt.compare(currentPassword, passwordHash))) {
         return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng.' });
+      }
+      if (password && password === currentPassword) { /* Duy's code: Chặn mật khẩu mới nếu trùng chính xác mật khẩu cũ đã xác thực. */
+        return res.status(400).json({ message: 'Mật khẩu mới không được trùng với mật khẩu hiện tại.' }); /* Duy's code: Phân biệt đúng trường hợp trùng hoàn toàn. */
       }
     }
 
