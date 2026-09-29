@@ -1,0 +1,30 @@
+/* Trang Bảng tin — chỉ dùng biến màu var(--ac-...) để chế độ Đêm tự đổi */
+.feed { display: grid; gap: 1rem; }
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--ac-muted);
+}
+.searchBar b { color: var(--ac-ink); }
+
+.guestActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+
+.sentinel { display: flex; justify-content: center; min-height: 3rem; padding: 0.5rem 0; }
+.end { margin: 0.5rem 0 1.5rem; text-align: center; color: var(--ac-muted); font-size: 0.9rem; }
+
+/* ---------- Chi tiết bài (Modal) ---------- */
+.detail { display: grid; gap: 1rem; }
+.detailHead { display: flex; align-items: center; gap: 0.75rem; }
+.muted { color: var(--ac-muted); font-size: 0.85rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.content { margin: 0; color: var(--ac-ink); line-height: 1.65; white-space: pre-line; }
+.detailActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-block: 1px solid var(--ac-border);
+}

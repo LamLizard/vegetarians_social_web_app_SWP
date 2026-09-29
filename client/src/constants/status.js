@@ -15,6 +15,7 @@ export const STATUS = {
   post: {
     pending:  { label: 'Chờ duyệt',   tone: 'warn',    icon: 'hourglass-split' },
     public:   { label: 'Công khai',   tone: 'ok',      icon: 'globe2' },
+    reported: { label: 'Đang bị báo cáo', tone: 'warn', icon: 'flag' }, // DB post_status_enum có giá trị này (nhóm chốt 28/09)
     rejected: { label: 'Bị từ chối',  tone: 'bad',     icon: 'x-circle' },
     hidden:   { label: 'Đã ẩn',       tone: 'neutral', icon: 'eye-slash' },
     deleted:  { label: 'Đã xoá',      tone: 'neutral', icon: 'trash3' },

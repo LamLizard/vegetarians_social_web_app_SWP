@@ -36,6 +36,8 @@ import styles from './PostCard.module.css';
  * @param {string} [status]                  post.status (chỉ hiện khi isOwner)
  * @param {string} [moderationNote]          lý do bị ẩn / từ chối (hiện cho chủ bài)
  * @param {() => void} [onEdit] · [onDelete] (chủ bài) · [onReport] (người khác)
+ * @param {() => void} [onOpen]     bấm tiêu đề / ảnh → mở bài tại chỗ (vd Modal ở bảng tin) thay vì đi tới href
+ * @param {() => void} [onComment]  bấm nút bình luận → thay cho link `href#binh-luan`
  *
  * Bài đăng nhanh (PostComposer: chỉ có câu hỏi, không ảnh, không trích đoạn) → tiêu đề tự to hơn như 1 status.
  */
@@ -43,10 +45,12 @@ export default function PostCard({
   layout = 'card', postType = 'blog', title, excerpt, href = '#', linkAs,
   thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, viewCount, voted = false, onVote,
-  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, className,
+  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, onOpen, onComment, className,
 }) {
   const Link = linkAs || 'a';
-  const linkProps = linkAs ? { to: href } : { href };
+  // onOpen có → vẫn giữ thẻ <a> (Ctrl+click, đọc màn hình vẫn đúng) nhưng chặn chuyển trang để mở tại chỗ
+  const open = onOpen && ((e) => { e.preventDefault(); onOpen(); });
+  const linkProps = { ...(linkAs ? { to: href } : { href }), onClick: open };
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
   const cover = postType === 'video' && youtubeVideoId
     ? `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`
@@ -139,9 +143,15 @@ export default function PostCard({
 
       <footer className={styles.foot}>
         {onVote && <VoteButton voted={voted} count={voteCount} onToggle={onVote} />}
-        <Link {...(linkAs ? { to: `${href}#binh-luan` } : { href: `${href}#binh-luan` })} className={styles.footLink}>
-          <i className="bi bi-chat" aria-hidden="true" />{formatCount(commentCount)}<span className="visually-hidden"> bình luận</span>
-        </Link>
+        {onComment ? (
+          <button type="button" className={styles.footLink} onClick={onComment}>
+            <i className="bi bi-chat" aria-hidden="true" />{formatCount(commentCount)}<span className="visually-hidden"> bình luận</span>
+          </button>
+        ) : (
+          <Link {...(linkAs ? { to: `${href}#binh-luan` } : { href: `${href}#binh-luan` })} className={styles.footLink}>
+            <i className="bi bi-chat" aria-hidden="true" />{formatCount(commentCount)}<span className="visually-hidden"> bình luận</span>
+          </Link>
+        )}
         <span className={styles.spacer} />
         {viewCount != null && (
           <span className={styles.views}><i className="bi bi-eye" aria-hidden="true" />{formatCount(viewCount)} lượt xem</span>

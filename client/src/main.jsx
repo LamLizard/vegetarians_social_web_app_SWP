@@ -14,7 +14,7 @@ import { ToastProvider } from './components';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
 
-initTheme();
+initTheme(); // gắn data-theme trước khi vẽ → không nháy màu
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
