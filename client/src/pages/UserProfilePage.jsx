@@ -3,10 +3,14 @@ import { PasswordField, TextField } from '../components';
 import { getProfile, updateProfile } from '../services/user.service';
 import { hasErrors } from '../utils/validate';
 
-const DISPLAY_NAME_REGEX = /^[A-Za-z0-9_.]{8,20}$/;
+const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’\-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng đúng định dạng email đã thống nhất. */
+
+const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
+const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email để so sánh và lưu nhất quán. */
 
 const defaultValues = {
-  displayName: '',
+  fullName: '', /* Duy's code: Dùng fullName tương ứng với account.full_name. */
   avatar: '',
   email: '',
   currentPassword: '',
@@ -14,19 +18,26 @@ const defaultValues = {
   confirmPassword: '',
 };
 
-function validateProfile(values) {
+function validateProfile(values, savedEmail) { /* Duy's code: So sánh email mới với email hiện đang lưu. */
   const errors = {};
+  const email = normalizeEmail(values.email); /* Duy's code: Xác thực email sau khi bỏ khoảng trắng. */
+  const emailChanged = email !== normalizeEmail(savedEmail); /* Duy's code: Chỉ yêu cầu mật khẩu khi email thực sự đổi. */
 
-  if (!DISPLAY_NAME_REGEX.test(values.displayName)) {
-    errors.displayName = 'Display name phải dài 8-20 ký tự và chỉ chứa chữ, số, _ hoặc .';
+  if (!EMAIL_REGEX.test(email)) { /* Duy's code: Kiểm tra email theo regex đã yêu cầu. */
+    errors.email = 'Email chưa đúng định dạng, ví dụ ten@gmail.com'; /* Duy's code: Báo lỗi định dạng email. */
   }
 
-  if (values.password && values.password.toLowerCase() === values.email.toLowerCase()) {
+  const fullName = normalizeFullName(values.fullName); /* Duy's code: Kiểm tra tên sau khi chuẩn hoá. */
+  if ([...fullName].length < 2 || [...fullName].length > 120 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo cột full_name. */
+    errors.fullName = 'Họ và tên phải dài 2-120 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
+  }
+
+  if (values.password && values.password.toLowerCase() === email) { /* Duy's code: Không cho mật khẩu mới trùng email đã chuẩn hoá. */
     errors.password = 'Password không được trùng với email đăng nhập';
   }
 
-  if (values.password && !values.currentPassword) {
-    errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận đổi mật khẩu';
+  if ((emailChanged || values.password) && !values.currentPassword) { /* Duy's code: Xác nhận mật khẩu khi đổi email hoặc mật khẩu. */
+    errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận thay đổi'; /* Duy's code: Hiển thị yêu cầu xác nhận. */
   }
 
   if (values.password && (values.password.length < 8 || values.password.length > 20)) {
@@ -83,7 +94,8 @@ export default function UserProfilePage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const nextErrors = validateProfile(form);
+    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName), email: normalizeEmail(form.email) }; /* Duy's code: Chuẩn hoá tên và email trước khi validate và lưu. */
+    const nextErrors = validateProfile(normalizedForm, savedProfile.email); /* Duy's code: Kiểm tra email đổi so với hồ sơ đã lưu. */
     setErrors(nextErrors);
     setSubmitted(true);
     setRequestError('');
@@ -95,7 +107,8 @@ export default function UserProfilePage() {
     setSaving(true);
     try {
       const updated = await updateProfile({
-        displayName: form.displayName,
+        fullName: normalizedForm.fullName, /* Duy's code: Gửi fullName thay vì displayName/username. */
+        email: normalizedForm.email, /* Duy's code: Gửi email mới để backend cập nhật DB. */
         currentPassword: form.currentPassword,
         password: form.password,
       });
@@ -133,10 +146,10 @@ export default function UserProfilePage() {
                   <div className="rounded-circle bg-light border d-flex align-items-center justify-content-center" style={{ width: 56, height: 56 }}>
                     {form.avatar
                       ? <img src={form.avatar} alt="" className="rounded-circle w-100 h-100 object-fit-cover" />
-                      : <span className="fw-bold text-secondary">{form.displayName.slice(0, 1).toUpperCase()}</span>}
+                      : <span className="fw-bold text-secondary">{form.fullName.slice(0, 1).toUpperCase()}</span> /* Duy's code: Lấy chữ đầu từ họ tên để tạo avatar dự phòng. */}
                   </div>
                   <div>
-                    <div className="fw-semibold">{form.displayName}</div>
+                    <div className="fw-semibold">{form.fullName}</div> {/* Duy's code: Hiển thị full name lấy từ DB. */}
                     <div className="text-muted small">{form.email}</div>
                   </div>
                 </div>
@@ -146,18 +159,18 @@ export default function UserProfilePage() {
                 <div className="row g-3">
                   <div className="col-md-6">
                     <TextField
-                      label="Display name"
-                      value={form.displayName}
-                      onChange={updateField('displayName')}
-                      maxLength={20}
-                      error={errors.displayName}
-                      placeholder="Nhập display name"
+                      label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
+                      value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
+                      onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
+                      maxLength={120} /* Duy's code: Khớp giới hạn cột full_name VARCHAR(120). */
+                      error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
+                      placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
                     />
                   </div>
                 </div>
 
                 <div className="mt-3">
-                  <TextField label="Email" type="email" value={form.email} disabled />
+                  <TextField label="Email" type="email" value={form.email} onChange={updateField('email')} error={errors.email} autoComplete="email" /> {/* Duy's code: Cho phép cập nhật email trong hồ sơ. */}
                 </div>
 
                 <div className="row g-3 mt-1">
@@ -167,7 +180,7 @@ export default function UserProfilePage() {
                       value={form.currentPassword}
                       onChange={updateField('currentPassword')}
                       autoComplete="current-password"
-                      hint="Bắt buộc khi đổi mật khẩu"
+                      hint="Bắt buộc khi đổi email hoặc mật khẩu"
                       error={errors.currentPassword}
                     />
                   </div>
