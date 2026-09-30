@@ -5,10 +5,13 @@
 //  - Feed chỉ hiện post.status IN ('public', 'reported').
 //  - Khách: 3 bài cố định = 3 bài tạo SỚM NHẤT của ngày gần nhất trước hôm nay (theo created_at, giờ VN);
 //    ngày đó chưa đủ 3 thì lấy tiếp ngày trước nữa.
+//  - Feed thành viên: bài mới ĐĂNG nhất trước = published_at (lúc Admin duyệt), không phải created_at.
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
 
 const VISIBLE = `p.status IN ('public', 'reported')`;
+// Lúc bài lên feed. Bài nhập tay/seed có thể thiếu published_at → lấy created_at cho khỏi mất bài.
+const PUBLISHED = 'COALESCE(p.published_at, p.created_at)';
 const TZ = `'Asia/Ho_Chi_Minh'`; // DB lưu giờ UTC → mọi mốc "ngày" phải đổi sang giờ VN
 
 /** Lỗi nghiệp vụ có sẵn mã HTTP → controller trả thẳng status + message */
@@ -33,6 +36,7 @@ const POST_FIELDS = `
   p.vote_count         AS "voteCount",
   p.comment_count      AS "commentCount",
   p.created_at         AS "createdAt",
+  ${PUBLISHED}         AS "publishedAt",
   json_build_object('id', a.account_id::text, 'fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author,
   COALESCE((
     SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
@@ -104,23 +108,30 @@ async function findPreview() {
   return rows;
 }
 
+// Mốc thời gian đổi ra số micro giây (số nguyên) → đưa vào cursor không bị làm tròn như Date của JS
+const SORT_KEY = `(extract(epoch FROM ${PUBLISHED}) * 1000000)::bigint`;
+
 /**
- * Feed thành viên, mới nhất trước, phân trang bằng cursor (= id bài cuối của trang trước).
- * Lấy dư 1 bài để biết còn trang sau hay không.
+ * Feed thành viên: bài mới đăng nhất trước (published_at DESC, trùng giờ thì post_id DESC).
+ * Phân trang bằng cursor "<micro giây>_<post_id>" của bài cuối trang trước.
+ * Ví dụ trang 1 kết thúc ở bài 12 đăng lúc 1790650000000000 → cursor "1790650000000000_12",
+ * trang 2 lấy các bài có (mốc, id) nhỏ hơn cặp đó. Lấy dư 1 bài để biết còn trang sau hay không.
+ * @param {{ time: string, id: string } | null} cursor
  */
 async function findFeed({ viewerId, cursor = null, q = '', limit = 10 }) {
   const keyword = q ? `%${q.replace(/[\\%_]/g, '\\$&')}%` : null; // gõ "%" hay "_" không bị hiểu là ký tự đại diện
   const { rows } = await pool.query(`
-    SELECT ${POST_FIELDS}
+    SELECT ${POST_FIELDS}, ${SORT_KEY}::text AS "sortKey"
     ${FROM_POST}
     WHERE ${VISIBLE}
-      AND ($2::bigint IS NULL OR p.post_id < $2::bigint)
-      AND ($3::text IS NULL OR p.title ILIKE $3::text)
-    ORDER BY p.post_id DESC
-    LIMIT $4
-  `, [viewerId, cursor, keyword, limit + 1]);
-  const items = rows.slice(0, limit);
-  return { items, nextCursor: rows.length > limit ? items[items.length - 1].id : null };
+      AND ($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))
+      AND ($4::text IS NULL OR p.title ILIKE $4::text)
+    ORDER BY ${PUBLISHED} DESC, p.post_id DESC
+    LIMIT $5
+  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, keyword, limit + 1]);
+  const items = rows.slice(0, limit).map(({ sortKey, ...post }) => post); // sortKey chỉ dùng làm cursor
+  const last = rows[limit - 1];
+  return { items, nextCursor: rows.length > limit ? `${last.sortKey}_${last.id}` : null };
 }
 
 /** Bình luận public của 1 bài, mới nhất trước. viewerId để đánh dấu isOwner. */

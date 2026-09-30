@@ -206,7 +206,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             thumbnailUrl={post.thumbnailUrl}
             youtubeVideoId={post.type === 'video' ? getYouTubeId(post.youtubeUrl ?? '') : undefined}
             author={toPerson(post.author)}
-            createdAt={post.createdAt}
+            createdAt={post.publishedAt ?? post.createdAt}
             categories={post.categories}
             voteCount={post.voteCount}
             commentCount={post.commentCount}
@@ -319,7 +319,7 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
           <Avatar src={post.author.avatarUrl} name={post.author.fullName} size={40} />
           <div>
             <b>{post.author.fullName}</b>
-            <span className={styles.muted}> · <time dateTime={post.createdAt}>{timeAgo(post.createdAt)}</time></span>
+            <span className={styles.muted}> · <time dateTime={post.publishedAt ?? post.createdAt}>{timeAgo(post.publishedAt ?? post.createdAt)}</time></span>
           </div>
         </header>
 

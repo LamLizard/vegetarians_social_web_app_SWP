@@ -3,7 +3,8 @@
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
-//   GET  /posts?cursor=&limit=&q=         → { items: Post[], nextCursor }  thành viên, lướt vô hạn
+//   GET  /posts?cursor=&limit=&q=         → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
+//                                           mới ĐĂNG nhất trước (publishedAt); cursor là chuỗi BE tự tạo, FE chỉ gửi lại
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
 //   POST /posts/:id/comments  { content } → Comment
@@ -12,7 +13,7 @@
 //   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
-//             createdAt, author: { id, fullName, avatarUrl }, categories: [{ id, name }], isVoted,
+//             createdAt, publishedAt, author: { id, fullName, avatarUrl }, categories: [{ id, name }], isVoted,
 //             hasReported }   hasReported = người xem có báo cáo bài này đang chờ Admin xử lý
 // Comment = { id, content, createdAt, author: { id, fullName, avatarUrl }, isOwner }
 import { apiFetch } from './api';
@@ -122,7 +123,7 @@ const mock = {
     const list = posts
       .filter((p) => VISIBLE.includes(p.status))
       .filter((p) => !keyword || p.title.toLowerCase().includes(keyword))
-      .sort((a, b) => Number(b.id) - Number(a.id))             // mới nhất trước
+      .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
       .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
     const items = list.slice(0, limit).map(withVote);
     return { items, nextCursor: list.length > limit ? items[items.length - 1].id : null };
