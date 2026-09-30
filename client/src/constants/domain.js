@@ -129,6 +129,40 @@ export const REPORT_REASON = {
   other: 'Lý do khác',
 };
 
+const AUDIT_TARGET_LABEL = {
+  post: 'bài viết',
+  dish: 'món ăn',
+  report: 'báo cáo',
+  account: 'tài khoản',
+  comment: 'bình luận',
+  banned_keyword: 'từ khoá vi phạm',
+};
+
+export function describeAuditAction(action, targetType) {
+  const target = AUDIT_TARGET_LABEL[targetType] ?? String(targetType || '').replace(/_/g, ' ');
+  const descriptions = {
+    'APPROVE:post': 'Đã duyệt bài viết',
+    'APPROVE:dish': 'Đã duyệt món ăn',
+    'REJECT:post': 'Đã từ chối bài viết',
+    'REJECT:report': 'Đã từ chối báo cáo',
+    'RESTORE:post': 'Đã khôi phục bài viết',
+    'REVIEW:post': 'Đã xem xét bài viết',
+    'UPDATE:report': 'Đã xử lý báo cáo',
+    'HIDE:banned_keyword': 'Đã ẩn từ khoá vi phạm',
+    account_locked: 'Đã khoá tài khoản',
+    account_unlocked: 'Đã mở khoá tài khoản',
+    account_deleted: 'Đã xoá tài khoản',
+  };
+  const key = `${action}:${targetType}`;
+  if (descriptions[key]) return descriptions[key];
+  if (descriptions[action]) return descriptions[action];
+  if (action === 'APPROVE' || action === 'REJECT') {
+    return `Đã ${action === 'APPROVE' ? 'duyệt' : 'từ chối'} ${target || 'đối tượng'}`;
+  }
+  const normalized = String(action || '').replace(/_/g, ' ').toLocaleLowerCase('vi-VN');
+  return normalized ? normalized[0].toLocaleUpperCase('vi-VN') + normalized.slice(1) : '—';
+}
+
 /** Người gửi tin nhắn chatbot. chat_message.sender */
 export const CHAT_SENDER = {
   user: 'Bạn',

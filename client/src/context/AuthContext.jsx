@@ -1,28 +1,48 @@
 // "bộ não phiên": giữ user+token, lưu localStorage, logout, check phiên
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import authService from '../services/auth.service';
-import { ApiError, AUTH_TOKEN_KEY, setUnauthorizedHandler } from '../services/api';
+import { apiFetch, ApiError, AUTH_TOKEN_KEY, setUnauthorizedHandler } from '../services/api';
 
 const AuthContext = createContext(null);
+const AUTH_USER_KEY = 'auth_user';
 
 const getToken = (payload) => payload?.token ?? payload?.accessToken ?? payload?.data?.token ?? null;
 const getUser = (payload) => payload?.user ?? payload?.data?.user ?? payload?.data ?? payload;
 
+function getCachedUser() {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null');
+  } catch {
+    localStorage.removeItem(AUTH_USER_KEY);
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(AUTH_TOKEN_KEY));
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(getCachedUser);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+
+  const saveUser = useCallback((nextUser) => {
+    setUser(nextUser);
+    if (nextUser) localStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser));
+    else localStorage.removeItem(AUTH_USER_KEY);
+  }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setToken(null);
-    setUser(null);
-  }, []);
+    saveUser(null);
+  }, [saveUser]);
 
   useEffect(() => {
     setUnauthorizedHandler(logout);
     return () => setUnauthorizedHandler(null);
   }, [logout]);
+
+  useEffect(() => {
+    apiFetch('/health').catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -35,9 +55,9 @@ export function AuthProvider({ children }) {
 
       try {
         const payload = await authService.getMe();
-        if (active) setUser(getUser(payload));
+        if (active) saveUser(getUser(payload));
       } catch (error) {
-        if (active && !(error instanceof ApiError && error.status === 401)) logout();
+        if (active && error instanceof ApiError && error.status === 401) logout();
       } finally {
         if (active) setIsCheckingSession(false);
       }
@@ -45,7 +65,7 @@ export function AuthProvider({ children }) {
 
     checkSession();
     return () => { active = false; };
-  }, [logout, token]);
+  }, [logout, saveUser, token]);
 
   const login = useCallback(async (credentials) => {
     const payload = await authService.login(credentials);
@@ -53,9 +73,9 @@ export function AuthProvider({ children }) {
     if (!nextToken) throw new Error('Login response did not include an access token.');
     localStorage.setItem(AUTH_TOKEN_KEY, nextToken);
     setToken(nextToken);
-    setUser(getUser(payload));
+    saveUser(getUser(payload));
     return payload;
-  }, []);
+  }, [saveUser]);
 
   const register = useCallback(async (details) => {
     const payload = await authService.register(details);
@@ -63,10 +83,10 @@ export function AuthProvider({ children }) {
     if (nextToken) {
       localStorage.setItem(AUTH_TOKEN_KEY, nextToken);
       setToken(nextToken);
-      setUser(getUser(payload));
+      saveUser(getUser(payload));
     }
     return payload;
-  }, []);
+  }, [saveUser]);
 
   const value = useMemo(() => ({
     user,

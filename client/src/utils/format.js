@@ -32,6 +32,14 @@ export function formatDate(value, { withTime = false } = {}) {
   return withTime ? `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}` : date;
 }
 
+/** "14:05 24/09/2026" (24-hour time). */
+export function formatDateTime(value) {
+  const d = toDate(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
 /** Số ngắn gọn: 950 → "950" · 1250 → "1,3 N" · 2400000 → "2,4 Tr" */
 export function formatCount(n) {
   const v = Number(n) || 0;
