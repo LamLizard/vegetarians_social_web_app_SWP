@@ -41,18 +41,28 @@ export async function apiFetch(path, options = {}) {
   if (!isFormData && options.body !== undefined) headers.set('Content-Type', 'application/json');
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetchWithRetry(`${API_BASE_URL}${path}`, { ...options, headers });
+  const requestUrl = `${API_BASE_URL}${path}`;
+  const response = await fetchWithRetry(requestUrl, { ...options, headers });
   const contentType = response.headers.get('content-type') ?? '';
-  const payload = contentType.includes('application/json')
+  const isJson = contentType.includes('application/json');
+  const payload = isJson
     ? await response.json()
     : await response.text();
 
   if (response.status === 401) unauthorizedHandler?.();
 
   if (!response.ok) {
+    if (response.status === 404 && !isJson) {
+      const { pathname, search } = new URL(requestUrl, window.location.origin);
+      throw new ApiError(
+        `Không tìm thấy API "${pathname}${search}" — máy chủ có thể đang chạy phiên bản cũ, hãy khởi động lại server rồi thử lại.`,
+        response.status,
+        payload,
+      );
+    }
     const message = typeof payload === 'object' && payload?.message
       ? payload.message
-      : `Request failed with status ${response.status}`;
+      : `Yêu cầu không thành công (mã ${response.status}).`;
     throw new ApiError(message, response.status, payload);
   }
 

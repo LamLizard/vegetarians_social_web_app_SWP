@@ -24,4 +24,9 @@ app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
 
+app.use('/api', (req, res) => {
+	const path = `${req.baseUrl}${req.path}`;
+	return res.status(404).json({ message: `Không tìm thấy API ${req.method} ${path}` });
+});
+
 module.exports = app;
