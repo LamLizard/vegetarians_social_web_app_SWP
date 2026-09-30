@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 
+// Duy's code: Chỉ tính report đang chờ xử lý vào cờ reported của thành viên.
 async function findMembers({ showOnlyReported, keyword }) {
   const { rows } = await pool.query(
     `WITH member_rows AS (
@@ -11,17 +12,17 @@ async function findMembers({ showOnlyReported, keyword }) {
               SELECT count(*)
               FROM public.report r
               JOIN public.post p ON r.target_type::text = 'post' AND r.target_id = p.post_id
-              WHERE p.account_id = a.account_id
+              WHERE p.account_id = a.account_id AND r.status::text = 'pending' -- Duy's code: chỉ tính report đang chờ.
             ) + (
               SELECT count(*)
               FROM public.report r
               JOIN public.comment c ON r.target_type::text = 'comment' AND r.target_id = c.comment_id
-              WHERE c.author_id = a.account_id
+              WHERE c.author_id = a.account_id AND r.status::text = 'pending' -- Duy's code: chỉ tính report đang chờ.
             ) + (
               SELECT count(*)
               FROM public.report r
               JOIN public.recipe recipe ON r.target_type::text = 'recipe' AND r.target_id = recipe.recipe_id
-              WHERE recipe.author_id = a.account_id
+              WHERE recipe.author_id = a.account_id AND r.status::text = 'pending' -- Duy's code: chỉ tính report đang chờ.
               ) AS "reportedCount",
               a.created_at AS "createdAt"
        FROM public.account a
@@ -72,18 +73,7 @@ async function updateMemberStatus({ adminId, accountId, status }) {
       return { account_id: accountId, status: previousStatus };
     }
 
-    let nextStatus = status;
-    if (status === 'active') {
-      const priorLock = await client.query(
-        `SELECT before_value->>'status' AS status
-         FROM public.admin_log
-         WHERE target_type::text = 'account' AND target_id = $1 AND action = 'account_locked'
-         ORDER BY created_at DESC
-         LIMIT 1`,
-        [accountId],
-      );
-      if (priorLock.rows[0]?.status === 'reported') nextStatus = 'reported';
-    }
+    const nextStatus = status; // Duy's code: mở khóa về active, không khôi phục cờ report từ audit log.
 
     const { rows } = await client.query(
       `UPDATE public.account
@@ -93,10 +83,11 @@ async function updateMemberStatus({ adminId, accountId, status }) {
       [accountId, nextStatus],
     );
     const action = status === 'locked' ? 'account_locked' : 'account_unlocked';
+    // Duy's code: Ghi trạng thái trước và sau vào nhật ký Admin.
     await client.query(
       `INSERT INTO public.admin_log
          (admin_id, action, target_type, target_id, before_value, after_value)
-       VALUES ($1, $2, 'account', $3, jsonb_build_object('status', $4), jsonb_build_object('status', $5))`,
+      VALUES ($1, $2, 'account', $3, jsonb_build_object('status', $4::text), jsonb_build_object('status', $5::text)) -- Duy's code: ép kiểu để PostgreSQL ghi JSONB.`,
       [adminId, action, accountId, previousStatus, nextStatus],
     );
     await client.query('COMMIT');

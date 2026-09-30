@@ -1,8 +1,21 @@
 import { useEffect, useState } from 'react';
-import { DataTable } from '../components';
+import { AdminLayout, Button, Checkbox, DataTable, Notice, PageHeader, SearchInput, StatusBadge } from '../components'; // Duy's code: dùng StatusBadge.
+import useAuth from '../hooks/useAuth';
 import { getMembers, setMemberStatus } from '../services/admin-member.service';
 
+const ADMIN_NAV = [
+  { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
+  { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
+  { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
+  { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
+  { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
+  { divider: true },
+  { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
+];
+
+// Duy's code: Giao diện quản lý thành viên dùng component và theme token chung.
 export default function AdminMemberManagementPage() {
+  const { user, logout } = useAuth();
   const [showOnlyReported, setShowOnlyReported] = useState(true);
   const [search, setSearch] = useState('');
   const [members, setMembersState] = useState([]);
@@ -55,11 +68,12 @@ export default function AdminMemberManagementPage() {
     {
       key: 'status',
       header: 'Trạng thái',
-      render: (row) => (
-        <span className={`badge ${row.status === 'locked' ? 'bg-danger' : row.status === 'reported' ? 'bg-warning text-dark' : 'bg-success'}`}>
-          {row.status === 'locked' ? 'Đã khóa' : row.status === 'reported' ? 'Bị báo cáo' : 'Hoạt động'}
-        </span>
-      ),
+      render: (row) => ( // Duy's code: tách report khỏi trạng thái truy cập.
+        <div className="d-flex flex-wrap gap-1"> {/* Duy's code: cho phép hiện hai nhãn. */}
+          <StatusBadge entity="account" status={row.status === 'locked' ? 'locked' : 'active'} /> {/* Duy's code: nhãn khóa/hoạt động. */}
+          {Number(row.reportedCount) >= 1 && <StatusBadge entity="account" status="reported" />} {/* Duy's code: nhãn khi còn report pending. */}
+          {/* Duy's code: kết thúc nhóm trạng thái. */}</div>
+      ), // Duy's code: render status account và report độc lập.
     },
     {
       key: 'reportedCount',
@@ -78,67 +92,71 @@ export default function AdminMemberManagementPage() {
       align: 'right',
       render: (row) => (
         <div className="d-flex justify-content-end gap-2">
-          <button
-            type="button"
-            className={`btn btn-sm ${row.status === 'locked' ? 'btn-outline-success' : 'btn-outline-danger'}`}
+          <Button
+            size="sm"
+            variant={row.status === 'locked' ? 'outline' : 'alert'}
+            icon={row.status === 'locked' ? 'unlock' : 'lock'}
             onClick={() => handleStatusChange(row)}
             disabled={busyMemberId === row.id}
+            loading={busyMemberId === row.id}
           >
-            {busyMemberId === row.id ? 'Đang lưu...' : row.status === 'locked' ? 'Mở khóa' : 'Khóa'}
-          </button>
+            {row.status === 'locked' ? 'Mở khóa' : 'Khóa'}
+          </Button>
         </div>
       ),
     },
   ];
 
-  return (
-    <div className="container py-4">
-      <div className="card shadow-sm border-0">
-        <div className="card-body p-4">
-          <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
-            <div>
-              <p className="text-uppercase text-muted small mb-1">Admin</p>
-              <h2 className="mb-0">Member Management</h2>
-            </div>
-
-            <div className="d-flex flex-column flex-sm-row gap-2 align-items-sm-center">
-              <label className="form-check form-switch mb-0">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  checked={showOnlyReported}
-                  onChange={(event) => setShowOnlyReported(event.target.checked)}
-                />
-                <span className="form-check-label">Chỉ hiện reported</span>
-              </label>
-
-              <div className="input-group" style={{ minWidth: 220 }}>
-                <span className="input-group-text"><i className="bi bi-search" /></span>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Tìm thành viên"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          {requestError && <div className="alert alert-danger" role="alert">{requestError}</div>}
-
-          <DataTable
-            caption="Danh sách thành viên"
-            rows={loading ? [] : members}
-            rowKey="id"
-            columns={columns}
-            empty={{
-              title: loading ? 'Đang tải thành viên...' : 'Không tìm thấy thành viên',
-              children: loading ? 'Đang lấy dữ liệu từ máy chủ.' : 'Thử thay đổi từ khóa hoặc bộ lọc.',
-            }}
-          />
-        </div>
+  const filters = (
+    <div className="d-flex flex-column flex-sm-row gap-3 align-items-sm-center">
+      <Checkbox
+        checked={showOnlyReported}
+        switch
+        onChange={setShowOnlyReported}
+      >
+        Chỉ hiện reported
+      </Checkbox>
+      <div style={{ width: 'min(100%, 260px)' }}>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Tìm thành viên"
+          label="Tìm thành viên"
+          size="sm"
+        />
       </div>
     </div>
+  );
+
+  const adminUser = { name: user?.fullName || 'Quản trị viên', avatarUrl: user?.avatarUrl || '' };
+  const accountMenu = [
+    { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+  ];
+
+  return (
+    <AdminLayout
+      nav={ADMIN_NAV}
+      activeKey="accounts"
+      title="Tài khoản"
+      user={adminUser}
+      accountMenu={accountMenu}
+    >
+      <PageHeader title="Quản lý thành viên" actions={filters} />
+      {requestError && (
+        <Notice tone="alert" title="Không tải được danh sách thành viên">
+          {requestError}
+        </Notice>
+      )}
+      <DataTable
+        caption="Danh sách thành viên"
+        rows={loading ? [] : members}
+        rowKey="id"
+        columns={columns}
+        empty={{
+          title: loading ? 'Đang tải thành viên...' : 'Không tìm thấy thành viên',
+          children: loading ? 'Đang lấy dữ liệu từ máy chủ.' : 'Thử thay đổi từ khóa hoặc bộ lọc.',
+        }}
+      />
+    </AdminLayout>
   );
 }

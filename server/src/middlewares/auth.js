@@ -26,9 +26,9 @@ async function requireAuth(req, res, next) {
     if (!account) {
       return res.status(401).json({ message: MSG_INVALID_SESSION });
     }
-
-    // 4 · Chỉ tài khoản 'active' mới được đi tiếp
-    if (account.status !== 'active') {
+    // 4 · Chỉ tài khoản 'active'và 'reported' mới được đi tiếp
+    // 4 · Chặn tài khoản bị khóa hoặc đã xoá.
+      if (!['active', 'reported'].includes(account.status)) { // Duy's code: reported không chặn quyền đăng nhập.
       return res.status(403).json({ message: 'Tài khoản của bạn đang bị khoá hoặc hạn chế.' });
     }
 
