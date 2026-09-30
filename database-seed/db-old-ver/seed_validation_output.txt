@@ -1,0 +1,123 @@
+/mnt/data/ERD_SWP_PostgreSQL_v4_1_seed.sql
+bytes 219346
+lines 1245
+recipe_ingredient 300
+comments 50 votes 90 meal_items 51
+PASS: 115 checks
+[PASS] Parsed enums: 26 enum types
+[PASS] Parsed tables: 26 tables
+[PASS] Insert table role: table exists
+[PASS] Insert columns role: 1 columns valid
+[PASS] Insert table account: table exists
+[PASS] Insert columns account: 10 columns valid
+[PASS] Insert table profile: table exists
+[PASS] Insert columns profile: 11 columns valid
+[PASS] Insert table allergy: table exists
+[PASS] Insert columns allergy: 2 columns valid
+[PASS] Insert table category: table exists
+[PASS] Insert columns category: 2 columns valid
+[PASS] Insert table ingredient: table exists
+[PASS] Insert columns ingredient: 4 columns valid
+[PASS] Insert table dish: table exists
+[PASS] Insert columns dish: 11 columns valid
+[PASS] Insert table dish_category: table exists
+[PASS] Insert columns dish_category: 2 columns valid
+[PASS] Insert table recipe: table exists
+[PASS] Insert columns recipe: 11 columns valid
+[PASS] Insert table recipe_ingredient: table exists
+[PASS] Insert columns recipe_ingredient: 4 columns valid
+[PASS] Insert table post: table exists
+[PASS] Insert columns post: 17 columns valid
+[PASS] Insert table post_category: table exists
+[PASS] Insert columns post_category: 2 columns valid
+[PASS] Insert table comment: table exists
+[PASS] Insert columns comment: 6 columns valid
+[PASS] Insert table post_vote: table exists
+[PASS] Insert columns post_vote: 3 columns valid
+[PASS] Insert table report: table exists
+[PASS] Insert columns report: 10 columns valid
+[PASS] Insert table notification: table exists
+[PASS] Insert columns notification: 8 columns valid
+[PASS] Insert table banned_keyword: table exists
+[PASS] Insert columns banned_keyword: 6 columns valid
+[PASS] Insert table admin_log: table exists
+[PASS] Insert columns admin_log: 9 columns valid
+[PASS] Insert table shop: table exists
+[PASS] Insert columns shop: 15 columns valid
+[PASS] Insert table shop_dish: table exists
+[PASS] Insert columns shop_dish: 10 columns valid
+[PASS] Insert table meal_plan: table exists
+[PASS] Insert columns meal_plan: 17 columns valid
+[PASS] Insert table meal_plan_item: table exists
+[PASS] Insert columns meal_plan_item: 11 columns valid
+[PASS] Insert table chat_session: table exists
+[PASS] Insert columns chat_session: 8 columns valid
+[PASS] Insert table chat_message: table exists
+[PASS] Insert columns chat_message: 8 columns valid
+[PASS] Insert table daily_quota: table exists
+[PASS] Insert columns daily_quota: 6 columns valid
+[PASS] Seed covers expected tables: 25 target tables
+[PASS] SQL lexical balance: balanced quotes/dollar blocks/parentheses
+[PASS] Transaction wrapper: BEGIN/COMMIT found
+[PASS] No SQL Server token IDENTITY_INSERT: PostgreSQL-only syntax
+[PASS] No SQL Server token GETDATE(): PostgreSQL-only syntax
+[PASS] No SQL Server token NVARCHAR: PostgreSQL-only syntax
+[PASS] No SQL Server token [dbo].: PostgreSQL-only syntax
+[PASS] No SQL Server token 
+GO
+: PostgreSQL-only syntax
+[PASS] Accounts count: 3 admin + 12 member
+[PASS] Member status distribution: Counter({'active': 9, 'locked': 1, 'reported': 1, 'deleted': 1})
+[PASS] Profile count: 12 profiles
+[PASS] Account field lengths: within VARCHAR limits
+[PASS] Category lengths: 10 categories
+[PASS] Ingredient lengths: 80 ingredients
+[PASS] Dish field lengths: 50 dishes
+[PASS] Post title lengths: 20 post titles
+[PASS] Shop field lengths: 5 shops
+[PASS] Enum account_status_enum: values valid: ['active', 'deleted', 'locked', 'reported']
+[PASS] Enum profile_gender_enum: values valid: ['female', 'male', 'other']
+[PASS] Enum bmi_category_enum: values valid: ['normal', 'overweight']
+[PASS] Enum activity_level_enum: values valid: ['active', 'light', 'moderate', 'sedentary']
+[PASS] Enum health_goal_enum: values valid: ['gain_muscle', 'lose_weight', 'maintain']
+[PASS] Enum dish_status_enum: values valid: ['active', 'hidden', 'pending', 'rejected']
+[PASS] Enum post_type_enum: values valid: ['blog', 'video']
+[PASS] Enum post_status_enum: values valid: ['deleted', 'pending', 'public', 'reported']
+[PASS] Enum comment_status_enum: values valid: ['deleted', 'hidden', 'public']
+[PASS] Enum report_target_type_enum: values valid: ['comment', 'post', 'recipe']
+[PASS] Enum report_reason_code_enum: values valid: ['abusive', 'not_vegan', 'other', 'spam', 'wrong_topic']
+[PASS] Enum report_status_enum: values valid: ['accepted', 'pending', 'rejected']
+[PASS] Enum notification_type_enum: values valid: ['account_locked', 'dish_approved', 'post_approved', 'report_result']
+[PASS] Enum notification_ref_type_enum: values valid: ['account', 'dish', 'post', 'report']
+[PASS] Enum meal_plan_source_enum: values valid: ['ai', 'manual']
+[PASS] Enum meal_plan_status_enum: values valid: ['archived', 'draft', 'saved']
+[PASS] Enum meal_slot_enum: values valid: ['breakfast', 'dinner', 'lunch']
+[PASS] Enum nutrition_group_enum: values valid: ['carb', 'protein', 'vegetable']
+[PASS] Enum shop_status_enum: values valid: ['active', 'inactive', 'renovating']
+[PASS] Enum shop_verification_status_enum: values valid: ['pending', 'rejected', 'verified']
+[PASS] Recipe count: 50 recipes
+[PASS] Recipe ingredient count: 300 recipe_ingredient rows
+[PASS] Six ingredients per recipe: 50/50 recipes have 6
+[PASS] No animal-derived recipe ingredients: all recipe ingredients vegan
+[PASS] Animal-derived master samples: 5 reference ingredients for filtering/moderation
+[PASS] Dish status distribution: Counter({'active': 44, 'pending': 3, 'rejected': 2, 'hidden': 1})
+[PASS] Recipe author distribution: Counter({'admin.quan@seed.erdswp.local': 17, 'admin.ha@seed.erdswp.local': 17, 'admin.nam@seed.erdswp.local': 16})
+[PASS] Post status distribution: Counter({'public': 15, 'pending': 2, 'reported': 2, 'deleted': 1})
+[PASS] Comment rows marker: 50 comments expected by generator
+[PASS] Vote rows count marker: single batch insert
+[PASS] Shop count: 5 shops
+[PASS] Shop dish count: 25 shop_dish
+[PASS] Shop dishes active: 25/25 active
+[PASS] Meal plan item count: 51 items
+[PASS] Meal plan dishes active: 51/51 active
+[PASS] Meal plan allergy safety: 51/51 pass seeded allergy rules
+[PASS] Self-check: POST-SEED VALIDATION: present
+[PASS] Self-check: every recipe must have 6 ingredients: present
+[PASS] Self-check: animal-derived ingredient used in recipe: present
+[PASS] Self-check: post.vote_count mismatch: present
+[PASS] Self-check: post.comment_count mismatch: present
+[PASS] Self-check: polymorphic report target: present
+[PASS] Self-check: shop references non-active dish: present
+[PASS] Self-check: meal plan references non-active dish: present
+[PASS] Self-check: duplicate meal slots in seed: present
+[PASS] Bcrypt format: $2b$10$...
