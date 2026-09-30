@@ -1,4 +1,6 @@
-// Khối chi tiết chỉ dùng trong AdminModerationPage, nhận dữ liệu qua props.
+// Tung's code: Chi tiết dùng riêng trong AdminModerationPage, nhận dữ liệu API
+// qua props. Case hiển thị toàn bộ report; comment đi cùng bài cha để có ngữ cảnh.
+// Nội dung người dùng luôn render bằng JSX text, không đưa vào HTML thô.
 import {
   Avatar, Chip, DataTable, Notice, Panel, Photo, YouTubeEmbed,
 } from '../components';
@@ -19,7 +21,7 @@ const POST_ACTION_LABELS = {
   UPDATE: 'Cập nhật bài', HIDE: 'Ẩn bài',
 };
 const REPORT_ACTION_LABELS = {
-  ACCEPT: 'Chấp nhận gỡ bài', REJECT: 'Từ chối gỡ bài',
+  ACCEPT: 'Chấp nhận báo cáo', REJECT: 'Từ chối báo cáo',
   REVIEW: 'Xem xét báo cáo', UPDATE: 'Cập nhật báo cáo',
 };
 
@@ -32,24 +34,65 @@ const historyColumns = (labels) => [
 const POST_HISTORY_COLUMNS = historyColumns(POST_ACTION_LABELS);
 const REPORT_HISTORY_COLUMNS = historyColumns(REPORT_ACTION_LABELS);
 
-export default function AdminModerationDetails({ post, report }) {
+// Tung's code: Danh sách mọi người gửi trong case; không dùng report mới nhất
+// làm đại diện lý do của cả nhóm. Backend đã xếp mới nhất trước.
+const CASE_REPORT_COLUMNS = [
+  { key: 'id', header: 'Mã report', render: row => `#${row.id}`, width: 100 },
+  { key: 'reporterName', header: 'Người báo cáo', primary: true, render: row => row.reporterName || row.reporterEmail || `Tài khoản #${row.reporterId}` },
+  { key: 'reasonCode', header: 'Lý do', render: row => REPORT_REASON[row.reasonCode] || row.reasonCode },
+  { key: 'reasonText', header: 'Mô tả', render: row => <div className={styles.content}>{row.reasonText || 'Không có mô tả thêm.'}</div> },
+  { key: 'createdAt', header: 'Ngày gửi', render: row => dateLabel(row.createdAt) },
+];
+const CASE_HISTORY_COLUMNS = [
+  { key: 'reportId', header: 'Mã report', render: row => `#${row.reportId}`, width: 100 },
+  ...REPORT_HISTORY_COLUMNS,
+];
+const COMMENT_HISTORY_COLUMNS = historyColumns({ REMOVE: 'Xóa bình luận', HIDE: 'Ẩn bình luận', DELETE: 'Xóa bình luận', UPDATE: 'Cập nhật bình luận' });
+
+export default function AdminModerationDetails({ post, reportCase, reports = [], comment }) {
   return (
     <div className={styles.details}>
-      {report && (
-        <Panel title={`Báo cáo #${report.id}`} icon="flag">
+      {/* Tung's code: Quyết định/người xử lý lấy từ case, không từ một report bất kỳ. */}
+      {reportCase && (
+        <Panel title={`Nhóm báo cáo #${reportCase.id}`} icon="flag">
           <dl className={styles.facts}>
-            <dt>Người báo cáo</dt><dd>{report.reporterName || report.reporterEmail}</dd>
-            <dt>Lý do</dt><dd>{REPORT_REASON[report.reasonCode] || report.reasonCode}</dd>
-            <dt>Nội dung</dt><dd className={styles.content}>{report.reasonText || 'Không có mô tả thêm.'}</dd>
-            <dt>Ngày gửi</dt><dd>{dateLabel(report.createdAt)}</dd>
-            <dt>Quyết định gỡ bài</dt><dd><ReportModerationStatus status={report.status} /></dd>
-            {report.handledAt && <><dt>Đã xử lý</dt><dd>{report.handlerName || report.handlerEmail || 'Admin'} · {dateLabel(report.handledAt)}</dd></>}
-            {report.resolutionNote && <><dt>Kết quả</dt><dd className={styles.content}>{report.resolutionNote}</dd></>}
+            <dt>Đối tượng</dt><dd>{reportCase.targetType === 'comment' ? 'Bình luận' : 'Bài viết'} #{reportCase.targetId}</dd>
+            <dt>Số báo cáo</dt><dd>{reportCase.reportCount}</dd>
+            <dt>Mở nhóm lúc</dt><dd>{dateLabel(reportCase.createdAt)}</dd>
+            <dt>Báo cáo gần nhất</dt><dd>{dateLabel(reports[0]?.createdAt)}</dd>
+            <dt>Trạng thái nhóm</dt><dd><ReportModerationStatus status={reportCase.status} targetType={reportCase.targetType} /></dd>
+            {reportCase.handledAt && <><dt>Đã xử lý</dt><dd>{reportCase.handlerName || reportCase.handlerEmail || 'Admin'} · {dateLabel(reportCase.handledAt)}</dd></>}
+            {reportCase.resolutionNote && <><dt>Kết quả</dt><dd className={styles.content}>{reportCase.resolutionNote}</dd></>}
           </dl>
         </Panel>
       )}
 
+      {reportCase && <Panel title={`Các báo cáo trong nhóm · ${reports.length}`} icon="people" flush>
+        <DataTable columns={CASE_REPORT_COLUMNS} rows={reports} caption="Tất cả người báo cáo và lý do, mới nhất trước"
+          empty={{ title: 'Nhóm chưa có báo cáo' }} />
+      </Panel>}
+
+      {/* Tung's code: Comment là đối tượng cần xử lý; bài cha bên dưới chỉ cung
+          cấp ngữ cảnh. Chấp nhận case này không gỡ bài cha. */}
+      {reportCase?.targetType === 'comment' && comment && <>
+        <Panel title={`Bình luận #${comment.id}`} icon="chat-left-text">
+          <dl className={styles.facts}>
+            <dt>Tác giả</dt><dd>{comment.authorName || comment.authorEmail || `Tài khoản #${comment.authorId}`}</dd>
+            <dt>Trạng thái</dt><dd>{{ public: 'Công khai', hidden: 'Đang ẩn', deleted: 'Đã xóa' }[comment.status] || comment.status}</dd>
+            <dt>Ngày gửi</dt><dd>{dateLabel(comment.createdAt)}</dd>
+            <dt>Bài viết chứa bình luận</dt><dd>{post?.title || `Bài #${comment.postId} không còn tồn tại`}</dd>
+          </dl>
+          <div className={`${styles.content} mt-3`}>{comment.content}</div>
+        </Panel>
+        <Panel title="Nhật ký thao tác trên bình luận" icon="clock-history" flush>
+          <DataTable columns={COMMENT_HISTORY_COLUMNS} rows={comment.history || []}
+            caption="20 thao tác quản trị gần nhất của bình luận" empty={{ title: 'Chưa có thao tác quản trị' }} />
+        </Panel>
+        {!post && <Notice tone="info" title="Bài viết chứa bình luận không còn tồn tại">Thông tin bình luận và các báo cáo vẫn được giữ để xử lý.</Notice>}
+      </>}
+
       {post && <>
+      {reportCase?.targetType === 'comment' && <h2 className={styles.postTitle}>Bài viết chứa bình luận</h2>}
       <h3 className={styles.postTitle}>{post.title}</h3>
       <div className={styles.metadata}>
         <Avatar name={post.authorName || post.authorEmail} src={post.authorAvatarUrl} size={32} />
@@ -60,17 +103,9 @@ export default function AdminModerationDetails({ post, report }) {
         <PostModerationStatus status={post.status} />
       </div>
 
-      {post.status === 'reported' && (
-        <Notice tone="info" title="Bài vẫn công khai — có báo cáo">
-          Báo cáo chưa phải kết luận vi phạm. Bài tiếp tục hiển thị công khai trong khi chờ xử lý;
-          chỉ bị gỡ khi Admin chấp nhận gỡ bài và chuyển sang Đã xóa.
-        </Notice>
-      )}
-      {post.moderationNote && (
-        <Notice tone={post.status === 'deleted' ? 'alert' : 'info'} title="Lý do xử lý bài viết">
-          {post.moderationNote}
-        </Notice>
-      )}
+      {/* Tung's code: Bỏ hai khối thông báo trạng thái và lý do xử lý bài viết
+          theo yêu cầu rút gọn giao diện. Lý do của case và nhật ký vẫn hiển thị
+          tại phần tương ứng; dữ liệu moderationNote trong DB không bị thay đổi. */}
       <dl className={styles.facts}>
         <dt>Mã bài</dt><dd>#{post.id}</dd>
         <dt>Ngày gửi</dt><dd>{dateLabel(post.createdAt)}</dd>
@@ -110,15 +145,15 @@ export default function AdminModerationDetails({ post, report }) {
           empty={{ title: 'Chưa có thao tác quản trị' }} />
       </Panel>
       </>}
-      {report && (
-        <Panel title="Nhật ký xử lý báo cáo này" icon="clock-history" flush>
+      {reportCase && (
+        <Panel title="Nhật ký xử lý các báo cáo trong nhóm" icon="clock-history" flush>
           <p className="px-3 pt-3 mb-2 text-muted">
-            Chỉ ghi thao tác trên báo cáo #{report.id}. Chấp nhận gỡ bài được ghi ở đây;
-            nếu bài được gỡ, thao tác gỡ bài được ghi riêng trong nhật ký bài viết.
+            Một quyết định áp dụng cho cả nhóm và được ghi nhận trên từng báo cáo.
+            Thao tác gỡ bài hoặc xóa bình luận được ghi riêng trên nội dung tương ứng.
           </p>
-          <DataTable columns={REPORT_HISTORY_COLUMNS} rows={report.history || []}
-            caption="20 thao tác quản trị gần nhất của báo cáo"
-            empty={{ title: 'Báo cáo chưa được xử lý' }} />
+          <DataTable columns={CASE_HISTORY_COLUMNS} rows={reportCase.history || []}
+            caption="100 thao tác quản trị gần nhất trên các báo cáo trong nhóm"
+            empty={{ title: 'Nhóm báo cáo chưa được xử lý' }} />
         </Panel>
       )}
     </div>

@@ -10,9 +10,18 @@ router.get('/posts', controller.listPosts);
 router.get('/posts/:postId', controller.getPost);
 router.patch('/posts/:postId', controller.decidePost);
 
-// Module này chỉ xử lý report target_type=post; không nhận comment/recipe.
-router.get('/reports', controller.listReports);
-router.get('/reports/:reportId', controller.getReport);
-router.patch('/reports/:reportId', controller.decideReport);
+// Tung's code: Kiểm duyệt theo case cho cả post và comment; vẫn nằm sau
+// requireAuth + requireAdmin, không cho Member gọi API quản trị trực tiếp.
+router.get('/cases', controller.listCases);
+router.get('/cases/:caseId', controller.getCase);
+router.patch('/cases/:caseId', controller.decideCase);
+
+// Tung's code: Client cũ có thể còn tab đang mở. Trả 410 thay vì tiếp tục xử lý
+// từng report, vì cập nhật riêng lẻ sẽ làm report lệch trạng thái với case.
+const retiredReports = (_req, res) => res.status(410).json({
+  message: 'Luồng báo cáo đã chuyển sang xử lý theo nhóm. Vui lòng tải lại trang.',
+});
+router.all('/reports', retiredReports);
+router.all('/reports/:reportId', retiredReports);
 
 module.exports = router;
