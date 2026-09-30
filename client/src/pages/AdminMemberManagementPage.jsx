@@ -155,6 +155,7 @@ export default function AdminMemberManagementPage() {
         />
       </div>
     </div>
+    </AdminLayout>
   );
 
   const adminUser = { name: user?.fullName || 'Quản trị viên', avatarUrl: user?.avatarUrl || '' };

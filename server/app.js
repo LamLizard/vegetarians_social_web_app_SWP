@@ -25,6 +25,7 @@ app.use('/api/admin/moderation', postModerationRoutes);
 // Duy's code: Kết nối API quản lý tài khoản thành viên cho trang Admin.
 app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 
+app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
 

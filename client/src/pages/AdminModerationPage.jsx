@@ -11,16 +11,6 @@ import AdminModerationDetails from './AdminModerationDetails';
 import { PostModerationStatus, ReportModerationStatus } from './postModerationPresentation';
 import styles from './AdminModerationPage.module.css';
 
-const NAV = [
-  { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
-  { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
-  // Cùng danh sách điều hướng với dashboard của Lâm; không đổi code dashboard.
-  { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
-  { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
-  { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
-  { divider: true },
-  { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
-];
 const TABS = [
   { key: 'post', label: 'Duyệt bài viết', icon: 'journal-text' },
   { key: 'report', label: 'Báo cáo bài viết', icon: 'flag' },
@@ -182,6 +172,7 @@ export default function AdminModerationPage() {
   const canDecide = !detailLoading && !detailError
     && (selected?.entity === 'post' ? post?.status === 'pending' : report?.status === 'pending');
   const canRemove = post && ['public', 'reported', 'deleted'].includes(post.status);
+  const handleLogout = () => { logout(); window.location.assign('/'); };
   const columns = query.tab === 'post' ? [
     { key: 'title', header: 'Bài viết', primary: true },
     { key: 'postType', header: 'Loại', render: row => row.postType === 'video' ? 'Video' : 'Blog', width: 85 },
@@ -208,9 +199,7 @@ export default function AdminModerationPage() {
   );
 
   return (
-    <AdminLayout nav={NAV} activeKey="moderation" title="Quản lý bài viết"
-      user={{ name: user.fullName || user.email, avatarUrl: user.avatarUrl }}
-      accountMenu={[{ icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }]}>
+    <AdminLayout activeKey="moderation" title="Quản lý bài viết" user={user} onLogout={handleLogout}>
       <PageHeader title="Quản lý bài viết" description="Duyệt bài blog/video và xử lý báo cáo vi phạm của bài viết."
         actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={loading}>Tải lại</Button>} />
       <Tabs items={TABS} value={query.tab} onChange={changeTab} label="Chọn danh sách quản trị bài viết" />

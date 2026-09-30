@@ -25,6 +25,7 @@ Khi được yêu cầu viết code cho repo này, BẮT BUỘC tuân thủ:
 ## 4. Format trả lời bắt buộc (thiếu mục = chưa đạt)
 - 📁 Vị trí file → 🧩 Cây component → 💻 Code → ✅ Checklist (tên file đúng? folder đúng? component tách? props rõ? không API call trong component?)
 - Format trả lời phải giống theo `docs/skill-answer-to-lam.md`
+- Khi người dùng nhờ 'tạo prompt', đọc `docs/skill-tao-prompt.md` và làm theo.
 
 ## 5. CẤM
 - Nhồi mọi thứ vào `App.jsx` • đặt sai folder • tên tự chế (`abc.js`,`NewFile2.jsx`) • component tự gọi fetch/axios • tạo folder mới không hỏi
