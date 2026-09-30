@@ -137,6 +137,7 @@ export default function AdminMemberManagementPage() {
   ];
 
   const filters = (
+    <AdminLayout>
     <div className="d-flex flex-column flex-sm-row gap-3 align-items-sm-center">
       <Checkbox
         checked={showOnlyReported}
