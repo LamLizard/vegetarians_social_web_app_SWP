@@ -36,6 +36,7 @@ import styles from './PostCard.module.css';
  * @param {string} [status]                  post.status (chỉ hiện khi isOwner)
  * @param {string} [moderationNote]          lý do bị ẩn / từ chối (hiện cho chủ bài)
  * @param {() => void} [onEdit] · [onDelete] (chủ bài) · [onReport] (người khác)
+ * @param {boolean} [reported]              người xem đã báo cáo bài này → mục báo cáo thành "Đã báo cáo" (không bấm được)
  * @param {() => void} [onOpen]     bấm tiêu đề / ảnh → mở bài tại chỗ (vd Modal ở bảng tin) thay vì đi tới href
  * @param {() => void} [onComment]  bấm nút bình luận → thay cho link `href#binh-luan`
  *
@@ -45,7 +46,7 @@ export default function PostCard({
   layout = 'card', postType = 'blog', title, excerpt, href = '#', linkAs,
   thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, viewCount, voted = false, onVote,
-  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, onOpen, onComment, className,
+  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, reported = false, onOpen, onComment, className,
 }) {
   const Link = linkAs || 'a';
   // onOpen có → vẫn giữ thẻ <a> (Ctrl+click, đọc màn hình vẫn đúng) nhưng chặn chuyển trang để mở tại chỗ
@@ -63,7 +64,10 @@ export default function PostCard({
       onEdit && onDelete && { divider: true },
       onDelete && { icon: 'trash3', label: 'Xoá bài', tone: 'alert', onClick: onDelete },
     ].filter(Boolean)
-    : [onReport && { icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', onClick: onReport }].filter(Boolean);
+    : [reported
+      ? { icon: 'flag-fill', label: 'Đã báo cáo', hint: 'Admin đang xem xét', disabled: true }
+      : onReport && { icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', onClick: onReport },
+    ].filter(Boolean);
 
   const menu = menuItems.length > 0 && (
     <Menu

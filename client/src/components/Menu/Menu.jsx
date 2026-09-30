@@ -6,7 +6,7 @@ import styles from './Menu.module.css';
  * Menu thả xuống (nút "…" trên bài viết, menu tài khoản, thông báo).
  * Bấm ra ngoài hoặc Esc để đóng.
  * @param {(props)=>React.ReactNode} renderTrigger  nhận props phải gắn vào nút mở menu
- * @param {{icon?:string, label:string, onClick?:()=>void, tone?:'alert', hint?:string}[]} items
+ * @param {{icon?:string, label:string, onClick?:()=>void, tone?:'alert', hint?:string, disabled?:boolean}[]} items
  *        phần tử { divider: true } = đường kẻ ngăn cách
  * @param {(close:()=>void)=>React.ReactNode} children  dùng thay items khi cần nội dung tự do
  * @param {'start'|'end'} align  canh menu theo mép trái / phải của nút
@@ -50,6 +50,7 @@ export default function Menu({ renderTrigger, items, align = 'end', side = 'bott
                 key={it.label}
                 type="button"
                 role="menuitem"
+                disabled={it.disabled}
                 className={cx(styles.item, it.tone === 'alert' && styles.alert)}
                 onClick={() => { close(); it.onClick?.(); }}
               >

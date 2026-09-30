@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "545b0f5c-1b54-4be3-982b-5c5eaca6d684",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\candidate.json",
+  "output": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\app-overview.html",
+  "specification": {
+    "sha256": "0ca5d968ef1506001e8b23f5214657236f88aa77f3c21248fa0cb82cf7e5f12d",
+    "bytes": 5112
+  },
+  "artifact": {
+    "sha256": "4f5b907ca84ef0928bd3c0fda25366ac307b9b8c1b8b7e363d26cf77affabc83",
+    "bytes": 759269
+  }
+}

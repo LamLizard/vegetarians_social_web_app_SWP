@@ -16,6 +16,13 @@ function parseId(value, label = 'ID') {
   return s;
 }
 
+/** cursor = "<micro giây>_<post_id>" do chính BE trả ở trang trước */
+function parseCursor(value) {
+  const m = /^(\d{1,19})_([1-9]\d{0,17})$/.exec(String(value));
+  if (!m) throw new PostError(400, 'cursor không hợp lệ.');
+  return { time: m[1], id: m[2] };
+}
+
 function parseLimit(value) {
   if (value === undefined) return 10;
   const n = Number(value);
@@ -47,7 +54,7 @@ async function getPreview(req, res) {
 
 /** GET /api/posts?cursor=&limit=&q= — thành viên */
 async function getFeed(req, res) {
-  const cursor = req.query.cursor ? parseId(req.query.cursor, 'cursor') : null;
+  const cursor = req.query.cursor ? parseCursor(req.query.cursor) : null;
   const limit = parseLimit(req.query.limit);
   const q = String(req.query.q ?? '').trim();
   if (q.length > 100) throw new PostError(400, 'Từ khoá tối đa 100 ký tự.');
