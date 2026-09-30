@@ -137,7 +137,7 @@ export default function AdminMemberManagementPage() {
   ];
 
   const filters = (
-    <AdminLayout>
+    
     <div className="d-flex flex-column flex-sm-row gap-3 align-items-sm-center">
       <Checkbox
         checked={showOnlyReported}
@@ -156,7 +156,7 @@ export default function AdminMemberManagementPage() {
         />
       </div>
     </div>
-    </AdminLayout>
+    
   );
 
   const adminUser = { name: user?.fullName || 'Quản trị viên', avatarUrl: user?.avatarUrl || '' };
