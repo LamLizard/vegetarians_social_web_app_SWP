@@ -5,6 +5,8 @@ import { Spinner } from './components';
 import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
+import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
@@ -51,9 +53,13 @@ export default function App() {
   const feed = (
     <PostFeedPage
       user={user}
-      accountMenu={[{ icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }]}
+      accountMenu={[ /* Duy's code: Danh sách thao tác tài khoản trong menu avatar. */
+        ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
+        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
+      ] /* Duy's code: Kết thúc danh sách thao tác tài khoản. */}
     />
   );
+  if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.
@@ -65,6 +71,7 @@ export default function App() {
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
   }
+  if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
   // Quản trị viên → khu quản trị

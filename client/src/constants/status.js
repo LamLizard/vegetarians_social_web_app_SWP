@@ -73,6 +73,7 @@ export const STATUS = {
   /** account.status */
   account: {
     active:  { label: 'Hoạt động', tone: 'ok',      icon: 'check-circle' },
+    reported: { label: 'Bị báo cáo', tone: 'warn', icon: 'flag' },/*Duy's code : thêm trạng thái reported cho account */
     locked:  { label: 'Bị khoá',   tone: 'bad',     icon: 'lock' },
     deleted: { label: 'Đã xoá',    tone: 'neutral', icon: 'person-x' },
   },

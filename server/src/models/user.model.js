@@ -2,7 +2,7 @@ const pool = require('../config/db');
 
 async function findProfileById(accountId) {
   const { rows } = await pool.query(
-    `SELECT account_id AS id, email, full_name AS "displayName",
+    `SELECT account_id AS id, email, full_name AS "fullName",
           avatar_url AS avatar, status
      FROM public.account
      WHERE account_id = $1 AND status <> 'deleted'`,
@@ -21,16 +21,17 @@ async function findPasswordHashById(accountId) {
   return rows[0]?.password_hash ?? null;
 }
 
-async function updateProfile(accountId, { displayName, passwordHash }) {
+async function updateProfile(accountId, { fullName, email, passwordHash }) { /* Duy's code: Nhận email cùng tên và password hash khi cập nhật hồ sơ. */
   const { rows } = await pool.query(
     `UPDATE public.account
      SET full_name = $2,
-         password_hash = COALESCE($3, password_hash),
+       email = $3, /* Duy's code: Lưu email hồ sơ vào cột đăng nhập hiện có. */
+       password_hash = COALESCE($4, password_hash),
          updated_at = NOW()
      WHERE account_id = $1 AND status = 'active'
-    RETURNING account_id AS id, email, full_name AS "displayName",
+    RETURNING account_id AS id, email, full_name AS "fullName",
       avatar_url AS avatar, status`,
-    [accountId, displayName, passwordHash],
+    [accountId, fullName, email, passwordHash], /* Duy's code: Truyền email đã chuẩn hoá theo đúng placeholder. */
   );
 
   return rows[0] ?? null;
