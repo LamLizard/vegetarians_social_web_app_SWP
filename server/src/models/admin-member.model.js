@@ -82,7 +82,7 @@ async function updateMemberStatus({ adminId, accountId, status }) {
        RETURNING account_id, status::text AS status`,
       [accountId, nextStatus],
     );
-    const action = status === 'locked' ? 'account_locked' : 'account_unlocked';
+    const action = status === 'locked' ? 'account_locked' : status === 'deleted' ? 'account_deleted' : 'account_unlocked'; // Duy's code: ghi riêng audit cho xóa mềm.
     // Duy's code: Ghi trạng thái trước và sau vào nhật ký Admin.
     await client.query(
       `INSERT INTO public.admin_log

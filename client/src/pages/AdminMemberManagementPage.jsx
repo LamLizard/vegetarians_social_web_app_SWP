@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AdminLayout, Button, Checkbox, DataTable, Notice, PageHeader, SearchInput, StatusBadge } from '../components'; // Duy's code: dùng StatusBadge.
+import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, Notice, PageHeader, SearchInput, StatusBadge } from '../components'; // Duy's code: thêm hộp xác nhận xóa.
 import useAuth from '../hooks/useAuth';
 import { getMembers, setMemberStatus } from '../services/admin-member.service';
 
@@ -13,6 +13,8 @@ const ADMIN_NAV = [
   { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
 ];
 
+const REPORT_REVIEW_THRESHOLD = 5; // Duy's code: từ 5 report đang chờ thì cần Admin xem xét.
+
 // Duy's code: Giao diện quản lý thành viên dùng component và theme token chung.
 export default function AdminMemberManagementPage() {
   const { user, logout } = useAuth();
@@ -21,6 +23,7 @@ export default function AdminMemberManagementPage() {
   const [members, setMembersState] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyMemberId, setBusyMemberId] = useState(null);
+  const [memberToDelete, setMemberToDelete] = useState(null); // Duy's code: lưu thành viên đang chờ xác nhận xóa.
   const [requestError, setRequestError] = useState('');
 
   useEffect(() => {
@@ -50,6 +53,22 @@ export default function AdminMemberManagementPage() {
     }
   };
 
+  const confirmDeleteMember = async () => { // Duy's code: xác nhận xóa mềm tài khoản.
+    if (!memberToDelete) return; // Duy's code: bỏ qua nếu không có mục tiêu.
+    setBusyMemberId(memberToDelete.id); // Duy's code: khóa thao tác trong lúc lưu.
+    setRequestError(''); // Duy's code: xóa lỗi cũ trước request.
+    try { // Duy's code: gọi API và chỉ ẩn dòng khi server thành công.
+      await setMemberStatus(memberToDelete.id, 'deleted'); // Duy's code: lưu status deleted trong DB.
+      setMembersState((current) => current.filter((row) => row.id !== memberToDelete.id)); // Duy's code: ẩn tài khoản khỏi bảng.
+      setMemberToDelete(null); // Duy's code: đóng hộp xác nhận sau khi xóa thành công.
+    } catch (error) { // Duy's code: giữ nguyên dữ liệu nếu API thất bại.
+      setRequestError(error.message); // Duy's code: hiển thị lỗi để Admin biết kết quả.
+      setMemberToDelete(null); // Duy's code: đóng hộp thoại để Notice lỗi trên trang hiển thị.
+    } finally { // Duy's code: luôn mở lại thao tác sau request.
+      setBusyMemberId(null); // Duy's code: kết thúc trạng thái đang xử lý.
+    } // Duy's code: kết thúc xác nhận xóa mềm.
+  }; // Duy's code: hoàn tất handler xóa.
+
   const columns = [
     {
       key: 'fullName',
@@ -69,9 +88,10 @@ export default function AdminMemberManagementPage() {
       key: 'status',
       header: 'Trạng thái',
       render: (row) => ( // Duy's code: tách report khỏi trạng thái truy cập.
-        <div className="d-flex flex-wrap gap-1"> {/* Duy's code: cho phép hiện hai nhãn. */}
+        <div className="d-flex flex-wrap gap-1"> {/* Duy's code: cho phép hiện các nhãn độc lập. */}
           <StatusBadge entity="account" status={row.status === 'locked' ? 'locked' : 'active'} /> {/* Duy's code: nhãn khóa/hoạt động. */}
-          {Number(row.reportedCount) >= 1 && <StatusBadge entity="account" status="reported" />} {/* Duy's code: nhãn khi còn report pending. */}
+          {row.status !== 'locked' && Number(row.reportedCount) >= 1 && <StatusBadge entity="account" status="reported" />} {/* Duy's code: ẩn Reported khi đã khóa, hiện lại sau mở khóa nếu còn pending. */}
+          {row.status !== 'locked' && Number(row.reportedCount) >= REPORT_REVIEW_THRESHOLD && <StatusBadge entity="account" status="reported" label="Cần xem xét" />} {/* Duy's code: chỉ hiện ngưỡng xem xét khi chưa khóa. */}
           {/* Duy's code: kết thúc nhóm trạng thái. */}</div>
       ), // Duy's code: render status account và report độc lập.
     },
@@ -101,6 +121,15 @@ export default function AdminMemberManagementPage() {
             loading={busyMemberId === row.id}
           >
             {row.status === 'locked' ? 'Mở khóa' : 'Khóa'}
+          </Button>
+          <Button
+            size="sm" // Duy's code: giữ nút xóa cùng kích thước hàng.
+            variant="alert" // Duy's code: đánh dấu thao tác xóa nguy hiểm.
+            icon="trash3" // Duy's code: biểu tượng xóa tài khoản.
+            onClick={() => setMemberToDelete(row)} // Duy's code: yêu cầu xác nhận trước khi xóa.
+            disabled={busyMemberId === row.id} // Duy's code: ngăn gửi trùng request.
+          >
+            Xóa {/* Duy's code: nhãn hành động xóa rõ ràng. */}
           </Button>
         </div>
       ),
@@ -143,7 +172,7 @@ export default function AdminMemberManagementPage() {
     >
       <PageHeader title="Quản lý thành viên" actions={filters} />
       {requestError && (
-        <Notice tone="alert" title="Không tải được danh sách thành viên">
+        <Notice tone="alert" title="Không thể xử lý yêu cầu quản lý thành viên"> {/* Duy's code: áp dụng cho lỗi tải, khóa/mở khóa và xóa. */}
           {requestError}
         </Notice>
       )}
@@ -156,6 +185,15 @@ export default function AdminMemberManagementPage() {
           title: loading ? 'Đang tải thành viên...' : 'Không tìm thấy thành viên',
           children: loading ? 'Đang lấy dữ liệu từ máy chủ.' : 'Thử thay đổi từ khóa hoặc bộ lọc.',
         }}
+      />
+      <ConfirmDialog
+        open={Boolean(memberToDelete)} // Duy's code: chỉ mở khi đã chọn thành viên.
+        title="Xóa tài khoản này?" // Duy's code: yêu cầu xác nhận rõ ràng.
+        message={memberToDelete ? `Tài khoản ${memberToDelete.fullName} sẽ bị ẩn khỏi danh sách, thông tin vẫn được giữ trong DB với trạng thái deleted.` : undefined} // Duy's code: giải thích đây là xóa mềm.
+        confirmLabel="Xóa tài khoản" // Duy's code: ghi rõ nút xác nhận.
+        loading={busyMemberId === memberToDelete?.id} // Duy's code: khóa xác nhận trong lúc lưu.
+        onConfirm={confirmDeleteMember} // Duy's code: gửi yêu cầu xóa sau xác nhận.
+        onCancel={() => setMemberToDelete(null)} // Duy's code: hủy xác nhận, không đổi dữ liệu.
       />
     </AdminLayout>
   );

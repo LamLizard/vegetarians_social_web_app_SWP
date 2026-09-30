@@ -14,11 +14,11 @@ async function setMemberStatus(req, res, next) {
   try {
     const { status } = req.body;
     const accountId = String(req.params.accountId);
-    if (!/^\d+$/.test(accountId) || !['active', 'locked'].includes(status)) {
+    if (!/^\d+$/.test(accountId) || !['active', 'locked', 'deleted'].includes(status)) { // Duy's code: cho phép xóa mềm bằng trạng thái deleted.
       return res.status(400).json({ message: 'Trạng thái hoặc mã thành viên không hợp lệ.' });
     }
     if (accountId === String(req.account.id)) { // Duy's code: dùng ID do middleware requireAuth gắn vào.
-      return res.status(400).json({ message: 'Không thể tự khóa tài khoản admin đang đăng nhập.' });
+      return res.status(400).json({ message: 'Không thể tự khóa hoặc xóa tài khoản quản trị đang đăng nhập.' }); // Duy's code: từ chối tự khóa/xóa Admin.
     }
 
     const member = await updateMemberStatus({ adminId: req.account.id, accountId, status }); // Duy's code: ghi audit theo Admin đã xác thực.
