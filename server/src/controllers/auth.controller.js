@@ -23,6 +23,7 @@ async function register(req, res) {
     const password = String(req.body?.password ?? '');
 
     if (fullName.length < 2) return reply(res, 400, { message: 'Vui lòng nhập họ và tên (ít nhất 2 ký tự).' });
+    if (email.length > 30) return reply(res, 400, { message: 'Email đăng ký không được vượt quá 30 ký tự.' });
     if (!EMAIL_RE.test(email)) return reply(res, 400, { message: 'Email không hợp lệ.' });
     if (password.length < 8 || password.length > 20) {
       return reply(res, 400, { message: 'Mật khẩu cần từ 8 đến 20 ký tự.' });

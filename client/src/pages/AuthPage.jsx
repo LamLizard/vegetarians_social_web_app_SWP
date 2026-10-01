@@ -73,6 +73,7 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
 
     // Luật validate + câu tiếng Việt giữ nguyên như cũ
     if (isRegister && form.fullName.trim().length < 2) return setError('Vui lòng nhập họ và tên.');
+    if (isRegister && form.email.trim().length > 30) return setError('Email đăng ký không được vượt quá 30 ký tự.');
     if (!EMAIL_RE.test(form.email.trim())) return setError('Vui lòng nhập email hợp lệ.');
     if (isRegister && (form.password.length < 8 || form.password.length > 20)) {
       return setError('Mật khẩu cần từ 8 đến 20 ký tự.');
@@ -142,6 +143,7 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
               required={isRegister}
               autoComplete="email"
               placeholder="ten@gmail.com"
+              maxLength={isRegister ? 30 : undefined}
               value={form.email}
               onChange={setField('email')}
             />
