@@ -92,7 +92,7 @@ async function decideAccountReportCase({ caseId, action, adminId }) {
     }
 
     const reportsResult = await client.query(
-      `SELECT report_id AS id, reporter_id AS "reporterId", status::text AS status
+      `SELECT report_id AS id, status::text AS status
        FROM public.report
        WHERE case_id = $1 AND target_type = 'account' AND target_id = $2
        ORDER BY report_id
