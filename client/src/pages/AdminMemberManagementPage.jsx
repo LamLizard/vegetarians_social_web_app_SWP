@@ -20,6 +20,7 @@ const REPORTED_ACCOUNT_PAGE_SIZE = 5; // Duy's code: giới hạn 5 tài khoản
 // Duy's code: Giao diện quản lý thành viên dùng component và theme token chung.
 export default function AdminMemberManagementPage() {
   const { user, logout } = useAuth();
+  const handleLogout = () => { logout(); window.location.assign('/'); };
   const [memberSearch, setMemberSearch] = useState(''); // Duy's code: tìm tên/email ở bảng thành viên.
   const [showLockedOnly, setShowLockedOnly] = useState(false); // Duy's code: chỉ lọc tài khoản đang khóa khi bật.
   const [memberPage, setMemberPage] = useState(1); // Duy's code: trang hiện tại của bảng thành viên.
@@ -236,9 +237,6 @@ export default function AdminMemberManagementPage() {
   ];
 
   const adminUser = { name: user?.fullName || 'Quản trị viên', avatarUrl: user?.avatarUrl || '' };
-  const accountMenu = [
-    { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
-  ];
 
   return (
     <AdminLayout
@@ -246,7 +244,7 @@ export default function AdminMemberManagementPage() {
       activeKey="accounts"
       title="Tài khoản"
       user={adminUser}
-      accountMenu={accountMenu}
+      onLogout={handleLogout}
     >
       <PageHeader title="Quản lý thành viên" />
       {requestError && (
