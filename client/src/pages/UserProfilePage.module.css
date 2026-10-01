@@ -1,0 +1,37 @@
+.page {
+  color: var(--ac-ink);
+}
+
+.card {
+  color: var(--ac-ink);
+  background-color: var(--ac-card);
+  border: 1px solid var(--ac-border) !important;
+  box-shadow: var(--ac-shadow) !important;
+}
+
+.title {
+  color: var(--ac-ink);
+}
+
+.eyebrow,
+.muted {
+  color: var(--ac-muted) !important;
+}
+
+.avatar {
+  color: var(--ac-ink);
+  background-color: var(--ac-tip-bg);
+  border-color: var(--ac-border) !important;
+}
+
+.errorAlert {
+  color: var(--ac-bad-fg);
+  background-color: var(--ac-bad-bg);
+  border-color: var(--ac-alert-line);
+}
+
+.successAlert {
+  color: var(--ac-ok-fg);
+  background-color: var(--ac-ok-bg);
+  border-color: var(--ac-ok-line);
+}
