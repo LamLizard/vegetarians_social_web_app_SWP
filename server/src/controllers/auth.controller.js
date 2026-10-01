@@ -2,7 +2,7 @@
 const bcrypt = require('bcrypt');
 const accountModel = require('../models/account.model');
 const { signToken } = require('../utils/jwt');
-
+//
 const BCRYPT_ROUNDS = 10;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
