@@ -39,7 +39,7 @@ async function requireAuth(req, res, next) {
     return res.status(500).json({ message: MSG_SERVER });
   }
 }
-
+//Gay//
 /**
  * requireAdmin — gắn SAU requireAuth cho route chỉ quản trị viên được gọi.
  * FE ẩn/hiện trang chỉ là lớp UI, chặn thật phải nằm ở đây.
