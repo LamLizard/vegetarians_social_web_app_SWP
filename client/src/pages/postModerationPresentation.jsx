@@ -13,9 +13,13 @@ export function PostModerationStatus({ status }) {
     : <StatusBadge entity="post" status={status} />;
 }
 
-export function ReportModerationStatus({ status }) {
+// Tung's code: Dùng cùng trạng thái report/case, nhưng nhãn thao tác phải đúng
+// target. Mặc định post để những chỗ thống kê report của bài vẫn giữ nhãn cũ.
+export function ReportModerationStatus({ status, targetType = 'post' }) {
   const config = REPORT_STATUSES[status];
+  const label = targetType === 'comment' && status === 'accepted' ? 'Đã chấp nhận xóa bình luận'
+    : targetType === 'comment' && status === 'rejected' ? 'Đã từ chối xóa bình luận' : config?.label;
   return config
-    ? <Chip className={config.className} icon={config.icon}>{config.label}</Chip>
+    ? <Chip className={config.className} icon={config.icon}>{label}</Chip>
     : <Chip>{status || 'Chưa xác định'}</Chip>;
 }

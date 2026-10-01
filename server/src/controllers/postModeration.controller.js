@@ -27,10 +27,24 @@ const getPost = handle((req) => model.getPost(parseId(req.params.postId)));
 const decidePost = handle((req) => model.decidePost(
   parseId(req.params.postId), parseDecision(req.body, 'post'), actor(req),
 ));
-const listReports = handle((req) => model.listReports(parseListQuery(req.query, 'report')));
-const getReport = handle((req) => model.getReport(parseId(req.params.reportId)));
-const decideReport = handle((req) => model.decideReport(
-  parseId(req.params.reportId), parseDecision(req.body, 'report'), actor(req),
+// Tung's code: Hai tab báo cáo dùng chung API case, phân biệt bằng targetType.
+// Chỉ nhận post/comment; không cho client mở rộng sang recipe hoặc đối tượng khác.
+function parseTargetType(value) {
+  if (value !== 'post' && value !== 'comment') {
+    throw new ModerationError(400, 'Loại đối tượng báo cáo không hợp lệ.');
+  }
+  return value;
+}
+
+const listCases = handle((req) => model.listCases({
+  ...parseListQuery(req.query, 'report'),
+  targetType: parseTargetType(req.query.targetType),
+}));
+// Tung's code: URL chứa caseId, không phải reportId; action/note giữ bộ kiểm tra
+// accept/reject và lý do 1–255 ký tự. Admin lấy từ tài khoản đã xác thực phía trên.
+const getCase = handle((req) => model.getCase(parseId(req.params.caseId)));
+const decideCase = handle((req) => model.decideCase(
+  parseId(req.params.caseId), parseDecision(req.body, 'report'), actor(req),
 ));
 
-module.exports = { listPosts, getPost, decidePost, listReports, getReport, decideReport };
+module.exports = { listPosts, getPost, decidePost, listCases, getCase, decideCase };

@@ -282,7 +282,6 @@ function AdminDemo() {
   const [delCat, setDelCat] = useState(null);
   const tabInfo = QUEUE_TABS.find((t) => t.key === tab);
   const counts = Object.fromEntries(Object.entries(queue).map(([k, v]) => [k, v.length]));
-  const totalPending = Object.values(counts).reduce((a, b) => a + b, 0);
 
   const rows = [...queue[tab]].sort((a, b) => {
     const d = sort.key === 'title' ? a.title.localeCompare(b.title, 'vi') : new Date(a.createdAt) - new Date(b.createdAt);
@@ -300,28 +299,30 @@ function AdminDemo() {
   };
 
   const go = (key) => { setPage('moderation'); setTab(key); setSelected([]); };
-  const nav = [
-    { key: 'dashboard', label: 'Tổng quan', icon: 'speedometer2', href: '#5-16' },
-    { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '#5-16', badge: totalPending },
-    { key: 'categories', label: 'Danh mục', icon: 'tags', href: '#5-16', count: cats.length },
-    { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '#5-16', count: 128 },
-    { divider: true },
-    { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '#5-12' },
-  ];
   const AdminLink = useMemo(() => function AdminLink({ to, onClick, ...rest }) {
-    return <a href={to} {...rest} onClick={(e) => { e.preventDefault(); onClick?.(e); const k = to.replace('#admin-', ''); if (k !== 'site') setPage(k); }} />;
+    return <a href={to} {...rest} onClick={(e) => {
+      e.preventDefault();
+      onClick?.(e);
+      const pageByHref = {
+        '/admin': 'dashboard',
+        '/admin/moderation': 'moderation',
+        '/admin/accounts': 'accounts',
+        '/admin/categories': 'categories',
+      };
+      const nextPage = pageByHref[to];
+      if (nextPage) setPage(nextPage);
+    }} />;
   }, []);
 
   return (
     <div className={styles.shellFrame}>
       <AdminLayout
         contained
-        nav={nav.map((n) => (n.divider ? n : { ...n, href: `#admin-${n.key}` }))}
         activeKey={page}
         linkAs={AdminLink}
-        title={nav.find((n) => n.key === page)?.label}
+        title={{ dashboard: 'Tổng quan', moderation: 'Kiểm duyệt', categories: 'Danh mục', accounts: 'Tài khoản' }[page]}
         user={ADMIN}
-        accountMenu={[{ icon: 'house-door', label: 'Về bảng tin' }, { divider: true }, { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert' }]}
+        onLogout={() => setPage('dashboard')}
       >
         {page === 'dashboard' && (
           <>
@@ -874,14 +875,12 @@ function MemberLayout() {
         code="5-13"
         title="AdminLayout"
         file="components/AdminLayout"
-        when="khung khu /admin: menu trái (số việc chờ nền vàng), thanh trên có đường dẫn, chế độ Đêm, tài khoản. Dưới 992px menu thành ngăn kéo. Demo đầy đủ ở 5-16."
+        when="khung khu /admin: menu trái cố định, thanh trên có đường dẫn và chế độ Đêm; nút đăng xuất ở cuối sidebar. Dưới 992px menu thành ngăn kéo. Demo đầy đủ ở 5-16."
         props={[
-          ['nav', '({key, label, icon, href, badge?, count?} | {divider: true})[]', '', 'badge = việc chờ'],
-          ['activeKey · linkAs · title', '', '', ''],
-          ['user · accountMenu · actions', '', '', ''],
+          ['activeKey · title · user', '', '', ''],
+          ['onLogout · linkAs · contained · children', '', '', ''],
         ]}
-        usage={`<AdminLayout nav={ADMIN_NAV.map((n) => ({ ...n, badge: n.key === 'moderation' ? pendingTotal : undefined }))}
-  activeKey={key} linkAs={Link} title={current.label} user={admin} accountMenu={items}>
+        usage={`<AdminLayout activeKey={key} linkAs={Link} title={title} user={admin} onLogout={logout}>
   <Outlet />
 </AdminLayout>`}
       >

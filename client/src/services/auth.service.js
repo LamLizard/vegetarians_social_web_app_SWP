@@ -1,4 +1,4 @@
-// các hàm gọi API: register() login() getMe() changePassword()
+// Các hàm auth gọi API: register() · login() · getMe(). Đổi mật khẩu thuộc module Hồ sơ.
 import { apiFetch } from './api';
 
 const json = (body) => ({ method: 'POST', body: JSON.stringify(body) });
@@ -16,9 +16,6 @@ const authService = {
     return apiFetch('/auth/me');
   },
 
-  changePassword(payload) {
-    return apiFetch('/auth/change-password', json(payload));
-  },
 };
 
 export default authService;

@@ -8,6 +8,8 @@
 //  - Feed thành viên: bài mới ĐĂNG nhất trước = published_at (lúc Admin duyệt), không phải created_at.
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
+// Tung's code: Điểm nối Bảng tin của Khôi với module gom báo cáo theo case.
+const { getOrCreatePendingCase } = require('./reportCase.model');
 
 const VISIBLE = `p.status IN ('public', 'reported')`;
 // Lúc bài lên feed. Bài nhập tay/seed có thể thiếu published_at → lấy created_at cho khỏi mất bài.
@@ -148,14 +150,37 @@ async function findComments(postId, viewerId) {
   return rows;
 }
 
-/** Từ khoá cấm mức 'block' đầu tiên có trong nội dung (không có → null) */
-async function findBlockedKeyword(text, scope) {
+//BIÊN BẢN : POST.KHOILA.1
+// Code cũ của Khôi — tạm ngưng vì schema banned_keyword hiện chỉ có
+// keyword_id, keyword, normalized_keyword. Các cột is_active, severity, scope
+// và enum banned_keyword_scope_enum không còn tồn tại; truy vấn cũ gây lỗi SQL
+// ở bước lọc từ cấm, khiến gửi bình luận trả 500 trước khi INSERT comment.
+// Giữ lại nguyên hàm để đối chiếu với cách xử lý theo schema cũ.
+// async function findBlockedKeyword(text, scope) {
+//   const { rows } = await pool.query(`
+//     SELECT keyword FROM banned_keyword
+//     WHERE is_active AND severity = 'block' AND scope IN ($2::banned_keyword_scope_enum, 'both')
+//       AND strpos(lower($1), lower(keyword)) > 0
+//     LIMIT 1
+//   `, [text, scope]);
+//   return rows[0]?.keyword ?? null;
+// }
+
+// Fix cho Khôi: Lọc từ cấm theo cột keyword của schema hiện tại, giữ cách tìm
+// chuỗi con không phân biệt hoa/thường và trả keyword hoặc null như trước.
+// Chưa có quy ước chuẩn hóa chung nên không suy đoán cách dùng normalized_keyword.
+// Schema không còn mức độ/phạm vi/bật tắt: mọi keyword trong bảng đều áp dụng
+// cho bình luận. Giữ tham số _scope để controller vẫn gọi (content, 'comment').
+async function findBlockedKeyword(text, _scope) {
   const { rows } = await pool.query(`
     SELECT keyword FROM banned_keyword
-    WHERE is_active AND severity = 'block' AND scope IN ($2::banned_keyword_scope_enum, 'both')
-      AND strpos(lower($1), lower(keyword)) > 0
+    WHERE btrim(keyword) <> ''
+      AND strpos(lower($1::text), lower(keyword)) > 0
+    ORDER BY keyword_id
     LIMIT 1
-  `, [text, scope]);
+  `, [text]);
+  // Fix cho Khôi: Bỏ keyword rỗng để tránh khớp mọi bình luận; tham số hóa
+  // nội dung bằng $1. Controller vẫn trả 422 khi tìm thấy từ cấm.
   return rows[0]?.keyword ?? null;
 }
 
@@ -206,36 +231,57 @@ async function createComment(postId, authorId, content) {
  *  - Không tự báo cáo nội dung của mình · không gửi trùng khi báo cáo cũ còn 'pending'.
  *  - Bài 'public' bị báo cáo → 'reported' (vẫn hiện trong feed).
  */
+//BIÊN BẢN POST.LAK.2
 async function createReport({ reporterId, targetType, targetId, reasonCode, reasonText }) {
   return transaction(async (client) => {
     if (targetType === 'post') {
       const post = await lockVisiblePost(client, targetId);
       if (post.authorId === String(reporterId)) throw new PostError(400, 'Bạn không thể báo cáo bài viết của chính mình.');
     } else {
+      // Tung's code: Khóa bài cha trước, rồi mới khóa comment và case. Admin
+      // cũng dùng thứ tự này khi xóa comment và giảm comment_count, tránh
+      // deadlock và tránh nhận report khi bài cha vừa bị gỡ đồng thời.
+      const parent = await client.query('SELECT post_id FROM comment WHERE comment_id = $1', [targetId]);
+      if (!parent.rows[0]) throw new PostError(404, 'Bình luận không tồn tại hoặc đã bị gỡ.');
+      await lockVisiblePost(client, parent.rows[0].post_id);
       const { rows } = await client.query(`
         SELECT c.author_id::text AS "authorId" FROM comment c JOIN post p ON p.post_id = c.post_id
-        WHERE c.comment_id = $1 AND c.status = 'public' AND ${VISIBLE}
-      `, [targetId]);
+        WHERE c.comment_id = $1 AND c.post_id = $2 AND c.status = 'public' AND ${VISIBLE}
+        FOR UPDATE OF c
+      `, [targetId, parent.rows[0].post_id]);
       if (!rows[0]) throw new PostError(404, 'Bình luận không tồn tại hoặc đã bị gỡ.');
       if (rows[0].authorId === String(reporterId)) throw new PostError(400, 'Bạn không thể báo cáo bình luận của chính mình.');
     }
 
+    // Tung's code: Case phải có trước INSERT vì report.case_id là NOT NULL.
+    // Kiểm tra target/tự báo cáo phía trên vẫn giữ trách nhiệm của Bảng tin.
+    const caseId = await getOrCreatePendingCase(client, targetType, targetId);
     const dup = await client.query(`
       SELECT 1 FROM report
-      WHERE reporter_id = $1 AND target_type = $2::report_target_type_enum AND target_id = $3 AND status = 'pending'
-    `, [reporterId, targetType, targetId]);
+      WHERE reporter_id = $1 AND case_id = $2
+    `, [reporterId, caseId]);
     if (dup.rows[0]) throw new PostError(409, 'Bạn đã báo cáo nội dung này rồi, Admin đang xem xét.');
 
     const { rows } = await client.query(`
-      INSERT INTO report (reporter_id, target_type, target_id, reason_code, reason_text)
-      VALUES ($1, $2::report_target_type_enum, $3, $4::report_reason_code_enum, $5)
+      INSERT INTO report (reporter_id, target_type, target_id, reason_code, reason_text, case_id)
+      VALUES ($1, $2::report_target_type_enum, $3, $4::report_reason_code_enum, $5, $6)
       RETURNING report_id::text AS id
-    `, [reporterId, targetType, targetId, reasonCode, reasonText]);
+    `, [reporterId, targetType, targetId, reasonCode, reasonText, caseId]);
 
+    // Tung's code: Giữ hành vi cũ của Khôi: reported vẫn hiện trên feed;
+    // không cập nhật post lần thứ hai, không đổi trạng thái comment khi gửi report.
     if (targetType === 'post') {
       await client.query(`UPDATE post SET status = 'reported', updated_at = now() WHERE post_id = $1 AND status = 'public'`, [targetId]);
     }
-    return rows[0];
+    // Tung's code: id vẫn là report ID để giữ hợp đồng cũ; caseId là thông tin bổ sung.
+    return { ...rows[0], caseId };
+  }).catch(error => {
+    // Tung's code: Transaction đã rollback trước khi đổi lỗi unique thành 409.
+    // Chỉ bắt index gửi trùng trong case; lỗi SQL khác vẫn được báo như trước.
+    if (error.code === '23505' && error.constraint === 'uq_report_case_reporter') {
+      throw new PostError(409, 'Bạn đã báo cáo nội dung này rồi, Admin đang xem xét.');
+    }
+    throw error;
   });
 }
 

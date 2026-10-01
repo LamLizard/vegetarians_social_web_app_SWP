@@ -40,13 +40,6 @@ async function create({ email, passwordHash, fullName }) {
   return rows[0];
 }
 
-async function updatePassword(accountId, passwordHash) {
-  await pool.query(
-    'UPDATE account SET password_hash = $1, updated_at = NOW() WHERE account_id = $2',
-    [passwordHash, accountId],
-  );
-}
-
 async function touchLastLogin(accountId) {
   await pool.query('UPDATE account SET last_login_at = NOW() WHERE account_id = $1', [accountId]);
 }
@@ -65,4 +58,4 @@ function toPublicAccount(row) {
   };
 }
 
-module.exports = { findByEmail, findById, create, updatePassword, touchLastLogin, toPublicAccount };
+module.exports = { findByEmail, findById, create, touchLastLogin, toPublicAccount };
