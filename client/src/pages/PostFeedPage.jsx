@@ -17,11 +17,12 @@
 //   └── LoginPrompt
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Button, Chip, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
+  Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
   ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
 } from '../components';
 import ColorAvatar from '../components/ColorAvatar/ColorAvatar';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
+import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
@@ -405,15 +406,16 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
           </div>
         </header>
 
+        {/* Chữ → thẻ chủ đề → hình, giống thẻ bài ngoài Bảng tin */}
+        {post.content && <p className={styles.content}>{post.content}</p>}
+
         {post.categories?.length > 0 && (
-          <div className={styles.chips}>{post.categories.map((c) => <Chip key={c.id}>{c.name}</Chip>)}</div>
+          <div className={cardStyles.tags}>{post.categories.map((c) => <span key={c.id} className={cardStyles.tag}>#{c.name}</span>)}</div>
         )}
 
         {post.type === 'video'
           ? <YouTubeEmbed url={post.youtubeUrl} title={post.title} />
           : post.thumbnailUrl && <Photo src={post.thumbnailUrl} ratio="16/9" shape="rounded" />}
-
-        {post.content && <p className={styles.content}>{post.content}</p>}
 
         <div className={styles.detailActions}>
           <VoteButton voted={post.isVoted} count={post.voteCount} onToggle={() => onVote(post)} />
