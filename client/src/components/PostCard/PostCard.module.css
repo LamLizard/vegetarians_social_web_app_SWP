@@ -63,6 +63,8 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
+  border: 0;               /* dùng được cho cả <a> lẫn <button> (onComment) */
+  background: transparent;
 }
 .footLink:hover { background: var(--ac-tip-bg); color: var(--ac-ink); }
 .spacer { flex: 1; }

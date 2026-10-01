@@ -1,0 +1,85 @@
+/* ================= Đầu bảng tin: lời chào + thẻ trăng ================= */
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 1rem 1.5rem;
+  margin: 0.5rem 0 1.4rem;
+}
+.dateLine { display: flex; flex-wrap: wrap; gap: 0.2rem 0.6rem; margin: 0 0 0.35rem; color: var(--ac-muted); font-size: 0.9rem; font-weight: 500; }
+.dateLunar { color: var(--ac-moss); font-weight: 600; }
+.greet { margin: 0; font-size: clamp(1.6rem, 2.6vw, 2.1rem); }
+
+/* Thẻ trăng: luôn là "bầu trời đêm" ở cả 2 chế độ */
+.moonCard {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 1.1rem 0.85rem 0.85rem;
+  border: 0;
+  border-radius: 22px 8px 22px 8px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(249, 166, 32, .16), transparent 55%),
+    linear-gradient(145deg, #203526, #0F1B14);
+  color: #EEF2E8;
+  text-align: left;
+  box-shadow: 0 14px 30px -18px rgba(14, 27, 20, .8);
+}
+.moonCard:focus-visible { outline: 3px solid var(--ac-highlight); outline-offset: 3px; }
+.moonText { display: flex; flex-direction: column; line-height: 1.25; }
+.moonText small { color: #B9C6B2; font-size: 0.76rem; }
+.moonText b { font-size: 1.12rem; font-weight: 800; letter-spacing: -0.02em; }
+.moonCta { margin-top: 0.3rem; color: #F7C96A; font-size: 0.76rem; font-weight: 600; }
+
+.moon {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(circle at 36% 34%, #FFF7DA 0%, #F4DE9E 58%, #E2C272 100%);
+  box-shadow: 0 0 24px rgba(249, 214, 130, .35);
+}
+.moonShadow { position: absolute; inset: -1px; border-radius: 50%; background: #16241B; opacity: .94; }
+
+@media (max-width: 767.98px) {
+  .header { grid-template-columns: 1fr; align-items: start; margin-top: 0.25rem; }
+  .moonCard { min-width: 0; }
+}
+
+/* ================= Vòng dinh dưỡng ================= */
+.rings { display: flex; align-items: center; gap: 1.1rem; }
+.ringsChart { position: relative; flex: none; }
+.ringsCenter { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.1; }
+.ringsCenter b { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.ringsCenter small { color: var(--ac-muted); font-size: 0.6rem; }
+.kcalRow { grid-template-columns: 1fr auto !important; padding-bottom: 0.35rem; border-bottom: 1px solid var(--ac-border); }
+.kcalRow span { color: var(--ac-ink) !important; font-weight: 700; }
+.ringsLegend { flex: 1; display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.ringsLegend li { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 0.45rem; font-size: 0.8rem; transition: opacity .15s; }
+.ringsLegend i { width: 10px; height: 10px; border-radius: 3px; }
+.ringsLegend span { color: var(--ac-muted); }
+.ringsLegend b { font-variant-numeric: tabular-nums; font-weight: 700; }
+.ringsLegend b small { color: var(--ac-muted); font-weight: 500; }
+.dim { opacity: .4; }
+
+/* ================= Khu vườn (bản đồ nhiệt ngày ăn chay) ================= */
+.garden { --cell: 15px; margin: 0; }
+.gardenScroll { overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.gardenGrid { display: grid; grid-template-rows: 16px repeat(7, var(--cell)); gap: 3px; width: max-content; }
+.gardenMonth { color: var(--ac-muted); font-size: 0.68rem; white-space: nowrap; }
+.gardenRow { align-self: center; color: var(--ac-muted); font-size: 0.64rem; }
+
+.cell { display: inline-block; width: var(--cell); height: var(--cell); border-radius: 4px; outline-offset: 1px; }
+.lv0 { background: var(--ac-track); }
+.lv1 { background: color-mix(in srgb, var(--ac-protein) 35%, var(--ac-track)); }
+.lv2 { background: color-mix(in srgb, var(--ac-protein) 65%, var(--ac-track)); }
+.lv3 { background: var(--ac-protein); }
+.cellVeg { box-shadow: inset 0 0 0 2px var(--ac-highlight); }
+.cell:focus-visible { outline: 2px solid var(--ac-ink); }
+
+.gardenFoot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; margin-top: 0.75rem; font-size: 0.78rem; color: var(--ac-muted); }
+.gardenInfo b { color: var(--ac-ink); }
+.gardenLegend { display: inline-flex; align-items: center; gap: 4px; }
+.gardenLegend .cell { width: 11px; height: 11px; border-radius: 3px; }
+.gardenLegend .cellVeg { margin-left: 10px; }

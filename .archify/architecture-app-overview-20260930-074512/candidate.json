@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kiến trúc tổng thể app Ăn Chay",
+    "output": ".archify/architecture-app-overview-20260930-074512/app-overview.html",
+    "quality_profile": "showcase",
+    "locale": "vi",
+    "repository": {
+      "url": "https://github.com/LamLizard/vegetarians_social_web_app_SWP.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "9792e6f38126b773dcca8a5117cb19bd8cf7e1eb"
+    }
+  },
+  "components": [
+    {
+      "id": "visitor", "type": "external", "label": "Người dùng", "sublabel": "khách / thành viên / admin",
+      "pos": [40, 40], "size": [150, 64],
+      "sources": [{ "path": "client/src/App.jsx", "line": 31, "end_line": 74, "label": "điều hướng theo vai trò" }]
+    },
+    {
+      "id": "react-fe", "type": "frontend", "label": "React FE", "sublabel": "React 19 + Vite · client/",
+      "pos": [290, 40], "size": [180, 64], "tag": "token ở localStorage",
+      "sources": [
+        { "path": "client/package.json", "line": 12, "end_line": 29, "label": "React 19, Vite" },
+        { "path": "client/src/services/api.js", "line": 1, "end_line": 43, "label": "apiFetch gắn Bearer" },
+        { "path": "client/src/context/AuthContext.jsx", "line": 12, "end_line": 17, "label": "lưu token" }
+      ]
+    },
+    {
+      "id": "express-be", "type": "backend", "label": "Express BE", "sublabel": "Express 5 · /api :5000",
+      "pos": [660, 40], "size": [180, 64], "tag": "requireAuth / requireAdmin",
+      "sources": [
+        { "path": "server/app.js", "line": 1, "end_line": 24, "label": "route đã mount" },
+        { "path": "server/src/middlewares/auth.js", "line": 8, "end_line": 52, "label": "chặn JWT + quyền admin" },
+        { "path": "server/src/utils/jwt.js", "line": 1, "end_line": 27, "label": "JWT 7 ngày" }
+      ]
+    },
+    {
+      "id": "neon-db", "type": "database", "label": "PostgreSQL (Neon)", "sublabel": "pg Pool · SSL",
+      "pos": [1030, 40], "size": [180, 64],
+      "sources": [
+        { "path": "server/src/config/db.js", "line": 1, "end_line": 9, "label": "Pool từ DATABASE_URL" },
+        { "path": "server/.env.example", "line": 5, "end_line": 6, "label": "Postgres/Neon" },
+        { "path": "server/src/models/post.model.js", "line": 10, "label": "model dùng pool" }
+      ]
+    },
+    {
+      "id": "image-cloud", "type": "cloud", "label": "Cloud lưu ảnh", "sublabel": "Cloudinary (dự kiến)",
+      "pos": [285, 250], "size": [190, 64], "tag": "planned",
+      "sources": [
+        { "path": "client/src/components/ImageUpload/ImageUpload.jsx", "line": 11, "end_line": 17, "label": "chỉ nhận hàm onUpload" },
+        { "path": "server/.env.example", "line": 15, "end_line": 17, "label": "biến Cloudinary đang tắt" }
+      ]
+    },
+    {
+      "id": "llm-api", "type": "external", "label": "LLM API", "sublabel": "trợ lý AI \"Mầm\"",
+      "pos": [655, 250], "size": [190, 64], "tag": "planned",
+      "sources": [
+        { "path": "client/src/components/AiTip/AiTip.jsx", "line": 7, "end_line": 12, "label": "chỉ có UI gợi ý AI" },
+        { "path": "client/src/constants/domain.js", "line": 14, "label": "AI_NAME" }
+      ]
+    }
+  ],
+  "connections": [
+    { "id": "open-app", "from": "visitor", "to": "react-fe", "label": "mở trang", "variant": "emphasis" },
+    { "id": "rest-calls", "from": "react-fe", "to": "express-be", "label": "fetch /api + Bearer JWT", "variant": "emphasis" },
+    { "id": "sql-queries", "from": "express-be", "to": "neon-db", "label": "SQL qua pg (SSL)" },
+    { "id": "upload-planned", "from": "react-fe", "to": "image-cloud", "label": "planned: upload ảnh", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "llm-planned", "from": "express-be", "to": "llm-api", "label": "planned: gọi LLM", "variant": "dashed", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Đã chạy thật",
+      "items": [
+        "app.js mount /api/auth, /api/posts, /api/admin/moderation",
+        "post.service: USE_MOCK = false, gọi BE thật",
+        "Model dùng chung pg Pool (Neon, SSL)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Bảo mật",
+      "items": [
+        "JWT 7 ngày, không refresh token; FE lưu ở localStorage",
+        "requireAuth: kiểm tra chữ ký, tài khoản còn và status = active",
+        "requireAdmin chặn /api/admin/moderation"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Có code nhưng chưa nối",
+      "items": [
+        "user.routes và admin-member.routes chưa mount trong app.js",
+        "user.service, admin-member.service import apiRequest (api.js không export)",
+        "admin.service: USE_MOCK = true, BE chưa có /admin/dashboard"
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Planned",
+      "items": [
+        "Ảnh: chưa có services/upload.js, env Cloudinary còn comment",
+        "LLM: không có SDK hay lời gọi API nào; bên gọi (BE hay FE) chưa chốt"
+      ]
+    }
+  ]
+}

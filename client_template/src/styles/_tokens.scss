@@ -1,0 +1,42 @@
+// =====================================================================
+//  DESIGN TOKENS — App Ăn Chay (theme A "Vườn Nhà" + điểm nhấn theme C)
+//  Muốn đổi màu cả app: CHỈ sửa file này.
+// =====================================================================
+
+// ---- NỀN – Theme A (khoảng 90% giao diện) ----
+$ac-moss:          #3D5A3D;  // xanh rêu – màu chính (nút, tab đang chọn, link)
+$ac-matcha:        #7A9B6E;  // xanh matcha – màu phụ (viền focus, icon)
+$ac-cream:         #FBF7EE;  // kem ngà – nền trang
+$ac-card:          #FFFDF8;  // ngà nhạt – nền thẻ
+$ac-ink:           #2A2620;  // nâu đen – chữ chính
+$ac-muted:         #6F675A;  // nâu xám – chữ phụ
+$ac-border:        #E8E0D0;  // viền mảnh
+$ac-border-strong: #CFC4AE;  // viền nút phụ
+$ac-track:         #EFE8DA;  // nền thanh tiến độ
+$ac-tip-bg:        #F2EDE0;  // nền hộp gợi ý
+
+// ---- ĐIỂM NHẤN – lấy từ Theme C (dưới 10% diện tích, tối đa 1 chỗ mỗi khu vực) ----
+$ac-highlight:     #F9A620;  // vàng cúc – "AI gợi ý", "MỚI". CHỈ làm nền, chữ luôn là $ac-ink
+$ac-alert:         #B7472A;  // đất nung – cảnh báo, hành động quan trọng
+$ac-alert-soft:    #FBF1EC;
+
+// ---- MÀU DỮ LIỆU DINH DƯỠNG (đã kiểm tra mù màu; gắn cố định với nhóm chất) ----
+$ac-protein:       #1D7A4A;  // đạm thực vật – xanh đậu
+$ac-carb:          #D4900A;  // carbs – vàng nghệ
+$ac-fat:           #B7472A;  // chất béo – đất nung
+$ac-fiber:         #7B4B94;  // chất xơ – tím khoai lang
+
+// ---- TRẠNG THÁI (luôn đi kèm icon + chữ, không dựa vào màu) ----
+$ac-ok-bg:      #E3F0E6;  $ac-ok-fg:      #1D5E38;
+$ac-warn-bg:    #FCEBC7;  $ac-warn-fg:    #6E4A00;
+$ac-bad-bg:     #F6DDD6;  $ac-bad-fg:     #8E3520;
+$ac-neutral-bg: #EFEAE0;  $ac-neutral-fg: #5A5347;
+
+// ---- CHỮ ----
+$ac-font-body: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$ac-font-head: $ac-font-body; // 1 font duy nhất cho dễ đọc (góp ý nhóm) – tiêu đề chỉ khác độ đậm
+
+// ---- BO GÓC ----
+$ac-radius:      8px;                       // nút, ô nhập
+$ac-radius-lg:   14px;                      // thẻ thường
+$ac-radius-leaf: 18px 6px 18px 6px;         // thẻ món ăn (bo lệch – nét riêng của app)

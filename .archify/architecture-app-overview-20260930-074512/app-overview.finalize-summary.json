@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\candidate.json",
+    "sha256": "0ca5d968ef1506001e8b23f5214657236f88aa77f3c21248fa0cb82cf7e5f12d",
+    "bytes": 5112
+  },
+  "artifact": {
+    "path": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\app-overview.html",
+    "sha256": "4f5b907ca84ef0928bd3c0fda25366ac307b9b8c1b8b7e363d26cf77affabc83",
+    "bytes": 759269
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\app-overview.finalize.json",
+    "summaryReceipt": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\app-overview.finalize-summary.json",
+    "browserCheckReceipt": "C:\\FPTU\\Ki_5\\SWP391\\vegetarians_social_web_app_SWP\\.archify\\architecture-app-overview-20260930-074512\\app-overview.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-09-30T00:34:21.522Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 3446
+}

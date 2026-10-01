@@ -1,0 +1,110 @@
+/* ================= Bộ thẻ quẹt "Hôm nay nấu gì?" ================= */
+.deck { display: grid; gap: 0.9rem; outline-offset: 6px; border-radius: 22px; }
+.stack { position: relative; height: 268px; margin-bottom: 26px; } /* chừa chỗ cho 2 thẻ lấp ló phía sau */
+.deckBig .stack { height: min(560px, 62vh); }
+
+.card {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 22px 8px 22px 8px;
+  background: var(--ac-card);
+  box-shadow: 0 18px 38px -22px rgba(14, 22, 17, .7);
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  transform-origin: 50% 90%;
+}
+.card:active { cursor: grabbing; }
+.cardImg { width: 100%; height: 100%; pointer-events: none; }
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 35% 0 0;
+  background: linear-gradient(transparent, rgba(12, 18, 14, .88));
+  pointer-events: none;
+}
+.cardBody { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: 1rem 1.1rem 1.05rem; color: #F4F6F1; }
+.cardMeta { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: 0.76rem; color: #D6DDD0; }
+.cardTitle { margin: 0.35rem 0 0; font-size: 1.12rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.deckBig .cardTitle { font-size: clamp(1.4rem, 2.6vw, 1.9rem); }
+.cardNote { margin: 0.4rem 0 0.7rem; max-width: 46ch; color: #D6DDD0; font-size: 0.9rem; line-height: 1.5; }
+.deckBig .cardBody :global(ul) { color: #D6DDD0; }
+.deckBig .cardBody :global(ul b) { color: #fff; }
+
+.diet { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.5rem; border-radius: 6px; background: rgba(143, 209, 165, .22); color: #CFEBD8; font-weight: 700; }
+.dietEgg { background: rgba(255, 255, 255, .16); color: #EDEDE6; }
+
+.stamp {
+  position: absolute;
+  top: 18px;
+  z-index: 2;
+  padding: 0.25rem 0.7rem;
+  border: 3px solid currentColor;
+  border-radius: 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.stampLike { left: 18px; color: #8FD1A5; transform: rotate(-10deg); background: rgba(14, 22, 17, .35); }
+.stampNope { right: 18px; color: #F2A48E; transform: rotate(10deg); background: rgba(14, 22, 17, .35); }
+
+.done {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px dashed var(--ac-border-strong);
+  border-radius: 22px 8px 22px 8px;
+  text-align: center;
+}
+.done i { font-size: 1.8rem; color: var(--ac-moss); }
+.done span { color: var(--ac-muted); font-size: 0.85rem; margin-bottom: 0.4rem; }
+
+.controls { display: flex; justify-content: center; gap: 0.9rem; }
+.ctl {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--ac-border-strong);
+  border-radius: 50%;
+  background: var(--ac-card);
+  color: var(--ac-muted);
+  font-size: 1.15rem;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.ctl:disabled { opacity: .4; }
+.ctlUndo { width: 40px; height: 40px; align-self: center; font-size: 0.95rem; }
+.ctlNope:hover:not(:disabled) { border-color: var(--ac-alert); color: var(--ac-alert); }
+.ctlLike { border-color: var(--ac-moss); background: var(--ac-moss); color: var(--ac-on-accent); }
+.ctlLike:hover:not(:disabled) { filter: brightness(1.08); }
+.deckBig .ctl { width: 60px; height: 60px; font-size: 1.4rem; }
+.deckBig .ctlUndo { width: 48px; height: 48px; font-size: 1.1rem; }
+
+/* ================= Dòng món nhỏ (DishMini) ================= */
+.mini { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem; border: 1px solid var(--ac-border); border-radius: 14px; background: var(--ac-card); }
+.miniImg { flex: none; width: 56px; height: 56px; border-radius: 12px 4px 12px 4px; }
+.miniText { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.miniText b { font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.miniText small { color: var(--ac-muted); font-size: 0.76rem; }
+.miniDiet { color: var(--ac-ok-fg) !important; font-weight: 600; }
+.miniDietEgg { color: var(--ac-neutral-fg) !important; }
+.miniSave {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--ac-border-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ac-muted);
+}
+.miniSave:hover { border-color: var(--ac-moss); color: var(--ac-moss); }
+.miniSaveOn, .miniSaveOn:hover { border-color: var(--ac-moss); background: var(--ac-moss); color: var(--ac-on-accent); }

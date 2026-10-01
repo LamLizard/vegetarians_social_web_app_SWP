@@ -78,13 +78,14 @@ export { default as NotificationList } from './NotificationList/NotificationList
 export { default as PageHeader } from './PageHeader/PageHeader';
 export { default as AppShell } from './AppShell/AppShell';
 export { default as Logo } from './AppShell/Logo';
+export { default as AdminSidebar } from './AdminSidebar/AdminSidebar';
 export { default as AdminLayout } from './AdminLayout/AdminLayout';
 
 // ---- Hằng số nghiệp vụ dùng chung -------------------------------------
 export * from '../constants/domain';
 export { STATUS, ENTITY_LABEL, getStatus } from '../constants/status';
 export { rules, validate, hasErrors, getYouTubeId } from '../utils/validate';
-export { timeAgo, formatDate, formatCount, formatNumber, formatPrice } from '../utils/format';
+export { timeAgo, formatDate, formatDateTime, formatCount, formatNumber, formatPrice } from '../utils/format';
 export { getOpenState, formatHours, formatDuration } from '../utils/time';
 export {
   newIngredientRow, parseAmount, formatAmount, scaleAmount, validateIngredients, cleanIngredients, isNoAmountUnit,

@@ -4,8 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node server.js",
     "dev": "node --watch server.js",
-    "db:test": "node src/config/test-db.js"
+    "db:test": "node src/config/test-db.js",
+    "check:dashboard": "node scripts/check-dashboard.js"
   },
   "keywords": [],
   "author": "",

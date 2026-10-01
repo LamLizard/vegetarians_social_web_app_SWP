@@ -1,0 +1,86 @@
+/* Thanh trên của Bảng tin — theo prototype UI v2.1 (src/v2/components/Topbar.module.css).
+   Bỏ chuông thông báo (chưa có chức năng). Ô tìm rộng bằng cột bảng tin (--feed-w). */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1040;
+  border-bottom: 1px solid var(--v-line);
+  background: var(--v-header-bg);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
+}
+.inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(var(--feed-w, 680px), 100% - 48px);
+  height: 64px;
+  margin-inline: auto;
+}
+
+.search {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 42px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--v-line);
+  border-radius: 12px;
+  background: var(--v-surface);
+  color: var(--v-muted);
+  transition: border-color .15s, box-shadow .15s;
+}
+.search:focus-within { border-color: var(--v-accent-line); box-shadow: 0 0 0 3px var(--v-accent-soft); }
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--v-text);
+  font-size: 0.93rem;
+}
+.search input:focus-visible { outline: 0 !important; } /* đè :focus-visible toàn cục (feed-theme.css); khung .search đã báo focus */
+.search input::placeholder { color: var(--v-muted); }
+.search input::-webkit-search-cancel-button { display: none; }
+.clear { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: var(--v-muted); }
+.clear:hover { color: var(--v-text); }
+
+.menuBtn {
+  display: none;
+  flex: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--v-line);
+  border-radius: 12px;
+  background: var(--v-surface);
+  color: var(--v-text-2);
+  font-size: 1.1rem;
+}
+.menuBtn:hover { border-color: var(--v-line-2); color: var(--v-text); }
+
+/* Khách trên điện thoại: thanh bên đang ẩn → cần lối Đăng nhập ngay trên thanh trên */
+.login {
+  display: none;
+  flex: none;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--v-accent);
+  color: var(--v-on-accent);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+@media (max-width: 767.98px) {
+  .menuBtn, .login { display: grid; }
+  .login { display: inline-flex; align-items: center; }
+  .inner { width: calc(100% - 24px); }
+  .search { height: 40px; }
+}
