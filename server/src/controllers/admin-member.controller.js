@@ -1,10 +1,34 @@
-const { findMembers, updateMemberStatus } = require('../models/admin-member.model');
+const { findMembers, listPendingAccountReports, decideAccountReportCase, updateMemberStatus } = require('../models/admin-member.model');
 
 async function listMembers(req, res, next) {
   try {
-    const showOnlyReported = req.query.reported === 'true';
-    const keyword = String(req.query.search ?? '').trim();
-    return res.json(await findMembers({ showOnlyReported, keyword }));
+    return res.json(await findMembers());
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Duy's code: filter tìm kiếm chỉ áp dụng cho hàng đợi account report.
+async function listAccountReports(req, res, next) {
+  try {
+    const keyword = String(req.query.search ?? '').trim().slice(0, 100);
+    return res.json(await listPendingAccountReports({ keyword }));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Duy's code: validate action và chuyển quyết định tới report_case hiện có.
+async function decideAccountReport(req, res, next) {
+  try {
+    const caseId = String(req.params.caseId);
+    const { action } = req.body;
+    if (!/^\d+$/.test(caseId) || !['accept', 'reject'].includes(action)) {
+      return res.status(400).json({ message: 'Mã báo cáo hoặc quyết định không hợp lệ.' });
+    }
+
+    const result = await decideAccountReportCase({ caseId, action, adminId: req.account.id });
+    return res.json(result);
   } catch (error) {
     return next(error);
   }
@@ -29,4 +53,4 @@ async function setMemberStatus(req, res, next) {
   }
 }
 
-module.exports = { listMembers, setMemberStatus };
+module.exports = { listMembers, listAccountReports, decideAccountReport, setMemberStatus };
