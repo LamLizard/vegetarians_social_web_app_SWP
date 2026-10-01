@@ -1,14 +1,41 @@
-/* Trang Bảng tin — chỉ dùng biến màu var(--ac-...) để chế độ Đêm tự đổi */
-.feed { display: grid; gap: 1rem; }
+/* Trang Bảng tin — bố cục theo prototype UI v2.1 (src/v2/App.module.css).
+   Màu: biến --v-* / --ac-* trong styles/feed-theme.css → Sáng/Tối tự đổi.
+   Chỉ giữ cột giữa (bảng tin); cột trái (lời chào, Mầm) và cột phải (hoạt động, quán) chưa có chức năng nên chưa dựng. */
+.shell { --feed-w: 680px; display: flex; align-items: flex-start; }
+.main { flex: 1; min-width: 0; }
+
+.feed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  width: min(var(--feed-w), 100% - 48px);
+  margin-inline: auto;
+  padding: 12px 0 96px;
+}
+
+.list { display: grid; gap: 18px; }
+
+/* Tiêu đề dính ngay dưới thanh trên */
+.feedHead {
+  position: sticky;
+  top: 64px;
+  z-index: 20;
+  margin: 0 -8px;
+  padding: 12px 8px;
+  background: linear-gradient(to bottom, var(--v-bg) 72%, transparent);
+}
+.feedTitle { margin: 0; color: var(--v-text); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; }
 
 .searchBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  color: var(--ac-muted);
+  margin-top: -6px;
+  color: var(--v-muted);
+  font-size: 0.9rem;
 }
-.searchBar b { color: var(--ac-ink); }
+.searchBar b { color: var(--v-text); }
 
 .guestActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
 
@@ -27,4 +54,30 @@
   justify-content: space-between;
   padding: 0.5rem 0;
   border-block: 1px solid var(--ac-border);
+}
+
+/* ---------- Điện thoại: thanh tab nổi dưới đáy ---------- */
+.mobileNav { display: none; }
+@media (max-width: 767.98px) {
+  .feed { width: calc(100% - 24px); padding: 4px 0 120px; }
+  .mobileNav {
+    position: fixed;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 1040;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    align-items: center;
+    height: 64px;
+    border: 1px solid var(--v-line-2);
+    border-radius: 22px;
+    background: var(--v-header-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: var(--v-shadow-pop);
+  }
+  .mItem { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--v-muted); font-size: 0.66rem; font-weight: 600; text-decoration: none; }
+  .mItem i { font-size: 1.2rem; }
+  .mOn { color: var(--v-accent-text); }
 }
