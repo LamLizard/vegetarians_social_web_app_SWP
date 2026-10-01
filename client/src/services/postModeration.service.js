@@ -20,7 +20,7 @@ function decide(entity, id, action, note) {
   });
 }
 
-// Tung's code: Hai tab report truyền targetType để phân trang/lọc trên case.
+// Tung's code: Hai tab report truyền targetType để phân trang/lọc trên case. oke
 // Comment không có bộ lọc loại bài; không mang postType từ tab post sang.
 function caseListPath(filters) {
   const query = new URLSearchParams({
