@@ -22,11 +22,14 @@ async function saveMyProfile(req, res, next) {
     const fullName = normalizeFullName(req.body?.fullName); /* Duy's code: Nhận đúng trường fullName của account. */
     const email = normalizeEmail(req.body?.email); /* Duy's code: Nhận email mới từ trang hồ sơ. */
     const { password, confirmPassword, currentPassword } = req.body; /* Duy's code: Nhận cả hai giá trị để backend xác thực mật khẩu mới. */
+    if (email.length > 30) {
+      return res.status(400).json({ message: 'Email không được vượt quá 30 ký tự.' });
+    }
     if (!EMAIL_REGEX.test(email)) { /* Duy's code: Từ chối email không khớp định dạng đã chốt. */
       return res.status(400).json({ message: 'Email chưa đúng định dạng, ví dụ ten@gmail.com' }); /* Duy's code: Trả lỗi xác thực email rõ ràng. */
     }
-    if ([...fullName].length < 2 || [...fullName].length > 120 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Khớp giới hạn full_name VARCHAR(120) và dạng tên người. */
-      return res.status(400).json({ message: 'Họ và tên phải dài 2-120 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.' }); /* Duy's code: Thông báo lỗi theo quy tắc họ tên mới. */
+    if ([...fullName].length < 2 || [...fullName].length > 20 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Khớp giới hạn tên 2-20 ký tự và dạng tên người. */
+      return res.status(400).json({ message: 'Họ và tên phải dài 2-20 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.' }); /* Duy's code: Thông báo lỗi theo quy tắc họ tên mới. */
     }
     const currentProfile = await findProfileById(req.account.id); /* Duy's code: Lấy đúng hồ sơ của tài khoản đã xác thực. */
     if (!currentProfile) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
@@ -46,7 +49,7 @@ async function saveMyProfile(req, res, next) {
     if (!password && confirmPassword) { /* Duy's code: Không nhận xác nhận mật khẩu nếu người dùng không nhập mật khẩu mới. */
       return res.status(400).json({ message: 'Hãy nhập mật khẩu mới trước khi xác nhận.' }); /* Duy's code: Giữ cặp mật khẩu mới nhất quán. */
     }
-    if (emailChanged || password) { /* Duy's code: Bắt buộc mật khẩu hiện tại khi đổi email hoặc đổi mật khẩu. */
+    if (emailChanged || password || currentPassword) { /* Duy's code: Xác thực khi đổi email, mật khẩu mới hoặc đã nhập mật khẩu hiện tại. */
       const passwordHash = await findPasswordHashById(req.account.id); /* Duy's code: Đọc hash mật khẩu của đúng tài khoản. */
       if (!passwordHash || !currentPassword || !(await bcrypt.compare(currentPassword, passwordHash))) {
         return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng.' });

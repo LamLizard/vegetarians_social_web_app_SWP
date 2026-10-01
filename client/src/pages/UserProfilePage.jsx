@@ -4,7 +4,7 @@ import { getProfile, updateProfile } from '../services/user.service';
 import { hasErrors } from '../utils/validate';
 import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng màu theme riêng cho hồ sơ. */
 
-const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’\-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
+const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng đúng định dạng email đã thống nhất. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
@@ -24,13 +24,15 @@ function validateProfile(values, savedEmail) { /* Duy's code: So sánh email m�
   const email = normalizeEmail(values.email); /* Duy's code: Xác thực email sau khi bỏ khoảng trắng. */
   const emailChanged = email !== normalizeEmail(savedEmail); /* Duy's code: Chỉ yêu cầu mật khẩu khi email thực sự đổi. */
 
-  if (!EMAIL_REGEX.test(email)) { /* Duy's code: Kiểm tra email theo regex đã yêu cầu. */
+  if (email.length > 30) {
+    errors.email = 'Email không được vượt quá 30 ký tự.';
+  } else if (!EMAIL_REGEX.test(email)) { /* Duy's code: Kiểm tra email theo regex đã yêu cầu. */
     errors.email = 'Email chưa đúng định dạng, ví dụ ten@gmail.com'; /* Duy's code: Báo lỗi định dạng email. */
   }
 
   const fullName = normalizeFullName(values.fullName); /* Duy's code: Kiểm tra tên sau khi chuẩn hoá. */
-  if ([...fullName].length < 2 || [...fullName].length > 120 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo cột full_name. */
-    errors.fullName = 'Họ và tên phải dài 2-120 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
+  if ([...fullName].length < 2 || [...fullName].length > 20 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo quy tắc tên. */
+    errors.fullName = 'Họ và tên phải dài 2-20 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
   }
 
   if (values.password && values.password.toLowerCase() === email) { /* Duy's code: Không cho mật khẩu mới trùng email đã chuẩn hoá. */
@@ -186,7 +188,7 @@ export default function UserProfilePage() {
                       label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
                       value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
                       onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
-                      maxLength={120} /* Duy's code: Khớp giới hạn cột full_name VARCHAR(120). */
+                      maxLength={20} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-20 ký tự. */
                       error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
                       placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
                     />
@@ -194,7 +196,7 @@ export default function UserProfilePage() {
                 </div>
 
                 <div className="mt-3">
-                  <TextField label="Email" type="email" value={form.email} onChange={updateField('email')} error={errors.email} autoComplete="email" /> {/* Duy's code: Cho phép cập nhật email trong hồ sơ. */}
+                  <TextField label="Email" type="email" value={form.email} onChange={updateField('email')} maxLength={30} error={errors.email} autoComplete="email" /> {/* Duy's code: Giới hạn email hồ sơ tối đa 30 ký tự. */}
                 </div>
 
                 <div className="d-flex flex-column gap-3 mt-3">
