@@ -1,0 +1,205 @@
+/* Thanh bên trái của Bảng tin — chép từ prototype UI v2.1 (src/v2/components/Sidebar.module.css).
+   Bỏ: nút Đăng bài, mục "Của bạn", số đếm, icon AI (chức năng chưa có). Thêm: khối Đăng nhập cho khách. */
+.side {
+  --w: 252px;
+  position: sticky;
+  top: 0;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  width: var(--w);
+  height: 100dvh;
+  padding: 14px 12px 12px;
+  border-right: 1px solid var(--v-line);
+  background: var(--v-surface);
+  transition: width .32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.collapsed { --w: 76px; }
+
+/* ---------- Đầu: logo + nút thu gọn ---------- */
+.top { display: flex; align-items: center; gap: 6px; height: 40px; margin-bottom: 22px; }
+.brand:hover { text-decoration: none; }
+.brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; min-width: 0; padding-left: 6px; color: var(--v-text); text-decoration: none; }
+.mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px 4px 11px 4px;
+  background: var(--v-accent);
+  color: var(--v-surface);
+}
+.name { overflow: hidden; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.03em; white-space: nowrap; }
+.toggle, .closeMobile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 1.05rem;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.toggle:hover, .closeMobile:hover { border-color: var(--v-line); background: var(--v-surface-2); color: var(--v-text); }
+.closeMobile { display: none; }
+
+/* ---------- Mục điều hướng ---------- */
+.nav { display: grid; gap: 2px; }
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 11px;
+  color: var(--v-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s, color .15s;
+}
+.item:hover { background: var(--v-surface-2); color: var(--v-text); }
+.on, .on:hover { background: var(--v-surface-3); color: var(--v-text); }
+.on::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: -12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--v-accent);
+}
+.icon { width: 20px; flex: none; font-size: 1.12rem; text-align: center; }
+.on .icon { color: var(--v-accent-text); }
+.label { overflow: hidden; text-overflow: ellipsis; transition: opacity .2s; }
+
+/* ---------- Đáy ---------- */
+.bottom { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--v-line); }
+/* Nút đổi nền: icon + chữ của chế độ SẼ chuyển sang; thu gọn thì chỉ còn icon tròn */
+.theme {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color .15s, background-color .15s;
+}
+.collapsed .theme { justify-content: center; width: 40px; padding: 0; border-radius: 50%; }
+.theme:hover { background: var(--v-surface-2); color: var(--v-text); }
+.theme:active { transform: scale(0.94); }
+
+.accountWrap { display: flex; width: 100%; }
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--v-text);
+  text-align: left;
+}
+.account:hover, .account[aria-expanded="true"] { background: var(--v-surface-2); }
+.accountText { display: grid; flex: 1; min-width: 0; line-height: 1.25; white-space: nowrap; }
+.accountText b { overflow: hidden; font-size: 0.88rem; text-overflow: ellipsis; }
+.accountText small { color: var(--v-muted); font-size: 0.74rem; }
+.more { color: var(--v-muted); }
+
+/* ---------- Khách: Đăng nhập / Đăng ký ---------- */
+.guest { display: grid; gap: 6px; }
+.login {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--v-accent);
+  color: var(--v-on-accent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color .15s, transform .15s;
+}
+.login i { width: 20px; flex: none; font-size: 1.1rem; text-align: center; }
+.login:hover { background: var(--v-accent-hover); }
+.login:active { transform: scale(.98); }
+.register {
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v-accent-text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.register:hover { background: var(--v-surface-2); }
+
+/* ---------- Thu gọn ---------- */
+.collapsed .name, .collapsed .label, .collapsed .accountText, .collapsed .more, .collapsed .register { display: none; }
+.collapsed .top { flex-direction: column; height: auto; gap: 10px; }
+.collapsed .brand { flex: none; padding: 0; }
+.collapsed .item, .collapsed .login { justify-content: center; padding: 0; }
+.collapsed .item { height: 44px; }
+.collapsed .on::before { left: -12px; }
+.collapsed .theme { justify-self: center; }
+.collapsed .account { justify-content: center; padding: 6px 0; }
+.collapsed .item[title]:hover::after,
+.collapsed .login[title]:hover::after {
+  content: attr(title);
+  position: fixed;
+  left: 84px;
+  padding: 5px 10px;
+  border: 1px solid var(--v-line-2);
+  border-radius: 8px;
+  background: var(--v-surface-2);
+  color: var(--v-text);
+  font-size: 0.8rem;
+  box-shadow: var(--v-shadow-pop);
+  pointer-events: none;
+}
+
+/* ---------- Điện thoại: ngăn kéo ---------- */
+.scrim { display: none; }
+@media (max-width: 767.98px) {
+  .side {
+    position: fixed;
+    inset: 0 auto 0 0;
+    --w: 280px;
+    box-shadow: var(--v-shadow-pop);
+    transform: translateX(-105%);
+    transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .open { transform: none; }
+  .toggle { display: none; }
+  .closeMobile { display: grid; }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1045;
+    display: block;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+  }
+  .scrimOn { opacity: 1; pointer-events: auto; }
+}

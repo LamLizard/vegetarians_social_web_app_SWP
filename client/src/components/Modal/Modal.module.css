@@ -2,6 +2,7 @@
   width: calc(100% - 32px);
   max-height: calc(100dvh - 32px);
   padding: 0;
+  overflow: hidden; /* chỉ .body cuộn; dialog mặc định overflow:auto + viền 2px → thêm 1 thanh cuộn thừa */
   border: 1px solid var(--ac-border);
   border-radius: var(--ac-radius-lg);
   background: var(--ac-elevated);
@@ -54,7 +55,8 @@
 .close:disabled { opacity: .4; }
 .close:focus-visible { outline: 3px solid var(--ac-focus-ring); }
 
-.body { flex: 1; overflow-y: auto; padding: 1.1rem 1.25rem; }
+.body { flex: 1; overflow-y: auto; padding: 1.1rem 1.25rem; scrollbar-width: none; } /* ẩn thanh cuộn, vẫn kéo/lăn chuột được */
+.body::-webkit-scrollbar { display: none; }
 
 .foot {
   display: flex;

@@ -73,6 +73,16 @@
   color: var(--bs-secondary-color);
 }
 
+/* Tung's code: Tách nội dung bị báo cáo và ngữ cảnh tác giả/bài cha thành hai
+   dòng trong bảng case, cho phép xuống dòng khi bình luận hoặc tiêu đề dài. */
+.targetCell {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767px) {
   .filters {
     grid-template-columns: 1fr 1fr;
