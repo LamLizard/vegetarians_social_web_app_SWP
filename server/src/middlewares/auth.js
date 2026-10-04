@@ -51,4 +51,11 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
-module.exports = { requireAuth, requireAdmin };
+function requireMember(req, res, next) {
+  if (req.account?.role !== 'member') {
+    return res.status(403).json({ message: 'Chức năng này chỉ dành cho tài khoản thành viên.' });
+  }
+  return next();
+}
+
+module.exports = { requireAuth, requireAdmin, requireMember };

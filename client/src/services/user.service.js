@@ -10,3 +10,84 @@ export async function updateProfile(payload) {
     body: JSON.stringify(payload), /* Duy's code: Gửi dữ liệu hồ sơ dưới dạng JSON. */
   }); /* Duy's code: Kết thúc yêu cầu cập nhật hồ sơ. */
 }
+
+export async function requestAvatarUploadSignature() {
+  return apiFetch('/users/me/avatar-upload-signature', { method: 'POST' });
+}
+
+function uploadToCloudinary(file, signature, { onProgress, signal }) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    const formData = new FormData();
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${signature.cloudName}/${signature.resourceType}/upload`;
+
+    formData.append('file', file);
+    formData.append('api_key', signature.apiKey);
+    formData.append('timestamp', signature.timestamp);
+    formData.append('signature', signature.signature);
+    formData.append('folder', signature.folder);
+    formData.append('public_id', signature.public_id);
+    formData.append('upload_preset', signature.upload_preset);
+    formData.append('overwrite', signature.overwrite);
+    formData.append('transformation', signature.transformation);
+
+    request.open('POST', uploadUrl);
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress?.((event.loaded / event.total) * 100);
+    });
+    request.addEventListener('load', () => {
+      let payload;
+      try {
+        payload = JSON.parse(request.responseText);
+      } catch {
+        reject(new Error('Cloudinary trả về dữ liệu không hợp lệ.'));
+        return;
+      }
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(payload.error?.message || 'Tải ảnh lên Cloudinary không thành công.'));
+        return;
+      }
+      resolve(payload);
+    });
+    request.addEventListener('error', () => reject(new Error('Không kết nối được Cloudinary.')));
+    request.addEventListener('abort', () => reject(new DOMException('Đã hủy tải ảnh.', 'AbortError')));
+    request.addEventListener('timeout', () => reject(new Error('Tải ảnh lên Cloudinary quá thời gian cho phép.')));
+    request.timeout = 60000;
+
+    if (signal?.aborted) {
+      reject(new DOMException('Đã hủy tải ảnh.', 'AbortError'));
+      return;
+    }
+    signal?.addEventListener('abort', () => request.abort(), { once: true });
+    request.send(formData);
+  });
+}
+
+export async function uploadAvatar(file, options) {
+  const signature = await requestAvatarUploadSignature();
+  const upload = await uploadToCloudinary(file, signature, options);
+  const profile = await apiFetch('/users/me/avatar', {
+    method: 'PUT',
+    body: JSON.stringify({ avatarUrl: upload.secure_url }),
+  });
+  return { avatar: profile.avatar, cleanupWarning: profile.cleanupWarning };
+}
+
+export async function removeAvatar() {
+  return apiFetch('/users/me/avatar', { method: 'DELETE' });
+}
+
+export async function getHealthProfile() {
+  return apiFetch('/users/me/health-profile');
+}
+
+export async function saveHealthProfile(payload) {
+  return apiFetch('/users/me/health-profile', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function withdrawHealthConsent() {
+  return apiFetch('/users/me/health-profile/consent', { method: 'DELETE' });
+}

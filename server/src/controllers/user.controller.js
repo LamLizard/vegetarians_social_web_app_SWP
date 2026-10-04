@@ -1,11 +1,22 @@
 const bcrypt = require('bcrypt');
-const { findProfileById, findPasswordHashById, updateProfile } = require('../models/user.model');
+const {
+  findProfileById, findPasswordHashById, updateProfile, updateAvatar,
+} = require('../models/user.model');
+const {
+  CloudinaryConfigurationError, createAvatarUploadSignature, deleteAvatar, getAvatarAsset, getAvatarPublicId,
+} = require('../utils/cloudinary');
+const healthProfileModel = require('../models/health-profile.model');
+const { calculateHealth } = require('../utils/health');
 
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’\-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép chữ Unicode, dấu tiếng Việt, khoảng trắng và dấu phân cách tên. */
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng cùng định dạng email đã thống nhất ở client. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá tên trước khi kiểm tra và lưu DB. */
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email trước khi kiểm tra và lưu DB. */
+const HEALTH_CONSENT = {
+  version: 'health-profile-v1',
+  text: 'Tôi đồng ý cung cấp và lưu thông tin sức khỏe, chiều cao, cân nặng, ngày sinh, mục tiêu và dị ứng/kiêng để tạo hồ sơ riêng và hỗ trợ cá nhân hóa. Hồ sơ chỉ được dùng cho tài khoản của tôi. Tôi có thể thu hồi đồng ý; khi thu hồi, hồ sơ sức khỏe và danh sách dị ứng/kiêng sẽ bị xóa.',
+};
 
 async function getMyProfile(req, res, next) {
   try {
@@ -75,4 +86,173 @@ async function saveMyProfile(req, res, next) {
   }
 }
 
-module.exports = { getMyProfile, saveMyProfile };
+function getMyAvatarUploadSignature(req, res, next) {
+  try {
+    return res.json(createAvatarUploadSignature(req.account.id));
+  } catch (error) {
+    if (error instanceof CloudinaryConfigurationError) {
+      return res.status(503).json({ message: error.message });
+    }
+    return next(error);
+  }
+}
+
+async function saveMyAvatar(req, res, next) {
+  try {
+    const asset = await getAvatarAsset(req.body?.avatarUrl, req.account.id);
+    if (!asset) {
+      return res.status(400).json({ message: 'Ảnh phải được tải lên Cloudinary trong thư mục ảnh của tài khoản này.' });
+    }
+
+    const currentProfile = await findProfileById(req.account.id);
+    if (!currentProfile) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
+    if (currentProfile.avatar === asset.secureUrl) return res.json(currentProfile);
+
+    const profile = await updateAvatar(req.account.id, asset.secureUrl);
+    if (!profile) return res.status(404).json({ message: 'Không thể cập nhật ảnh cho tài khoản này.' });
+
+    try {
+      const oldPublicId = getAvatarPublicId(currentProfile.avatar, req.account.id);
+      if (oldPublicId && oldPublicId !== asset.publicId) {
+        await deleteAvatar(oldPublicId, req.account.id);
+      }
+    } catch (error) {
+      console.error('[users.avatar.cleanup]', error.code || error.name || 'UnexpectedError');
+      return res.json({
+        ...profile,
+        cleanupWarning: 'Ảnh mới đã lưu, nhưng ảnh cũ chưa thể xóa khỏi Cloudinary.',
+      });
+    }
+
+    return res.json(profile);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function removeMyAvatar(req, res, next) {
+  try {
+    const currentProfile = await findProfileById(req.account.id);
+    if (!currentProfile) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
+    if (!currentProfile.avatar) return res.json(currentProfile);
+
+    const profile = await updateAvatar(req.account.id, null);
+    if (!profile) return res.status(404).json({ message: 'Không thể cập nhật ảnh cho tài khoản này.' });
+
+    try {
+      const oldPublicId = getAvatarPublicId(currentProfile.avatar, req.account.id);
+      if (oldPublicId) {
+        await deleteAvatar(oldPublicId, req.account.id);
+      }
+    } catch (error) {
+      console.error('[users.avatar.cleanup]', error.code || error.name || 'UnexpectedError');
+      return res.json({
+        ...profile,
+        cleanupWarning: 'Ảnh đại diện đã được gỡ, nhưng ảnh cũ chưa thể xóa khỏi Cloudinary.',
+      });
+    }
+
+    return res.json(profile);
+  } catch (error) {
+    return next(error);
+  }
+}
+
+function parseOptionalNumber(value, label, errors) {
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0 || number > 999.99) {
+    errors.push(`${label} phải là số lớn hơn 0 và không vượt quá 999,99.`);
+    return null;
+  }
+  return number;
+}
+
+function normalizeHealthProfile(body) {
+  const errors = [];
+  const gender = body?.gender || null;
+  const activityLevel = body?.activityLevel || null;
+  const healthGoal = body?.healthGoal || null;
+  if (gender && !['male', 'female', 'other'].includes(gender)) errors.push('Giới tính không hợp lệ.');
+  if (activityLevel && !['sedentary', 'light', 'moderate', 'active'].includes(activityLevel)) {
+    errors.push('Mức vận động không hợp lệ.');
+  }
+  if (healthGoal && !['lose_weight', 'gain_muscle', 'maintain'].includes(healthGoal)) {
+    errors.push('Mục tiêu sức khỏe không hợp lệ.');
+  }
+
+  const dateOfBirth = body?.dateOfBirth || null;
+  if (dateOfBirth) {
+    const parsedDate = new Date(`${dateOfBirth}T00:00:00.000Z`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
+      || Number.isNaN(parsedDate.getTime())
+      || parsedDate.toISOString().slice(0, 10) !== dateOfBirth
+      || parsedDate > new Date(new Date().toISOString().slice(0, 10))) {
+      errors.push('Ngày sinh không hợp lệ hoặc đang ở tương lai.');
+    }
+  }
+
+  const heightCm = parseOptionalNumber(body?.heightCm, 'Chiều cao', errors);
+  const weightKg = parseOptionalNumber(body?.weightKg, 'Cân nặng', errors);
+  const allergyInput = body?.allergies ?? [];
+  if (!Array.isArray(allergyInput) || allergyInput.length > 50) {
+    errors.push('Danh sách dị ứng/kiêng không hợp lệ (tối đa 50 mục).');
+  }
+  if (Array.isArray(allergyInput) && allergyInput.some((item) => typeof item !== 'string')) {
+    errors.push('Mỗi dị ứng/kiêng phải là nội dung dạng chữ.');
+  }
+  const allergies = Array.isArray(allergyInput)
+    ? allergyInput.map((item) => (typeof item === 'string'
+      ? item.normalize('NFC').trim().replace(/\s+/gu, ' ')
+      : ''))
+      .filter(Boolean)
+      .filter((item, index, items) => items.findIndex(
+        (candidate) => candidate.toLocaleLowerCase('vi') === item.toLocaleLowerCase('vi'),
+      ) === index)
+    : [];
+  if (allergies.some((name) => [...name].length > 120)) errors.push('Mỗi dị ứng/kiêng không được vượt quá 120 ký tự.');
+  if (body?.consentAccepted !== true) errors.push('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
+
+  return {
+    errors,
+    value: { gender, dateOfBirth, heightCm, weightKg, activityLevel, healthGoal, allergies },
+  };
+}
+
+async function getMyHealthProfile(req, res, next) {
+  try {
+    return res.json(await healthProfileModel.getHealthProfile(req.account.id));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function saveMyHealthProfile(req, res, next) {
+  try {
+    const { errors, value } = normalizeHealthProfile(req.body);
+    if (errors.length) return res.status(400).json({ message: errors[0], errors });
+
+    const calculated = calculateHealth(value);
+    return res.json(await healthProfileModel.saveHealthProfile(
+      req.account.id,
+      value,
+      calculated,
+      HEALTH_CONSENT,
+    ));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function withdrawMyHealthConsent(req, res, next) {
+  try {
+    return res.json(await healthProfileModel.withdrawHealthConsent(req.account.id, HEALTH_CONSENT));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+module.exports = {
+  getMyProfile, saveMyProfile, getMyAvatarUploadSignature, saveMyAvatar, removeMyAvatar,
+  getMyHealthProfile, saveMyHealthProfile, withdrawMyHealthConsent,
+};

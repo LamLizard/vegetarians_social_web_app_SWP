@@ -26,13 +26,13 @@ export function bmiCategory(bmi) {
   return 'obese';
 }
 
-/** BMR Mifflin-St Jeor (BR-03). gender 'male' | 'female' (khác → lấy trung bình 2 công thức). */
+/** BMR Mifflin-St Jeor (BR-03). Không suy đoán BMR nếu không có công thức phù hợp. */
 export function calcBmr({ gender, weightKg, heightCm, age }) {
   const base = 10 * Number(weightKg) + 6.25 * Number(heightCm) - 5 * Number(age);
   if (!weightKg || !heightCm || !age) return null;
   if (gender === 'male') return base + 5;
   if (gender === 'female') return base - 161;
-  return base - 78;
+  return null;
 }
 
 /**

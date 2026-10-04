@@ -37,4 +37,17 @@ async function updateProfile(accountId, { fullName, email, passwordHash }) { /* 
   return rows[0] ?? null;
 }
 
-module.exports = { findProfileById, findPasswordHashById, updateProfile };
+async function updateAvatar(accountId, avatarUrl) {
+  const { rows } = await pool.query(
+    `UPDATE public.account
+     SET avatar_url = $2, updated_at = NOW()
+     WHERE account_id = $1 AND status = 'active'
+     RETURNING account_id AS id, email, full_name AS "fullName",
+       avatar_url AS avatar, status`,
+    [accountId, avatarUrl],
+  );
+
+  return rows[0] ?? null;
+}
+
+module.exports = { findProfileById, findPasswordHashById, updateProfile, updateAvatar };

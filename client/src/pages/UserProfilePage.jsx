@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Button, PasswordField, TextField } from '../components'; /* Duy's code: Dùng Button có sẵn cho điều hướng quay lại. */
-import { getProfile, updateProfile } from '../services/user.service';
+import {
+  Avatar, Button, Checkbox, ChipInput, ConfirmDialog, ImageUpload, Notice, PasswordField, Select, Tabs, TextField,
+} from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
+import {
+  getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar, withdrawHealthConsent,
+} from '../services/user.service';
 import { hasErrors } from '../utils/validate';
+import { calcHealth } from '../utils/health';
 import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng màu theme riêng cho hồ sơ. */
 
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
@@ -9,6 +14,26 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng �
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email để so sánh và lưu nhất quán. */
+const emptyHealthForm = {
+  gender: '',
+  dateOfBirth: '',
+  heightCm: '',
+  weightKg: '',
+  activityLevel: '',
+  healthGoal: '',
+  allergies: [],
+};
+
+function ageFromDate(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const birth = new Date(`${dateOfBirth}T00:00:00.000Z`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getUTCFullYear() - birth.getUTCFullYear();
+  if (today.getUTCMonth() < birth.getUTCMonth()
+    || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
 
 const defaultValues = {
   fullName: '', /* Duy's code: Dùng fullName tương ứng với account.full_name. */
@@ -79,6 +104,7 @@ function ProfileBackNavigation() { /* Duy's code: Thanh điều hướng quay l�
 }
 
 export default function UserProfilePage() {
+  const [activeTab, setActiveTab] = useState('account');
   const [form, setForm] = useState(defaultValues);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -86,6 +112,24 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [avatarNotice, setAvatarNotice] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [healthForm, setHealthForm] = useState(emptyHealthForm);
+  const [healthConsent, setHealthConsent] = useState(false);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthError, setHealthError] = useState('');
+  const [healthNotice, setHealthNotice] = useState('');
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+
+  const healthPreview = calcHealth({
+    gender: healthForm.gender,
+    age: ageFromDate(healthForm.dateOfBirth),
+    heightCm: healthForm.heightCm,
+    weightKg: healthForm.weightKg,
+    activityLevel: healthForm.activityLevel,
+    goal: healthForm.healthGoal,
+  });
 
   useEffect(() => {
     let active = true;
@@ -106,9 +150,119 @@ export default function UserProfilePage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    getHealthProfile()
+      .then((result) => {
+        if (!active) return;
+        setHealthConsent(result.consented);
+        if (result.profile) {
+          setHealthForm({
+            gender: result.profile.gender || '',
+            dateOfBirth: result.profile.dateOfBirth?.slice(0, 10) || '',
+            heightCm: result.profile.heightCm ?? '',
+            weightKg: result.profile.weightKg ?? '',
+            activityLevel: result.profile.activityLevel || '',
+            healthGoal: result.profile.healthGoal || '',
+            allergies: (result.profile.allergies || []).map((allergy) => allergy.name),
+          });
+        }
+      })
+      .catch((error) => {
+        if (active) setHealthError(error.message);
+      })
+      .finally(() => {
+        if (active) setHealthLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
   const updateField = (field) => (value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
+  const handleAvatarUpload = async (file, options) => {
+    setAvatarBusy(true);
+    setRequestError('');
+    setAvatarNotice('');
+    try {
+      const result = await uploadAvatar(file, options);
+      setForm((current) => ({ ...current, avatar: result.avatar }));
+      setSavedProfile((current) => ({ ...current, avatar: result.avatar }));
+      if (result.cleanupWarning) setAvatarNotice(result.cleanupWarning);
+      return result.avatar;
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const handleAvatarChange = async (avatar) => {
+    if (avatar) return;
+    setAvatarBusy(true);
+    setRequestError('');
+    setAvatarNotice('');
+    try {
+      const updated = await removeAvatar();
+      setForm((current) => ({ ...current, avatar: updated.avatar || '' }));
+      setSavedProfile((current) => ({ ...current, avatar: updated.avatar || '' }));
+      if (updated.cleanupWarning) setAvatarNotice(updated.cleanupWarning);
+    } catch (error) {
+      setRequestError(error.message);
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  const updateHealthField = (field) => (value) => {
+    setHealthForm((current) => ({ ...current, [field]: value }));
+    setHealthError('');
+    setHealthNotice('');
+  };
+
+  const handleHealthSubmit = async (event) => {
+    event.preventDefault();
+    setHealthError('');
+    setHealthNotice('');
+    if (!healthConsent) {
+      setHealthError('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
+      return;
+    }
+    setHealthSaving(true);
+    try {
+      const result = await saveHealthProfile({ ...healthForm, consentAccepted: true });
+      setHealthConsent(result.consented);
+      setHealthForm({
+        ...emptyHealthForm,
+        ...result.profile,
+        dateOfBirth: result.profile?.dateOfBirth?.slice(0, 10) || '',
+        heightCm: result.profile?.heightCm ?? '',
+        weightKg: result.profile?.weightKg ?? '',
+        allergies: (result.profile?.allergies || []).map((allergy) => allergy.name),
+      });
+      setHealthNotice('Hồ sơ sức khỏe đã được lưu.');
+    } catch (error) {
+      setHealthError(error.message);
+    } finally {
+      setHealthSaving(false);
+    }
+  };
+
+  const handleWithdrawConsent = async () => {
+    setHealthSaving(true);
+    setHealthError('');
+    setHealthNotice('');
+    try {
+      await withdrawHealthConsent();
+      setHealthConsent(false);
+      setHealthForm(emptyHealthForm);
+      setHealthNotice('Đã thu hồi đồng ý và xóa hồ sơ sức khỏe cùng danh sách dị ứng/kiêng.');
+      setWithdrawOpen(false);
+    } catch (error) {
+      setHealthError(error.message);
+    } finally {
+      setHealthSaving(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -169,17 +323,38 @@ export default function UserProfilePage() {
                   <h2 className={`mb-0 ${styles.title}`}>User Profile</h2>
                 </div>
                 <div className="d-flex align-items-center gap-3">
-                  <div className={`rounded-circle border d-flex align-items-center justify-content-center ${styles.avatar}`} style={{ width: 56, height: 56 }}>
-                    {form.avatar
-                      ? <img src={form.avatar} alt="" className="rounded-circle w-100 h-100 object-fit-cover" />
-                      : <span className="fw-bold">{form.fullName.slice(0, 1).toUpperCase()}</span> /* Duy's code: Lấy chữ đầu từ họ tên để tạo avatar dự phòng. */}
-                  </div>
+                  <Avatar src={form.avatar} name={form.fullName} size={56} className={styles.avatar} />
                   <div>
                     <div className="fw-semibold">{form.fullName}</div> {/* Duy's code: Hiển thị full name lấy từ DB. */}
                     <div className={`small ${styles.muted}`}>{form.email}</div>
                   </div>
                 </div>
               </div>
+
+              <Tabs
+                items={[
+                  { key: 'account', label: 'Thông tin tài khoản', icon: 'person' },
+                  { key: 'health', label: 'Hồ sơ sức khỏe', icon: 'heart-pulse' },
+                ]}
+                value={activeTab}
+                onChange={setActiveTab}
+                label="Các phần hồ sơ"
+              />
+
+              {activeTab === 'account' && (
+              <section role="tabpanel" aria-label="Thông tin tài khoản">
+              <ImageUpload
+                label="Ảnh đại diện"
+                value={form.avatar}
+                onChange={handleAvatarChange}
+                onUpload={handleAvatarUpload}
+                maxSizeMB={5}
+                accept="image/jpeg,image/png,image/webp"
+                ratio="1/1"
+                disabled={avatarBusy}
+                className="mt-4 mb-4"
+              />
+              {avatarNotice && <Notice tone="info" className="mb-3">{avatarNotice}</Notice>}
 
               <form onSubmit={handleSubmit} noValidate>
                 <div className="row g-3">
@@ -242,6 +417,158 @@ export default function UserProfilePage() {
                   !requestError && !saving && <div className={`alert mt-4 mb-0 ${styles.successAlert}`}>Thông tin hồ sơ đã được lưu.</div>
                 )}
               </form>
+              </section>
+              )}
+
+              {activeTab === 'health' && (
+              <section role="tabpanel" aria-label="Hồ sơ sức khỏe" className="pt-4">
+                <h3 className="h5">Hồ sơ sức khỏe</h3>
+                <p className="text-body-secondary">
+                  Thông tin này là riêng tư, chỉ dùng cho tài khoản của bạn. Trường không bắt buộc; chỉ số sẽ không được ước tính nếu thiếu dữ liệu cần thiết.
+                </p>
+                {healthError && <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>}
+                {healthNotice && <Notice tone="success" className="mb-3">{healthNotice}</Notice>}
+                {healthLoading ? (
+                  <p role="status">Đang tải hồ sơ sức khỏe...</p>
+                ) : (
+                  <form onSubmit={handleHealthSubmit} noValidate>
+                    <div className="row g-3">
+                      <div className="col-md-6">
+                        <Select
+                          label="Thông số sinh lý dùng cho công thức năng lượng"
+                          value={healthForm.gender}
+                          onChange={updateHealthField('gender')}
+                          placeholder="Chọn nếu muốn tính năng lượng"
+                          options={[
+                            { value: 'male', label: 'Nam' },
+                            { value: 'female', label: 'Nữ' },
+                            { value: 'other', label: 'Khác / không muốn chọn công thức' },
+                          ]}
+                          hint="Lựa chọn này chỉ dùng cho công thức BMR, không định nghĩa danh tính của bạn."
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <TextField
+                          label="Ngày sinh"
+                          type="date"
+                          value={healthForm.dateOfBirth}
+                          onChange={updateHealthField('dateOfBirth')}
+                          max={new Date().toISOString().slice(0, 10)}
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <TextField
+                          label="Chiều cao"
+                          type="number"
+                          value={healthForm.heightCm}
+                          onChange={updateHealthField('heightCm')}
+                          min="0.01"
+                          max="999.99"
+                          step="0.01"
+                          suffix="cm"
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <TextField
+                          label="Cân nặng"
+                          type="number"
+                          value={healthForm.weightKg}
+                          onChange={updateHealthField('weightKg')}
+                          min="0.01"
+                          max="999.99"
+                          step="0.01"
+                          suffix="kg"
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <Select
+                          label="Mức vận động"
+                          value={healthForm.activityLevel}
+                          onChange={updateHealthField('activityLevel')}
+                          placeholder="Chọn mức vận động"
+                          options={[
+                            { value: 'sedentary', label: 'Ít vận động — 1,2' },
+                            { value: 'light', label: 'Vận động nhẹ — 1,375' },
+                            { value: 'moderate', label: 'Vận động vừa — 1,55' },
+                            { value: 'active', label: 'Vận động cao — 1,725' },
+                          ]}
+                          hint="Hệ số dùng để ước tính TDEE từ BMR."
+                        />
+                      </div>
+                      <div className="col-md-6">
+                        <Select
+                          label="Mục tiêu"
+                          value={healthForm.healthGoal}
+                          onChange={updateHealthField('healthGoal')}
+                          placeholder="Chọn mục tiêu"
+                          options={[
+                            { value: 'lose_weight', label: 'Giảm cân — TDEE giảm 15%' },
+                            { value: 'maintain', label: 'Duy trì — bằng TDEE' },
+                            { value: 'gain_muscle', label: 'Tăng cơ — TDEE + 200 kcal' },
+                          ]}
+                        />
+                      </div>
+                      <div className="col-12">
+                        <ChipInput
+                          label="Dị ứng / thực phẩm cần kiêng"
+                          value={healthForm.allergies}
+                          onChange={updateHealthField('allergies')}
+                          max={50}
+                          maxLength={120}
+                          placeholder="Nhập tên rồi nhấn Enter"
+                          hint="Nhập tên tự do; chưa tự động đối chiếu với nguyên liệu."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded border p-3 mt-3" aria-live="polite">
+                      <h4 className="h6">Chỉ số tham khảo</h4>
+                      <p className="mb-1">BMI: {healthPreview.bmi == null ? 'Chưa đủ chiều cao và cân nặng' : healthPreview.bmi}</p>
+                      <p className="mb-1">TDEE: {healthPreview.tdee == null ? 'Chưa đủ dữ liệu để tính' : `${healthPreview.tdee} kcal/ngày`}</p>
+                      <p className="mb-0">Mục tiêu năng lượng: {healthPreview.targetCalories == null ? 'Chưa đủ dữ liệu để tính' : `${healthPreview.targetCalories} kcal/ngày`}</p>
+                      {healthForm.gender === 'other' && (
+                        <p className="small text-body-secondary mt-2 mb-0">
+                          Với lựa chọn này, ứng dụng vẫn tính BMI khi đủ chiều cao và cân nặng; không tính BMR, TDEE hoặc mục tiêu năng lượng vì hiện chưa có công thức được xác nhận phù hợp. Ứng dụng không tự gán công thức nam/nữ hoặc lấy trung bình.
+                        </p>
+                      )}
+                    </div>
+
+                    <Notice tone="info" title="Thông tin và đồng ý xử lý dữ liệu" className="mt-3">
+                      Dữ liệu sức khỏe được lưu riêng để hỗ trợ cá nhân hóa. Bạn có thể thu hồi đồng ý; thao tác đó sẽ xóa hồ sơ sức khỏe và danh sách dị ứng/kiêng. Chỉ số là ước tính tham khảo, không thay thế tư vấn y tế.
+                    </Notice>
+                    <Checkbox
+                      className="mt-3"
+                      checked={healthConsent}
+                      onChange={(checked) => setHealthConsent(checked)}
+                      required
+                    >
+                      Tôi đã đọc và đồng ý cung cấp, lưu trữ và sử dụng các dữ liệu sức khỏe nêu trên.
+                    </Checkbox>
+
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
+                      {healthConsent && (
+                        <Button type="button" variant="alert" onClick={() => setWithdrawOpen(true)} disabled={healthSaving}>
+                          Thu hồi đồng ý và xóa hồ sơ
+                        </Button>
+                      )}
+                      <Button type="submit" loading={healthSaving} disabled={healthSaving || !healthConsent}>
+                        Lưu hồ sơ sức khỏe
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+              )}
+
+              <ConfirmDialog
+                open={withdrawOpen}
+                title="Thu hồi đồng ý và xóa hồ sơ sức khỏe?"
+                message="Thông tin trong hồ sơ sức khỏe và danh sách dị ứng/kiêng sẽ bị xóa. Lịch sử ghi nhận việc đồng ý/thu hồi vẫn được giữ để chứng minh lựa chọn của bạn."
+                confirmLabel="Thu hồi và xóa"
+                loading={healthSaving}
+                onConfirm={handleWithdrawConsent}
+                onCancel={() => setWithdrawOpen(false)}
+              />
             </div>
           </div>
         </div>
