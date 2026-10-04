@@ -10,10 +10,8 @@ import { calcHealth } from '../utils/health';
 import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng màu theme riêng cho hồ sơ. */
 
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng đúng định dạng email đã thống nhất. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
-const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email để so sánh và lưu nhất quán. */
 const emptyHealthForm = {
   gender: '',
   dateOfBirth: '',
@@ -45,23 +43,15 @@ const defaultValues = {
   confirmPassword: '',
 };
 
-function validateProfile(values, savedEmail) { /* Duy's code: So sánh email mới với email hiện đang lưu. */
+function validateProfile(values) { /* Duy's code: Chỉ xác thực các trường tài khoản được phép chỉnh sửa. */
   const errors = {};
-  const email = normalizeEmail(values.email); /* Duy's code: Xác thực email sau khi bỏ khoảng trắng. */
-  const emailChanged = email !== normalizeEmail(savedEmail); /* Duy's code: Chỉ yêu cầu mật khẩu khi email thực sự đổi. */
-
-  if (email.length > 30) {
-    errors.email = 'Email không được vượt quá 30 ký tự.';
-  } else if (!EMAIL_REGEX.test(email)) { /* Duy's code: Kiểm tra email theo regex đã yêu cầu. */
-    errors.email = 'Email chưa đúng định dạng, ví dụ ten@gmail.com'; /* Duy's code: Báo lỗi định dạng email. */
-  }
 
   const fullName = normalizeFullName(values.fullName); /* Duy's code: Kiểm tra tên sau khi chuẩn hoá. */
   if ([...fullName].length < 2 || [...fullName].length > 20 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo quy tắc tên. */
     errors.fullName = 'Họ và tên phải dài 2-20 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
   }
 
-  if (values.password && values.password.toLowerCase() === email) { /* Duy's code: Không cho mật khẩu mới trùng email đã chuẩn hoá. */
+  if (values.password && values.password.toLowerCase() === String(values.email ?? '').toLowerCase()) { /* Duy's code: Không cho mật khẩu mới trùng email đăng nhập đã khóa. */
     errors.password = 'Password không được trùng với email đăng nhập';
   }
 
@@ -73,7 +63,7 @@ function validateProfile(values, savedEmail) { /* Duy's code: So sánh email m�
     errors.confirmPassword = 'Mật khẩu xác nhận không được chứa khoảng trắng.'; /* Duy's code: Báo lỗi ngay tại ô xác nhận. */
   }
 
-  if ((emailChanged || values.password) && !values.currentPassword) { /* Duy's code: Xác nhận mật khẩu khi đổi email hoặc mật khẩu. */
+  if (values.password && !values.currentPassword) { /* Duy's code: Chỉ yêu cầu xác nhận mật khẩu khi đổi mật khẩu. */
     errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận thay đổi'; /* Duy's code: Hiển thị yêu cầu xác nhận. */
   }
 
@@ -275,8 +265,8 @@ export default function UserProfilePage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName), email: normalizeEmail(form.email) }; /* Duy's code: Chuẩn hoá tên và email trước khi validate và lưu. */
-    const nextErrors = validateProfile(normalizedForm, savedProfile.email); /* Duy's code: Kiểm tra email đổi so với hồ sơ đã lưu. */
+    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName) }; /* Duy's code: Chuẩn hoá họ tên trước khi validate và lưu. */
+    const nextErrors = validateProfile(normalizedForm); /* Duy's code: Kiểm tra các trường hồ sơ có thể thay đổi. */
     setErrors(nextErrors);
     setSubmitted(true);
     setRequestError('');
@@ -289,7 +279,6 @@ export default function UserProfilePage() {
     try {
       const updated = await updateProfile({
         fullName: normalizedForm.fullName, /* Duy's code: Gửi fullName thay vì displayName/username. */
-        email: normalizedForm.email, /* Duy's code: Gửi email mới để backend cập nhật DB. */
         currentPassword: form.currentPassword,
         password: form.password,
         confirmPassword: form.confirmPassword, /* Duy's code: Gửi mật khẩu xác nhận để backend cũng kiểm tra. */
@@ -381,7 +370,14 @@ export default function UserProfilePage() {
                 </div>
 
                 <div className="mt-3">
-                  <TextField label="Email" type="email" value={form.email} onChange={updateField('email')} maxLength={30} error={errors.email} autoComplete="email" /> {/* Duy's code: Giới hạn email hồ sơ tối đa 30 ký tự. */}
+                  <TextField
+                    label="Email đăng nhập"
+                    type="email"
+                    value={form.email}
+                    readOnly
+                    autoComplete="email"
+                    hint="Email được cố định từ khi tạo tài khoản và không thể chỉnh sửa tại Hồ sơ."
+                  /> {/* Duy's code: Chỉ hiển thị email tài khoản; không cho sửa từ trang Profile. */}
                 </div>
 
                 <div className="d-flex flex-column gap-3 mt-3">
@@ -411,7 +407,7 @@ export default function UserProfilePage() {
                       value={form.currentPassword}
                       onChange={updateField('currentPassword')}
                       autoComplete="current-password"
-                      hint="Bắt buộc khi đổi email hoặc mật khẩu"
+                      hint="Bắt buộc khi đổi mật khẩu"
                       error={errors.currentPassword}
                     />
                   </div>

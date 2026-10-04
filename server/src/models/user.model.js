@@ -23,18 +23,17 @@ async function findPasswordHashById(accountId) {
   return rows[0]?.password_hash ?? null;
 }
 
-// Duy's code: Cập nhật tên/email và chỉ đổi hash khi mật khẩu mới được cung cấp.
-async function updateProfile(accountId, { fullName, email, passwordHash }) { /* Duy's code: Nhận email cùng tên và password hash khi cập nhật hồ sơ. */
+// Duy's code: Cập nhật tên và chỉ đổi hash khi mật khẩu mới được cung cấp; email được giữ nguyên.
+async function updateProfile(accountId, { fullName, passwordHash }) {
   const { rows } = await pool.query(
     `UPDATE public.account
      SET full_name = $2,
-       email = $3, /* Duy's code: Lưu email hồ sơ vào cột đăng nhập hiện có. */
-       password_hash = COALESCE($4, password_hash),
+         password_hash = COALESCE($3, password_hash),
          updated_at = NOW()
      WHERE account_id = $1 AND status = 'active'
     RETURNING account_id AS id, email, full_name AS "fullName",
       avatar_url AS avatar, status`,
-    [accountId, fullName, email, passwordHash], /* Duy's code: Truyền email đã chuẩn hoá theo đúng placeholder. */
+    [accountId, fullName, passwordHash],
   );
 
   return rows[0] ?? null;
