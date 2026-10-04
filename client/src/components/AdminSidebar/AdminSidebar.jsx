@@ -8,7 +8,9 @@ import styles from './AdminSidebar.module.css';
 const MENU = [
   { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
   { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
+  // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
   { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
+  // Duy's code: Mở hàng chờ để Admin duyệt hoặc từ chối Dish Member đề xuất.
   { key: 'dish-verify', label: 'Duyệt món ăn', icon: 'basket-check', href: '/admin/dishes/verify' },
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
   { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },

@@ -53,6 +53,7 @@ export default function App() {
     );
   }
 
+  // Duy's code: Đưa Member tới trang hồ sơ và trang gửi đề xuất Dish từ menu tài khoản.
   const feed = (
     <PostFeedPage
       user={user}
@@ -64,6 +65,7 @@ export default function App() {
     />
   );
   if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  // Duy's code: Giới hạn trang đề xuất Dish cho Member đã đăng nhập.
   if (!isAdmin && path === '/dishes/suggest') return <DishSuggestionPage />;
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
@@ -76,6 +78,7 @@ export default function App() {
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
   }
+  // Duy's code: Nối hai trang quản lý Dish tới các URL Admin tương ứng.
   if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
   if (isAdmin && path === '/admin/dishes/verify') return <AdminDishVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;

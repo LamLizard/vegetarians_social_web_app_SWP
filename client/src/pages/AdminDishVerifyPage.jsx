@@ -5,6 +5,7 @@ import {
 import useAuth from '../hooks/useAuth';
 import { decideDish, getPendingDishes } from '../services/dish.service';
 
+// Duy's code: Màn hình Admin quản lý hàng chờ và gửi quyết định kiểm duyệt Dish.
 export default function AdminDishVerifyPage() {
   const { user, logout } = useAuth();
   const [dishes, setDishes] = useState([]);
@@ -13,6 +14,7 @@ export default function AdminDishVerifyPage() {
   const [decision, setDecision] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Duy's code: Cho phép Admin tải lại danh sách pending sau lỗi hoặc thay đổi.
   const loadDishes = () => {
     setLoading(true);
     setError('');
@@ -22,6 +24,7 @@ export default function AdminDishVerifyPage() {
       .finally(() => setLoading(false));
   };
 
+  // Duy's code: Tải hàng chờ khi mở trang và hủy cập nhật state khi unmount.
   useEffect(() => {
     let active = true;
     getPendingDishes()
@@ -31,6 +34,7 @@ export default function AdminDishVerifyPage() {
     return () => { active = false; };
   }, []);
 
+  // Duy's code: Gửi duyệt/từ chối, cập nhật danh sách và hiện lỗi nếu thất bại.
   const confirmDecision = async (note) => {
     if (!decision) return;
     setSaving(true);
@@ -47,17 +51,20 @@ export default function AdminDishVerifyPage() {
     }
   };
 
+  // Duy's code: Đăng xuất Admin và điều hướng về trang gốc.
   const handleLogout = () => { logout(); window.location.assign('/'); };
   const isRejecting = decision?.action === 'reject';
 
   return (
     <AdminLayout activeKey="dish-verify" title="Duyệt món ăn" user={user} onLogout={handleLogout}>
+      {/* Duy's code: Giải thích quyết định duyệt và nút tải lại hàng chờ. */}
       <PageHeader
         title="Duyệt món ăn"
         description="Duyệt hoặc từ chối đề xuất món ăn đang chờ. Quyết định sẽ được ghi AdminLog và gửi thông báo cho người đề xuất."
         actions={<Button variant="outline" icon="arrow-clockwise" onClick={loadDishes} disabled={loading}>Tải lại</Button>}
       />
       {error && <Notice tone="alert" title="Không thể tải hoặc xử lý hàng chờ" className="mt-3">{error}</Notice>}
+      {/* Duy's code: Hiển thị trạng thái tải, rỗng hoặc từng Dish chờ duyệt. */}
       <div className="d-grid gap-3 mt-3">
         {loading ? (
           <div className="py-5 text-center"><Spinner label="Đang tải đề xuất..." showLabel /></div>
@@ -83,6 +90,7 @@ export default function AdminDishVerifyPage() {
           />
         ))}
       </div>
+      {/* Duy's code: Yêu cầu xác nhận trước khi duyệt hoặc từ chối; bắt buộc lý do khi từ chối. */}
       <ConfirmDialog
         open={!!decision}
         title={isRejecting ? 'Từ chối đề xuất món ăn?' : 'Duyệt món ăn?'}

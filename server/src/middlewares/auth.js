@@ -51,6 +51,7 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+// Duy's code: Chặn người không mang role member trước các API hồ sơ sức khỏe.
 function requireMember(req, res, next) {
   if (req.account?.role !== 'member') {
     return res.status(403).json({ message: 'Chức năng này chỉ dành cho tài khoản thành viên.' });

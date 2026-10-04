@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 
+// Duy's code: Tìm hồ sơ tài khoản hiện hành, không trả tài khoản đã xóa.
 async function findProfileById(accountId) {
   const { rows } = await pool.query(
     `SELECT account_id AS id, email, full_name AS "fullName",
@@ -12,6 +13,7 @@ async function findProfileById(accountId) {
   return rows[0] ?? null;
 }
 
+// Duy's code: Đọc hash mật khẩu riêng để xác minh thao tác nhạy cảm.
 async function findPasswordHashById(accountId) {
   const { rows } = await pool.query(
     'SELECT password_hash FROM public.account WHERE account_id = $1 AND status = $2',
@@ -21,6 +23,7 @@ async function findPasswordHashById(accountId) {
   return rows[0]?.password_hash ?? null;
 }
 
+// Duy's code: Cập nhật tên/email và chỉ đổi hash khi mật khẩu mới được cung cấp.
 async function updateProfile(accountId, { fullName, email, passwordHash }) { /* Duy's code: Nhận email cùng tên và password hash khi cập nhật hồ sơ. */
   const { rows } = await pool.query(
     `UPDATE public.account
@@ -37,6 +40,7 @@ async function updateProfile(accountId, { fullName, email, passwordHash }) { /* 
   return rows[0] ?? null;
 }
 
+// Duy's code: Lưu hoặc gỡ URL avatar trên đúng bản ghi account.
 async function updateAvatar(accountId, avatarUrl) {
   const { rows } = await pool.query(
     `UPDATE public.account

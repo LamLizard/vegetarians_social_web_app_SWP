@@ -13,11 +13,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng c
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá tên trước khi kiểm tra và lưu DB. */
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email trước khi kiểm tra và lưu DB. */
+// Duy's code: Lưu phiên bản và nội dung thông báo consent để tạo bằng chứng đồng ý rõ ràng.
 const HEALTH_CONSENT = {
   version: 'health-profile-v1',
   text: 'Tôi đồng ý cung cấp và lưu thông tin sức khỏe, chiều cao, cân nặng, ngày sinh, mục tiêu và dị ứng/kiêng để tạo hồ sơ riêng và hỗ trợ cá nhân hóa. Hồ sơ chỉ được dùng cho tài khoản của tôi. Tôi có thể thu hồi đồng ý; khi thu hồi, hồ sơ sức khỏe và danh sách dị ứng/kiêng sẽ bị xóa.',
 };
 
+// Duy's code: Trả hồ sơ công khai của tài khoản đang xác thực.
 async function getMyProfile(req, res, next) {
   try {
     const profile = await findProfileById(req.account.id); /* Duy's code: Middleware lưu tài khoản đăng nhập trong req.account. */
@@ -28,6 +30,7 @@ async function getMyProfile(req, res, next) {
   }
 }
 
+// Duy's code: Kiểm tra và lưu thông tin hồ sơ tài khoản cùng thay đổi mật khẩu/email.
 async function saveMyProfile(req, res, next) {
   try {
     const fullName = normalizeFullName(req.body?.fullName); /* Duy's code: Nhận đúng trường fullName của account. */
@@ -86,6 +89,7 @@ async function saveMyProfile(req, res, next) {
   }
 }
 
+// Duy's code: Cấp tham số có chữ ký để browser upload ảnh mà không lộ API Secret.
 function getMyAvatarUploadSignature(req, res, next) {
   try {
     return res.json(createAvatarUploadSignature(req.account.id));
@@ -97,6 +101,7 @@ function getMyAvatarUploadSignature(req, res, next) {
   }
 }
 
+// Duy's code: Xác minh asset Cloudinary, cập nhật URL hồ sơ rồi mới dọn avatar cũ.
 async function saveMyAvatar(req, res, next) {
   try {
     const asset = await getAvatarAsset(req.body?.avatarUrl, req.account.id);
@@ -130,6 +135,7 @@ async function saveMyAvatar(req, res, next) {
   }
 }
 
+// Duy's code: Xóa URL khỏi hồ sơ trước và dọn asset cũ nếu thuộc namespace tài khoản.
 async function removeMyAvatar(req, res, next) {
   try {
     const currentProfile = await findProfileById(req.account.id);
@@ -158,6 +164,7 @@ async function removeMyAvatar(req, res, next) {
   }
 }
 
+// Duy's code: Chuyển trường số tùy chọn sang number và thu thập lỗi xác thực.
 function parseOptionalNumber(value, label, errors) {
   if (value === undefined || value === null || value === '') return null;
   const number = Number(value);
@@ -168,6 +175,7 @@ function parseOptionalNumber(value, label, errors) {
   return number;
 }
 
+// Duy's code: Chuẩn hóa và kiểm tra hồ sơ sức khỏe, allergy và yêu cầu consent.
 function normalizeHealthProfile(body) {
   const errors = [];
   const gender = body?.gender || null;
@@ -219,6 +227,7 @@ function normalizeHealthProfile(body) {
   };
 }
 
+// Duy's code: Đọc hồ sơ sức khỏe chỉ thuộc tài khoản đã xác thực.
 async function getMyHealthProfile(req, res, next) {
   try {
     return res.json(await healthProfileModel.getHealthProfile(req.account.id));
@@ -227,6 +236,7 @@ async function getMyHealthProfile(req, res, next) {
   }
 }
 
+// Duy's code: Kiểm tra dữ liệu, tính chỉ số và lưu hồ sơ cùng bằng chứng consent.
 async function saveMyHealthProfile(req, res, next) {
   try {
     const { errors, value } = normalizeHealthProfile(req.body);
@@ -244,6 +254,7 @@ async function saveMyHealthProfile(req, res, next) {
   }
 }
 
+// Duy's code: Ghi nhận rút consent và xóa dữ liệu sức khỏe theo chính sách đã công bố.
 async function withdrawMyHealthConsent(req, res, next) {
   try {
     return res.json(await healthProfileModel.withdrawHealthConsent(req.account.id, HEALTH_CONSENT));

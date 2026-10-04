@@ -1,3 +1,4 @@
+// Duy's code: Hệ số vận động chuyển BMR thành mức tiêu hao năng lượng TDEE.
 const ACTIVITY_FACTOR = {
   sedentary: 1.2,
   light: 1.375,
@@ -5,12 +6,14 @@ const ACTIVITY_FACTOR = {
   active: 1.725,
 };
 
+// Duy's code: Điều chỉnh TDEE theo mục tiêu trước khi đề xuất lượng calo.
 const GOAL_ADJUST = {
   lose_weight: (tdee) => tdee * 0.85,
   maintain: (tdee) => tdee,
   gain_muscle: (tdee) => tdee + 200,
 };
 
+// Duy's code: Tính tuổi đủ năm tại ngày hiện tại, không chỉ trừ năm sinh.
 function getAge(dateOfBirth, today = new Date()) {
   if (!dateOfBirth) return null;
   const birthDate = new Date(`${dateOfBirth}T00:00:00.000Z`);
@@ -22,6 +25,7 @@ function getAge(dateOfBirth, today = new Date()) {
   return age >= 0 ? age : null;
 }
 
+// Duy's code: Tính BMI cho mọi lựa chọn giới tính; chỉ tính BMR khi có công thức hỗ trợ.
 function calculateHealth({ gender, dateOfBirth, heightCm, weightKg, activityLevel, healthGoal }, today) {
   const height = Number(heightCm);
   const weight = Number(weightKg);

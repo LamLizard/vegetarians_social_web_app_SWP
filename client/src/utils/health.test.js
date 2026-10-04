@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calcBmr, calcHealth } from './health.js';
 
+// Duy's code: Đảm bảo gender other không bị gán công thức BMR/TDEE nam hoặc nữ.
 test('does not estimate BMR or TDEE for gender other', () => {
   assert.equal(calcBmr({ gender: 'other', weightKg: 60, heightCm: 165, age: 30 }), null);
   assert.deepEqual(calcHealth({
@@ -20,6 +21,7 @@ test('does not estimate BMR or TDEE for gender other', () => {
   });
 });
 
+// Duy's code: Bảo toàn công thức Mifflin-St Jeor cho male và female.
 test('continues to calculate BMR for the supported male and female formula inputs', () => {
   const values = { weightKg: 60, heightCm: 165, age: 30 };
   assert.equal(calcBmr({ ...values, gender: 'male' }), 1486.25);

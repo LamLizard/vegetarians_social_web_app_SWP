@@ -24,6 +24,7 @@ const emptyHealthForm = {
   allergies: [],
 };
 
+// Duy's code: Tính tuổi đủ năm theo sinh nhật để gửi đầu vào nhất quán lên preview.
 function ageFromDate(dateOfBirth) {
   if (!dateOfBirth) return null;
   const birth = new Date(`${dateOfBirth}T00:00:00.000Z`);
@@ -131,6 +132,7 @@ export default function UserProfilePage() {
     goal: healthForm.healthGoal,
   });
 
+  // Duy's code: Tải hồ sơ tài khoản khi mở trang và bỏ qua cập nhật khi unmount.
   useEffect(() => {
     let active = true;
     getProfile()
@@ -150,6 +152,7 @@ export default function UserProfilePage() {
     return () => { active = false; };
   }, []);
 
+  // Duy's code: Tải health profile và trạng thái consent cho tab hồ sơ sức khỏe.
   useEffect(() => {
     let active = true;
     getHealthProfile()
@@ -182,6 +185,7 @@ export default function UserProfilePage() {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
+  // Duy's code: Gọi service upload Cloudinary rồi đồng bộ avatar mới vào state trang.
   const handleAvatarUpload = async (file, options) => {
     setAvatarBusy(true);
     setRequestError('');
@@ -197,6 +201,7 @@ export default function UserProfilePage() {
     }
   };
 
+  // Duy's code: Gọi backend gỡ avatar khi người dùng xóa ảnh hiện tại.
   const handleAvatarChange = async (avatar) => {
     if (avatar) return;
     setAvatarBusy(true);
@@ -214,12 +219,14 @@ export default function UserProfilePage() {
     }
   };
 
+  // Duy's code: Cập nhật trường sức khỏe và xóa thông báo lỗi cũ khi sửa dữ liệu.
   const updateHealthField = (field) => (value) => {
     setHealthForm((current) => ({ ...current, [field]: value }));
     setHealthError('');
     setHealthNotice('');
   };
 
+  // Duy's code: Chỉ lưu hồ sơ sức khỏe sau khi consent được xác nhận.
   const handleHealthSubmit = async (event) => {
     event.preventDefault();
     setHealthError('');
@@ -248,6 +255,7 @@ export default function UserProfilePage() {
     }
   };
 
+  // Duy's code: Thu hồi consent đồng thời xóa hồ sơ và allergy đã lưu.
   const handleWithdrawConsent = async () => {
     setHealthSaving(true);
     setHealthError('');
@@ -331,6 +339,7 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
+              {/* Duy's code: Chuyển giữa thông tin tài khoản và hồ sơ sức khỏe. */}
               <Tabs
                 items={[
                   { key: 'account', label: 'Thông tin tài khoản', icon: 'person' },
@@ -341,6 +350,7 @@ export default function UserProfilePage() {
                 label="Các phần hồ sơ"
               />
 
+              {/* Duy's code: Tab tài khoản chứa ảnh đại diện và thông tin đăng nhập. */}
               {activeTab === 'account' && (
               <section role="tabpanel" aria-label="Thông tin tài khoản">
               <ImageUpload
@@ -420,6 +430,7 @@ export default function UserProfilePage() {
               </section>
               )}
 
+              {/* Duy's code: Tab sức khỏe yêu cầu consent trước khi lưu dữ liệu nhạy cảm. */}
               {activeTab === 'health' && (
               <section role="tabpanel" aria-label="Hồ sơ sức khỏe" className="pt-4">
                 <h3 className="h5">Hồ sơ sức khỏe</h3>
@@ -428,6 +439,7 @@ export default function UserProfilePage() {
                 </p>
                 {healthError && <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>}
                 {healthNotice && <Notice tone="success" className="mb-3">{healthNotice}</Notice>}
+                {/* Duy's code: Hiển thị form sức khỏe sau khi tải xong dữ liệu consent và hồ sơ. */}
                 {healthLoading ? (
                   <p role="status">Đang tải hồ sơ sức khỏe...</p>
                 ) : (
@@ -536,6 +548,7 @@ export default function UserProfilePage() {
                     <Notice tone="info" title="Thông tin và đồng ý xử lý dữ liệu" className="mt-3">
                       Dữ liệu sức khỏe được lưu riêng để hỗ trợ cá nhân hóa. Bạn có thể thu hồi đồng ý; thao tác đó sẽ xóa hồ sơ sức khỏe và danh sách dị ứng/kiêng. Chỉ số là ước tính tham khảo, không thay thế tư vấn y tế.
                     </Notice>
+                    {/* Duy's code: Checkbox là điều kiện bắt buộc để lưu hồ sơ sức khỏe. */}
                     <Checkbox
                       className="mt-3"
                       checked={healthConsent}

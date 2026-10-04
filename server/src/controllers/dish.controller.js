@@ -1,6 +1,7 @@
 const dishModel = require('../models/dish.model');
 const { DishInputError, getDishDecision, normalizeDishInput } = require('../utils/dish');
 
+// Duy's code: Trả lỗi nghiệp vụ cho client và chuyển lỗi hệ thống qua middleware.
 function respondWithError(error, res, next) {
   if (Number.isInteger(error.status)) {
     return res.status(error.status).json({ message: error.message });
@@ -8,6 +9,7 @@ function respondWithError(error, res, next) {
   return next(error);
 }
 
+// Duy's code: Cung cấp danh mục hoạt động cho các form tạo/đề xuất Dish.
 async function getCategories(req, res, next) {
   try {
     return res.json(await dishModel.listActiveCategories());
@@ -16,6 +18,7 @@ async function getCategories(req, res, next) {
   }
 }
 
+// Duy's code: Chỉ đọc các đề xuất của Member đang đăng nhập.
 async function getMyDishes(req, res, next) {
   try {
     return res.json(await dishModel.listMyDishes(req.account.id));
@@ -24,6 +27,7 @@ async function getMyDishes(req, res, next) {
   }
 }
 
+// Duy's code: Kiểm tra nội dung và tạo đề xuất mới ở trạng thái pending.
 async function suggestDish(req, res, next) {
   try {
     const input = normalizeDishInput(req.body);
@@ -34,6 +38,7 @@ async function suggestDish(req, res, next) {
   }
 }
 
+// Duy's code: Cho phép Admin tạo Dish trực tiếp ở trạng thái active.
 async function createAdminDish(req, res, next) {
   try {
     const input = normalizeDishInput(req.body);
@@ -44,6 +49,7 @@ async function createAdminDish(req, res, next) {
   }
 }
 
+// Duy's code: Nạp hàng chờ để Admin duyệt hoặc từ chối đề xuất.
 async function getPendingDishes(req, res, next) {
   try {
     return res.json(await dishModel.listPendingDishes());
@@ -52,6 +58,7 @@ async function getPendingDishes(req, res, next) {
   }
 }
 
+// Duy's code: Kiểm tra quyết định và lý do trước khi thay đổi trạng thái Dish.
 async function decideDish(req, res, next) {
   try {
     const dishId = Number(req.params.dishId);

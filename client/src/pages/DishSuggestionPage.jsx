@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Button, CategoryPicker, DishCard, EmptyState, Notice, PageHeader, Photo, TextArea, TextField } from '../components';
 import { getDishCategories, getMyDishes, suggestDish } from '../services/dish.service';
 
+// Duy's code: Dữ liệu mặc định dùng cho form đề xuất của Member.
 const EMPTY_FORM = { name: '', description: '', thumbnailUrl: '', categoryIds: [] };
 
+// Duy's code: Trang Member tạo đề xuất mới và theo dõi trạng thái các đề xuất.
 export default function DishSuggestionPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [categories, setCategories] = useState([]);
@@ -13,6 +15,7 @@ export default function DishSuggestionPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  // Duy's code: Tải danh mục và các đề xuất hiện có song song khi mở trang.
   useEffect(() => {
     let active = true;
     Promise.all([getDishCategories(), getMyDishes()])
@@ -26,12 +29,14 @@ export default function DishSuggestionPage() {
     return () => { active = false; };
   }, []);
 
+  // Duy's code: Cập nhật trường form và xóa lỗi/thông báo cũ khi có chỉnh sửa.
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
     setError('');
     setNotice('');
   };
 
+  // Duy's code: Gửi đề xuất dưới dạng pending và thêm kết quả vào danh sách ngay.
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -58,12 +63,14 @@ export default function DishSuggestionPage() {
       <nav className="mb-3" aria-label="Điều hướng">
         <Button as="a" href="/feed" variant="outline" icon="arrow-left">Quay lại bảng tin</Button>
       </nav>
+      {/* Duy's code: Cho Member biết đề xuất chỉ xuất hiện sau khi Admin duyệt. */}
       <PageHeader
         title="Đề xuất món ăn"
         description="Chia sẻ món ăn chay chưa có trong danh mục. Đề xuất sẽ ở trạng thái chờ cho đến khi Admin xem xét."
       />
       {error && <Notice tone="alert" title="Không thể gửi đề xuất" className="mt-3">{error}</Notice>}
       {notice && <Notice tone="success" className="mt-3">{notice}</Notice>}
+      {/* Duy's code: Nhận thông tin Dish và gửi lên backend ở trạng thái pending. */}
       <form className="rounded border p-3 mt-3" onSubmit={handleSubmit} noValidate>
         <div className="row g-3">
           <div className="col-12">
@@ -103,6 +110,7 @@ export default function DishSuggestionPage() {
         </div>
       </form>
 
+      {/* Duy's code: Cho Member theo dõi trạng thái và lý do từ chối đề xuất của mình. */}
       <section className="mt-5" aria-labelledby="my-dishes-heading">
         <h2 id="my-dishes-heading" className="h4">Đề xuất của tôi</h2>
         {loading ? <p role="status">Đang tải danh sách...</p> : dishes.length === 0 ? (

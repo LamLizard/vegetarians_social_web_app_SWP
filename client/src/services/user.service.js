@@ -1,9 +1,11 @@
 import { apiFetch } from './api'; /* Duy's code: Dùng wrapper API hiện có của client. */
 
+// Duy's code: Lấy hồ sơ tài khoản của người dùng hiện đang đăng nhập.
 export async function getProfile() {
   return apiFetch('/users/me'); /* Duy's code: API_BASE_URL đã tự thêm tiền tố /api. */
 }
 
+// Duy's code: Gửi dữ liệu tài khoản đã chỉnh sửa tới backend.
 export async function updateProfile(payload) {
   return apiFetch('/users/me', { /* Duy's code: Gửi cập nhật hồ sơ qua cùng wrapper API. */
     method: 'PUT', /* Duy's code: Giữ phương thức cập nhật hồ sơ hiện có. */
@@ -11,10 +13,12 @@ export async function updateProfile(payload) {
   }); /* Duy's code: Kết thúc yêu cầu cập nhật hồ sơ. */
 }
 
+// Duy's code: Xin backend ký các tham số upload trước khi gửi ảnh tới Cloudinary.
 export async function requestAvatarUploadSignature() {
   return apiFetch('/users/me/avatar-upload-signature', { method: 'POST' });
 }
 
+// Duy's code: Tải file trực tiếp tới Cloudinary và chuyển tiến độ/hủy từ ImageUpload.
 function uploadToCloudinary(file, signature, { onProgress, signal }) {
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
@@ -63,6 +67,7 @@ function uploadToCloudinary(file, signature, { onProgress, signal }) {
   });
 }
 
+// Duy's code: Upload avatar, nhờ backend xác minh asset rồi lưu URL vào account.
 export async function uploadAvatar(file, options) {
   const signature = await requestAvatarUploadSignature();
   const upload = await uploadToCloudinary(file, signature, options);
@@ -73,14 +78,17 @@ export async function uploadAvatar(file, options) {
   return { avatar: profile.avatar, cleanupWarning: profile.cleanupWarning };
 }
 
+// Duy's code: Gỡ URL avatar khỏi hồ sơ và yêu cầu backend dọn asset Cloudinary.
 export async function removeAvatar() {
   return apiFetch('/users/me/avatar', { method: 'DELETE' });
 }
 
+// Duy's code: Đọc hồ sơ sức khỏe và trạng thái consent hiện tại.
 export async function getHealthProfile() {
   return apiFetch('/users/me/health-profile');
 }
 
+// Duy's code: Lưu dữ liệu sức khỏe sau khi người dùng xác nhận consent.
 export async function saveHealthProfile(payload) {
   return apiFetch('/users/me/health-profile', {
     method: 'PUT',
@@ -88,6 +96,7 @@ export async function saveHealthProfile(payload) {
   });
 }
 
+// Duy's code: Gửi yêu cầu thu hồi consent và xóa dữ liệu sức khỏe liên quan.
 export async function withdrawHealthConsent() {
   return apiFetch('/users/me/health-profile/consent', { method: 'DELETE' });
 }

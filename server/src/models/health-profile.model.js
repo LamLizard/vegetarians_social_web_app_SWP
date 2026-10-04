@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 
+// Duy's code: Chuẩn hóa các cột hồ sơ sức khỏe thành cấu trúc phản hồi API.
 const PROFILE_FIELDS = `
   p.profile_id AS id, p.gender, p.date_of_birth AS "dateOfBirth",
   p.height_cm AS "heightCm", p.weight_kg AS "weightKg",
@@ -9,14 +10,19 @@ const PROFILE_FIELDS = `
   p.created_at AS "createdAt", p.updated_at AS "updatedAt"
 `;
 
+// Duy's code: Gom thay đổi nhiều bảng thành một transaction có rollback khi lỗi.
 async function withTransaction(work) {
+  // Duy's code: Mượn một PostgreSQL client để transaction dùng chung một kết nối.
   const client = await pool.connect();
   try {
+    // Duy's code: Bắt đầu transaction trước mọi thao tác nhiều bảng.
     await client.query('BEGIN');
     const result = await work(client);
+    // Duy's code: Lưu mọi thay đổi nếu toàn bộ nghiệp vụ hoàn tất.
     await client.query('COMMIT');
     return result;
   } catch (error) {
+    // Duy's code: Hủy một phần thay đổi nhưng giữ nguyên lỗi gốc để caller xử lý.
     try { await client.query('ROLLBACK'); } catch { /* preserve the original failure */ }
     throw error;
   } finally {
@@ -24,6 +30,7 @@ async function withTransaction(work) {
   }
 }
 
+// Duy's code: Đọc lần đồng ý hoặc thu hồi mới nhất làm trạng thái consent hiện hành.
 async function getLatestConsent(client, accountId) {
   const { rows } = await client.query(`
     SELECT action, policy_version AS "policyVersion", occurred_at AS "occurredAt"
@@ -35,6 +42,7 @@ async function getLatestConsent(client, accountId) {
   return rows[0] ?? null;
 }
 
+// Duy's code: Tải hồ sơ cùng danh sách dị ứng thuộc đúng tài khoản.
 async function loadHealthProfile(client, accountId) {
   const { rows } = await client.query(`
     SELECT ${PROFILE_FIELDS}
@@ -53,9 +61,12 @@ async function loadHealthProfile(client, accountId) {
   return { ...profile, allergies: allergies.rows };
 }
 
+// Duy's code: Chỉ trả dữ liệu sức khỏe khi lần consent gần nhất là granted.
 async function getHealthProfile(accountId) {
   return withTransaction(async (client) => {
+    // Duy's code: Lấy trạng thái consent mới nhất trước khi đọc bất kỳ dữ liệu sức khỏe nào.
     const consent = await getLatestConsent(client, accountId);
+    // Duy's code: Không tiết lộ hồ sơ khi consent chưa được cấp hoặc đã bị thu hồi.
     if (consent?.action !== 'granted') {
       return { consented: false, consentVersion: null, profile: null };
     }
@@ -67,17 +78,21 @@ async function getHealthProfile(accountId) {
   });
 }
 
+// Duy's code: Lưu consent, hồ sơ và danh sách dị ứng nguyên tử trong cùng transaction.
 async function saveHealthProfile(accountId, payload, calculated, consentPolicy) {
   return withTransaction(async (client) => {
+    // Duy's code: Khóa account để tuần tự hóa thao tác lưu/thu hồi consent đồng thời.
     await client.query('SELECT account_id FROM public.account WHERE account_id = $1 FOR UPDATE', [accountId]);
     const latestConsent = await getLatestConsent(client, accountId);
     if (latestConsent?.action !== 'granted') {
+      // Duy's code: Ghi nội dung và phiên bản chính sách mỗi khi consent được cấp lại.
       await client.query(`
         INSERT INTO public.health_consent_event (account_id, action, policy_version, policy_text)
         VALUES ($1, 'granted', $2, $3)
       `, [accountId, consentPolicy.version, consentPolicy.text]);
     }
 
+    // Duy's code: Upsert các trường profile để lần lưu sau cập nhật hồ sơ hiện có.
     await client.query(`
       INSERT INTO public.profile (
         account_id, gender, date_of_birth, height_cm, weight_kg,
@@ -105,6 +120,7 @@ async function saveHealthProfile(accountId, payload, calculated, consentPolicy) 
       calculated.tdee, calculated.targetCalories,
     ]);
 
+    // Duy's code: Lấy khóa profile để thay danh sách dị ứng theo payload mới nhất.
     const { rows } = await client.query('SELECT profile_id FROM public.profile WHERE account_id = $1', [accountId]);
     const profileId = rows[0].profile_id;
     await client.query('DELETE FROM public.allergy WHERE profile_id = $1', [profileId]);
@@ -120,9 +136,12 @@ async function saveHealthProfile(accountId, payload, calculated, consentPolicy) 
   });
 }
 
+// Duy's code: Lưu bằng chứng rút consent rồi xóa dữ liệu sức khỏe trong transaction.
 async function withdrawHealthConsent(accountId, consentPolicy) {
   return withTransaction(async (client) => {
+    // Duy's code: Khóa account để tránh lưu health profile song song lúc thu hồi.
     await client.query('SELECT account_id FROM public.account WHERE account_id = $1 FOR UPDATE', [accountId]);
+    // Duy's code: Lưu bằng chứng thu hồi trước khi xóa dữ liệu hồ sơ.
     await client.query(`
       INSERT INTO public.health_consent_event (account_id, action, policy_version, policy_text)
       VALUES ($1, 'withdrawn', $2, $3)

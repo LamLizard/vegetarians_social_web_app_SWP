@@ -5,8 +5,10 @@ import {
 import useAuth from '../hooks/useAuth';
 import { createAdminDish, getDishCategories } from '../services/dish.service';
 
+// Duy's code: Giá trị khởi đầu để reset form sau khi tạo Dish thành công.
 const EMPTY_FORM = { name: '', description: '', thumbnailUrl: '', categoryIds: [] };
 
+// Duy's code: Màn hình Admin tải danh mục và gửi Dish mới thẳng vào active.
 export default function AdminDishCreatePage() {
   const { user, logout } = useAuth();
   const [form, setForm] = useState(EMPTY_FORM);
@@ -16,6 +18,7 @@ export default function AdminDishCreatePage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
+  // Duy's code: Tải danh mục một lần và tránh cập nhật state sau khi rời trang.
   useEffect(() => {
     let active = true;
     getDishCategories()
@@ -25,12 +28,14 @@ export default function AdminDishCreatePage() {
     return () => { active = false; };
   }, []);
 
+  // Duy's code: Cập nhật một trường form và xóa phản hồi cũ khi người dùng sửa.
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
     setError('');
     setNotice('');
   };
 
+  // Duy's code: Kiểm tra danh mục rồi tạo Dish, báo kết quả và khóa nút khi đang lưu.
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -51,10 +56,12 @@ export default function AdminDishCreatePage() {
     }
   };
 
+  // Duy's code: Đăng xuất Admin và điều hướng về trang gốc.
   const handleLogout = () => { logout(); window.location.assign('/'); };
 
   return (
     <AdminLayout activeKey="dish-create" title="Tạo món ăn" user={user} onLogout={handleLogout}>
+      {/* Duy's code: Nêu rõ Dish Admin tạo sẽ hoạt động ngay và có AdminLog. */}
       <PageHeader
         title="Tạo món ăn"
         description="Món do Admin khởi tạo được đưa thẳng vào danh mục đang hoạt động và ghi nhật ký quản trị."
@@ -62,8 +69,10 @@ export default function AdminDishCreatePage() {
       <Panel className="mt-3">
         {error && <Notice tone="alert" title="Không thể tạo món ăn" className="mb-3">{error}</Notice>}
         {notice && <Notice tone="success" className="mb-3">{notice}</Notice>}
+        {/* Duy's code: Thu thập tên, mô tả, ảnh và danh mục cho Dish mới. */}
         <form onSubmit={handleSubmit} noValidate>
           <div className="row g-3">
+            {/* Duy's code: Chỉ hiển thị bộ chọn sau khi danh mục hoạt động đã tải xong. */}
             <div className="col-12">
               <TextField
                 label="Tên món ăn"
