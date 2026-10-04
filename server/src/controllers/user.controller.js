@@ -6,7 +6,7 @@ const {
   CloudinaryConfigurationError, createAvatarUploadSignature, deleteAvatar, getAvatarAsset, getAvatarPublicId,
 } = require('../utils/cloudinary');
 const healthProfileModel = require('../models/health-profile.model');
-const { calculateHealth } = require('../utils/health');
+const { calculateHealth, getAge } = require('../utils/health');
 
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’\-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép chữ Unicode, dấu tiếng Việt, khoảng trắng và dấu phân cách tên. */
 
@@ -193,6 +193,10 @@ function normalizeHealthProfile(body) {
       errors.push('Ngày sinh không hợp lệ hoặc đang ở tương lai.');
     }
   }
+  const age = dateOfBirth ? getAge(dateOfBirth) : null;
+  if (age !== null && age < 18 && body?.ageWarningAccepted !== true) {
+    errors.push('Người chưa đủ 18 tuổi cần xác nhận thông báo chỉ số trước khi lưu hồ sơ.');
+  }
 
   const heightCm = parseOptionalNumber(body?.heightCm, 'Chiều cao', errors);
   const weightKg = parseOptionalNumber(body?.weightKg, 'Cân nặng', errors);
@@ -224,7 +228,19 @@ function normalizeHealthProfile(body) {
 // Duy's code: Đọc hồ sơ sức khỏe chỉ thuộc tài khoản đã xác thực.
 async function getMyHealthProfile(req, res, next) {
   try {
-    return res.json(await healthProfileModel.getHealthProfile(req.account.id));
+    return res.json(await healthProfileModel.getHealthProfile(req.account.id, HEALTH_CONSENT.version));
+  } catch (error) {
+    return next(error);
+  }
+}
+
+// Duy's code: Yêu cầu consent riêng trước khi mở dữ liệu hồ sơ cũ đã bị khóa.
+async function acceptMyHealthConsent(req, res, next) {
+  try {
+    if (req.body?.consentAccepted !== true) {
+      return res.status(400).json({ message: 'Bạn cần xác nhận đồng ý xử lý dữ liệu sức khỏe.' });
+    }
+    return res.json(await healthProfileModel.grantHealthConsent(req.account.id, HEALTH_CONSENT));
   } catch (error) {
     return next(error);
   }
@@ -259,5 +275,5 @@ async function withdrawMyHealthConsent(req, res, next) {
 
 module.exports = {
   getMyProfile, saveMyProfile, getMyAvatarUploadSignature, saveMyAvatar, removeMyAvatar,
-  getMyHealthProfile, saveMyHealthProfile, withdrawMyHealthConsent,
+  getMyHealthProfile, acceptMyHealthConsent, saveMyHealthProfile, withdrawMyHealthConsent,
 };

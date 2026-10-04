@@ -61,18 +61,51 @@ async function loadHealthProfile(client, accountId) {
   return { ...profile, allergies: allergies.rows };
 }
 
-// Duy's code: Chỉ trả dữ liệu sức khỏe khi lần consent gần nhất là granted.
-async function getHealthProfile(accountId) {
+// Duy's code: Chỉ trả dữ liệu sức khỏe nếu consent gần nhất còn đúng phiên bản hiện hành.
+async function getHealthProfile(accountId, currentConsentVersion) {
   return withTransaction(async (client) => {
     // Duy's code: Lấy trạng thái consent mới nhất trước khi đọc bất kỳ dữ liệu sức khỏe nào.
     const consent = await getLatestConsent(client, accountId);
-    // Duy's code: Không tiết lộ hồ sơ khi consent chưa được cấp hoặc đã bị thu hồi.
-    if (consent?.action !== 'granted') {
-      return { consented: false, consentVersion: null, profile: null };
+    // Duy's code: Ẩn dữ liệu nếu chưa cấp, đã thu hồi hoặc chính sách đã đổi phiên bản.
+    if (consent?.action !== 'granted' || consent.policyVersion !== currentConsentVersion) {
+      const legacyProfile = await client.query(`
+        SELECT EXISTS (
+          SELECT 1 FROM public.profile WHERE account_id = $1
+        ) AS "hasUnconsentedProfile"
+      `, [accountId]);
+      return {
+        consented: false,
+        consentVersion: consent?.policyVersion ?? null,
+        hasUnconsentedProfile: legacyProfile.rows[0].hasUnconsentedProfile,
+        profile: null,
+      };
     }
     return {
       consented: true,
       consentVersion: consent.policyVersion,
+      hasUnconsentedProfile: false,
+      profile: await loadHealthProfile(client, accountId),
+    };
+  });
+}
+
+// Duy's code: Ghi nhận consent trước khi mở hồ sơ cũ mà chưa có bằng chứng đồng ý.
+async function grantHealthConsent(accountId, consentPolicy) {
+  return withTransaction(async (client) => {
+    // Duy's code: Tuần tự hóa cấp consent với lưu hoặc thu hồi hồ sơ.
+    await client.query('SELECT account_id FROM public.account WHERE account_id = $1 FOR UPDATE', [accountId]);
+    const latestConsent = await getLatestConsent(client, accountId);
+    if (latestConsent?.action !== 'granted' || latestConsent.policyVersion !== consentPolicy.version) {
+      await client.query(`
+        INSERT INTO public.health_consent_event (account_id, action, policy_version, policy_text)
+        VALUES ($1, 'granted', $2, $3)
+      `, [accountId, consentPolicy.version, consentPolicy.text]);
+    }
+
+    return {
+      consented: true,
+      consentVersion: consentPolicy.version,
+      hasUnconsentedProfile: false,
       profile: await loadHealthProfile(client, accountId),
     };
   });
@@ -84,12 +117,22 @@ async function saveHealthProfile(accountId, payload, calculated, consentPolicy) 
     // Duy's code: Khóa account để tuần tự hóa thao tác lưu/thu hồi consent đồng thời.
     await client.query('SELECT account_id FROM public.account WHERE account_id = $1 FOR UPDATE', [accountId]);
     const latestConsent = await getLatestConsent(client, accountId);
-    if (latestConsent?.action !== 'granted') {
-      // Duy's code: Ghi nội dung và phiên bản chính sách mỗi khi consent được cấp lại.
+    if (latestConsent?.action !== 'granted' || latestConsent.policyVersion !== consentPolicy.version) {
+      // Duy's code: Ghi lại consent khi mới cấp, cấp lại hoặc chính sách đổi phiên bản.
       await client.query(`
         INSERT INTO public.health_consent_event (account_id, action, policy_version, policy_text)
         VALUES ($1, 'granted', $2, $3)
       `, [accountId, consentPolicy.version, consentPolicy.text]);
+      const legacyProfile = await loadHealthProfile(client, accountId);
+      if (legacyProfile) {
+        return {
+          consented: true,
+          consentVersion: consentPolicy.version,
+          hasUnconsentedProfile: false,
+          requiresReview: true,
+          profile: legacyProfile,
+        };
+      }
     }
 
     // Duy's code: Upsert các trường profile để lần lưu sau cập nhật hồ sơ hiện có.
@@ -131,6 +174,7 @@ async function saveHealthProfile(accountId, payload, calculated, consentPolicy) 
     return {
       consented: true,
       consentVersion: consentPolicy.version,
+      hasUnconsentedProfile: false,
       profile: await loadHealthProfile(client, accountId),
     };
   });
@@ -155,4 +199,6 @@ async function withdrawHealthConsent(accountId, consentPolicy) {
   });
 }
 
-module.exports = { getHealthProfile, saveHealthProfile, withdrawHealthConsent };
+module.exports = {
+  getHealthProfile, grantHealthConsent, saveHealthProfile, withdrawHealthConsent,
+};

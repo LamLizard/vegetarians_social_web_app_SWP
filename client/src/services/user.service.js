@@ -88,6 +88,14 @@ export async function getHealthProfile() {
   return apiFetch('/users/me/health-profile');
 }
 
+// Duy's code: Ghi nhận consent riêng trước khi mở dữ liệu hồ sơ cũ.
+export async function acceptHealthConsent() {
+  return apiFetch('/users/me/health-profile/consent', {
+    method: 'POST',
+    body: JSON.stringify({ consentAccepted: true }),
+  });
+}
+
 // Duy's code: Lưu dữ liệu sức khỏe sau khi người dùng xác nhận consent.
 export async function saveHealthProfile(payload) {
   return apiFetch('/users/me/health-profile', {

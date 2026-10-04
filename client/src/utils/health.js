@@ -13,7 +13,7 @@ export const GOAL_ADJUST = { lose_weight: (t) => t * 0.85, maintain: (t) => t, g
 export function calcBmi(heightCm, weightKg) {
   const h = Number(heightCm) / 100;
   const w = Number(weightKg);
-  if (!h || !w) return null;
+  if (!Number.isFinite(h) || !Number.isFinite(w) || h <= 0 || w <= 0) return null;
   return Math.round((w / (h * h)) * 10) / 10;
 }
 
@@ -28,8 +28,12 @@ export function bmiCategory(bmi) {
 
 /** Duy's code: Tính BMR theo Mifflin-St Jeor, không ước đoán giới tính other. */
 export function calcBmr({ gender, weightKg, heightCm, age }) {
-  const base = 10 * Number(weightKg) + 6.25 * Number(heightCm) - 5 * Number(age);
-  if (!weightKg || !heightCm || !age) return null;
+  const weight = Number(weightKg);
+  const height = Number(heightCm);
+  if (age === null || age === undefined || age === '') return null;
+  const years = Number(age);
+  if (![weight, height, years].every(Number.isFinite) || weight <= 0 || height <= 0 || years < 0) return null;
+  const base = 10 * weight + 6.25 * height - 5 * years;
   if (gender === 'male') return base + 5;
   if (gender === 'female') return base - 161;
   return null;
@@ -39,7 +43,7 @@ export function calcBmr({ gender, weightKg, heightCm, age }) {
 export function calcHealth({ gender, age, heightCm, weightKg, activityLevel, goal }) {
   const bmi = calcBmi(heightCm, weightKg);
   const bmr = calcBmr({ gender, weightKg, heightCm, age });
-  const tdee = bmr && ACTIVITY_FACTOR[activityLevel] ? Math.round(bmr * ACTIVITY_FACTOR[activityLevel]) : null;
-  const target = tdee && GOAL_ADJUST[goal] ? Math.round(GOAL_ADJUST[goal](tdee) / 10) * 10 : null;
-  return { bmi, bmiCategory: bmiCategory(bmi), bmr: bmr && Math.round(bmr), tdee, targetCalories: target };
+  const tdee = bmr != null && ACTIVITY_FACTOR[activityLevel] ? Math.round(bmr * ACTIVITY_FACTOR[activityLevel]) : null;
+  const target = tdee != null && GOAL_ADJUST[goal] ? Math.round(GOAL_ADJUST[goal](tdee) / 10) * 10 : null;
+  return { bmi, bmiCategory: bmiCategory(bmi), bmr: bmr == null ? null : Math.round(bmr), tdee, targetCalories: target };
 }

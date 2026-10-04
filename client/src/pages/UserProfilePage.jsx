@@ -3,7 +3,7 @@ import {
   Avatar, Button, Checkbox, ChipInput, ConfirmDialog, ImageUpload, Notice, PasswordField, Select, Tabs, TextField,
 } from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
 import {
-  getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar, withdrawHealthConsent,
+  acceptHealthConsent, getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar, withdrawHealthConsent,
 } from '../services/user.service';
 import { hasErrors } from '../utils/validate';
 import { calcHealth } from '../utils/health';
@@ -21,6 +21,16 @@ const emptyHealthForm = {
   healthGoal: '',
   allergies: [],
 };
+
+// Duy's code: Chuyển hồ sơ API về dạng input editable, gồm cả dị ứng dạng chip.
+const toHealthForm = (profile) => ({
+  ...emptyHealthForm,
+  ...profile,
+  dateOfBirth: profile?.dateOfBirth?.slice(0, 10) || '',
+  heightCm: profile?.heightCm ?? '',
+  weightKg: profile?.weightKg ?? '',
+  allergies: (profile?.allergies || []).map((allergy) => allergy.name),
+});
 
 // Duy's code: Tính tuổi đủ năm theo sinh nhật để gửi đầu vào nhất quán lên preview.
 function ageFromDate(dateOfBirth) {
@@ -107,11 +117,15 @@ export default function UserProfilePage() {
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [healthForm, setHealthForm] = useState(emptyHealthForm);
   const [healthConsent, setHealthConsent] = useState(false);
+  const [healthConsentDraft, setHealthConsentDraft] = useState(false);
+  const [hasUnconsentedHealthProfile, setHasUnconsentedHealthProfile] = useState(false);
   const [healthLoading, setHealthLoading] = useState(true);
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthError, setHealthError] = useState('');
   const [healthNotice, setHealthNotice] = useState('');
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [ageWarningOpen, setAgeWarningOpen] = useState(false);
+  const [ageWarningAcceptedDob, setAgeWarningAcceptedDob] = useState('');
 
   const healthPreview = calcHealth({
     gender: healthForm.gender,
@@ -149,16 +163,10 @@ export default function UserProfilePage() {
       .then((result) => {
         if (!active) return;
         setHealthConsent(result.consented);
+        setHealthConsentDraft(false);
+        setHasUnconsentedHealthProfile(result.hasUnconsentedProfile === true);
         if (result.profile) {
-          setHealthForm({
-            gender: result.profile.gender || '',
-            dateOfBirth: result.profile.dateOfBirth?.slice(0, 10) || '',
-            heightCm: result.profile.heightCm ?? '',
-            weightKg: result.profile.weightKg ?? '',
-            activityLevel: result.profile.activityLevel || '',
-            healthGoal: result.profile.healthGoal || '',
-            allergies: (result.profile.allergies || []).map((allergy) => allergy.name),
-          });
+          setHealthForm(toHealthForm(result.profile));
         }
       })
       .catch((error) => {
@@ -216,33 +224,73 @@ export default function UserProfilePage() {
     setHealthNotice('');
   };
 
-  // Duy's code: Chỉ lưu hồ sơ sức khỏe sau khi consent được xác nhận.
-  const handleHealthSubmit = async (event) => {
-    event.preventDefault();
+  // Duy's code: Lưu hồ sơ sau khi consent và mọi xác nhận theo dữ liệu đã được đáp ứng.
+  const saveHealthForm = async (ageWarningAccepted = false) => {
     setHealthError('');
     setHealthNotice('');
-    if (!healthConsent) {
-      setHealthError('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
-      return;
-    }
     setHealthSaving(true);
     try {
-      const result = await saveHealthProfile({ ...healthForm, consentAccepted: true });
-      setHealthConsent(result.consented);
-      setHealthForm({
-        ...emptyHealthForm,
-        ...result.profile,
-        dateOfBirth: result.profile?.dateOfBirth?.slice(0, 10) || '',
-        heightCm: result.profile?.heightCm ?? '',
-        weightKg: result.profile?.weightKg ?? '',
-        allergies: (result.profile?.allergies || []).map((allergy) => allergy.name),
+      const result = await saveHealthProfile({
+        ...healthForm,
+        consentAccepted: healthConsent || healthConsentDraft,
+        ageWarningAccepted,
       });
-      setHealthNotice('Hồ sơ sức khỏe đã được lưu.');
+      setHealthConsent(result.consented);
+      setHealthConsentDraft(false);
+      setHasUnconsentedHealthProfile(false);
+      setHealthForm(toHealthForm(result.profile));
+      setHealthNotice(result.requiresReview
+        ? 'Đã ghi nhận đồng ý và mở lại hồ sơ cũ. Hãy kiểm tra dữ liệu rồi bấm Lưu hồ sơ sức khỏe nếu muốn cập nhật.'
+        : 'Hồ sơ sức khỏe đã được lưu.');
     } catch (error) {
       setHealthError(error.message);
     } finally {
       setHealthSaving(false);
     }
+  };
+
+  // Duy's code: Yêu cầu người dưới 18 xác nhận cảnh báo trước khi gửi hồ sơ lên server.
+  const handleHealthSubmit = async (event) => {
+    event.preventDefault();
+    setHealthError('');
+    setHealthNotice('');
+    if (!healthConsent && !healthConsentDraft) {
+      setHealthError('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
+      return;
+    }
+    if (!healthConsent && hasUnconsentedHealthProfile) {
+      setHealthSaving(true);
+      try {
+        const result = await acceptHealthConsent();
+        setHealthConsent(result.consented);
+        setHealthConsentDraft(false);
+        setHasUnconsentedHealthProfile(false);
+        setHealthForm(toHealthForm(result.profile));
+        setHealthNotice(result.profile
+          ? 'Đã ghi nhận đồng ý và mở lại hồ sơ cũ. Hãy kiểm tra dữ liệu rồi bấm Lưu hồ sơ sức khỏe nếu muốn cập nhật.'
+          : 'Đã ghi nhận đồng ý. Bạn có thể nhập thông tin rồi lưu hồ sơ sức khỏe.');
+      } catch (error) {
+        setHealthError(error.message);
+      } finally {
+        setHealthSaving(false);
+      }
+      return;
+    }
+    const age = ageFromDate(healthForm.dateOfBirth);
+    const isMinor = age !== null && age < 18;
+    if (isMinor && ageWarningAcceptedDob !== healthForm.dateOfBirth) {
+      setAgeWarningOpen(true);
+      return;
+    }
+    await saveHealthForm(isMinor);
+  };
+
+  // Duy's code: Chỉ cho tiếp tục lưu sau khi người dùng xác nhận cảnh báo dưới 18 tuổi.
+  const handleAgeWarningConfirm = async () => {
+    const dateOfBirth = healthForm.dateOfBirth;
+    setAgeWarningAcceptedDob(dateOfBirth);
+    setAgeWarningOpen(false);
+    await saveHealthForm(true);
   };
 
   // Duy's code: Thu hồi consent đồng thời xóa hồ sơ và allergy đã lưu.
@@ -253,7 +301,10 @@ export default function UserProfilePage() {
     try {
       await withdrawHealthConsent();
       setHealthConsent(false);
+      setHealthConsentDraft(false);
+      setHasUnconsentedHealthProfile(false);
       setHealthForm(emptyHealthForm);
+      setAgeWarningAcceptedDob('');
       setHealthNotice('Đã thu hồi đồng ý và xóa hồ sơ sức khỏe cùng danh sách dị ứng/kiêng.');
       setWithdrawOpen(false);
     } catch (error) {
@@ -440,6 +491,15 @@ export default function UserProfilePage() {
                   <p role="status">Đang tải hồ sơ sức khỏe...</p>
                 ) : (
                   <form onSubmit={handleHealthSubmit} noValidate>
+                    {hasUnconsentedHealthProfile && !healthConsent && (
+                      <Notice tone="info" title="Hồ sơ cũ đang được giữ kín" className="mb-3">
+                        Hồ sơ sức khỏe cũ được giữ nguyên nhưng chưa hiển thị vì chưa có consent hợp lệ. Hãy đồng ý để mở lại hồ sơ; dữ liệu cũ sẽ không bị thay đổi ở bước này.
+                      </Notice>
+                    )}
+                    <fieldset
+                      className="border-0 p-0 m-0"
+                      disabled={hasUnconsentedHealthProfile && !healthConsent}
+                    >
                     <div className="row g-3">
                       <div className="col-md-6">
                         <Select
@@ -540,19 +600,28 @@ export default function UserProfilePage() {
                         </p>
                       )}
                     </div>
+                    </fieldset>
 
                     <Notice tone="info" title="Thông tin và đồng ý xử lý dữ liệu" className="mt-3">
                       Dữ liệu sức khỏe được lưu riêng để hỗ trợ cá nhân hóa. Bạn có thể thu hồi đồng ý; thao tác đó sẽ xóa hồ sơ sức khỏe và danh sách dị ứng/kiêng. Chỉ số là ước tính tham khảo, không thay thế tư vấn y tế.
                     </Notice>
-                    {/* Duy's code: Checkbox là điều kiện bắt buộc để lưu hồ sơ sức khỏe. */}
-                    <Checkbox
-                      className="mt-3"
-                      checked={healthConsent}
-                      onChange={(checked) => setHealthConsent(checked)}
-                      required
-                    >
-                      Tôi đã đọc và đồng ý cung cấp, lưu trữ và sử dụng các dữ liệu sức khỏe nêu trên.
-                    </Checkbox>
+                    {healthConsent ? (
+                      <Notice tone="success" title="Bạn đã đồng ý xử lý dữ liệu" className="mt-3">
+                        Consent hiện tại đã được ghi nhận. Bạn có thể cập nhật hồ sơ hoặc thu hồi đồng ý bên dưới.
+                      </Notice>
+                    ) : (
+                      <>
+                        {/* Duy's code: Checkbox chỉ giữ lựa chọn consent đang chờ lần lưu đầu tiên. */}
+                        <Checkbox
+                          className="mt-3"
+                          checked={healthConsentDraft}
+                          onChange={(checked) => setHealthConsentDraft(checked)}
+                          required
+                        >
+                          Tôi đã đọc và đồng ý cung cấp, lưu trữ và sử dụng các dữ liệu sức khỏe nêu trên.
+                        </Checkbox>
+                      </>
+                    )}
 
                     <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
                       {healthConsent && (
@@ -560,8 +629,12 @@ export default function UserProfilePage() {
                           Thu hồi đồng ý và xóa hồ sơ
                         </Button>
                       )}
-                      <Button type="submit" loading={healthSaving} disabled={healthSaving || !healthConsent}>
-                        Lưu hồ sơ sức khỏe
+                      <Button
+                        type="submit"
+                        loading={healthSaving}
+                        disabled={healthSaving || (!healthConsent && !healthConsentDraft)}
+                      >
+                        {hasUnconsentedHealthProfile && !healthConsent ? 'Đồng ý và mở hồ sơ cũ' : 'Lưu hồ sơ sức khỏe'}
                       </Button>
                     </div>
                   </form>
@@ -569,6 +642,17 @@ export default function UserProfilePage() {
               </section>
               )}
 
+              <ConfirmDialog
+                open={ageWarningOpen}
+                title="Lưu ý về chỉ số sức khỏe"
+                message="Bạn chưa đủ 18 tuổi , công thức năng lượng và chỉ số BMI có thể bị áp dụng sai cho trẻ vị thành niên . Thông tin chỉ mang tính tham khảo !"
+                confirmLabel="Tôi đã hiểu, tiếp tục"
+                cancelLabel="Quay lại chỉnh sửa"
+                tone="primary"
+                loading={healthSaving}
+                onConfirm={handleAgeWarningConfirm}
+                onCancel={() => setAgeWarningOpen(false)}
+              />
               <ConfirmDialog
                 open={withdrawOpen}
                 title="Thu hồi đồng ý và xóa hồ sơ sức khỏe?"
