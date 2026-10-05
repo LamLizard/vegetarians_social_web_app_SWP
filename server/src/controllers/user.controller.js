@@ -11,11 +11,6 @@ const { calculateHealth, getAge } = require('../utils/health');
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’\-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép chữ Unicode, dấu tiếng Việt, khoảng trắng và dấu phân cách tên. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá tên trước khi kiểm tra và lưu DB. */
-// Duy's code: Lưu phiên bản và nội dung thông báo consent để tạo bằng chứng đồng ý rõ ràng.
-const HEALTH_CONSENT = {
-  version: 'health-profile-v1',
-  text: 'Tôi đồng ý cung cấp và lưu thông tin sức khỏe, chiều cao, cân nặng, ngày sinh, mục tiêu và dị ứng/kiêng để tạo hồ sơ riêng và hỗ trợ cá nhân hóa. Hồ sơ chỉ được dùng cho tài khoản của tôi. Tôi có thể thu hồi đồng ý; khi thu hồi, hồ sơ sức khỏe và danh sách dị ứng/kiêng sẽ bị xóa.',
-};
 
 // Duy's code: Trả hồ sơ công khai của tài khoản đang xác thực.
 async function getMyProfile(req, res, next) {
@@ -217,8 +212,6 @@ function normalizeHealthProfile(body) {
       ) === index)
     : [];
   if (allergies.some((name) => [...name].length > 120)) errors.push('Mỗi dị ứng/kiêng không được vượt quá 120 ký tự.');
-  if (body?.consentAccepted !== true) errors.push('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
-
   return {
     errors,
     value: { gender, dateOfBirth, heightCm, weightKg, activityLevel, healthGoal, allergies },
@@ -228,46 +221,20 @@ function normalizeHealthProfile(body) {
 // Duy's code: Đọc hồ sơ sức khỏe chỉ thuộc tài khoản đã xác thực.
 async function getMyHealthProfile(req, res, next) {
   try {
-    return res.json(await healthProfileModel.getHealthProfile(req.account.id, HEALTH_CONSENT.version));
+    return res.json({ profile: await healthProfileModel.getHealthProfile(req.account.id) });
   } catch (error) {
     return next(error);
   }
 }
 
-// Duy's code: Yêu cầu consent riêng trước khi mở dữ liệu hồ sơ cũ đã bị khóa.
-async function acceptMyHealthConsent(req, res, next) {
-  try {
-    if (req.body?.consentAccepted !== true) {
-      return res.status(400).json({ message: 'Bạn cần xác nhận đồng ý xử lý dữ liệu sức khỏe.' });
-    }
-    return res.json(await healthProfileModel.grantHealthConsent(req.account.id, HEALTH_CONSENT));
-  } catch (error) {
-    return next(error);
-  }
-}
-
-// Duy's code: Kiểm tra dữ liệu, tính chỉ số và lưu hồ sơ cùng bằng chứng consent.
+// Duy's code: Kiểm tra dữ liệu, tính chỉ số và lưu hồ sơ sức khỏe.
 async function saveMyHealthProfile(req, res, next) {
   try {
     const { errors, value } = normalizeHealthProfile(req.body);
     if (errors.length) return res.status(400).json({ message: errors[0], errors });
 
     const calculated = calculateHealth(value);
-    return res.json(await healthProfileModel.saveHealthProfile(
-      req.account.id,
-      value,
-      calculated,
-      HEALTH_CONSENT,
-    ));
-  } catch (error) {
-    return next(error);
-  }
-}
-
-// Duy's code: Ghi nhận rút consent và xóa dữ liệu sức khỏe theo chính sách đã công bố.
-async function withdrawMyHealthConsent(req, res, next) {
-  try {
-    return res.json(await healthProfileModel.withdrawHealthConsent(req.account.id, HEALTH_CONSENT));
+    return res.json(await healthProfileModel.saveHealthProfile(req.account.id, value, calculated));
   } catch (error) {
     return next(error);
   }
@@ -275,5 +242,5 @@ async function withdrawMyHealthConsent(req, res, next) {
 
 module.exports = {
   getMyProfile, saveMyProfile, getMyAvatarUploadSignature, saveMyAvatar, removeMyAvatar,
-  getMyHealthProfile, acceptMyHealthConsent, saveMyHealthProfile, withdrawMyHealthConsent,
+  getMyHealthProfile, saveMyHealthProfile,
 };

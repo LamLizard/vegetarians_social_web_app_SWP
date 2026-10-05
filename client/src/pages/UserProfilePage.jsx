@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  Avatar, Button, Checkbox, ChipInput, ConfirmDialog, ImageUpload, Notice, PasswordField, Select, Tabs, TextField,
+  Avatar, Button, ChipInput, ConfirmDialog, ImageUpload, Notice, PasswordField, Select, Tabs, TextField,
 } from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
 import {
-  acceptHealthConsent, getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar, withdrawHealthConsent,
+  getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar,
 } from '../services/user.service';
 import { hasErrors } from '../utils/validate';
 import { calcHealth } from '../utils/health';
@@ -116,14 +116,10 @@ export default function UserProfilePage() {
   const [avatarNotice, setAvatarNotice] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [healthForm, setHealthForm] = useState(emptyHealthForm);
-  const [healthConsent, setHealthConsent] = useState(false);
-  const [healthConsentDraft, setHealthConsentDraft] = useState(false);
-  const [hasUnconsentedHealthProfile, setHasUnconsentedHealthProfile] = useState(false);
   const [healthLoading, setHealthLoading] = useState(true);
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthError, setHealthError] = useState('');
   const [healthNotice, setHealthNotice] = useState('');
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [ageWarningOpen, setAgeWarningOpen] = useState(false);
   const [ageWarningAcceptedDob, setAgeWarningAcceptedDob] = useState('');
 
@@ -156,15 +152,12 @@ export default function UserProfilePage() {
     return () => { active = false; };
   }, []);
 
-  // Duy's code: Tải health profile và trạng thái consent cho tab hồ sơ sức khỏe.
+  // Duy's code: Tải hồ sơ sức khỏe cho tab User Profile.
   useEffect(() => {
     let active = true;
     getHealthProfile()
       .then((result) => {
         if (!active) return;
-        setHealthConsent(result.consented);
-        setHealthConsentDraft(false);
-        setHasUnconsentedHealthProfile(result.hasUnconsentedProfile === true);
         if (result.profile) {
           setHealthForm(toHealthForm(result.profile));
         }
@@ -224,7 +217,7 @@ export default function UserProfilePage() {
     setHealthNotice('');
   };
 
-  // Duy's code: Lưu hồ sơ sau khi consent và mọi xác nhận theo dữ liệu đã được đáp ứng.
+  // Duy's code: Lưu hồ sơ sau khi hoàn tất xác nhận cảnh báo tuổi nếu cần.
   const saveHealthForm = async (ageWarningAccepted = false) => {
     setHealthError('');
     setHealthNotice('');
@@ -232,16 +225,10 @@ export default function UserProfilePage() {
     try {
       const result = await saveHealthProfile({
         ...healthForm,
-        consentAccepted: healthConsent || healthConsentDraft,
         ageWarningAccepted,
       });
-      setHealthConsent(result.consented);
-      setHealthConsentDraft(false);
-      setHasUnconsentedHealthProfile(false);
       setHealthForm(toHealthForm(result.profile));
-      setHealthNotice(result.requiresReview
-        ? 'Đã ghi nhận đồng ý và mở lại hồ sơ cũ. Hãy kiểm tra dữ liệu rồi bấm Lưu hồ sơ sức khỏe nếu muốn cập nhật.'
-        : 'Hồ sơ sức khỏe đã được lưu.');
+      setHealthNotice('Hồ sơ sức khỏe đã được lưu.');
     } catch (error) {
       setHealthError(error.message);
     } finally {
@@ -254,28 +241,6 @@ export default function UserProfilePage() {
     event.preventDefault();
     setHealthError('');
     setHealthNotice('');
-    if (!healthConsent && !healthConsentDraft) {
-      setHealthError('Bạn cần đồng ý trước khi lưu hồ sơ sức khỏe.');
-      return;
-    }
-    if (!healthConsent && hasUnconsentedHealthProfile) {
-      setHealthSaving(true);
-      try {
-        const result = await acceptHealthConsent();
-        setHealthConsent(result.consented);
-        setHealthConsentDraft(false);
-        setHasUnconsentedHealthProfile(false);
-        setHealthForm(toHealthForm(result.profile));
-        setHealthNotice(result.profile
-          ? 'Đã ghi nhận đồng ý và mở lại hồ sơ cũ. Hãy kiểm tra dữ liệu rồi bấm Lưu hồ sơ sức khỏe nếu muốn cập nhật.'
-          : 'Đã ghi nhận đồng ý. Bạn có thể nhập thông tin rồi lưu hồ sơ sức khỏe.');
-      } catch (error) {
-        setHealthError(error.message);
-      } finally {
-        setHealthSaving(false);
-      }
-      return;
-    }
     const age = ageFromDate(healthForm.dateOfBirth);
     const isMinor = age !== null && age < 18;
     if (isMinor && ageWarningAcceptedDob !== healthForm.dateOfBirth) {
@@ -291,27 +256,6 @@ export default function UserProfilePage() {
     setAgeWarningAcceptedDob(dateOfBirth);
     setAgeWarningOpen(false);
     await saveHealthForm(true);
-  };
-
-  // Duy's code: Thu hồi consent đồng thời xóa hồ sơ và allergy đã lưu.
-  const handleWithdrawConsent = async () => {
-    setHealthSaving(true);
-    setHealthError('');
-    setHealthNotice('');
-    try {
-      await withdrawHealthConsent();
-      setHealthConsent(false);
-      setHealthConsentDraft(false);
-      setHasUnconsentedHealthProfile(false);
-      setHealthForm(emptyHealthForm);
-      setAgeWarningAcceptedDob('');
-      setHealthNotice('Đã thu hồi đồng ý và xóa hồ sơ sức khỏe cùng danh sách dị ứng/kiêng.');
-      setWithdrawOpen(false);
-    } catch (error) {
-      setHealthError(error.message);
-    } finally {
-      setHealthSaving(false);
-    }
   };
 
   const handleSubmit = async (event) => {
@@ -477,7 +421,7 @@ export default function UserProfilePage() {
               </section>
               )}
 
-              {/* Duy's code: Tab sức khỏe yêu cầu consent trước khi lưu dữ liệu nhạy cảm. */}
+              {/* Duy's code: Tab sức khỏe cho Member quản lý thông tin và chỉ số cá nhân. */}
               {activeTab === 'health' && (
               <section role="tabpanel" aria-label="Hồ sơ sức khỏe" className="pt-4">
                 <h3 className="h5">Hồ sơ sức khỏe</h3>
@@ -486,155 +430,192 @@ export default function UserProfilePage() {
                 </p>
                 {healthError && <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>}
                 {healthNotice && <Notice tone="success" className="mb-3">{healthNotice}</Notice>}
-                {/* Duy's code: Hiển thị form sức khỏe sau khi tải xong dữ liệu consent và hồ sơ. */}
+                {/* Duy's code: Hiển thị form sức khỏe sau khi tải xong hồ sơ. */}
                 {healthLoading ? (
                   <p role="status">Đang tải hồ sơ sức khỏe...</p>
                 ) : (
-                  <form onSubmit={handleHealthSubmit} noValidate>
-                    {hasUnconsentedHealthProfile && !healthConsent && (
-                      <Notice tone="info" title="Hồ sơ cũ đang được giữ kín" className="mb-3">
-                        Hồ sơ sức khỏe cũ được giữ nguyên nhưng chưa hiển thị vì chưa có consent hợp lệ. Hãy đồng ý để mở lại hồ sơ; dữ liệu cũ sẽ không bị thay đổi ở bước này.
-                      </Notice>
-                    )}
-                    <fieldset
-                      className="border-0 p-0 m-0"
-                      disabled={hasUnconsentedHealthProfile && !healthConsent}
-                    >
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <Select
-                          label="Thông số sinh lý dùng cho công thức năng lượng"
-                          value={healthForm.gender}
-                          onChange={updateHealthField('gender')}
-                          placeholder="Chọn nếu muốn tính năng lượng"
-                          options={[
-                            { value: 'male', label: 'Nam' },
-                            { value: 'female', label: 'Nữ' },
-                            { value: 'other', label: 'Khác / không muốn chọn công thức' },
-                          ]}
-                          hint="Lựa chọn này chỉ dùng cho công thức BMR, không định nghĩa danh tính của bạn."
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <TextField
-                          label="Ngày sinh"
-                          type="date"
-                          value={healthForm.dateOfBirth}
-                          onChange={updateHealthField('dateOfBirth')}
-                          max={new Date().toISOString().slice(0, 10)}
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <TextField
-                          label="Chiều cao"
-                          type="number"
-                          value={healthForm.heightCm}
-                          onChange={updateHealthField('heightCm')}
-                          min="0.01"
-                          max="999.99"
-                          step="0.01"
-                          suffix="cm"
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <TextField
-                          label="Cân nặng"
-                          type="number"
-                          value={healthForm.weightKg}
-                          onChange={updateHealthField('weightKg')}
-                          min="0.01"
-                          max="999.99"
-                          step="0.01"
-                          suffix="kg"
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <Select
-                          label="Mức vận động"
-                          value={healthForm.activityLevel}
-                          onChange={updateHealthField('activityLevel')}
-                          placeholder="Chọn mức vận động"
-                          options={[
-                            { value: 'sedentary', label: 'Ít vận động — 1,2' },
-                            { value: 'light', label: 'Vận động nhẹ — 1,375' },
-                            { value: 'moderate', label: 'Vận động vừa — 1,55' },
-                            { value: 'active', label: 'Vận động cao — 1,725' },
-                          ]}
-                          hint="Hệ số dùng để ước tính TDEE từ BMR."
-                        />
-                      </div>
-                      <div className="col-md-6">
-                        <Select
-                          label="Mục tiêu"
-                          value={healthForm.healthGoal}
-                          onChange={updateHealthField('healthGoal')}
-                          placeholder="Chọn mục tiêu"
-                          options={[
-                            { value: 'lose_weight', label: 'Giảm cân — TDEE giảm 15%' },
-                            { value: 'maintain', label: 'Duy trì — bằng TDEE' },
-                            { value: 'gain_muscle', label: 'Tăng cơ — TDEE + 200 kcal' },
-                          ]}
-                        />
-                      </div>
-                      <div className="col-12">
-                        <ChipInput
-                          label="Dị ứng / thực phẩm cần kiêng"
-                          value={healthForm.allergies}
-                          onChange={updateHealthField('allergies')}
-                          max={50}
-                          maxLength={120}
-                          placeholder="Nhập tên rồi nhấn Enter"
-                          hint="Nhập tên tự do; chưa tự động đối chiếu với nguyên liệu."
-                        />
-                      </div>
-                    </div>
+                  <form className={styles.healthFormLayout} onSubmit={handleHealthSubmit} noValidate>
+                    <div className={styles.healthLayout}>
+                      <section className={styles.healthPanel} aria-labelledby="health-basics-title">
+                        <h4 id="health-basics-title" className="h6 mb-3">Thông tin cơ bản</h4>
+                        <fieldset className="border-0 p-0 m-0">
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-gender">Giới tính</label>
+                            <Select
+                              id="health-gender"
+                              value={healthForm.gender}
+                              onChange={updateHealthField('gender')}
+                              placeholder="Chọn"
+                              options={[
+                                { value: 'male', label: 'Nam' },
+                                { value: 'female', label: 'Nữ' },
+                                { value: 'other', label: 'Khác / không muốn chọn công thức' },
+                              ]}
+                              hint="Chỉ dùng để chọn công thức ước tính năng lượng."
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-date-of-birth">Ngày sinh</label>
+                            <TextField
+                              id="health-date-of-birth"
+                              type="date"
+                              value={healthForm.dateOfBirth}
+                              onChange={updateHealthField('dateOfBirth')}
+                              max={new Date().toISOString().slice(0, 10)}
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-height">Chiều cao</label>
+                            <TextField
+                              id="health-height"
+                              type="number"
+                              value={healthForm.heightCm}
+                              onChange={updateHealthField('heightCm')}
+                              min="0.01"
+                              max="999.99"
+                              step="0.01"
+                              suffix="cm"
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-weight">Cân nặng</label>
+                            <TextField
+                              id="health-weight"
+                              type="number"
+                              value={healthForm.weightKg}
+                              onChange={updateHealthField('weightKg')}
+                              min="0.01"
+                              max="999.99"
+                              step="0.01"
+                              suffix="kg"
+                            />
+                          </div>
+                        </fieldset>
 
-                    <div className="rounded border p-3 mt-3" aria-live="polite">
-                      <h4 className="h6">Chỉ số tham khảo</h4>
-                      <p className="mb-1">BMI: {healthPreview.bmi == null ? 'Chưa đủ chiều cao và cân nặng' : healthPreview.bmi}</p>
-                      <p className="mb-1">TDEE: {healthPreview.tdee == null ? 'Chưa đủ dữ liệu để tính' : `${healthPreview.tdee} kcal/ngày`}</p>
-                      <p className="mb-0">Mục tiêu năng lượng: {healthPreview.targetCalories == null ? 'Chưa đủ dữ liệu để tính' : `${healthPreview.targetCalories} kcal/ngày`}</p>
-                      {healthForm.gender === 'other' && (
-                        <p className="small text-body-secondary mt-2 mb-0">
-                          Với lựa chọn này, ứng dụng vẫn tính BMI khi đủ chiều cao và cân nặng; không tính BMR, TDEE hoặc mục tiêu năng lượng vì hiện chưa có công thức được xác nhận phù hợp. Ứng dụng không tự gán công thức nam/nữ hoặc lấy trung bình.
+                        <div className="border-top mt-3 pt-3">
+                          <h5 className="h6">Vận động và mục tiêu</h5>
+                          <p className="small text-body-secondary">
+                            Chọn mức gần với sinh hoạt thường ngày; đây chỉ là ước lượng, không cần tính số buổi thật chính xác.
+                          </p>
+                          <Select
+                            label="Mức vận động"
+                            value={healthForm.activityLevel}
+                            onChange={updateHealthField('activityLevel')}
+                            placeholder="Chọn mức vận động"
+                            options={[
+                              { value: 'sedentary', label: 'Ít — chủ yếu ngồi, ít đi bộ/tập' },
+                              { value: 'light', label: 'Nhẹ — hoạt động nhẹ hoặc tập nhẹ vài buổi/tuần' },
+                              { value: 'moderate', label: 'Vừa — tập vừa khoảng 3–5 buổi/tuần' },
+                              { value: 'active', label: 'Cao — tập nặng thường xuyên hoặc làm việc thể lực' },
+                            ]}
+                          />
+                          <Select
+                            className="mt-3"
+                            label="Mục tiêu"
+                            value={healthForm.healthGoal}
+                            onChange={updateHealthField('healthGoal')}
+                            placeholder="Chọn mục tiêu"
+                            options={[
+                              { value: 'lose_weight', label: 'Giảm cân' },
+                              { value: 'maintain', label: 'Duy trì cân nặng' },
+                              { value: 'gain_muscle', label: 'Tăng cơ' },
+                            ]}
+                          />
+                          <div className="mt-3">
+                            <ChipInput
+                              label="Dị ứng / thực phẩm cần kiêng"
+                              value={healthForm.allergies}
+                              onChange={updateHealthField('allergies')}
+                              max={50}
+                              maxLength={120}
+                              placeholder="Nhập tên rồi nhấn Enter"
+                              hint="Được lưu trong hồ sơ; hiện chưa tự động lọc món ăn."
+                            />
+                          </div>
+                        </div>
+                      </section>
+
+                      <section className={styles.healthPanel} aria-labelledby="health-results-title" aria-live="polite">
+                        <h4 id="health-results-title" className="h6 mb-1">Chỉ số sức khỏe ước tính</h4>
+                        <p className="small text-body-secondary mb-3">
+                          Các kết quả thay đổi theo thông tin bạn nhập.
                         </p>
-                      )}
-                    </div>
-                    </fieldset>
+                        <div className={styles.healthResultsLayout}>
+                          <div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>BMI</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.bmi == null
+                                  ? 'Chưa tính được: cần chiều cao và cân nặng.'
+                                  : `${healthPreview.bmi} — ${({
+                                    underweight: 'thấp',
+                                    normal: 'trong khoảng tham khảo',
+                                    overweight: 'cao',
+                                    obese: 'rất cao',
+                                  })[healthPreview.bmiCategory]}`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>BMR</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.bmr == null
+                                  ? 'Chưa tính được: cần ngày sinh và thông tin cơ thể phù hợp.'
+                                  : `Khoảng ${healthPreview.bmr} kcal/ngày`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>TDEE</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.tdee == null
+                                  ? 'Chưa tính được: cần BMR và mức vận động.'
+                                  : `Khoảng ${healthPreview.tdee} kcal/ngày`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>Mục tiêu calo</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.targetCalories == null
+                                  ? 'Chưa tính được: cần TDEE và mục tiêu.'
+                                  : `Khoảng ${healthPreview.targetCalories} kcal/ngày`}
+                              </p>
+                            </div>
+                          </div>
 
-                    <Notice tone="info" title="Thông tin và đồng ý xử lý dữ liệu" className="mt-3">
-                      Dữ liệu sức khỏe được lưu riêng để hỗ trợ cá nhân hóa. Bạn có thể thu hồi đồng ý; thao tác đó sẽ xóa hồ sơ sức khỏe và danh sách dị ứng/kiêng. Chỉ số là ước tính tham khảo, không thay thế tư vấn y tế.
+                          <aside className={styles.healthExplanation} aria-label="Giải thích các chỉ số">
+                            <h5 className="h6">Giải thích đơn giản</h5>
+                            <p className="small">
+                              <strong>BMI</strong> so sánh cân nặng với chiều cao. Nhóm BMI chỉ để tham khảo cho người lớn, không phải chẩn đoán.
+                            </p>
+                            <p className="small">
+                              <strong>BMR</strong> là năng lượng cơ thể ước tính cần khi nghỉ ngơi.
+                            </p>
+                            <p className="small">
+                              <strong>TDEE</strong> là năng lượng ước tính tiêu hao trong ngày, đã tính mức vận động; không có nghĩa bạn bắt buộc phải ăn đúng con số đó.
+                            </p>
+                            <p className="small mb-0">
+                              <strong>Mục tiêu calo</strong> là TDEE được điều chỉnh theo lựa chọn của bạn: giảm cân giảm 15%, duy trì giữ nguyên, tăng cơ cộng 200 kcal. Đây là ước tính, không cam kết kết quả.
+                            </p>
+                          </aside>
+                        </div>
+                        {healthForm.gender === 'other' && (
+                          <Notice tone="info" className="mt-3">
+                            BMI vẫn tính được khi đủ chiều cao và cân nặng. Ứng dụng không tự chọn công thức nam/nữ nên BMR, TDEE và mục tiêu calo sẽ để trống.
+                          </Notice>
+                        )}
+                      </section>
+                    </div>
+
+                    <Notice tone="info" title="Thông tin hồ sơ sức khỏe" className="mt-3">
+                      Thông tin bạn lưu sẽ được giữ trong hồ sơ tài khoản để hiển thị và tính các chỉ số tham khảo; các chỉ số này không thay thế tư vấn y tế.
                     </Notice>
-                    {healthConsent ? (
-                      <Notice tone="success" title="Bạn đã đồng ý xử lý dữ liệu" className="mt-3">
-                        Consent hiện tại đã được ghi nhận. Bạn có thể cập nhật hồ sơ hoặc thu hồi đồng ý bên dưới.
-                      </Notice>
-                    ) : (
-                      <>
-                        {/* Duy's code: Checkbox chỉ giữ lựa chọn consent đang chờ lần lưu đầu tiên. */}
-                        <Checkbox
-                          className="mt-3"
-                          checked={healthConsentDraft}
-                          onChange={(checked) => setHealthConsentDraft(checked)}
-                          required
-                        >
-                          Tôi đã đọc và đồng ý cung cấp, lưu trữ và sử dụng các dữ liệu sức khỏe nêu trên.
-                        </Checkbox>
-                      </>
-                    )}
 
                     <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
-                      {healthConsent && (
-                        <Button type="button" variant="alert" onClick={() => setWithdrawOpen(true)} disabled={healthSaving}>
-                          Thu hồi đồng ý và xóa hồ sơ
-                        </Button>
-                      )}
                       <Button
                         type="submit"
                         loading={healthSaving}
-                        disabled={healthSaving || (!healthConsent && !healthConsentDraft)}
+                        disabled={healthSaving}
                       >
-                        {hasUnconsentedHealthProfile && !healthConsent ? 'Đồng ý và mở hồ sơ cũ' : 'Lưu hồ sơ sức khỏe'}
+                        Lưu hồ sơ sức khỏe
                       </Button>
                     </div>
                   </form>
@@ -652,15 +633,6 @@ export default function UserProfilePage() {
                 loading={healthSaving}
                 onConfirm={handleAgeWarningConfirm}
                 onCancel={() => setAgeWarningOpen(false)}
-              />
-              <ConfirmDialog
-                open={withdrawOpen}
-                title="Thu hồi đồng ý và xóa hồ sơ sức khỏe?"
-                message="Thông tin trong hồ sơ sức khỏe và danh sách dị ứng/kiêng sẽ bị xóa. Lịch sử ghi nhận việc đồng ý/thu hồi vẫn được giữ để chứng minh lựa chọn của bạn."
-                confirmLabel="Thu hồi và xóa"
-                loading={healthSaving}
-                onConfirm={handleWithdrawConsent}
-                onCancel={() => setWithdrawOpen(false)}
               />
             </div>
           </div>

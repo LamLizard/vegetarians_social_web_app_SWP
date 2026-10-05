@@ -16,15 +16,10 @@ userModel.updateProfile = async (accountId, values) => {
 let savedHealthProfile;
 healthProfileModel.saveHealthProfile = async (...args) => {
   savedHealthProfile = args;
-  return { consented: true, profile: { dateOfBirth: args[1].dateOfBirth } };
-};
-let grantedHealthConsent;
-healthProfileModel.grantHealthConsent = async (...args) => {
-  grantedHealthConsent = args;
-  return { consented: true, profile: { id: '8' } };
+  return { profile: { dateOfBirth: args[1].dateOfBirth } };
 };
 
-const { saveMyProfile, acceptMyHealthConsent, saveMyHealthProfile } = require('./user.controller');
+const { saveMyProfile, saveMyHealthProfile } = require('./user.controller');
 
 function createResponse() {
   return {
@@ -45,7 +40,6 @@ test.beforeEach(() => {
   profile = { id: '42', email: 'member@example.com', fullName: 'Member' };
   updates = [];
   savedHealthProfile = null;
-  grantedHealthConsent = null;
 });
 
 test('rejects a changed email in a direct profile API request', async () => {
@@ -87,7 +81,7 @@ test('requires explicit age-warning acknowledgement before saving a minor health
 
   await saveMyHealthProfile({
     account: { id: '42' },
-    body: { dateOfBirth: '2010-01-01', consentAccepted: true },
+    body: { dateOfBirth: '2010-01-01' },
   }, res, (error) => { forwardedError = error; });
 
   assert.equal(forwardedError, undefined);
@@ -104,43 +98,36 @@ test('saves a minor health profile after the age-warning acknowledgement', async
     account: { id: '42' },
     body: {
       dateOfBirth: '2010-01-01',
-      consentAccepted: true,
       ageWarningAccepted: true,
     },
   }, res, (error) => { forwardedError = error; });
 
   assert.equal(forwardedError, undefined);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.consented, true);
+  assert.equal(res.body.profile.dateOfBirth, '2010-01-01');
   assert.equal(savedHealthProfile[0], '42');
   assert.equal(savedHealthProfile[1].dateOfBirth, '2010-01-01');
 });
 
-test('does not record health consent when the explicit acknowledgement is missing', async () => {
+test('saves a health profile without a consent field when no age warning is needed', async () => {
   const res = createResponse();
   let forwardedError;
 
-  await acceptMyHealthConsent({
+  await saveMyHealthProfile({
     account: { id: '42' },
-    body: {},
-  }, res, (error) => { forwardedError = error; });
-
-  assert.equal(forwardedError, undefined);
-  assert.equal(res.statusCode, 400);
-  assert.equal(grantedHealthConsent, null);
-});
-
-test('records explicit health consent before legacy profile access', async () => {
-  const res = createResponse();
-  let forwardedError;
-
-  await acceptMyHealthConsent({
-    account: { id: '42' },
-    body: { consentAccepted: true },
+    body: {
+      dateOfBirth: '1990-01-01',
+      gender: 'female',
+      heightCm: 165,
+      weightKg: 60,
+      activityLevel: 'moderate',
+      healthGoal: 'maintain',
+      allergies: [],
+    },
   }, res, (error) => { forwardedError = error; });
 
   assert.equal(forwardedError, undefined);
   assert.equal(res.statusCode, 200);
-  assert.equal(res.body.consented, true);
-  assert.deepEqual(grantedHealthConsent[0], '42');
+  assert.equal(res.body.profile.dateOfBirth, '1990-01-01');
+  assert.equal(savedHealthProfile[1].gender, 'female');
 });

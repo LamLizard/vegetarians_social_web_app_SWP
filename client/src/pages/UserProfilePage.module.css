@@ -35,3 +35,106 @@
   background-color: var(--ac-ok-bg);
   border-color: var(--ac-ok-line);
 }
+
+.healthFormLayout {
+  container: healthForm / inline-size;
+}
+
+.healthLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.healthPanel {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--ac-border);
+  border-radius: 1rem;
+  background: var(--ac-card);
+  container: healthPanel / inline-size;
+}
+
+.healthFieldRow {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 0.75fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--ac-border);
+}
+
+.healthFieldRow:last-child {
+  border-bottom: 0;
+}
+
+.healthFieldLabel {
+  margin: 0;
+  font-size: 0.925rem;
+  font-weight: 600;
+}
+
+.healthResultsLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.healthResultsLayout > * {
+  min-width: 0;
+}
+
+.healthMetricRow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--ac-border);
+}
+
+.healthMetricRow:last-child {
+  border-bottom: 0;
+}
+
+.healthMetricValue {
+  margin: 0;
+  font-weight: 600;
+}
+
+.healthExplanation {
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid var(--ac-border);
+  border-radius: 0.75rem;
+  background: var(--ac-tip-bg);
+  overflow-wrap: break-word;
+}
+
+@container healthForm (max-width: 760px) {
+  .healthLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container healthPanel (max-width: 520px) {
+  .healthResultsLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container healthPanel (max-width: 360px) {
+  .healthFieldRow,
+  .healthMetricRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+}
+
+@media (max-width: 479.98px) {
+  .healthPanel {
+    padding: 1rem;
+  }
+}

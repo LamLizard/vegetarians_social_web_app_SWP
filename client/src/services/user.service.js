@@ -83,28 +83,15 @@ export async function removeAvatar() {
   return apiFetch('/users/me/avatar', { method: 'DELETE' });
 }
 
-// Duy's code: Đọc hồ sơ sức khỏe và trạng thái consent hiện tại.
+// Duy's code: Đọc hồ sơ sức khỏe của tài khoản đang đăng nhập.
 export async function getHealthProfile() {
   return apiFetch('/users/me/health-profile');
 }
 
-// Duy's code: Ghi nhận consent riêng trước khi mở dữ liệu hồ sơ cũ.
-export async function acceptHealthConsent() {
-  return apiFetch('/users/me/health-profile/consent', {
-    method: 'POST',
-    body: JSON.stringify({ consentAccepted: true }),
-  });
-}
-
-// Duy's code: Lưu dữ liệu sức khỏe sau khi người dùng xác nhận consent.
+// Duy's code: Lưu dữ liệu sức khỏe đã được backend kiểm tra và tính toán.
 export async function saveHealthProfile(payload) {
   return apiFetch('/users/me/health-profile', {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
-}
-
-// Duy's code: Gửi yêu cầu thu hồi consent và xóa dữ liệu sức khỏe liên quan.
-export async function withdrawHealthConsent() {
-  return apiFetch('/users/me/health-profile/consent', { method: 'DELETE' });
 }

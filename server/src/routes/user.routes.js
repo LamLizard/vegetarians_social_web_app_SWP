@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getMyProfile, saveMyProfile, getMyAvatarUploadSignature, saveMyAvatar, removeMyAvatar,
-  getMyHealthProfile, acceptMyHealthConsent, saveMyHealthProfile, withdrawMyHealthConsent,
+  getMyHealthProfile, saveMyHealthProfile,
 } = require('../controllers/user.controller');
 const { requireAuth, requireMember } = require('../middlewares/auth');
 
@@ -13,10 +13,8 @@ router.post('/me/avatar-upload-signature', requireAuth, getMyAvatarUploadSignatu
 router.put('/me/avatar', requireAuth, saveMyAvatar);
 router.delete('/me/avatar', requireAuth, removeMyAvatar);
 
-// Duy's code: Chỉ cho phép Member thao tác với hồ sơ sức khỏe và consent của mình.
+// Duy's code: Chỉ cho phép Member đọc và cập nhật hồ sơ sức khỏe của mình.
 router.get('/me/health-profile', requireAuth, requireMember, getMyHealthProfile);
-router.post('/me/health-profile/consent', requireAuth, requireMember, acceptMyHealthConsent);
 router.put('/me/health-profile', requireAuth, requireMember, saveMyHealthProfile);
-router.delete('/me/health-profile/consent', requireAuth, requireMember, withdrawMyHealthConsent);
 
 module.exports = router;
