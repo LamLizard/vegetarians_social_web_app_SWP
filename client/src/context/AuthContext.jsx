@@ -79,12 +79,16 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (details) => {
     const payload = await authService.register(details);
+    return payload;
+  }, []);
+
+  const verifyRegisterOtp = useCallback(async (details) => {
+    const payload = await authService.verifyRegisterOtp(details);
     const nextToken = getToken(payload);
-    if (nextToken) {
-      localStorage.setItem(AUTH_TOKEN_KEY, nextToken);
-      setToken(nextToken);
-      saveUser(getUser(payload));
-    }
+    if (!nextToken) throw new Error('Verification response did not include an access token.');
+    localStorage.setItem(AUTH_TOKEN_KEY, nextToken);
+    setToken(nextToken);
+    saveUser(getUser(payload));
     return payload;
   }, [saveUser]);
 
@@ -95,8 +99,9 @@ export function AuthProvider({ children }) {
     isCheckingSession,
     login,
     register,
+    verifyRegisterOtp,
     logout,
-  }), [isCheckingSession, login, logout, register, token, user]);
+  }), [isCheckingSession, login, logout, register, token, user, verifyRegisterOtp]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

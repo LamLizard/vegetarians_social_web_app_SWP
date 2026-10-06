@@ -8,6 +8,14 @@ const authService = {
     return apiFetch('/auth/register', json(payload));
   },
 
+  verifyRegisterOtp(details) {
+    return apiFetch('/auth/register/verify', json(details));
+  },
+
+  resendRegisterOtp(email) {
+    return apiFetch('/auth/register/resend', json({ email }));
+  },
+
   login(payload) {
     return apiFetch('/auth/login', json(payload));
   },
