@@ -74,6 +74,9 @@ Khi đủ tuổi, chiều cao, cân nặng và lựa chọn công thức hỗ tr
 - Male: `BMR = 10 × kg + 6.25 × cm − 5 × tuổi + 5`.
 - Female: `BMR = 10 × kg + 6.25 × cm − 5 × tuổi − 161`.
 - `other`: không tự gán công thức nam/nữ và không lấy trung bình; BMI vẫn tính được nếu đủ dữ liệu nhưng BMR/TDEE/mục tiêu năng lượng để trống.
+- Giao diện chỉ hiển thị giá trị BMI, không gắn nhóm phân loại dành cho người lớn khi ngày sinh cho thấy người dùng dưới 18 tuổi.
+
+Chiều cao được giới hạn từ 50 đến 250 cm; cân nặng từ 10 đến 500 kg. Client và backend áp dụng cùng khoảng giá trị.
 
 Hệ số hoạt động: `sedentary=1.2`, `light=1.375`, `moderate=1.55`, `active=1.725`.
 
@@ -85,7 +88,7 @@ UI hiện cảnh báo:
 
 > Bạn chưa đủ 18 tuổi , công thức năng lượng và chỉ số BMI có thể bị áp dụng sai cho trẻ vị thành niên . Thông tin chỉ mang tính tham khảo !
 
-Người dùng phải xác nhận cảnh báo trước khi lưu. Backend kiểm tra `ageWarningAccepted: true` khi ngày sinh cho thấy người dùng chưa đủ 18. Xác nhận chỉ cho phép tiếp tục theo quyết định hiện tại; không đồng nghĩa công thức đã phù hợp cho trẻ vị thành niên.
+Người dùng phải xác nhận cảnh báo trước khi lưu. Backend kiểm tra `ageWarningAccepted: true` khi ngày sinh cho thấy người dùng chưa đủ 18. Xác nhận chỉ cho phép tiếp tục theo quyết định hiện tại; không đồng nghĩa công thức đã phù hợp cho trẻ vị thành niên. UI không gắn nhóm BMI người lớn cho người dưới 18 tuổi.
 
 ## 4. API hiện tại
 
@@ -95,6 +98,7 @@ Router được mount tại `/api/users`; các endpoint sức khỏe yêu cầu 
 |---|---|---|
 | `GET` | `/api/users/me/health-profile` | Đọc profile và danh sách allergy của tài khoản hiện tại. |
 | `PUT` | `/api/users/me/health-profile` | Kiểm tra đầu vào, tự tính chỉ số và lưu profile/allergy. |
+| `DELETE` | `/api/users/me/health-profile` | Xóa profile và toàn bộ allergy của tài khoản hiện tại trong một transaction. |
 
 Không còn endpoint `POST /api/users/me/health-profile/consent` hoặc `DELETE /api/users/me/health-profile/consent`.
 
@@ -106,12 +110,12 @@ Không còn endpoint `POST /api/users/me/health-profile/consent` hoặc `DELETE 
 4. Backend kiểm tra enum, ngày sinh, số đo và danh sách allergy; sau đó tự tính các chỉ số.
 5. Model dùng transaction để upsert `profile`, thay danh sách allergy bằng payload mới và trả dữ liệu đã lưu.
 
-Việc bỏ consent đồng nghĩa ứng dụng không còn ghi nhận đồng ý/rút đồng ý, không khóa hồ sơ cũ theo trạng thái consent và không còn nút rút consent để xóa hồ sơ. Hiện hồ sơ được truy cập qua API sau khi xác thực và kiểm tra quyền Member.
+Việc bỏ consent đồng nghĩa ứng dụng không còn ghi nhận đồng ý/rút đồng ý và không khóa hồ sơ cũ theo trạng thái consent. Thành viên có thể chủ động xóa profile cùng allergy bằng endpoint DELETE; thao tác được xác thực, giới hạn theo tài khoản và yêu cầu xác nhận ở giao diện.
 
 ## 6. Files liên quan
 
 - [UserProfilePage.jsx](../client/src/pages/UserProfilePage.jsx) — tab sức khỏe, form, preview và cảnh báo tuổi.
-- [user.service.js](../client/src/services/user.service.js) — gọi API tải/lưu hồ sơ.
+- [user.service.js](../client/src/services/user.service.js) — gọi API tải/lưu/xóa hồ sơ.
 - [health.js](../client/src/utils/health.js) — tính chỉ số preview phía client.
 - [health-profile.model.js](../server/src/models/health-profile.model.js) — đọc/lưu profile và allergy.
 - [user.controller.js](../server/src/controllers/user.controller.js) — validation, tính toán và xử lý API.
@@ -126,7 +130,6 @@ Các kiểm tra đã có trước khi gỡ consent gồm test tính BMI/tuổi, 
 Các phần cần nghiệm thu tiếp:
 
 - Chạy end-to-end bằng tài khoản Member thật.
-- Xác nhận chính sách lưu/xóa hồ sơ sức khỏe độc lập với consent.
 - Xác nhận trước khi chạy script drop bảng nếu database hiện hữu đang chứa lịch sử consent cần giữ lại.
 - Thiết kế mapping dị ứng với nguyên liệu trước khi thực hiện lọc món.
 - Rà soát công thức và cách hiển thị với chuyên gia phù hợp.

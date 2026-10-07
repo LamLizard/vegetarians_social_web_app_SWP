@@ -63,6 +63,18 @@ async function listPendingDishes() {
   return rows;
 }
 
+// Duy's Code: Trả danh sách món đã được duyệt hoặc bị từ chối cho trang quản lý tất cả món ăn.
+async function listAdminDishes() {
+  const { rows } = await pool.query(`
+    SELECT ${DISH_FIELDS}, a.full_name AS "authorName", a.email AS "authorEmail"
+    FROM public.dish d
+    LEFT JOIN public.account a ON a.account_id = d.created_by
+    WHERE d.status IN ('active', 'rejected')
+    ORDER BY d.updated_at DESC, d.dish_id DESC
+  `);
+  return rows;
+}
+
 // Duy's code: Lọc danh sách Dish của Member đăng nhập, không lộ Dish của tài khoản khác.
 async function listMyDishes(accountId) {
   const { rows } = await pool.query(`
@@ -183,6 +195,7 @@ module.exports = {
   createDish,
   decideDish,
   listActiveCategories,
+  listAdminDishes,
   listMyDishes,
   listPendingDishes,
 };

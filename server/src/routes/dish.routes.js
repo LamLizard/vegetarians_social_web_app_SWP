@@ -10,6 +10,8 @@ router.post('/', requireAuth, requireMember, dishController.suggestDish);
 
 // Duy's code: Giới hạn tạo, xem hàng chờ và quyết định Dish cho Admin đã xác thực.
 router.post('/admin', requireAuth, requireAdmin, dishController.createAdminDish);
+// Duy's Code: Chỉ Admin được xem danh sách món đã duyệt và bị từ chối.
+router.get('/admin/all', requireAuth, requireAdmin, dishController.getAdminDishes);
 router.get('/admin/pending', requireAuth, requireAdmin, dishController.getPendingDishes);
 router.post('/admin/:dishId/decision', requireAuth, requireAdmin, dishController.decideDish);
 

@@ -16,6 +16,7 @@
 
 .tools { position: absolute; top: 0.4rem; right: 0.4rem; display: flex; gap: 0.3rem; }
 .tool {
+  position: relative;
   display: grid;
   place-items: center;
   width: 32px;
@@ -27,6 +28,30 @@
 }
 .tool:hover { background: var(--ac-ink); color: var(--ac-cream); }
 .tool:focus-visible { outline: 3px solid var(--ac-focus-ring); }
+.withTooltips .tool::after {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 2;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.35rem;
+  background: var(--ac-ink);
+  color: var(--ac-cream);
+  content: attr(data-tooltip);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-2px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.withTooltips .tool:hover::after,
+.withTooltips .tool:focus-visible::after { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .withTooltips .tool::after { transition: none; }
+}
 
 .overlay {
   position: absolute;

@@ -28,8 +28,8 @@ async function saveMyProfile(req, res, next) {
   try {
     const fullName = normalizeFullName(req.body?.fullName); /* Duy's code: Nhận đúng trường fullName của account. */
     const { password, confirmPassword, currentPassword } = req.body || {}; /* Duy's code: Nhận mật khẩu an toàn kể cả khi request thiếu body. */
-    if ([...fullName].length < 2 || [...fullName].length > 20 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Khớp giới hạn tên 2-20 ký tự và dạng tên người. */
-      return res.status(400).json({ message: 'Họ và tên phải dài 2-20 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.' }); /* Duy's code: Thông báo lỗi theo quy tắc họ tên mới. */
+    if ([...fullName].length < 2 || [...fullName].length > 30 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Khớp giới hạn tên 2-30 ký tự và dạng tên người. */
+      return res.status(400).json({ message: 'Họ và tên phải dài 2-30 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.' }); /* Duy's code: Thông báo lỗi theo quy tắc họ tên mới. */
     }
     const currentProfile = await findProfileById(req.account.id); /* Duy's code: Lấy đúng hồ sơ của tài khoản đã xác thực. */
     if (!currentProfile) return res.status(404).json({ message: 'Không tìm thấy hồ sơ.' });
@@ -154,11 +154,11 @@ async function removeMyAvatar(req, res, next) {
 }
 
 // Duy's code: Chuyển trường số tùy chọn sang number và thu thập lỗi xác thực.
-function parseOptionalNumber(value, label, errors) {
+function parseOptionalNumber(value, label, errors, min, max) {
   if (value === undefined || value === null || value === '') return null;
   const number = Number(value);
-  if (!Number.isFinite(number) || number <= 0 || number > 999.99) {
-    errors.push(`${label} phải là số lớn hơn 0 và không vượt quá 999,99.`);
+  if (!Number.isFinite(number) || number < min || number > max) {
+    errors.push(`${label} phải từ ${min} đến ${max}.`);
     return null;
   }
   return number;
@@ -193,8 +193,8 @@ function normalizeHealthProfile(body) {
     errors.push('Người chưa đủ 18 tuổi cần xác nhận thông báo chỉ số trước khi lưu hồ sơ.');
   }
 
-  const heightCm = parseOptionalNumber(body?.heightCm, 'Chiều cao', errors);
-  const weightKg = parseOptionalNumber(body?.weightKg, 'Cân nặng', errors);
+  const heightCm = parseOptionalNumber(body?.heightCm, 'Chiều cao (cm)', errors, 50, 250);
+  const weightKg = parseOptionalNumber(body?.weightKg, 'Cân nặng (kg)', errors, 10, 500);
   const allergyInput = body?.allergies ?? [];
   if (!Array.isArray(allergyInput) || allergyInput.length > 50) {
     errors.push('Danh sách dị ứng/kiêng không hợp lệ (tối đa 50 mục).');
@@ -240,7 +240,17 @@ async function saveMyHealthProfile(req, res, next) {
   }
 }
 
+// Duy's code: Xóa dữ liệu sức khỏe và dị ứng của tài khoản trong cùng transaction.
+async function deleteMyHealthProfile(req, res, next) {
+  try {
+    await healthProfileModel.deleteHealthProfile(req.account.id);
+    return res.json({ deleted: true });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   getMyProfile, saveMyProfile, getMyAvatarUploadSignature, saveMyAvatar, removeMyAvatar,
-  getMyHealthProfile, saveMyHealthProfile,
+  getMyHealthProfile, saveMyHealthProfile, deleteMyHealthProfile,
 };

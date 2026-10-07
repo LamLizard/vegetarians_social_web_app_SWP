@@ -58,6 +58,15 @@ async function getPendingDishes(req, res, next) {
   }
 }
 
+// Duy's Code: Tải món đã duyệt và bị từ chối để Admin tra cứu trạng thái sau kiểm duyệt.
+async function getAdminDishes(req, res, next) {
+  try {
+    return res.json(await dishModel.listAdminDishes());
+  } catch (error) {
+    return next(error);
+  }
+}
+
 // Duy's code: Kiểm tra quyết định và lý do trước khi thay đổi trạng thái Dish.
 async function decideDish(req, res, next) {
   try {
@@ -80,5 +89,5 @@ async function decideDish(req, res, next) {
 }
 
 module.exports = {
-  createAdminDish, decideDish, getCategories, getMyDishes, getPendingDishes, suggestDish,
+  createAdminDish, decideDish, getAdminDishes, getCategories, getMyDishes, getPendingDishes, suggestDish,
 };

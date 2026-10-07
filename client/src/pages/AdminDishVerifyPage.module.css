@@ -1,0 +1,22 @@
+/* Duy's Code: Giữ popup chi tiết dễ đọc và hiển thị ảnh đầy đủ để Admin kiểm tra. */
+.detailLayout {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.detailPhoto {
+  width: 100%;
+  max-height: min(60vh, 520px);
+  border-radius: var(--ac-radius-lg);
+  background: var(--ac-track);
+  object-fit: contain !important;
+}
+
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 1rem;
+  color: var(--ac-muted);
+  font-size: 0.84rem;
+}

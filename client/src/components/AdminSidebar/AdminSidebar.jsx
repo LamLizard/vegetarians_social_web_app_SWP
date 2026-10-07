@@ -11,7 +11,8 @@ const MENU = [
   // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
   { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
   // Duy's code: Mở hàng chờ để Admin duyệt hoặc từ chối Dish Member đề xuất.
-  { key: 'dish-verify', label: 'Duyệt món ăn', icon: 'basket-check', href: '/admin/dishes/verify' },
+  // Duy's Code: Dùng icon có sẵn trong Bootstrap Icons để mục duyệt món ăn không bị trống.
+  { key: 'dish-verify', label: 'Duyệt món ăn', icon: 'journal-check', href: '/admin/dishes/verify' },
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
   { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
   { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },

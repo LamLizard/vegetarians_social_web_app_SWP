@@ -31,6 +31,11 @@ export async function getPendingDishes() {
   return apiFetch('/dishes/admin/pending');
 }
 
+// Duy's Code: Lấy toàn bộ món đã duyệt và bị từ chối cho trang quản lý món ăn.
+export async function getAdminDishes() {
+  return apiFetch('/dishes/admin/all');
+}
+
 // Duy's code: Gửi quyết định duyệt/từ chối và lý do tới backend.
 export async function decideDish(dishId, action, note = '') {
   return apiFetch(`/dishes/admin/${dishId}/decision`, {

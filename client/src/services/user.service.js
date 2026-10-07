@@ -95,3 +95,8 @@ export async function saveHealthProfile(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+// Duy's code: Xóa hồ sơ sức khỏe của tài khoản hiện đang đăng nhập.
+export async function deleteHealthProfile() {
+  return apiFetch('/users/me/health-profile', { method: 'DELETE' });
+}

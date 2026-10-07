@@ -138,3 +138,10 @@
     padding: 1rem;
   }
 }
+
+.avatarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}

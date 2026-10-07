@@ -97,6 +97,18 @@ async function saveHealthProfile(accountId, payload, calculated) {
   });
 }
 
+// Duy's code: Xóa profile và allergy cùng transaction, chỉ theo account_id đã xác thực.
+async function deleteHealthProfile(accountId) {
+  return withTransaction(async (client) => {
+    await client.query(`
+      DELETE FROM public.allergy a
+      USING public.profile p
+      WHERE a.profile_id = p.profile_id AND p.account_id = $1
+    `, [accountId]);
+    await client.query('DELETE FROM public.profile WHERE account_id = $1', [accountId]);
+  });
+}
+
 module.exports = {
-  getHealthProfile, saveHealthProfile,
+  getHealthProfile, saveHealthProfile, deleteHealthProfile,
 };

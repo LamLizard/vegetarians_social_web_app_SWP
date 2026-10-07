@@ -25,6 +25,7 @@ const TYPE_LABEL = { 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEB
 export default function ImageUpload({
   label, value, onChange, onUpload, multiple = false, max, maxSizeMB = 5,
   accept = 'image/jpeg,image/png,image/webp', ratio = '4/3', hint, error, required, disabled, id, className,
+  showTooltips = false,
 }) {
   const limit = max ?? (multiple ? 5 : 1);
   const urls = multiple ? (value ?? []) : (value ? [value] : []);
@@ -132,13 +133,13 @@ export default function ImageUpload({
           <figure key={url} className={styles.item} style={{ aspectRatio: ratio }}>
             <Photo src={url} alt={`Ảnh ${i + 1}`} className={styles.img} />
             {!disabled && (
-              <div className={styles.tools}>
+              <div className={cx(styles.tools, showTooltips && styles.withTooltips)}>
                 {single && (
-                  <button type="button" className={styles.tool} onClick={() => inputRef.current?.click()} aria-label="Đổi ảnh">
+                  <button type="button" className={styles.tool} onClick={() => inputRef.current?.click()} aria-label="Đổi ảnh" data-tooltip="Đổi ảnh">
                     <i className="bi bi-arrow-repeat" aria-hidden="true" />
                   </button>
                 )}
-                <button type="button" className={styles.tool} onClick={() => removeUrl(url)} aria-label={`Xoá ảnh ${i + 1}`}>
+                <button type="button" className={styles.tool} onClick={() => removeUrl(url)} aria-label={`Xóa ảnh ${i + 1}`} data-tooltip="Xóa ảnh">
                   <i className="bi bi-trash3" aria-hidden="true" />
                 </button>
               </div>
