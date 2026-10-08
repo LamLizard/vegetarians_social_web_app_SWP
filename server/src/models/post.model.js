@@ -285,6 +285,31 @@ async function createReport({ reporterId, targetType, targetId, reasonCode, reas
   });
 }
 
+// Khoi's code: Đăng bài mới (Sprint 2). Bài luôn vào 'pending' chờ Admin duyệt, published_at để NULL
+// (Admin duyệt mới gán). Lưu post + các dòng post_category trong MỘT transaction: lỗi giữa chừng thì không còn bài "mồ côi" thiếu tag.
+async function createPost({ authorId, postType, title, content, thumbnailUrl, youtubeUrl, categoryIds }) {
+  return transaction(async (client) => {
+    const { rows: found } = await client.query(
+      'SELECT category_id FROM category WHERE category_id = ANY($1::bigint[]) AND is_active',
+      [categoryIds],
+    );
+    if (found.length !== categoryIds.length) throw new PostError(400, 'Có tag không tồn tại hoặc đã bị tắt, vui lòng chọn lại.');
+
+    const { rows: [post] } = await client.query(
+      `INSERT INTO post (account_id, post_type, title, content, thumbnail_url, youtube_url, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+       RETURNING post_id::text AS id, status, created_at AS "createdAt"`,
+      [authorId, postType, title, content, thumbnailUrl, youtubeUrl],
+    );
+    await client.query(
+      'INSERT INTO post_category (post_id, category_id) SELECT $1, unnest($2::bigint[])',
+      [post.id, categoryIds],
+    );
+    return post;
+  });
+}
+
 module.exports = {
   PostError, findPreview, findFeed, findComments, findBlockedKeyword, toggleVote, createComment, createReport,
+  createPost,
 };
