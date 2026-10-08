@@ -7,6 +7,7 @@ import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
+import ShopExplorePage from './pages/ShopExplorePage'; /* Lam's code: Trang Khám phá quán chay (M-08). */
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
@@ -60,6 +61,16 @@ export default function App() {
     />
   );
   if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
+  if (!isAdmin && path === '/shops') return (
+    <ShopExplorePage
+      user={user}
+      accountMenu={[
+        { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
+        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+      ]}
+    />
+  );
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.

@@ -28,6 +28,8 @@ app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
+// Lam's code: API khám phá quán chay (M-08) — chỉ thành viên đã đăng nhập mới xem.
+app.use('/api/shops', require('./src/routes/shop.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;
