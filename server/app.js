@@ -29,6 +29,9 @@ app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
 
+// Khoi's code: Upload ảnh bìa bài viết lên Cloudinary (POST /api/uploads/image).
+app.use('/api/uploads', require('./src/routes/upload.routes'));
+
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;
 	return res.status(404).json({ message: `Không tìm thấy API ${req.method} ${path}` });
