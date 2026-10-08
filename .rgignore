@@ -1,0 +1,8 @@
+# Quy tắc tìm kiếm; không thay đổi việc theo dõi file trong Git.
+# Lịch sử bảo trì chỉ đọc khi cần; mở trực tiếp đường dẫn hoặc dùng rg --no-ignore.
+/docs/reports/
+
+# Đường dẫn tương thích; nguồn quy định đầy đủ là docs/development-guide.md.
+/docs/skill-ai-gen-code.md
+/docs/quy-uoc-dat-ten.md
+/docs/huong-dan-folder.md

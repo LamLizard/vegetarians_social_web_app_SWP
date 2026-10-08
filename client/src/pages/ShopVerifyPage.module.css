@@ -1,0 +1,9 @@
+/* Tùng — Sprint 2: hồ sơ Admin, responsive theo UI kit. */
+.page, .detail { display: grid; gap: 24px; }
+.metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--ac-muted); font-size: .9rem; }
+.metadata b { color: var(--ac-ink); }
+.title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ac-border); padding-top: 20px; gap: 24px; }
+.comparison section { min-width: 0; }
+.operating { margin: 10px 0; font-size: .9rem; color: var(--ac-muted); }
+@media (max-width: 640px) { .comparison { grid-template-columns: 1fr; } }

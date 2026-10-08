@@ -1,0 +1,5 @@
+/* Tùng — Sprint 2: trang đăng ký quán trong AppShell hiện có. */
+.page { max-width: 860px; margin: 0 auto; display: grid; gap: 24px; padding-bottom: 32px; }
+.form { display: grid; gap: 28px; margin-top: 20px; }
+.actions { display: flex; justify-content: flex-end; border-top: 1px solid var(--ac-border); padding-top: 20px; }
+@media (max-width: 600px) { .actions > * { width: 100%; } }

@@ -8,6 +8,8 @@ import styles from './AdminSidebar.module.css';
 const MENU = [
   { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
   { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
+  // Tùng — Sprint 2: BRIDGE-02 thêm entry riêng, khớp activeKey của ShopVerifyPage.
+  { key: 'shops', label: 'Xác minh quán', icon: 'shop', href: '/admin/shops/verify' },
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
   { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
   { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },

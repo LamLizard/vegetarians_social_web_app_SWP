@@ -1,0 +1,18 @@
+/* Tùng — Sprint 2: bố cục form Shop dùng tokens của UI kit. */
+.fields { display: grid; gap: 18px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.legend { font-size: 1.05rem; font-weight: 700; margin: 0; }
+.hint { color: var(--ac-muted); font-size: .9rem; margin: 0; }
+.day { display: grid; grid-template-columns: minmax(120px, 1fr) 2fr 2fr; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--ac-border); }
+.time { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.error { color: var(--ac-alert); font-size: .9rem; margin: 0; grid-column: 1 / -1; }
+.snapshot { overflow-wrap: anywhere; }
+.snapshot dl { display: grid; gap: 12px; margin: 0; }
+.snapshot dt { font-size: .8rem; color: var(--ac-muted); }
+.snapshot dd { margin: 2px 0 0; }
+.scheduleList { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 8px; }
+.scheduleList li { display: flex; justify-content: space-between; gap: 16px; font-size: .9rem; }
+.submission { display: inline-block; border-radius: 6px; padding: 5px 9px; font-size: .8rem; font-weight: 600; }
+.pending { background: var(--ac-warn-bg); color: var(--ac-warn-fg); }
+.accepted { background: var(--ac-ok-bg); color: var(--ac-ok-fg); }
+.rejected { background: var(--ac-bad-bg); color: var(--ac-bad-fg); }
+@media (max-width: 680px) { .day { grid-template-columns: 1fr 1fr; } .day > :first-child { grid-column: 1 / -1; } }

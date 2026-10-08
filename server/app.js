@@ -25,6 +25,16 @@ app.use('/api/admin/moderation', postModerationRoutes);
 // Duy's code: Kết nối API quản lý tài khoản thành viên cho trang Admin.
 app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 
+// Tùng — Sprint 2: BRIDGE-01 nối API Shop trước router Admin chung và /api catch-all.
+// Các router Shop kiểm tra quyền trên từng endpoint, giữ đường public Shop cho Lâm.
+const shopRegistrationRoutes = require('./src/routes/shopRegistration.routes');
+const shopManagementRoutes = require('./src/routes/shopManagement.routes');
+const shopVerificationRoutes = require('./src/routes/shopVerification.routes');
+app.use('/api/shops', shopRegistrationRoutes);
+app.use('/api/shops', shopManagementRoutes);
+app.use('/api/admin/shops', shopVerificationRoutes);
+// Tùng — Sprint 2: kết thúc điểm nối API Shop.
+
 app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));

@@ -25,45 +25,17 @@ import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
+// Tùng — Sprint 2: BRIDGE-02A NAV/collapse/mobile tabs dùng chung với trang Shop/Profile.
+import useMemberSidebar, { MEMBER_NAV as NAV } from '../hooks/useMemberSidebar';
+import { MemberMobileNav } from '../components/MemberNavigationLayout';
 import FadeContent from '../components/reactbits/FadeContent';
 import { ROLE } from '../constants/domain';
 import postService from '../services/post.service';
 import '../styles/feed-theme.css';
 import styles from './PostFeedPage.module.css';
 
-// TODO: chuyển lên App khi nhóm có react-router
-const NAV = [
-  { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'dishes', label: 'Món chay', icon: 'egg-fried', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '#' },
-];
-
 /** user của BE ({ fullName }) → dạng component cần ({ name }) */
 const toPerson = (u) => (u ? { name: u.fullName, avatarUrl: u.avatarUrl ?? null } : null);
-
-// ---------- Thanh bên: thu gọn / ngăn kéo (theo prototype v2.1) ----------
-/** Nhớ lựa chọn thu gọn; lần đầu thì màn < 1200px tự thu gọn cho rộng chỗ */
-const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';
-const readCollapsed = () => {
-  try {
-    const v = localStorage.getItem(COLLAPSE_KEY);
-    if (v !== null) return v === '1';
-  } catch { /* trình duyệt chặn localStorage → dùng mặc định */ }
-  return window.innerWidth < 1200;
-};
-
-const MOBILE_QUERY = '(max-width: 767.98px)';
-const useIsMobile = () => {
-  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY);
-    const on = () => setMobile(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return mobile;
-};
 
 // Người dùng tắt hiệu ứng trong hệ điều hành → thẻ bài hiện ngay, không mờ dần
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -73,7 +45,8 @@ const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)')
  * @param {() => void} [onLogin] · [onRegister]
  * @param {{icon?, label, onClick}[]} [accountMenu]  vd Đăng xuất
  */
-export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = [] }) {
+// Tùng — Sprint 2: shopAction là prop tùy chọn, giữ nguyên các consumer feed/guest khác.
+export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = [], shopAction }) {
   const toast = useToast();
   const isGuest = !user;
 
@@ -99,14 +72,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     return () => { delete document.documentElement.dataset.feedV2; };
   }, []);
 
-  // ---------- Thanh bên ----------
-  const isMobile = useIsMobile();
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const toggleCollapsed = () => setCollapsed((c) => {
-    try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* bỏ qua */ }
-    return !c;
-  });
+  // Tùng — Sprint 2: sidebar giữ cùng lựa chọn thu gọn/ngăn kéo trên các trang Member.
+  const { isMobile, collapsed, drawerOpen, setDrawerOpen, toggleCollapsed } = useMemberSidebar();
 
   // ---------- Tải trang đầu (đổi khách/thành viên, đổi từ khoá, bấm Thử lại) ----------
   useEffect(() => {
@@ -205,6 +172,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         activeKey="feed"
         user={user && { ...toPerson(user), roleLabel: ROLE[user.role] }}
         accountMenu={accountMenu}
+        // Tùng — Sprint 2: nút Shop đồng bộ do App/provider truyền xuống.
+        shopAction={shopAction}
         collapsed={!isMobile && collapsed}
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}
@@ -317,17 +286,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         </main>
       </div>
 
-      {/* Điện thoại: thanh tab nổi dưới đáy */}
-      <nav className={styles.mobileNav} aria-label="Điều hướng nhanh">
-        {NAV.map((n) => {
-          const on = n.key === 'feed';
-          return (
-            <a key={n.key} href={n.href} className={`${styles.mItem} ${on ? styles.mOn : ''}`} aria-current={on ? 'page' : undefined}>
-              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.label}</span>
-            </a>
-          );
-        })}
-      </nav>
+      {/* Tùng — Sprint 2: thanh tab mobile chung; giữ mục Bảng tin đang active. */}
+      <MemberMobileNav activeKey="feed" />
 
       <PostDetailModal
         post={openedPost}

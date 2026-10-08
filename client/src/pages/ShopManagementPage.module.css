@@ -1,0 +1,17 @@
+/* Tùng — Sprint 2: owner editors/menu dùng tokens hiện có; không sửa CSS global. */
+.page { display: grid; gap: 24px; padding-bottom: 36px; }
+.form, .dialogBody { display: grid; gap: 18px; }
+.editors { display: grid; gap: 24px; }
+.current { margin: 20px 0; }
+.muted { font-size: .9rem; color: var(--ac-muted); margin: 12px 0; }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; }
+.comparison h3, .pendingGroup h3 { font-size: 1rem; font-weight: 700; }
+.actions { display: flex; justify-content: flex-end; gap: 10px; }
+.menu, .pendingList { list-style: none; padding: 0; margin: 0; }
+.pendingList { display: grid; gap: 8px; margin-bottom: 16px; }
+.pendingGroup { border-top: 1px solid var(--ac-border); padding-top: 24px; }
+.freeItem { display: flex; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--ac-border); }
+.freeItem > :first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.free { color: var(--ac-moss); white-space: nowrap; font-size: .9rem; }
+.warning { color: var(--ac-alert); font-size: .85rem; margin: 6px 0; }
+@media (max-width: 680px) { .comparison { grid-template-columns: 1fr; } .freeItem { flex-wrap: wrap; } .freeItem > :first-child { flex-basis: 65%; } }
