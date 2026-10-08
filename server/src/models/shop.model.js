@@ -47,6 +47,39 @@ async function findVerifiedShops({ q = null, categoryId = null, page = 1, pageSi
   };
 }
 
+async function findShopDetail(shopId) {
+  const shopResult = await pool.query(`
+    SELECT s.shop_id, s.name, s.address, s.phone,
+           to_char(s.open_time,  'HH24:MI') AS open_time,
+           to_char(s.close_time, 'HH24:MI') AS close_time,
+           s.open_days, s.avt_shop_url,
+           (SELECT count(*) FROM shop_dish sd
+              JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
+             WHERE sd.shop_id = s.shop_id)::int AS dish_count
+    FROM shop s
+    WHERE s.shop_id = $1 AND s.verification_status = 'verified'
+    LIMIT 1
+  `, [shopId]);
+
+  if (shopResult.rows.length === 0) {
+    return null;
+  }
+
+  const menuResult = await pool.query(`
+    SELECT sd.shop_dish_id, sd.dish_id, d.name, sd.price, sd.ingredient_note,
+           sd.is_available, sd.dish_category, d.thumbnail_url
+    FROM shop_dish sd
+    JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
+    WHERE sd.shop_id = $1
+    ORDER BY sd.dish_category NULLS LAST, sd.is_available DESC, d.name
+  `, [shopId]);
+
+  return {
+    shop: shopResult.rows[0],
+    menu: menuResult.rows,
+  };
+}
+
 async function findFilterCategories() {
   const { rows } = await pool.query(`
     SELECT DISTINCT c.category_id, c.name
@@ -61,5 +94,6 @@ async function findFilterCategories() {
 
 module.exports = {
   findVerifiedShops,
+  findShopDetail,
   findFilterCategories,
 };

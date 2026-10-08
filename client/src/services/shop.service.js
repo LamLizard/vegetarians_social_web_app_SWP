@@ -8,6 +8,7 @@ const shopService = {
     return apiFetch(`/shops?${params}`);
   },
   getCategories: () => apiFetch('/shops/categories'),
+  getShop: (id) => apiFetch(`/shops/${id}`),
 };
 
 export default shopService;

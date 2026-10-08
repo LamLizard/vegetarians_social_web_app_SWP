@@ -9,5 +9,6 @@ const router = express.Router();
 
 router.get('/categories', requireAuth, shopController.getCategories);
 router.get('/', requireAuth, shopController.getShops);
+router.get('/:id', requireAuth, shopController.getShop);
 
 module.exports = router;

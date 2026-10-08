@@ -23,10 +23,11 @@ export const mapsSearchUrl = (address) => `https://www.google.com/maps/search/?a
  * @param {{name: string, price?: number}} [matchedDish]  UC-08: món người dùng đang tìm mà quán có bán
  * @param {string} [status] · [showStatus] · [moderationNote]  shop.verification_status, cho chủ quán / admin
  * @param {boolean} [showDirections=true]     link "Chỉ đường" mở Google Maps theo địa chỉ
+ * @param {boolean} [showOpenState=true]      false = ẩn badge Đang mở/Sắp đóng/Đã đóng (vẫn giữ dòng giờ)
  */
 export default function ShopCard({
   layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, href = '#', linkAs,
-  dishCount, matchedDish, status, showStatus = false, moderationNote, showDirections = true, className,
+  dishCount, matchedDish, status, showStatus = false, moderationNote, showDirections = true, showOpenState = true, className,
 }) {
   const [Link, linkProps] = getLink(linkAs, href);
   const openState = getOpenState(openTime, closeTime, now);
@@ -36,7 +37,7 @@ export default function ShopCard({
       <i className="bi bi-clock" aria-hidden="true" />
       <span className="visually-hidden">Giờ mở cửa: </span>
       <span className={openTime && closeTime ? styles.hours : undefined}>{formatHours(openTime, closeTime)}</span>
-      {openState && <StatusBadge entity="shopOpen" status={openState} size="sm" />}
+      {openState && showOpenState && <StatusBadge entity="shopOpen" status={openState} size="sm" />}
     </div>
   );
   const addr = address && (

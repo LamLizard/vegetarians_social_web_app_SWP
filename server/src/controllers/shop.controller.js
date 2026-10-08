@@ -93,8 +93,45 @@ async function getCategories(req, res) {
   });
 }
 
+async function getShop(req, res) {
+  const shopId = Number(req.params.id);
+  if (!Number.isInteger(shopId) || shopId <= 0) {
+    throw new ShopError(400, 'Quán không hợp lệ.');
+  }
+
+  const detail = await shopModel.findShopDetail(shopId);
+  if (!detail || !detail.shop) {
+    throw new ShopError(404, 'Không tìm thấy quán.');
+  }
+
+  res.json({
+    shop: {
+      id: String(detail.shop.shop_id),
+      name: detail.shop.name,
+      address: detail.shop.address,
+      phone: detail.shop.phone ?? null,
+      openTime: detail.shop.open_time ?? null,
+      closeTime: detail.shop.close_time ?? null,
+      openDays: detail.shop.open_days ?? null,
+      imageUrl: detail.shop.avt_shop_url,
+      dishCount: detail.shop.dish_count,
+    },
+    menu: detail.menu.map((m) => ({
+      id: String(m.shop_dish_id),
+      dishId: String(m.dish_id),
+      name: m.name,
+      price: m.price,
+      ingredientNote: m.ingredient_note ?? null,
+      imageUrl: m.thumbnail_url ?? null,
+      isAvailable: m.is_available,
+      category: m.dish_category ?? null,
+    })),
+  });
+}
+
 module.exports = {
   getShops: handle(getShops),
   getCategories: handle(getCategories),
+  getShop: handle(getShop),
   PAGE_SIZE,
 };

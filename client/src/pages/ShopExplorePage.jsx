@@ -216,8 +216,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
                   openTime={shop.openTime}
                   closeTime={shop.closeTime}
                   dishCount={shop.dishCount}
-                  href="#"
-                  /* TODO(M-09): đổi thành /shops/{id} khi có trang chi tiết quán. */
+                  href={`/shops/${shop.id}`}
                 />
               ))}
             </div>
