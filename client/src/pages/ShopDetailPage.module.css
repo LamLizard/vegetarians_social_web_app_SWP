@@ -1,0 +1,129 @@
+.shell { --feed-w: 760px; display: flex; align-items: flex-start; }
+.main { flex: 1; min-width: 0; }
+
+.content {
+  display: grid;
+  gap: 18px;
+  width: min(var(--feed-w), 100% - 48px);
+  margin-inline: auto;
+  padding: 12px 0 180px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.mobileMenuButton {
+  display: none;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--v-text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:hover,
+.backLink:focus-visible {
+  color: var(--v-accent-text);
+  text-decoration: underline;
+}
+
+.loading,
+.menuSection {
+  display: grid;
+  gap: 16px;
+}
+
+.loadingCard,
+.loadingGroup {
+  width: 100%;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--v-text);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.group {
+  display: grid;
+  gap: 10px;
+}
+
+.groupTitle {
+  margin: 0;
+  color: var(--v-text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.menuList {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.mobileActions {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .content {
+    width: calc(100% - 24px);
+    padding: 4px 0 172px;
+  }
+
+  .mobileMenuButton {
+    display: inline-flex;
+  }
+
+  .mobileActions {
+    position: fixed;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom) + 72px);
+    left: 12px;
+    z-index: 1041;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobileAction {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 46px;
+    padding: 0 12px;
+    border: 1px solid var(--v-line-2);
+    border-radius: 14px;
+    background: var(--v-header-bg);
+    color: var(--v-text);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--v-shadow-soft);
+  }
+
+  .mobileAction i {
+    font-size: 1rem;
+  }
+}

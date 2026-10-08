@@ -7,6 +7,8 @@ import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
+import ShopExplorePage from './pages/ShopExplorePage'; /* Lam's code: Trang Khám phá quán chay (M-08). */
+import ShopDetailPage from './pages/ShopDetailPage'; /* Lam's code: Trang chi tiết quán chay (M-09). */
 
 // Tùng — Sprint 2: BRIDGE-01 import ba trang Shop, dùng phiên đăng nhập hiện có.
 import ShopRegisterPage from './pages/ShopRegisterPage';
@@ -81,6 +83,25 @@ function AppContent() {
   );
   // Tùng — Sprint 2: đồng bộ sidebar cho Profile, không sửa form hoặc API hồ sơ của Duy.
   if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
+  if (!isAdmin && path === '/shops') return (
+    <ShopExplorePage
+      user={user}
+      accountMenu={[
+        { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
+        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+      ]}
+    />
+  );
+  /* Lam's code: Trang Chi tiết quán (M-09) — thành viên đã đăng nhập. */
+  if (!isAdmin && path.startsWith('/shops/')) {
+    const shopId = path.split('/')[2];
+    return <ShopDetailPage shopId={shopId} user={user} accountMenu={[
+      { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
+      { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+    ]} />;
+  }
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.

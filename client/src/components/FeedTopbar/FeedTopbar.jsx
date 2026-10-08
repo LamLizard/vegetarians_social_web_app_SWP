@@ -7,9 +7,19 @@ import s from './FeedTopbar.module.css';
  * @param {string} value · @param {(v: string) => void} onChange   chữ đang gõ
  * @param {(v: string) => void} onSearch   bấm Enter (chuỗi rỗng = xoá tìm kiếm)
  * @param {() => void} onOpenMenu
+ * @param {string} [placeholder='Tìm bài viết theo tiêu đề…']
+ * @param {string} [searchLabel='Tìm bài viết']
  * @param {() => void} [onLogin]   chỉ truyền khi là khách
  */
-export default function FeedTopbar({ value, onChange, onSearch, onOpenMenu, onLogin }) {
+export default function FeedTopbar({
+  value,
+  onChange,
+  onSearch,
+  onOpenMenu,
+  placeholder = 'Tìm bài viết theo tiêu đề…',
+  searchLabel = 'Tìm bài viết',
+  onLogin,
+}) {
   return (
     <header className={s.bar}>
       <div className={s.inner}>
@@ -27,8 +37,8 @@ export default function FeedTopbar({ value, onChange, onSearch, onOpenMenu, onLo
             type="search"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Tìm bài viết theo tiêu đề…"
-            aria-label="Tìm bài viết"
+            placeholder={placeholder}
+            aria-label={searchLabel}
             enterKeyHint="search"
             maxLength={100}
           />
