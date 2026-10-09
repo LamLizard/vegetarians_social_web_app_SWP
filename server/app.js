@@ -3,7 +3,8 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());          // dev cho thoáng; sau siết origin từ client/.env (CLIENT_URL)
-app.use(express.json());
+// Khoi's code: nội dung bài viết không giới hạn độ dài (D-11) → nới mức nhận JSON từ 100 KB mặc định lên 1 MB.
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -31,6 +32,8 @@ app.use('/api/posts', require('./src/routes/post.routes'));
 
 // Khoi's code: Upload ảnh bìa bài viết lên Cloudinary (POST /api/uploads/image).
 app.use('/api/uploads', require('./src/routes/upload.routes'));
+// Khoi's code: Danh sách tag cho form Đăng bài.
+app.use('/api/categories', require('./src/routes/category.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

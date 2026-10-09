@@ -10,6 +10,9 @@
 //   POST /posts/:id/comments  { content } → Comment
 //   POST /posts/:id/report           { reasonCode, reasonText } → { id }   báo cáo bài
 //   POST /posts/comments/:id/report  { reasonCode, reasonText } → { id }   báo cáo bình luận
+//   POST /posts  { postType, title, content, youtubeUrl?, thumbnailUrl?, categoryIds[] } → { message, post: { id, status: 'pending' } }   (Khôi · Sprint 2)
+//   GET  /categories                     → { items: [{ id, name }] }      tag đang bật                    (Khôi · Sprint 2)
+//   POST /uploads/image   form-data "image" → { url }                     ảnh bìa lên Cloudinary          (Khôi · Sprint 2)
 //   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
@@ -38,6 +41,17 @@ const real = {
   addComment: (postId, content) => apiFetch(`/posts/${postId}/comments`, {
     method: 'POST', body: JSON.stringify({ content }),
   }),
+  // Khoi's code: Đăng bài (Sprint 2)
+  createPost: (data) => apiFetch('/posts', { method: 'POST', body: JSON.stringify(data) }),
+  getCategories: () => apiFetch('/categories'),
+  /** Dùng làm onUpload của ImageUpload: tải 1 ảnh, trả về link Cloudinary */
+  uploadImage: async (file, { onProgress, signal } = {}) => {
+    const body = new FormData();
+    body.append('image', file);
+    const { url } = await apiFetch('/uploads/image', { method: 'POST', body, signal });
+    onProgress?.(100); // fetch không báo tiến độ → báo xong một lần
+    return url;
+  },
   report: ({ targetType, targetId, reasonCode, reasonText }) => apiFetch(
     targetType === 'comment' ? `/posts/comments/${targetId}/report` : `/posts/${targetId}/report`,
     { method: 'POST', body: JSON.stringify({ reasonCode, reasonText }) },
@@ -164,6 +178,30 @@ const mock = {
     return { id: String(seq += 1) };
   },
 };
+
+// Khoi's code: bản giả cho Đăng bài (Sprint 2) — chỉ dùng khi USE_MOCK = true
+Object.assign(mock, {
+  async createPost(data) {
+    await wait();
+    const post = {
+      id: String(seq += 1), type: data.postType, title: data.title, content: data.content,
+      thumbnailUrl: data.thumbnailUrl ?? null, youtubeUrl: data.youtubeUrl ?? null, status: 'pending',
+      voteCount: 0, commentCount: 0, createdAt: new Date().toISOString(), author: ME,
+      categories: Object.values(CAT).filter((c) => data.categoryIds.includes(c.id)),
+    };
+    posts.push(post);
+    return { message: 'Bài viết đã được gửi và đang chờ duyệt.', post: { id: post.id, status: post.status } };
+  },
+  async getCategories() {
+    await wait();
+    return { items: Object.values(CAT) };
+  },
+  async uploadImage(file, { onProgress } = {}) {
+    await wait();
+    onProgress?.(100);
+    return URL.createObjectURL(file);
+  },
+});
 
 const postService = USE_MOCK ? mock : real;
 export default postService;

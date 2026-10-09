@@ -1,0 +1,28 @@
+/* Khoi's code: Hộp thoại Đăng bài (Sprint 2). Màu dùng biến --ac-* nên Sáng/Tối tự đổi. */
+.form { display: grid; gap: 1.1rem; }
+
+.editor { display: grid; gap: 0.4rem; }
+.label { font-weight: 600; color: var(--ac-ink); }
+.req { margin-left: 0.15rem; color: var(--ac-alert, #b4442c); }
+.toolbar { display: flex; align-items: center; gap: 0.25rem; }
+.tool {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.25rem; height: 2.25rem; padding: 0 0.5rem;
+  border: 1px solid var(--ac-border); border-radius: 8px;
+  background: transparent; color: var(--ac-ink); font-size: 0.95rem; cursor: pointer;
+}
+.tool:hover { background: var(--ac-surface-2, rgba(0, 0, 0, 0.04)); }
+.tool:focus-visible { outline: 2px solid var(--ac-primary, #2f7d4a); outline-offset: 2px; }
+.toolOn { border-color: var(--ac-primary, #2f7d4a); color: var(--ac-primary, #2f7d4a); }
+.toolbarHint { margin-left: auto; color: var(--ac-muted); font-size: 0.8rem; }
+
+.preview {
+  min-height: 6rem; padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--ac-border); border-radius: 10px;
+  color: var(--ac-ink); line-height: 1.65; white-space: pre-line;
+}
+.preview p { margin: 0 0 0.75rem; }
+.preview p:last-child { margin-bottom: 0; }
+.previewEmpty { color: var(--ac-muted); }
+
+.pendingNote { margin: 0; color: var(--ac-muted); font-size: 0.85rem; }

@@ -21,6 +21,9 @@ import {
   ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
 } from '../components';
 import ColorAvatar from '../components/ColorAvatar/ColorAvatar';
+// Khoi's code: Đăng bài (Sprint 2) + hiện **đậm** *nghiêng* trong nội dung bài
+import CreatePostModal from '../components/CreatePostModal/CreatePostModal';
+import PostRichText, { stripMarks } from '../components/PostRichText/PostRichText';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
@@ -92,6 +95,32 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const [loginOpen, setLoginOpen] = useState(false);
 
   const requireLogin = () => setLoginOpen(true);
+
+  // ---------- Khoi's code: Đăng bài (Sprint 2) ----------
+  const [createOpen, setCreateOpen] = useState(false);
+  const [categories, setCategories] = useState({ status: 'idle', items: [] }); // idle | loading | ready | error
+
+  const loadCategories = async () => {
+    setCategories((c) => ({ ...c, status: 'loading' }));
+    try {
+      const { items: list } = await postService.getCategories();
+      setCategories({ status: 'ready', items: list });
+    } catch (err) {
+      setCategories({ status: 'error', items: [], error: err.message || 'Vui lòng thử lại sau.' });
+    }
+  };
+
+  const openCreate = () => {
+    if (isGuest) { requireLogin(); return; }
+    if (categories.status !== 'ready' && categories.status !== 'loading') loadCategories(); // tải tag 1 lần, lỗi thì lần mở sau tải lại
+    setCreateOpen(true);
+  };
+
+  /** D-10: đăng xong ở lại trang, báo "đang chờ duyệt". Bài pending chưa hiện trên Bảng tin nên không cần tải lại. */
+  const submitPost = async (data) => {
+    await postService.createPost(data); // lỗi → CreatePostModal tự hiện câu lỗi, giữ nháp
+    toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
+  };
 
   // ---------- Bộ màu v2.1 chỉ áp cho trang này (gỡ khi rời trang) ----------
   useLayoutEffect(() => {
@@ -223,8 +252,10 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         />
 
         <main className={styles.feed} aria-labelledby="feed-title">
-          <div className={styles.feedHead}>
+          <div className={`${styles.feedHead} ${styles.feedHeadRow}`}>
             <h1 id="feed-title" className={styles.feedTitle}>{query ? 'Kết quả tìm kiếm' : 'Bảng tin'}</h1>
+            {/* Khoi's code: nút Đăng bài (Sprint 2) — khách không thấy nút, phải đăng nhập trước */}
+            {!isGuest && <Button icon="plus-lg" onClick={openCreate}>Đăng bài</Button>}
           </div>
 
           {isGuest && (
@@ -264,7 +295,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
               <FeedPostCard
                 postType={post.type}
                 title={post.title}
-                excerpt={post.content}
+                excerpt={stripMarks(post.content)}
                 href={`#bai-${post.id}`}
                 thumbnailUrl={post.thumbnailUrl}
                 youtubeVideoId={post.type === 'video' ? getYouTubeId(post.youtubeUrl ?? '') : undefined}
@@ -349,6 +380,16 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onClose={() => setReportTarget(null)}
       />
 
+      {/* Khoi's code: hộp Đăng bài (Sprint 2) */}
+      <CreatePostModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        categories={categories}
+        onRetryCategories={loadCategories}
+        onSubmit={submitPost}
+        onUpload={postService.uploadImage}
+      />
+
       <LoginPrompt
         open={loginOpen}
         reason="action"
@@ -407,7 +448,7 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
         </header>
 
         {/* Chữ → thẻ chủ đề → hình, giống thẻ bài ngoài Bảng tin */}
-        {post.content && <p className={styles.content}>{post.content}</p>}
+        {post.content && <div className={styles.content}><PostRichText text={post.content} /></div>}
 
         {post.categories?.length > 0 && (
           <div className={cardStyles.tags}>{post.categories.map((c) => <span key={c.id} className={cardStyles.tag}>#{c.name}</span>)}</div>

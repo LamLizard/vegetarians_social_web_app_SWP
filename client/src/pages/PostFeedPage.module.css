@@ -24,6 +24,8 @@
   padding: 12px 8px;
   background: linear-gradient(to bottom, var(--v-bg) 72%, transparent);
 }
+/* Khoi's code: tiêu đề + nút Đăng bài trên cùng một hàng (Sprint 2) */
+.feedHeadRow { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .feedTitle { margin: 0; color: var(--v-text); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; }
 
 .searchBar {
@@ -47,6 +49,9 @@
 .detailHead { display: flex; align-items: center; gap: 0.75rem; }
 .muted { color: var(--ac-muted); font-size: 0.85rem; }
 .content { margin: 0; color: var(--ac-ink); line-height: 1.65; white-space: pre-line; }
+/* Khoi's code: nội dung bài giờ chia đoạn (PostRichText) → khoảng cách giữa các đoạn */
+.content p { margin: 0 0 0.75rem; }
+.content p:last-child { margin-bottom: 0; }
 .detailActions {
   display: flex;
   align-items: center;
