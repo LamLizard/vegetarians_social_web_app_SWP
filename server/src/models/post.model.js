@@ -3,8 +3,7 @@
 //
 // Quy tắc nghiệp vụ (nhóm chốt 28/09):
 //  - Feed chỉ hiện post.status IN ('public', 'reported').
-//  - Khách: 3 bài cố định = 3 bài tạo SỚM NHẤT của ngày gần nhất trước hôm nay (theo created_at, giờ VN);
-//    ngày đó chưa đủ 3 thì lấy tiếp ngày trước nữa.
+//  - Khách: 3 bài = 3 bài có nhiều lượt thả tim (vote_count) nhất.
 //  - Feed thành viên: bài mới ĐĂNG nhất trước = published_at (lúc Admin duyệt), không phải created_at.
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
@@ -93,18 +92,13 @@ async function lockVisiblePost(client, postId) {
 //  ĐỌC
 // =====================================================================
 
-/**
- * 3 bài cho khách. Ví dụ hôm nay 28/09: hôm qua (27/09) có 1 bài lúc 0h30, hôm kia (26/09) có bài 7h, 9h, 12h
- * → lấy [27/09 0h30, 26/09 7h, 26/09 9h]. Bài hôm nay không bao giờ lọt vào.
- */
+/** 3 bài cho khách = 3 bài nhiều lượt thả tim nhất (bằng nhau thì bài đăng mới hơn trước). */
 async function findPreview() {
   const { rows } = await pool.query(`
     SELECT ${POST_FIELDS}
     ${FROM_POST}
     WHERE ${VISIBLE}
-      AND p.created_at < (date_trunc('day', now() AT TIME ZONE ${TZ}) AT TIME ZONE ${TZ})  -- trước 0h hôm nay (giờ VN)
-    ORDER BY (p.created_at AT TIME ZONE ${TZ})::date DESC,  -- ngày gần nhất trước
-             p.created_at ASC, p.post_id ASC                -- trong ngày: bài sớm nhất trước
+    ORDER BY p.vote_count DESC, ${PUBLISHED} DESC, p.post_id DESC
     LIMIT 3
   `, [null]);
   return rows;

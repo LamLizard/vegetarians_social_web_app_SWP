@@ -1,5 +1,5 @@
 // Trang Bảng tin (User Post Page · ID01) — lướt bài kiểu mạng xã hội.
-//  - Khách: chỉ xem 3 bài cố định (3 bài đầu tiên của ngày gần nhất trước hôm nay), read-only.
+//  - Khách: chỉ xem 3 bài nhiều lượt thả tim nhất, read-only.
 //           Bấm Thích / Bình luận / Báo cáo / Tìm kiếm → mời đăng nhập.
 //  - Thành viên: lướt vô hạn, thích (toggle), bình luận, báo cáo bài & bình luận, tìm theo tiêu đề.
 //  - Chỉ hiện bài status 'public' và 'reported' (BE lọc).
