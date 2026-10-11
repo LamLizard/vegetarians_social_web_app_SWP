@@ -1,28 +1,35 @@
-import ColorAvatar from '../ColorAvatar/ColorAvatar';
+import { useState } from 'react';
+import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import cx from '../cx';
+import { APP_NAME } from '../../constants/domain';
 import { useTheme } from '../../utils/theme';
 import s from './FeedSidebar.module.css';
 
 /**
- * Thanh điều hướng bên trái của Bảng tin (theo prototype UI v2.1).
- *  - collapsed=true → chỉ còn icon (rê chuột hiện tên mục)
- *  - Điện thoại: thành ngăn kéo trượt từ trái (mobileOpen), bấm nền tối để đóng
- *  - Đáy: công tắc Sáng/Tối + tài khoản (Đăng xuất nằm cuối menu). Khách: nút Đăng nhập / Đăng ký.
+ * Thanh điều hướng bên trái của Bảng tin — theo prototype UI v2 (src/v2/components/Sidebar.jsx, wireframe Figma "1 · Sketch").
+ *  Trên:  logo Green Bowl + nút thu gọn · nút "+ Đăng bài" · các mục điều hướng
+ *  Đáy:   nút Sáng/Tối · hộp tài khoản (bấm hàng tên → mở lối tắt: Hồ sơ cá nhân, Đăng xuất…)
+ *  collapsed=true → chỉ còn icon; bấm avatar mở popup chứa các lối tắt tài khoản
+ *  Điện thoại: ngăn kéo trượt từ trái (mobileOpen), bấm nền tối để đóng
+ *  Khách: không có nút Đăng bài, đáy là Đăng nhập / Đăng ký
  * Component KHÔNG gọi API, KHÔNG biết route: trang truyền nav, user, accountMenu...
  *
  * @param {{key, label, icon, iconActive?, href}[]} nav
  * @param {string} activeKey
  * @param {{name, avatarUrl?, roleLabel?}|null} user   null = khách
- * @param {{icon?, label, onClick, tone?, divider?}[]} [accountMenu]
+ * @param {{icon?, label, onClick, tone?}[]} [accountMenu]  mục tone="alert" (Đăng xuất) luôn nằm cuối
  * @param {boolean} collapsed · @param {() => void} onToggle
  * @param {boolean} mobileOpen · @param {() => void} onCloseMobile
+ * @param {() => void} [onCreate]   nút "+ Đăng bài" (chỉ hiện khi đã đăng nhập)
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  */
 export default function FeedSidebar({
-  nav, activeKey, user, accountMenu = [], collapsed, onToggle, mobileOpen, onCloseMobile, onLogin, onRegister,
+  nav, activeKey, user, accountMenu = [], collapsed, onToggle, mobileOpen, onCloseMobile, onCreate, onLogin, onRegister,
 }) {
   const [theme, toggleTheme] = useTheme();
+  const dark = theme === 'dark';
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const item = (n) => {
     const on = n.key === activeKey;
@@ -34,19 +41,30 @@ export default function FeedSidebar({
     );
   };
 
+  // Lối tắt thường trước, Đăng xuất (tone alert) sau
+  const links = accountMenu.filter((m) => m.tone !== 'alert');
+  const danger = accountMenu.filter((m) => m.tone === 'alert');
+  const link = (l) => (
+    <button key={l.label} type="button" className={cx(s.link, l.tone === 'alert' && s.linkAlert)} onClick={l.onClick}>
+      <i className={`bi bi-${l.icon} ${s.icon}`} aria-hidden="true" />
+      <span>{l.label}</span>
+    </button>
+  );
+  const collapsedMenu = links.length && danger.length ? [...links, { divider: true }, ...danger] : [...links, ...danger];
+
   return (
     <>
       <div className={cx(s.scrim, mobileOpen && s.scrimOn)} onClick={onCloseMobile} aria-hidden="true" />
       <aside className={cx(s.side, collapsed && s.collapsed, mobileOpen && s.open)} aria-label="Điều hướng chính">
         <div className={s.top}>
-          <a href="/" className={s.brand} aria-label="Ăn Chay, về trang chủ">
+          <a href="/" className={s.brand} aria-label={`${APP_NAME}, về trang chủ`}>
             <span className={s.mark} aria-hidden="true">
               <svg viewBox="0 0 24 24" width="18" height="18">
                 <path d="M5 19c0-8 5-13.5 14-14-.3 8.6-5.6 14-14 14Z" fill="currentColor" />
-                <path d="M5 19c3-4.2 6-7 9.5-9" stroke="var(--v-surface)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+                <path d="M5 19c3-4.2 6-7 9.5-9" stroke="var(--v-accent)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
               </svg>
             </span>
-            <span className={s.name}>Ăn Chay</span>
+            <span className={s.name}>{APP_NAME}</span>
           </a>
           <button
             type="button"
@@ -63,39 +81,66 @@ export default function FeedSidebar({
           </button>
         </div>
 
+        {user && onCreate && (
+          <button type="button" className={s.create} onClick={onCreate} title={collapsed ? 'Đăng bài' : undefined}>
+            <i className="bi bi-plus-lg" aria-hidden="true" />
+            <span className={s.label}>Đăng bài</span>
+          </button>
+        )}
+
         <nav className={s.nav}>{nav.map(item)}</nav>
 
         <div className={s.bottom}>
-          {/* Một nút: icon là chế độ SẼ chuyển sang */}
+          {/* Một nút: icon + chữ là chế độ SẼ chuyển sang (chốt 08/10/2026) */}
           <button
             type="button"
             className={s.theme}
             onClick={toggleTheme}
-            aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
-            title={collapsed ? (theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối') : undefined}
+            aria-label={dark ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={collapsed ? (dark ? 'Chế độ sáng' : 'Chế độ tối') : undefined}
           >
-            <i className={`bi bi-${theme === 'dark' ? 'sun' : 'moon-stars'} ${s.icon}`} aria-hidden="true" />
-            <span className={s.label}>{theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}</span>
+            <i className={`bi bi-${dark ? 'sun' : 'moon-stars'} ${s.icon}`} aria-hidden="true" />
+            <span className={s.label}>{dark ? 'Chế độ sáng' : 'Chế độ tối'}</span>
           </button>
 
-          {user ? (
+          {user && collapsed && (
             <Menu
               side="right"
               width={240}
               className={s.accountWrap}
-              items={accountMenu}
+              items={collapsedMenu}
               renderTrigger={(p) => (
-                <button type="button" className={s.account} aria-label="Tài khoản của bạn" {...p}>
-                  <ColorAvatar name={user.name} src={user.avatarUrl} size={34} />
-                  <span className={s.accountText}>
-                    <b>{user.name}</b>
-                    {user.roleLabel && <small>{user.roleLabel}</small>}
-                  </span>
-                  <i className={`bi bi-three-dots ${s.more}`} aria-hidden="true" />
+                <button type="button" className={s.avatarBtn} aria-label={`Tài khoản: ${user.name}`} {...p}>
+                  <Avatar name={user.name} src={user.avatarUrl} size={34} />
                 </button>
               )}
             />
-          ) : (
+          )}
+
+          {user && !collapsed && (
+            <div className={s.accountBox}>
+              <div className={cx(s.drawer, accountOpen && s.drawerOpen)} id="feed-account-links" inert={!accountOpen}>
+                <div className={s.drawerClip}><div className={s.drawerInner}>{[...links, ...danger].map(link)}</div></div>
+              </div>
+              <button
+                type="button"
+                className={s.userRow}
+                onClick={() => setAccountOpen((o) => !o)}
+                aria-expanded={accountOpen}
+                aria-controls="feed-account-links"
+                aria-label={`Tài khoản ${user.name}, ${accountOpen ? 'thu gọn' : 'mở'} lối tắt`}
+              >
+                <Avatar name={user.name} src={user.avatarUrl} size={34} />
+                <span className={s.accountText}>
+                  <b>{user.name}</b>
+                  {user.roleLabel && <small>{user.roleLabel}</small>}
+                </span>
+                <i className={`bi bi-chevron-up ${s.chev}`} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {!user && (
             <div className={s.guest}>
               {onLogin && (
                 <button type="button" className={s.login} onClick={onLogin} title={collapsed ? 'Đăng nhập' : undefined}>

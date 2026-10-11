@@ -28,6 +28,14 @@ export const STATUS = {
     deleted: { label: 'Đã xoá',   tone: 'neutral', icon: 'trash3' },
   },
 
+  /** Khoi's code: recipe.status — ĐỀ XUẤT (GAP-01), ERD v4.3 chưa có cột này.
+   *  Trang Tạo công thức đang chạy dữ liệu giả (services/recipe.service.js) tới khi nhóm sửa DB. */
+  recipe: {
+    pending:  { label: 'Chờ duyệt',  tone: 'warn', icon: 'hourglass-split' },
+    approved: { label: 'Đã duyệt',   tone: 'ok',   icon: 'check-circle' },
+    rejected: { label: 'Bị từ chối', tone: 'bad',  icon: 'x-circle' },
+  },
+
   /** dish.status — Report v4.0 mục C */
   dish: {
     pending:  { label: 'Chờ duyệt',  tone: 'warn',    icon: 'hourglass-split' },

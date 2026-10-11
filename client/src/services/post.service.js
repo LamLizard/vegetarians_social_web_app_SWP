@@ -3,13 +3,16 @@
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
-//   GET  /posts?cursor=&limit=&q=         → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
+//   GET  /posts?cursor=&limit=&q=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
 //                                           mới ĐĂNG nhất trước (publishedAt); cursor là chuỗi BE tự tạo, FE chỉ gửi lại
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
 //   POST /posts/:id/comments  { content } → Comment
 //   POST /posts/:id/report           { reasonCode, reasonText } → { id }   báo cáo bài
 //   POST /posts/comments/:id/report  { reasonCode, reasonText } → { id }   báo cáo bình luận
+//   POST /posts  { postType, title, content, youtubeUrl?, thumbnailUrl?, categoryIds[] } → { message, post: { id, status: 'pending' } }   (Khôi · Sprint 2)
+//   GET  /categories                     → { items: [{ id, name }] }      tag đang bật                    (Khôi · Sprint 2)
+//   POST /uploads/image   form-data "image" → { url }                     ảnh bìa lên Cloudinary          (Khôi · Sprint 2)
 //   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
@@ -27,10 +30,11 @@ export const FEED_PAGE_SIZE = 5;
 // =====================================================================
 const real = {
   getPreview: () => apiFetch('/posts/preview'),
-  getFeed: ({ cursor, q, limit = FEED_PAGE_SIZE } = {}) => {
+  getFeed: ({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set('cursor', cursor);
     if (q) params.set('q', q);
+    if (categoryId) params.set('categoryId', categoryId); // Khoi's code: lọc theo danh mục (Sprint 2)
     return apiFetch(`/posts?${params}`);
   },
   toggleVote: (postId) => apiFetch(`/posts/${postId}/vote`, { method: 'POST' }),
@@ -38,6 +42,17 @@ const real = {
   addComment: (postId, content) => apiFetch(`/posts/${postId}/comments`, {
     method: 'POST', body: JSON.stringify({ content }),
   }),
+  // Khoi's code: Đăng bài (Sprint 2)
+  createPost: (data) => apiFetch('/posts', { method: 'POST', body: JSON.stringify(data) }),
+  getCategories: () => apiFetch('/categories'),
+  /** Dùng làm onUpload của ImageUpload: tải 1 ảnh, trả về link Cloudinary */
+  uploadImage: async (file, { onProgress, signal } = {}) => {
+    const body = new FormData();
+    body.append('image', file);
+    const { url } = await apiFetch('/uploads/image', { method: 'POST', body, signal });
+    onProgress?.(100); // fetch không báo tiến độ → báo xong một lần
+    return url;
+  },
   report: ({ targetType, targetId, reasonCode, reasonText }) => apiFetch(
     targetType === 'comment' ? `/posts/comments/${targetId}/report` : `/posts/${targetId}/report`,
     { method: 'POST', body: JSON.stringify({ reasonCode, reasonText }) },
@@ -71,14 +86,14 @@ const CAT = {
 // id tăng dần theo thời gian tạo (giống BIGINT identity trong DB)
 let posts = [
   { id: '1', type: 'blog', title: 'Đậu hũ sốt cà chua 15 phút cho người mới ăn chay', content: 'Đậu hũ chiên vàng, sốt cà chua với hành boa rô. Món đầu tiên mình nấu khi bắt đầu ăn chay, dễ mà ai cũng khen.', thumbnailUrl: null, youtubeUrl: null, status: 'public', voteCount: 21, commentCount: 1, createdAt: at(-3, 10), author: TUNG, categories: [CAT.kho] },
-  // --- Hôm kia: 4 bài (khách sẽ thấy 2 bài SỚM NHẤT của ngày này) ---
+  // --- Hôm kia: 4 bài ---
   { id: '2', type: 'blog', title: 'Canh nấm chay thanh ngọt từ củ cải và bắp', content: 'Nước dùng hầm củ cải, bắp và su su trong 45 phút, không dùng bột nêm có nguồn gốc động vật. Thả nấm rơm, nấm đông cô vào cuối cùng để giữ độ giòn.', thumbnailUrl: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=800', youtubeUrl: null, status: 'public', voteCount: 34, commentCount: 2, createdAt: at(-2, 7), author: LAM, categories: [CAT.nuoc] },
   { id: '3', type: 'video', title: 'Cách làm chả lụa chay dai giòn tại nhà', content: 'Video hướng dẫn từng bước làm chả lụa chay từ đậu hũ ky và bột năng.', thumbnailUrl: null, youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', status: 'reported', voteCount: 12, commentCount: 0, createdAt: at(-2, 9), author: DUY, categories: [CAT.kho] },
   { id: '4', type: 'blog', title: 'Chè đậu xanh nước cốt dừa', content: 'Đậu xanh cà vỏ ngâm 2 tiếng, nấu nhừ với đường phèn. Nước cốt dừa thêm chút muối cho đậm vị.', thumbnailUrl: null, youtubeUrl: null, status: 'public', voteCount: 8, commentCount: 0, createdAt: at(-2, 12), author: ME, categories: [CAT.trangMieng] },
   { id: '5', type: 'blog', title: 'Ăn chay có đủ đạm không? Mình đã thử 3 tháng', content: 'Chia sẻ thực đơn một ngày của mình: đậu phụ, đậu lăng, hạt chia và sữa đậu nành. Kèm vài lưu ý khi mới chuyển sang ăn chay.', thumbnailUrl: null, youtubeUrl: null, status: 'public', voteCount: 45, commentCount: 0, createdAt: at(-2, 20), author: TUNG, categories: [] },
   // --- Hôm qua: 1 bài ---
   { id: '6', type: 'blog', title: 'Bún riêu chay nấm rơm', content: 'Chả làm từ đậu hũ non trộn nấm rơm băm, hấp 15 phút rồi thả vào nồi. Nước dùng nấu từ cà chua và me cho vị chua thanh.', thumbnailUrl: 'https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=800', youtubeUrl: null, status: 'public', voteCount: 67, commentCount: 0, createdAt: at(-1, 8), author: LAM, categories: [CAT.nuoc] },
-  // --- Hôm nay: KHÔNG vào 3 bài của khách ---
+  // --- Hôm nay ---
   { id: '7', type: 'blog', title: 'Salad rau mầm sốt mè rang', content: 'Rau mầm, dưa leo, cà chua bi trộn sốt mè rang tự làm.', thumbnailUrl: null, youtubeUrl: null, status: 'public', voteCount: 3, commentCount: 0, createdAt: at(0, 7, 30), author: DUY, categories: [CAT.kho] },
   { id: '8', type: 'blog', title: 'Bài đang chờ duyệt (không được hiện)', content: 'status = pending → feed phải bỏ qua.', thumbnailUrl: null, youtubeUrl: null, status: 'pending', voteCount: 0, commentCount: 0, createdAt: at(0, 8), author: ME, categories: [] },
   { id: '9', type: 'video', title: 'Mì Quảng chay chuẩn vị miền Trung', content: 'Nước nhưn từ nấm, đậu hũ chiên và củ sắn, ăn kèm bánh tráng mè.', thumbnailUrl: null, youtubeUrl: 'https://youtu.be/ysz5S6PUM-U', status: 'public', voteCount: 19, commentCount: 0, createdAt: at(0, 9), author: TUNG, categories: [CAT.nuoc] },
@@ -97,16 +112,11 @@ let seq = 100;
 const VISIBLE = ['public', 'reported'];
 const withVote = (p) => ({ ...clone(p), isVoted: votedIds.has(p.id), hasReported: reportedKeys.has(`post:${p.id}`) });
 
-/** Giống SQL ở BE: bài trước hôm nay, ngày gần nhất trước, trong ngày thì bài sớm nhất trước, lấy 3 */
+/** Giống SQL ở BE: 3 bài nhiều lượt thả tim nhất (bằng nhau thì bài mới hơn trước) */
 function mockPreview() {
-  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-  const dayKey = (iso) => new Date(iso).toDateString();
-  const dayStart = (iso) => { const d = new Date(iso); d.setHours(0, 0, 0, 0); return d.getTime(); };
   return posts
-    .filter((p) => VISIBLE.includes(p.status) && new Date(p.createdAt) < startOfToday)
-    .sort((a, b) => (dayKey(a.createdAt) === dayKey(b.createdAt)
-      ? new Date(a.createdAt) - new Date(b.createdAt)   // cùng ngày: sớm → muộn
-      : dayStart(b.createdAt) - dayStart(a.createdAt)))  // khác ngày: gần → xa
+    .filter((p) => VISIBLE.includes(p.status))
+    .sort((a, b) => b.voteCount - a.voteCount || new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, 3)
     .map((p) => ({ ...withVote(p), isVoted: false, hasReported: false })); // khách chưa vote/báo cáo gì
 }
@@ -117,12 +127,13 @@ const mock = {
     return { items: mockPreview() };
   },
 
-  async getFeed({ cursor, q, limit = FEED_PAGE_SIZE } = {}) {
+  async getFeed({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) {
     await wait();
     const keyword = (q ?? '').trim().toLowerCase();
     const list = posts
       .filter((p) => VISIBLE.includes(p.status))
       .filter((p) => !keyword || p.title.toLowerCase().includes(keyword))
+      .filter((p) => !categoryId || p.categories.some((c) => c.id === categoryId))
       .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
       .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
     const items = list.slice(0, limit).map(withVote);
@@ -164,6 +175,30 @@ const mock = {
     return { id: String(seq += 1) };
   },
 };
+
+// Khoi's code: bản giả cho Đăng bài (Sprint 2) — chỉ dùng khi USE_MOCK = true
+Object.assign(mock, {
+  async createPost(data) {
+    await wait();
+    const post = {
+      id: String(seq += 1), type: data.postType, title: data.title, content: data.content,
+      thumbnailUrl: data.thumbnailUrl ?? null, youtubeUrl: data.youtubeUrl ?? null, status: 'pending',
+      voteCount: 0, commentCount: 0, createdAt: new Date().toISOString(), author: ME,
+      categories: Object.values(CAT).filter((c) => data.categoryIds.includes(c.id)),
+    };
+    posts.push(post);
+    return { message: 'Bài viết đã được gửi và đang chờ duyệt.', post: { id: post.id, status: post.status } };
+  },
+  async getCategories() {
+    await wait();
+    return { items: Object.values(CAT) };
+  },
+  async uploadImage(file, { onProgress } = {}) {
+    await wait();
+    onProgress?.(100);
+    return URL.createObjectURL(file);
+  },
+});
 
 const postService = USE_MOCK ? mock : real;
 export default postService;

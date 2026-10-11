@@ -72,8 +72,8 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-border-strong: #{$ac-border-strong};
   --ac-track: #{$ac-track};
   --ac-tip-bg: #{$ac-tip-bg};
-  --ac-field-bg: #F4EFE3;   // nền ô tìm kiếm
-  --ac-tag-bg: #E7EDE1;     // nền Tag nội dung
+  --ac-field-bg: #F5F0E4;   // nền ô tìm kiếm, ô nhập (= bề mặt 2)
+  --ac-tag-bg: #E7EEDF;     // nền Tag nội dung (= rêu nền nhạt)
 
   --ac-highlight: #{$ac-highlight};
   --ac-alert: #{$ac-alert};
@@ -115,17 +115,17 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-ok-line: #C7DEC9;
   --ac-info-soft: #F4F1E8;
   --ac-hover-soft: #F5F8F1;
-  --ac-elevated: #{$ac-card};      // menu, hộp thoại, thẻ nổi
+  --ac-elevated: #F5F0E4;          // menu, hộp thoại, thẻ nổi (= bề mặt 2)
   --ac-shadow: 0 1px 2px rgba(42, 38, 32, .05), 0 8px 24px -12px rgba(42, 38, 32, .18);
 
   // Token gom lại từ các giá trị trước đây viết cứng trong component (GIỮ NGUYÊN giá trị màu)
-  --ac-focus-ring: rgba(61, 90, 61, .25);          // viền focus bàn phím
+  --ac-focus-ring: rgba(61, 90, 61, .35);          // viền focus bàn phím
   --ac-on-alert: #fff;                              // chữ trên nền đất nung (số thông báo)
   --ac-backdrop: rgba(42, 38, 32, .45);             // nền tối sau hộp thoại
   --ac-shadow-lg: 0 18px 48px rgba(42, 38, 32, .22);   // hộp thoại
   --ac-shadow-md: 0 12px 32px rgba(42, 38, 32, .16);   // menu thả xuống
-  --ac-photo-fallback: linear-gradient(135deg, #B5C79C 0%, #{$ac-matcha} 55%, #{$ac-moss} 100%);
-  --ac-photo-fallback-icon: rgba(255, 253, 248, .55);
+  --ac-photo-fallback: linear-gradient(135deg, #DCE7D2 0%, #B9CFAE 55%, #8FB083 100%);
+  --ac-photo-fallback-icon: rgba(255, 255, 255, .7);
   --ac-overlay-bg: rgba(42, 38, 32, .78);        // nhãn đè lên ảnh (kcal trên ảnh món)
   --ac-on-overlay: #fff;
   --ac-skeleton: #{$ac-track};
@@ -143,45 +143,73 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-create-bg: #{$ac-ink};                                         // nút "Đăng bài" trên dock
   --ac-create-fg: #{$ac-cream};
   color-scheme: light;
+
+  // ---- Tầng --v-* (tên dùng trong src/v2) ----
+  // Bí danh trỏ về --ac-* → chỉ 1 chỗ định nghĩa màu. Component mới dùng thẳng --ac-*,
+  // các tên --v-* sẽ được đổi dần sang --ac-* khi gộp component (xem .claude/design/DECISIONS.md).
+  --v-bg: var(--ac-cream);
+  --v-surface: var(--ac-card);
+  --v-surface-2: var(--ac-elevated);
+  --v-surface-3: var(--ac-tip-bg);
+  --v-line: var(--ac-border);
+  --v-line-2: var(--ac-border-strong);
+  --v-text: var(--ac-ink);
+  --v-muted: var(--ac-muted);
+  --v-accent: var(--ac-moss);
+  --v-accent-soft: var(--ac-tag-bg);
+  --v-marigold: var(--ac-highlight);
+  --v-ai-grad: var(--ac-highlight);
+  // Chưa có tên --ac-* tương ứng → giá trị riêng cho Sáng (Tối ở khối dưới)
+  --v-text-2: #4A443B;
+  --v-dot: rgba(42, 38, 32, 0.05);
+  --v-header-bg: rgba(251, 247, 238, 0.88);
+  --v-shadow: 0 1px 2px rgba(42, 38, 32, 0.04), 0 14px 32px -26px rgba(42, 38, 32, 0.3);
+  --v-shadow-pop: 0 18px 48px -18px rgba(42, 38, 32, 0.22);
+  --v-accent-hover: #324B32;
+  --v-accent-text: #3D5A3D;
+  --v-accent-line: #BFD0B6;
+  --v-on-accent: #FFFFFF;
+  --v-ai-glow: 0 0 0 3px rgba(249, 166, 32, 0.22);
 }
 
-// ---- Chế độ Đêm "Vườn đêm" – cùng hệ màu rêu + vàng cúc, nền rừng sâu ----
+// ---- Chế độ Tối – NỀN lấy đúng bộ nền tối của client (feed-theme.css: đen ngả xanh lá, chốt 09/10/2026);
+//      chữ + rêu + vàng cúc + đất nung vẫn theo bảng 6 màu ----
 // Bật bằng <html data-theme="dark">. Component chỉ cần dùng var(--ac-…) là tự đổi.
 :root[data-theme="dark"] {
-  --ac-moss: #8DB580;          // rêu sáng – dùng làm chữ/link được trên nền tối
+  --ac-moss: #8FB083;          // rêu sáng – dùng làm chữ/link được trên nền tối
   --ac-matcha: #7FA372;
-  --ac-cream: #0E1611;
-  --ac-card: #152019;
-  --ac-elevated: #1B281F;
-  --ac-ink: #E8EDE3;
-  --ac-muted: #9DAA98;
-  --ac-border: #25322A;
-  --ac-border-strong: #3A4A3E;
+  --ac-cream: #0A0E0B;          // nền trang (client --v-bg)
+  --ac-card: #111713;           // thẻ (client --v-surface)
+  --ac-elevated: #172019;       // rê chuột, ô nhập, menu (client --v-surface-2)
+  --ac-ink: #FBF7EE;
+  --ac-muted: #A69E8F;
+  --ac-border: #1F2A22;
+  --ac-border-strong: #2E3C32;
   --ac-track: #223027;
-  --ac-tip-bg: #1B2820;
-  --ac-field-bg: #1A261E;
-  --ac-tag-bg: #213326;
+  --ac-tip-bg: #1D2820;         // mục đang chọn (client --v-surface-3)
+  --ac-field-bg: #172019;
+  --ac-tag-bg: rgba(143, 176, 131, 0.14);
   --ac-on-accent: #0E1611;
 
   --ac-alert: #E07A5F;
-  --ac-alert-soft: #2A1A15;
+  --ac-alert-soft: rgba(224, 122, 95, 0.12);
   --ac-alert-line: #5C2E24;
   --ac-ok-soft: #15281D;
   --ac-ok-line: #28503A;
   --ac-info-soft: #1B2820;
   --ac-hover-soft: #1F2E24;
 
-  --ac-protein: #3FAE72;
-  --ac-carb: #E0A526;
-  --ac-fat: #D9694C;
-  --ac-fiber: #A77BC2;
+  --ac-protein: #6CC58A;
+  --ac-carb: #E9B44C;
+  --ac-fat: #E98A76;
+  --ac-fiber: #A993D8;
 
   --ac-ok-bg: #183324;      --ac-ok-fg: #8FD1A5;
   --ac-warn-bg: #3A2E12;    --ac-warn-fg: #F2C46B;
-  --ac-bad-bg: #3A1D16;     --ac-bad-fg: #F19A82;
+  --ac-bad-bg: #3A1D16;     --ac-bad-fg: #EFA08B;
   --ac-neutral-bg: #242E27; --ac-neutral-fg: #B8C2B3;
   --ac-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -12px rgba(0, 0, 0, .6);
-  --ac-focus-ring: rgba(141, 181, 128, .35);
+  --ac-focus-ring: rgba(143, 176, 131, .45);
   --ac-backdrop: rgba(0, 0, 0, .6);
   --ac-shadow-lg: 0 18px 48px rgba(0, 0, 0, .55);
   --ac-shadow-md: 0 12px 32px rgba(0, 0, 0, .45);
@@ -195,7 +223,21 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-logo-vein: #CFE3BF;
   --ac-create-bg: #E8EDE3;
   --ac-create-fg: #0E1611;
+  --ac-photo-fallback: linear-gradient(135deg, #1B2B20 0%, #24392A 55%, #2F4A35 100%);
+  --ac-photo-fallback-icon: rgba(143, 176, 131, 0.45);
   color-scheme: dark;
+
+  // Tầng --v-*: giá trị Tối cho các tên chưa có --ac-* tương ứng
+  --v-text-2: #DCD5C6;
+  --v-dot: rgba(255, 255, 255, 0.05);
+  --v-header-bg: rgba(10, 14, 11, 0.82);
+  --v-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 16px 40px -28px rgba(0, 0, 0, 0.9);
+  --v-shadow-pop: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
+  --v-accent-hover: #A3C197;
+  --v-accent-text: #A7C49B;
+  --v-accent-line: rgba(143, 176, 131, 0.35);
+  --v-on-accent: #0A0E0B;
+  --v-ai-glow: 0 0 0 3px rgba(249, 166, 32, 0.18);
 
   // Cầu nối sang biến của Bootstrap
   --bs-body-bg: var(--ac-cream);

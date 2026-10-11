@@ -1,5 +1,6 @@
-/* Thanh trên của Bảng tin — theo prototype UI v2.1 (src/v2/components/Topbar.module.css).
-   Bỏ chuông thông báo (chưa có chức năng). Ô tìm rộng bằng cột bảng tin (--feed-w). */
+/* Thanh trên của Bảng tin — theo prototype UI v2 (src/v2/components/Topbar.module.css).
+   Cùng lưới --v-cols với Bảng tin → ô tìm kiếm thẳng cột giữa.
+   Bỏ nút Thông báo (chưa có API thông báo — ẩn theo quyết định 09/10/2026). */
 .bar {
   position: sticky;
   top: 0;
@@ -10,10 +11,11 @@
   backdrop-filter: blur(16px) saturate(150%);
 }
 .inner {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--v-cols);
   align-items: center;
-  gap: 10px;
-  width: min(var(--feed-w, 680px), 100% - 48px);
+  gap: 32px;
+  width: min(var(--v-wrap), 100% - 48px);
   height: 64px;
   margin-inline: auto;
 }
@@ -21,7 +23,7 @@
 .search {
   position: relative;
   display: flex;
-  flex: 1;
+  grid-column: 2;
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -78,9 +80,16 @@
   font-weight: 700;
 }
 
+/* Vùng chính < 800px: 1 cột (cùng mốc với Bảng tin, xem styles/feed-theme.css) */
+@container feedmain (max-width: 799.98px) {
+  .inner { grid-template-columns: minmax(0, 680px); justify-content: center; gap: 10px; }
+  .search { grid-column: 1; }
+}
+
 @media (max-width: 767.98px) {
   .menuBtn, .login { display: grid; }
   .login { display: inline-flex; align-items: center; }
-  .inner { width: calc(100% - 24px); }
+  .inner { grid-template-columns: auto minmax(0, 1fr) auto; width: calc(100% - 24px); }
+  .search { grid-column: 2; }
   .search { height: 40px; }
 }

@@ -1,0 +1,41 @@
+/* Khoi's code: khung trang dùng chung (tách từ PostFeedPage.module.css, 11/10/2026) */
+.shell { display: flex; align-items: flex-start; }
+.main { flex: 1; min-width: 0; }
+
+/* ---------- Điện thoại: thanh tab nổi dưới đáy ---------- */
+.mobileNav { display: none; }
+@media (max-width: 767.98px) {
+  .mobileNav {
+    position: fixed;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 1040;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    align-items: center;
+    height: 64px;
+    border: 1px solid var(--v-line-2);
+    border-radius: 22px;
+    background: var(--v-header-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: var(--v-shadow-pop);
+  }
+  .mItem { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--v-muted); font-size: 0.66rem; font-weight: 600; text-decoration: none; }
+  .mItem i { font-size: 1.2rem; }
+  .mOn { color: var(--v-accent-text); }
+  .mobileNav5 { grid-template-columns: repeat(5, 1fr); }
+  .mCreate {
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 44px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--v-accent);
+    color: var(--v-on-accent);
+    font-size: 1.25rem;
+  }
+}

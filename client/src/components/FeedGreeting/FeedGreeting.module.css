@@ -1,0 +1,47 @@
+/* Khoi's code: theo prototype UI v2 (src/v2/components/Hero.module.css) — chỉ phần lời chào. */
+.hero { display: grid; gap: 16px; min-width: 0; }
+
+.title {
+  display: grid;
+  margin: 0;
+  color: var(--v-text);
+  font-size: 2rem;            /* 32px — thang chữ 12/14/16/20/24/32 */
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.line2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25em;
+  margin-top: 8px;
+  color: var(--v-text-2);
+  font-size: 1.25rem;         /* 20px */
+}
+/* Ô món + dấu ? luôn chung 1 dòng */
+.nowrap { display: inline-flex; align-items: center; white-space: nowrap; }
+/* Ô màu rêu chứa tên món — món mới trượt từ dưới lên */
+.rotate {
+  display: inline-flex;
+  overflow: hidden;
+  padding: 0.16em 0.4em 0.14em;
+  border-radius: 0.32em;
+  background: var(--v-accent);
+  color: var(--v-on-accent);
+}
+.word { display: inline-block; animation: rise .45s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(70%); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .word { animation: none; } }
+
+.lead { margin: 0; color: var(--v-muted); font-size: 0.875rem; line-height: 1.6; }  /* 14px */
+
+/* Màn hẹp: lời chào nằm trên bảng tin → nhỏ lại, bỏ câu phụ để bài viết lên sớm */
+@container feedmain (max-width: 799.98px) {
+  .title { font-size: 1.5rem; }   /* 24px */
+  .line2 { font-size: 1rem; }     /* 16px */
+  .lead { display: none; }
+}
