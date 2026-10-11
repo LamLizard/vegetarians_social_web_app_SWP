@@ -9,7 +9,7 @@
 //
 // Cây component:
 //   PostFeedPage
-//   ├── FeedSidebar (thanh bên: + Đăng bài, menu, Sáng/Tối, tài khoản · điện thoại: ngăn kéo)
+//   ├── MemberLayout (khung chung: FeedSidebar + thanh tab điện thoại — components/MemberLayout)
 //   ├── FeedTopbar (ô tìm kiếm, thẳng cột giữa)
 //   ├── FeedGreeting (cột trái: lời chào)
 //   ├── FeedComposer (ô đăng nhanh → mở CreatePostModal) · FeedFilter (lọc theo danh mục)
@@ -18,7 +18,7 @@
 //   ├── PostDetailModal ── YouTubeEmbed | Photo, VoteButton, CommentSection
 //   ├── CreatePostModal · ReportDialog
 //   └── LoginPrompt
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Avatar, Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
   ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
@@ -31,48 +31,16 @@ import FeedFilter from '../components/FeedFilter/FeedFilter';
 import FeedGreeting from '../components/FeedGreeting/FeedGreeting';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
-import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
+import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
-import { ROLE } from '../constants/domain';
 import postService from '../services/post.service';
-import '../styles/feed-theme.css';
 import styles from './PostFeedPage.module.css';
 
-// TODO: chuyển lên App khi nhóm có react-router
-// Theo wireframe Figma (prototype UI v2): 4 mục
-const NAV = [
-  { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '#' },
-];
+// Khoi's code: menu, thu gọn thanh bên, ngăn kéo điện thoại đã chuyển sang components/MemberLayout (11/10/2026)
 
-/** user của BE ({ fullName }) → dạng component cần ({ name }) */
-const toPerson = (u) => (u ? { name: u.fullName, avatarUrl: u.avatarUrl ?? null } : null);
-
-// ---------- Thanh bên: thu gọn / ngăn kéo (theo prototype v2.1) ----------
-/** Nhớ lựa chọn thu gọn; lần đầu thì màn < 1200px tự thu gọn cho rộng chỗ */
-const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';
-const readCollapsed = () => {
-  try {
-    const v = localStorage.getItem(COLLAPSE_KEY);
-    if (v !== null) return v === '1';
-  } catch { /* trình duyệt chặn localStorage → dùng mặc định */ }
-  return window.innerWidth < 1200;
-};
-
-const MOBILE_QUERY = '(max-width: 767.98px)';
-const useIsMobile = () => {
-  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY);
-    const on = () => setMobile(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, []);
-  return mobile;
-};
+/** Đọc 1 tham số trên URL lúc mở trang (?q=…, ?compose=1) */
+const initialParam = (key) => new URLSearchParams(window.location.search).get(key)?.slice(0, 100) ?? '';
 
 // Người dùng tắt hiệu ứng trong hệ điều hành → thẻ bài hiện ngay, không mờ dần
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -93,8 +61,9 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const [loadingMore, setLoadingMore] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [searchText, setSearchText] = useState(''); // đang gõ
-  const [query, setQuery] = useState('');           // đã bấm Enter
+  // Khoi's code: trang khác (vd Tạo công thức) chuyển về Bảng tin kèm ?q=… để tìm luôn
+  const [searchText, setSearchText] = useState(() => (isGuest ? '' : initialParam('q'))); // đang gõ
+  const [query, setQuery] = useState(() => (isGuest ? '' : initialParam('q')));           // đã bấm Enter
   const [categoryId, setCategoryId] = useState(null); // Khoi's code: lọc theo danh mục (null = Tất cả)
 
   const [opened, setOpened] = useState(null);       // { id, toComments }
@@ -128,26 +97,19 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     if (!isGuest) loadCategories();
   }, [isGuest]);
 
+  // Khoi's code: bấm "+ Đăng bài" ở trang khác → về Bảng tin với ?compose=1 → mở hộp Đăng bài, rồi xoá tham số khỏi URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('compose') && !params.has('q')) return;
+    if (params.get('compose') === '1' && !isGuest) setCreateOpen(true);
+    window.history.replaceState(null, '', window.location.pathname);
+  }, [isGuest]);
+
   /** D-10: đăng xong ở lại trang, báo "đang chờ duyệt". Bài pending chưa hiện trên Bảng tin nên không cần tải lại. */
   const submitPost = async (data) => {
     await postService.createPost(data); // lỗi → CreatePostModal tự hiện câu lỗi, giữ nháp
     toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
   };
-
-  // ---------- Bố cục 3 cột + nền chấm chỉ áp cho trang này (gỡ khi rời trang); màu nằm ở theme.scss ----------
-  useLayoutEffect(() => {
-    document.documentElement.dataset.feedV2 = '';
-    return () => { delete document.documentElement.dataset.feedV2; };
-  }, []);
-
-  // ---------- Thanh bên ----------
-  const isMobile = useIsMobile();
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const toggleCollapsed = () => setCollapsed((c) => {
-    try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* bỏ qua */ }
-    return !c;
-  });
 
   // ---------- Tải trang đầu (đổi khách/thành viên, đổi từ khoá, bấm Thử lại) ----------
   useEffect(() => {
@@ -240,30 +202,23 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const clearSearch = () => { setSearchText(''); setQuery(''); };
 
   return (
-    <div className={`feed-v2-page ${styles.shell}`}>
-      <FeedSidebar
-        nav={NAV}
-        activeKey="feed"
-        user={user && { ...toPerson(user), roleLabel: ROLE[user.role] }}
-        accountMenu={accountMenu}
-        collapsed={!isMobile && collapsed}
-        onToggle={toggleCollapsed}
-        mobileOpen={isMobile && drawerOpen}
-        onCloseMobile={() => setDrawerOpen(false)}
-        onCreate={() => { setDrawerOpen(false); openCreate(); }}
-        onLogin={onLogin}
-        onRegister={onRegister}
-      />
-
-      <div className={`feed-v2-main ${styles.main}`}>
+    <MemberLayout
+      activeKey="feed"
+      user={user}
+      accountMenu={accountMenu}
+      onCreate={openCreate}
+      onLogin={onLogin}
+      onRegister={onRegister}
+      renderTopbar={({ openMenu }) => (
         <FeedTopbar
           value={searchText}
           onChange={setSearchText}
           onSearch={(value) => (value ? search(value) : clearSearch())}
-          onOpenMenu={() => setDrawerOpen(true)}
+          onOpenMenu={openMenu}
           onLogin={isGuest ? onLogin : undefined}
         />
-
+      )}
+    >
         {/* 3 cột (lưới --v-cols chung với thanh trên): lời chào | bảng tin | (cột phải để trống) */}
         <div className={styles.layout}>
         <aside className={styles.left} aria-label="Lời chào">
@@ -371,23 +326,6 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
           )}
         </main>
         </div>
-      </div>
-
-      {/* Điện thoại: thanh tab nổi dưới đáy */}
-      <nav className={`${styles.mobileNav} ${!isGuest ? styles.mobileNav5 : ''}`} aria-label="Điều hướng nhanh">
-        {NAV.map((n, i) => {
-          const on = n.key === 'feed';
-          const link = (
-            <a key={n.key} href={n.href} className={`${styles.mItem} ${on ? styles.mOn : ''}`} aria-current={on ? 'page' : undefined}>
-              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.label}</span>
-            </a>
-          );
-          // Thành viên: nút Đăng bài nằm giữa thanh (theo prototype UI v2)
-          return !isGuest && i === 2
-            ? [<button key="create" type="button" className={styles.mCreate} onClick={openCreate} aria-label="Đăng bài"><i className="bi bi-plus-lg" aria-hidden="true" /></button>, link]
-            : link;
-        })}
-      </nav>
 
       <PostDetailModal
         post={openedPost}
@@ -426,7 +364,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onRegister={() => { setLoginOpen(false); onRegister?.(); }}
         onClose={() => setLoginOpen(false)}
       />
-    </div>
+    </MemberLayout>
   );
 }
 

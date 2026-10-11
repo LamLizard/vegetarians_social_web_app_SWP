@@ -2,8 +2,7 @@
    Màu: bảng 6 màu ở styles/theme.scss (biến --ac-* / bí danh --v-*) → Sáng/Tối tự đổi.
    3 cột theo --v-cols (styles/feed-theme.css): lời chào | bảng tin | cột phải để trống
    (Hoạt động, Quán chay, Sôi nổi, Mầm gợi ý chưa có dữ liệu thật → ẩn, 09/10/2026). */
-.shell { display: flex; align-items: flex-start; }
-.main { flex: 1; min-width: 0; }
+/* Khung (.shell, .main, thanh tab dưới đáy) đã chuyển sang components/MemberLayout (11/10/2026) */
 
 .layout {
   display: grid;
@@ -65,42 +64,8 @@
   .left { position: static; }
 }
 
-/* ---------- Điện thoại: thanh tab nổi dưới đáy ---------- */
-.mobileNav { display: none; }
+/* ---------- Điện thoại ---------- */
 @media (max-width: 767.98px) {
   .layout { width: calc(100% - 24px); padding: 16px 0 120px; }
   .feedHead { flex-direction: column; align-items: stretch; gap: 8px; }
-  .mobileNav {
-    position: fixed;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    left: 12px;
-    z-index: 1040;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    align-items: center;
-    height: 64px;
-    border: 1px solid var(--v-line-2);
-    border-radius: 22px;
-    background: var(--v-header-bg);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: var(--v-shadow-pop);
-  }
-  .mItem { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--v-muted); font-size: 0.66rem; font-weight: 600; text-decoration: none; }
-  .mItem i { font-size: 1.2rem; }
-  .mOn { color: var(--v-accent-text); }
-  .mobileNav5 { grid-template-columns: repeat(5, 1fr); }
-  .mCreate {
-    justify-self: center;
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 44px;
-    border: 0;
-    border-radius: 14px;
-    background: var(--v-accent);
-    color: var(--v-on-accent);
-    font-size: 1.25rem;
-  }
 }
