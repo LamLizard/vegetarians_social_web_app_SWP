@@ -11,5 +11,6 @@ router.post('/my-shop/submissions', ...protect, controller.requestIdentity);
 router.get('/my-shop/menu', ...protect, controller.listMenu);
 router.post('/my-shop/menu', ...protect, controller.addMenu);
 router.patch('/my-shop/menu/:shopDishId', ...protect, controller.updateMenu);
+router.delete('/my-shop/menu/:shopDishId', ...protect, controller.removeMenu);
 router.get('/my-shop/dishes', ...protect, controller.listDishes);
 module.exports = router;

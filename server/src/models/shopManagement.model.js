@@ -1,11 +1,13 @@
 // Tùng — Sprint 2: owner quản lý identity request, lịch và liên kết menu; catalog chỉ đọc.
 const { createShopStorage, MENU_FIELDS } = require('./shopWorkflow.model');
 const { parseIdentity } = require('../utils/shopRegistration');
-const { parseScheduleUpdate, parseMenu } = require('../utils/shopManagement');
+const { createShopImageUpload } = require('../utils/shopImageUpload');
+const { parseScheduleUpdate, parseMenu, parseMenuRemoval } = require('../utils/shopManagement');
 const { requireActor, parseId, parsePagination, whitelist, conflict, ShopError, pageResult } = require('../utils/shopWorkflow');
 
-function createShopManagementModel(database) {
+function createShopManagementModel(database, dependencies = {}) {
   const storage = createShopStorage(database);
+  const verifyImageUpload = dependencies.verifyImageUpload || createShopImageUpload().verifyImageUpload;
 
   async function getMine(actor) {
     requireActor(actor, 'member');
@@ -17,11 +19,13 @@ function createShopManagementModel(database) {
     requireActor(actor, 'member');
     const proposed = parseIdentity(raw);
     return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true });
+      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
       if (await storage.pending(client, shop.shopId)) conflict('Đã có yêu cầu sửa đang chờ duyệt.');
       const keys = Object.keys(proposed).filter(key => proposed[key] !== shop[key]);
       if (!keys.length) return { ...await storage.view(client, shop), unchanged: true };
       if (keys.some(key => typeof shop[key] !== 'string')) conflict('Thông tin hiện tại chưa đầy đủ. Cần hoàn thiện dữ liệu trước khi gửi yêu cầu sửa.');
+      // Giữ khóa Shop trong lần kiểm tra provider có timeout để mở/khóa không vượt guard.
+      if (keys.includes('avtShopUrl')) await verifyImageUpload(proposed.avtShopUrl, actor);
       const before = Object.fromEntries(keys.map(key => [key, shop[key]]));
       const after = Object.fromEntries(keys.map(key => [key, proposed[key]]));
       const submission = await storage.insertSubmission(client, shop.shopId, 'identity_edit', before, after, actor);
@@ -34,7 +38,7 @@ function createShopManagementModel(database) {
     requireActor(actor, 'member');
     const update = parseScheduleUpdate(raw);
     return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true });
+      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
       storage.checkVersion(shop.version, update.expectedVersion);
       await storage.replaceSchedule(client, shop.shopId, update.schedule);
       return storage.view(client, await storage.getShop(client, shop.shopId));
@@ -62,7 +66,7 @@ function createShopManagementModel(database) {
     requireActor(actor, 'member');
     const item = parseMenu(raw, true);
     return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true });
+      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
       const dish = await client.query("SELECT dish_id FROM dish WHERE dish_id = $1 AND status = 'active' FOR SHARE", [item.dishId]);
       if (!dish.rows[0]) throw new ShopError(400, 'SHOP_DISH_INELIGIBLE', 'Chỉ món đã được duyệt được thêm vào menu.');
       const duplicate = await client.query('SELECT shop_dish_id FROM shop_dish WHERE shop_id = $1 AND dish_id = $2', [shop.shopId, item.dishId]);
@@ -79,7 +83,7 @@ function createShopManagementModel(database) {
     const id = parseId(rawId, 'shopDishId');
     const update = parseMenu(raw);
     return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true });
+      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
       const locked = await client.query(`SELECT row_version::text AS version FROM shop_dish
         WHERE shop_dish_id = $1 AND shop_id = $2 FOR UPDATE`, [id, shop.shopId]);
       if (!locked.rows[0]) throw new ShopError(404, 'SHOP_MENU_NOT_FOUND', 'Không tìm thấy món trong menu của bạn.');
@@ -95,6 +99,24 @@ function createShopManagementModel(database) {
     });
   }
 
+  async function removeMenu(rawId, raw, actor) {
+    requireActor(actor, 'member');
+    const id = parseId(rawId, 'shopDishId');
+    const removal = parseMenuRemoval(raw);
+    return storage.transaction(async client => {
+      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
+      const locked = await client.query(`SELECT row_version::text AS version FROM shop_dish
+        WHERE shop_dish_id = $1 AND shop_id = $2 FOR UPDATE`, [id, shop.shopId]);
+      if (!locked.rows[0]) throw new ShopError(404, 'SHOP_MENU_NOT_FOUND', 'Không tìm thấy món trong menu của bạn.');
+      storage.checkVersion(locked.rows[0].version, removal.expectedVersion);
+      const removed = await client.query(`DELETE FROM shop_dish
+        WHERE shop_dish_id = $1 AND shop_id = $2 AND row_version = $3
+        RETURNING shop_dish_id::text AS "shopDishId"`, [id, shop.shopId, removal.expectedVersion]);
+      if (!removed.rows[0]) conflict();
+      return removed.rows[0];
+    });
+  }
+
   // Tùng — Sprint 2: lookup owner riêng; pending do người khác/null creator không được trả.
   async function listDishes(rawQuery, actor) {
     const ownerId = requireActor(actor, 'member');
@@ -102,7 +124,7 @@ function createShopManagementModel(database) {
     const query = parsePagination(rawQuery);
     const pendingQuery = parsePagination({ page: rawQuery.pendingPage, pageSize: rawQuery.pageSize });
     return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { verified: true });
+      const shop = await storage.ownedShop(client, actor);
       async function group(pending) {
         const where = pending ? "d.status = 'pending' AND d.created_by = $1" : "d.status = 'active'";
         const values = pending ? [ownerId] : [];
@@ -116,13 +138,14 @@ function createShopManagementModel(database) {
         [...values, shop.shopId, query.pageSize, (page - 1) * query.pageSize]);
         // Tùng — Sprint 2: BRIDGE-03 chỉ trả DTO picker, không lan truyền fields riêng của catalog.
         return pageResult(rows.map(row => ({ dishId: row.dishId, name: row.name, status: row.status,
-          alreadyLinked: row.alreadyLinked, selectable: !pending && !row.alreadyLinked })), total, page, query.pageSize);
+          alreadyLinked: row.alreadyLinked,
+          selectable: shop.status === 'active' && shop.verificationStatus === 'verified' && !pending && !row.alreadyLinked })), total, page, query.pageSize);
       }
       return { active: await group(false), ownPending: await group(true) };
     }, true);
   }
 
-  return { getMine, requestIdentity, updateSchedule, listMenu, addMenu, updateMenu, listDishes };
+  return { getMine, requestIdentity, updateSchedule, listMenu, addMenu, updateMenu, removeMenu, listDishes };
 }
 
 module.exports = { createShopManagementModel };

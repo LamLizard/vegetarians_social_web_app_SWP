@@ -176,6 +176,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
 
           {status === 'ready' && shop && (
             <>
+              {shop.operatingStatus === 'inactive' && <span className={pageStyles.operatingLabel}>Tạm ngưng hoạt động</span>}
               <ShopCard
                 layout="row"
                 name={shop.name}

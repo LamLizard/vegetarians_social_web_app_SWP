@@ -77,3 +77,5 @@
   .mItem i { font-size: 1.2rem; }
   .mOn { color: var(--v-accent-text); }
 }
+.shopEntry { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.operatingLabel { display: inline-block; justify-self: start; padding: 5px 10px; border-radius: 6px; background: var(--ac-warn-bg); color: var(--ac-warn-fg); font-size: .85rem; font-weight: 600; }

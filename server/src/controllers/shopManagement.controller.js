@@ -10,5 +10,6 @@ module.exports = {
   listMenu: handle(req => model.listMenu(actorFrom(req))),
   addMenu: handle(req => model.addMenu(req.body, actorFrom(req)), 201),
   updateMenu: handle(req => model.updateMenu(req.params.shopDishId, req.body, actorFrom(req))),
+  removeMenu: handle(req => model.removeMenu(req.params.shopDishId, req.body, actorFrom(req))),
   listDishes: handle(req => model.listDishes(req.query, actorFrom(req))),
 };

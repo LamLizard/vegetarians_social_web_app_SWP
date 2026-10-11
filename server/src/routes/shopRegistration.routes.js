@@ -6,6 +6,8 @@ const controller = require('../controllers/shopRegistration.controller');
 
 // Không router.use(): tránh bắt các public Shop paths được mount sau router này.
 router.get('/registration-context', requireAuth, requireMember, controller.getContext);
+router.post('/review-notifications/:notificationId/seen', requireAuth, requireMember, controller.markReviewNotificationSeen);
+router.post('/image-upload/signature', requireAuth, requireMember, controller.prepareImageUpload);
 router.post('/registration', requireAuth, requireMember, controller.register);
 router.put('/registration', requireAuth, requireMember, controller.resubmit);
 module.exports = router;

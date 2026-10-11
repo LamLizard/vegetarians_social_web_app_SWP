@@ -5,6 +5,8 @@ const model = createShopRegistrationModel();
 
 module.exports = {
   getContext: handle(req => model.getContext(actorFrom(req))),
+  prepareImageUpload: handle(req => model.prepareImageUpload(actorFrom(req))),
+  markReviewNotificationSeen: handle(req => model.markReviewNotificationSeen(req.params.notificationId, actorFrom(req))),
   register: handle(req => model.register(req.body, actorFrom(req)), 201),
   resubmit: handle(req => model.resubmit(req.body, actorFrom(req))),
 };

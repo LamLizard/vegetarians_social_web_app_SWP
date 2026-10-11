@@ -32,7 +32,7 @@ export default function App() {
 
 // Tùng — Sprint 2: giữ điều hướng/session hiện có bên trong provider navigation.
 function AppContent() {
-  const { user, isAuthenticated, isCheckingSession } = useAuth();
+  const { user, logout, isAuthenticated, isCheckingSession } = useAuth();
   const { shopAction, accountMenu } = useShopNavigation();
 
   // 'admin' là key trong ROLE (constants/domain.js) — DB: role 2 = admin

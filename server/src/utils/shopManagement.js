@@ -32,4 +32,9 @@ function parseMenu(value, creating = false) {
   return result;
 }
 
-module.exports = { parsePrice, parseScheduleUpdate, parseMenu };
+function parseMenuRemoval(value) {
+  whitelist(value, ['expectedVersion']);
+  return { expectedVersion: parseId(value.expectedVersion, 'expectedVersion') };
+}
+
+module.exports = { parsePrice, parseScheduleUpdate, parseMenu, parseMenuRemoval };

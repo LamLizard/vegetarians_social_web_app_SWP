@@ -6,7 +6,7 @@ async function findVerifiedShops({ q = null, categoryId = null, page = 1, pageSi
   const offset = (effectivePage - 1) * effectivePageSize;
 
   const itemsQuery = `
-    SELECT s.shop_id, s.name, s.address, s.phone,
+    SELECT s.shop_id, s.name, s.address, s.phone, s.status,
            to_char(s.open_time,  'HH24:MI') AS open_time,
            to_char(s.close_time, 'HH24:MI') AS close_time,
            s.open_days, s.avt_shop_url,
@@ -49,7 +49,7 @@ async function findVerifiedShops({ q = null, categoryId = null, page = 1, pageSi
 
 async function findShopDetail(shopId) {
   const shopResult = await pool.query(`
-    SELECT s.shop_id, s.name, s.address, s.phone,
+    SELECT s.shop_id, s.name, s.address, s.phone, s.status,
            to_char(s.open_time,  'HH24:MI') AS open_time,
            to_char(s.close_time, 'HH24:MI') AS close_time,
            s.open_days, s.avt_shop_url,

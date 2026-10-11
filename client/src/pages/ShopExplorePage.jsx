@@ -207,17 +207,20 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
           {status === 'ready' && items.length > 0 && (
             <div className={styles.list}>
               {items.map((shop) => (
-                <ShopCard
-                  key={shop.id}
+                <div key={shop.id} className={styles.shopEntry}>
+                  {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
+                  <ShopCard
                   name={shop.name}
                   imageUrl={shop.imageUrl}
                   address={shop.address}
                   phone={shop.phone}
                   openTime={shop.openTime}
                   closeTime={shop.closeTime}
+                  showOpenState={shop.operatingStatus !== 'inactive'}
                   dishCount={shop.dishCount}
                   href={`/shops/${shop.id}`}
                 />
+                </div>
               ))}
             </div>
           )}
