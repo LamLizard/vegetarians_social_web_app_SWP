@@ -1,6 +1,6 @@
 import ClickSpark from '../reactbits/ClickSpark';
 import GlareHover from '../reactbits/GlareHover';
-import ColorAvatar from '../ColorAvatar/ColorAvatar';
+import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import Photo from '../Photo/Photo';
 import cx from '../cx';
@@ -50,7 +50,7 @@ export default function FeedPostCard({
   return (
     <article className={cx(s.card, isQuick && s.quick)}>
       <header className={s.head}>
-        <ColorAvatar name={author.name} src={author.avatarUrl} size={40} />
+        <Avatar name={author.name} src={author.avatarUrl} size={40} />
         <div className={s.who}>
           <b>{author.name}</b>
           <span>

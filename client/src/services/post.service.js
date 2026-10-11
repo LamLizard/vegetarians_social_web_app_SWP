@@ -3,7 +3,7 @@
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
-//   GET  /posts?cursor=&limit=&q=         → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
+//   GET  /posts?cursor=&limit=&q=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
 //                                           mới ĐĂNG nhất trước (publishedAt); cursor là chuỗi BE tự tạo, FE chỉ gửi lại
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
@@ -30,10 +30,11 @@ export const FEED_PAGE_SIZE = 5;
 // =====================================================================
 const real = {
   getPreview: () => apiFetch('/posts/preview'),
-  getFeed: ({ cursor, q, limit = FEED_PAGE_SIZE } = {}) => {
+  getFeed: ({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set('cursor', cursor);
     if (q) params.set('q', q);
+    if (categoryId) params.set('categoryId', categoryId); // Khoi's code: lọc theo danh mục (Sprint 2)
     return apiFetch(`/posts?${params}`);
   },
   toggleVote: (postId) => apiFetch(`/posts/${postId}/vote`, { method: 'POST' }),
@@ -131,12 +132,13 @@ const mock = {
     return { items: mockPreview() };
   },
 
-  async getFeed({ cursor, q, limit = FEED_PAGE_SIZE } = {}) {
+  async getFeed({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) {
     await wait();
     const keyword = (q ?? '').trim().toLowerCase();
     const list = posts
       .filter((p) => VISIBLE.includes(p.status))
       .filter((p) => !keyword || p.title.toLowerCase().includes(keyword))
+      .filter((p) => !categoryId || p.categories.some((c) => c.id === categoryId))
       .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
       .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
     const items = list.slice(0, limit).map(withVote);

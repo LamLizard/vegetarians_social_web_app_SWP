@@ -120,7 +120,8 @@ const SORT_KEY = `(extract(epoch FROM ${PUBLISHED}) * 1000000)::bigint`;
  * trang 2 lấy các bài có (mốc, id) nhỏ hơn cặp đó. Lấy dư 1 bài để biết còn trang sau hay không.
  * @param {{ time: string, id: string } | null} cursor
  */
-async function findFeed({ viewerId, cursor = null, q = '', limit = 10 }) {
+// Khoi's code: categoryId (Sprint 2) — lọc bài có gắn danh mục đó (hàng nút lọc trên Bảng tin)
+async function findFeed({ viewerId, cursor = null, q = '', categoryId = null, limit = 10 }) {
   const keyword = q ? `%${q.replace(/[\\%_]/g, '\\$&')}%` : null; // gõ "%" hay "_" không bị hiểu là ký tự đại diện
   const { rows } = await pool.query(`
     SELECT ${POST_FIELDS}, ${SORT_KEY}::text AS "sortKey"
@@ -128,9 +129,12 @@ async function findFeed({ viewerId, cursor = null, q = '', limit = 10 }) {
     WHERE ${VISIBLE}
       AND ($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))
       AND ($4::text IS NULL OR p.title ILIKE $4::text)
+      AND ($6::bigint IS NULL OR EXISTS (
+        SELECT 1 FROM post_category pc WHERE pc.post_id = p.post_id AND pc.category_id = $6::bigint
+      ))
     ORDER BY ${PUBLISHED} DESC, p.post_id DESC
     LIMIT $5
-  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, keyword, limit + 1]);
+  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, keyword, limit + 1, categoryId]);
   const items = rows.slice(0, limit).map(({ sortKey, ...post }) => post); // sortKey chỉ dùng làm cursor
   const last = rows[limit - 1];
   return { items, nextCursor: rows.length > limit ? `${last.sortKey}_${last.id}` : null };

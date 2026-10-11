@@ -2,8 +2,8 @@
 .initial {
   display: inline-grid;
   place-items: center;
-  background: var(--ac-matcha);
-  color: var(--ac-on-accent);
+  background: color-mix(in srgb, var(--av-tone) 20%, var(--ac-card));
+  color: color-mix(in srgb, var(--av-tone) 64%, var(--ac-ink));
   font-weight: 700;
   line-height: 1;
 }

@@ -4,26 +4,31 @@
 //  - Thành viên: lướt vô hạn, thích (toggle), bình luận, báo cáo bài & bình luận, tìm theo tiêu đề.
 //  - Chỉ hiện bài status 'public' và 'reported' (BE lọc).
 //
-// Giao diện theo prototype UI v2.1 (bộ màu "Vườn", Sáng/Tối) — xem styles/feed-theme.css.
+// Giao diện theo prototype UI v2 (bảng 6 màu ở styles/theme.scss, bố cục ở styles/feed-theme.css).
+// Cột phải của prototype (Hoạt động, Quán chay, Sôi nổi) và thẻ Mầm gợi ý chưa có dữ liệu thật → ẩn (09/10/2026).
 //
 // Cây component:
 //   PostFeedPage
-//   ├── FeedSidebar (thanh bên: menu, Sáng/Tối, tài khoản · điện thoại: ngăn kéo)
-//   ├── FeedTopbar (ô tìm kiếm)
+//   ├── FeedSidebar (thanh bên: + Đăng bài, menu, Sáng/Tối, tài khoản · điện thoại: ngăn kéo)
+//   ├── FeedTopbar (ô tìm kiếm, thẳng cột giữa)
+//   ├── FeedGreeting (cột trái: lời chào)
+//   ├── FeedComposer (ô đăng nhanh → mở CreatePostModal) · FeedFilter (lọc theo danh mục)
 //   ├── Notice (khách) · SkeletonCard (đang tải) · EmptyState (trống / hết lượt khách)
 //   ├── FadeContent → FeedPostCard × N (hiện dần khi cuộn tới)
 //   ├── PostDetailModal ── YouTubeEmbed | Photo, VoteButton, CommentSection
-//   ├── ReportDialog
+//   ├── CreatePostModal · ReportDialog
 //   └── LoginPrompt
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
-  Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
+  Avatar, Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
   ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
 } from '../components';
-import ColorAvatar from '../components/ColorAvatar/ColorAvatar';
 // Khoi's code: Đăng bài (Sprint 2) + hiện **đậm** *nghiêng* trong nội dung bài
 import CreatePostModal from '../components/CreatePostModal/CreatePostModal';
 import PostRichText, { stripMarks } from '../components/PostRichText/PostRichText';
+import FeedComposer from '../components/FeedComposer/FeedComposer';
+import FeedFilter from '../components/FeedFilter/FeedFilter';
+import FeedGreeting from '../components/FeedGreeting/FeedGreeting';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
@@ -35,10 +40,11 @@ import '../styles/feed-theme.css';
 import styles from './PostFeedPage.module.css';
 
 // TODO: chuyển lên App khi nhóm có react-router
+// Theo wireframe Figma (prototype UI v2): 4 mục
 const NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'dishes', label: 'Món chay', icon: 'egg-fried', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', href: '#' },
+  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '#' },
+  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
   { key: 'shops', label: 'Quán chay', icon: 'shop', href: '#' },
 ];
 
@@ -89,6 +95,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   const [searchText, setSearchText] = useState(''); // đang gõ
   const [query, setQuery] = useState('');           // đã bấm Enter
+  const [categoryId, setCategoryId] = useState(null); // Khoi's code: lọc theo danh mục (null = Tất cả)
 
   const [opened, setOpened] = useState(null);       // { id, toComments }
   const [reportTarget, setReportTarget] = useState(null); // { type, id, title }
@@ -116,13 +123,18 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     setCreateOpen(true);
   };
 
+  // Thành viên: tải danh mục ngay để dựng hàng lọc (hộp Đăng bài dùng lại danh sách này)
+  useEffect(() => {
+    if (!isGuest) loadCategories();
+  }, [isGuest]);
+
   /** D-10: đăng xong ở lại trang, báo "đang chờ duyệt". Bài pending chưa hiện trên Bảng tin nên không cần tải lại. */
   const submitPost = async (data) => {
     await postService.createPost(data); // lỗi → CreatePostModal tự hiện câu lỗi, giữ nháp
     toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
   };
 
-  // ---------- Bộ màu v2.1 chỉ áp cho trang này (gỡ khi rời trang) ----------
+  // ---------- Bố cục 3 cột + nền chấm chỉ áp cho trang này (gỡ khi rời trang); màu nằm ở theme.scss ----------
   useLayoutEffect(() => {
     document.documentElement.dataset.feedV2 = '';
     return () => { delete document.documentElement.dataset.feedV2; };
@@ -143,7 +155,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     setStatus('loading');
     (async () => {
       try {
-        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query });
+        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query, categoryId });
         if (ignore) return;
         setItems(res.items);
         setNextCursor(isGuest ? null : res.nextCursor ?? null);
@@ -155,14 +167,14 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       }
     })();
     return () => { ignore = true; };
-  }, [isGuest, query, reloadKey]);
+  }, [isGuest, query, categoryId, reloadKey]);
 
   // ---------- Lướt vô hạn ----------
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await postService.getFeed({ cursor: nextCursor, q: query });
+      const res = await postService.getFeed({ cursor: nextCursor, q: query, categoryId });
       setItems((list) => [...list, ...res.items]);
       setNextCursor(res.nextCursor ?? null);
     } catch (err) {
@@ -170,7 +182,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     } finally {
       setLoadingMore(false);
     }
-  }, [nextCursor, loadingMore, query, toast]);
+  }, [nextCursor, loadingMore, query, categoryId, toast]);
 
   const sentinelRef = useRef(null);
   useEffect(() => {
@@ -238,11 +250,12 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}
         onCloseMobile={() => setDrawerOpen(false)}
+        onCreate={() => { setDrawerOpen(false); openCreate(); }}
         onLogin={onLogin}
         onRegister={onRegister}
       />
 
-      <div className={styles.main}>
+      <div className={`feed-v2-main ${styles.main}`}>
         <FeedTopbar
           value={searchText}
           onChange={setSearchText}
@@ -251,11 +264,22 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
           onLogin={isGuest ? onLogin : undefined}
         />
 
+        {/* 3 cột (lưới --v-cols chung với thanh trên): lời chào | bảng tin | (cột phải để trống) */}
+        <div className={styles.layout}>
+        <aside className={styles.left} aria-label="Lời chào">
+          <FeedGreeting user={toPerson(user)} />
+        </aside>
+
         <main className={styles.feed} aria-labelledby="feed-title">
-          <div className={`${styles.feedHead} ${styles.feedHeadRow}`}>
+          {/* Khoi's code: ô đăng nhanh → mở hộp Đăng bài đầy đủ (Sprint 2) */}
+          {!isGuest && !query && <FeedComposer user={toPerson(user)} onCompose={openCreate} />}
+
+          <div className={styles.feedHead}>
             <h1 id="feed-title" className={styles.feedTitle}>{query ? 'Kết quả tìm kiếm' : 'Bảng tin'}</h1>
-            {/* Khoi's code: nút Đăng bài (Sprint 2) — khách không thấy nút, phải đăng nhập trước */}
-            {!isGuest && <Button icon="plus-lg" onClick={openCreate}>Đăng bài</Button>}
+            {/* Khách chỉ xem 3 bài cố định → không có lọc */}
+            {!isGuest && categories.status === 'ready' && categories.items.length > 0 && (
+              <FeedFilter options={categories.items} value={categoryId} onChange={setCategoryId} />
+            )}
           </div>
 
           {isGuest && (
@@ -285,8 +309,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
           )}
 
           {status === 'ready' && items.length === 0 && (
-            query
-              ? <EmptyState icon="search" title="Không tìm thấy bài viết nào">Thử từ khoá khác, ví dụ “canh” hoặc “chè”.</EmptyState>
+            query || categoryId
+              ? <EmptyState icon="search" title="Không tìm thấy bài viết nào">{query ? 'Thử từ khoá khác, ví dụ “canh” hoặc “chè”.' : 'Danh mục này chưa có bài nào. Chọn “Tất cả” để xem mọi bài.'}</EmptyState>
               : <EmptyState icon="flower3" title="Chưa có bài viết nào">Bài mới sẽ hiện ở đây sau khi được Admin duyệt.</EmptyState>
           )}
 
@@ -343,20 +367,25 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             </div>
           )}
           {status === 'ready' && !isGuest && !nextCursor && items.length > 0 && (
-            <p className={styles.end}>Bạn đã xem hết bài viết 🌱</p>
+            <p className={styles.end}>Bạn đã xem hết bài viết</p>
           )}
         </main>
+        </div>
       </div>
 
       {/* Điện thoại: thanh tab nổi dưới đáy */}
-      <nav className={styles.mobileNav} aria-label="Điều hướng nhanh">
-        {NAV.map((n) => {
+      <nav className={`${styles.mobileNav} ${!isGuest ? styles.mobileNav5 : ''}`} aria-label="Điều hướng nhanh">
+        {NAV.map((n, i) => {
           const on = n.key === 'feed';
-          return (
+          const link = (
             <a key={n.key} href={n.href} className={`${styles.mItem} ${on ? styles.mOn : ''}`} aria-current={on ? 'page' : undefined}>
               <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.label}</span>
             </a>
           );
+          // Thành viên: nút Đăng bài nằm giữa thanh (theo prototype UI v2)
+          return !isGuest && i === 2
+            ? [<button key="create" type="button" className={styles.mCreate} onClick={openCreate} aria-label="Đăng bài"><i className="bi bi-plus-lg" aria-hidden="true" /></button>, link]
+            : link;
         })}
       </nav>
 
@@ -440,7 +469,7 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
     <Modal open onClose={onClose} title={post.title} size="lg">
       <article className={styles.detail}>
         <header className={styles.detailHead}>
-          <ColorAvatar src={post.author.avatarUrl} name={post.author.fullName} size={40} />
+          <Avatar src={post.author.avatarUrl} name={post.author.fullName} size={40} />
           <div>
             <b>{post.author.fullName}</b>
             <span className={styles.muted}> · <time dateTime={post.publishedAt ?? post.createdAt}>{timeAgo(post.publishedAt ?? post.createdAt)}</time></span>

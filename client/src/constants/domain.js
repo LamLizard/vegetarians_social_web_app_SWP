@@ -9,7 +9,7 @@
 // =====================================================================
 
 /** Tên app và tên trợ lý AI. Đổi ở đây là đổi toàn bộ giao diện. */
-export const APP_NAME = 'Ăn Chay';
+export const APP_NAME = 'Green Bowl';
 export const APP_TAGLINE = 'Cộng đồng ăn chay, sống lành';
 export const AI_NAME = 'Mầm';
 
