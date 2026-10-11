@@ -75,6 +75,42 @@ async function listAdminDishes() {
   return rows;
 }
 
+// Search active dishes so Admin can compare a pending suggestion before creating a duplicate.
+async function searchActiveDishes(query) {
+  const { rows } = await pool.query(`
+    SELECT d.dish_id AS id, d.name, d.description, d.thumbnail_url AS "thumbnailUrl",
+      d.status::text AS status
+    FROM public.dish d
+    WHERE d.status = 'active' AND d.name ILIKE '%' || $1 || '%'
+    ORDER BY CASE WHEN lower(d.name) = lower($1) THEN 0 ELSE 1 END, d.name
+    LIMIT 20
+  `, [query]);
+  return rows;
+}
+
+// Rename a pending suggestion while preserving the submitter's record and moderation state.
+async function renamePendingDish(dishId, name, admin) {
+  return withTransaction(async (client) => {
+    const { rows } = await client.query(`
+      SELECT dish_id AS id, name, status::text AS status
+      FROM public.dish WHERE dish_id = $1 FOR UPDATE
+    `, [dishId]);
+    const before = rows[0];
+    if (!before) throw new DishModelError(404, 'Không tìm thấy món ăn.');
+    if (before.status !== 'pending') throw new DishModelError(409, 'Đề xuất không còn chờ duyệt. Hãy tải lại danh sách.');
+    const updated = await client.query(`
+      UPDATE public.dish SET name = $2, updated_at = NOW()
+      WHERE dish_id = $1 RETURNING dish_id AS id, name
+    `, [dishId, name]);
+    await client.query(`
+      INSERT INTO public.admin_log
+        (admin_id, action, target_type, target_id, before_value, after_value, ip_address)
+      VALUES ($1, 'dish_suggestion_renamed', 'dish', $2, $3::jsonb, $4::jsonb, $5)
+    `, [admin.id, dishId, JSON.stringify({ name: before.name }), JSON.stringify({ name }), admin.ip]);
+    return updated.rows[0];
+  });
+}
+
 // Duy's code: Lọc danh sách Dish của Member đăng nhập, không lộ Dish của tài khoản khác.
 async function listMyDishes(accountId) {
   const { rows } = await pool.query(`
@@ -198,4 +234,6 @@ module.exports = {
   listAdminDishes,
   listMyDishes,
   listPendingDishes,
+  renamePendingDish,
+  searchActiveDishes,
 };

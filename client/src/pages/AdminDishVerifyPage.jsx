@@ -3,7 +3,7 @@ import {
   AdminLayout, Button, ConfirmDialog, DishCard, EmptyState, Modal, Notice, PageHeader, Photo, Spinner, StatusBadge, Tabs,
 } from '../components';
 import useAuth from '../hooks/useAuth';
-import { decideDish, getAdminDishes, getPendingDishes } from '../services/dish.service';
+import { decideDish, getAdminDishes, getPendingDishes, renamePendingDish, searchAdminDishes } from '../services/dish.service';
 import styles from './AdminDishVerifyPage.module.css';
 
 // Duy's code: Màn hình Admin quản lý hàng chờ và gửi quyết định kiểm duyệt Dish.
@@ -26,6 +26,15 @@ export default function AdminDishVerifyPage() {
   const [detailDish, setDetailDish] = useState(null); // Duy's Code: Lưu đề xuất đang mở trong popup chi tiết.
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('pending');
+  const [matches, setMatches] = useState([]);
+  const [searchedMatches, setSearchedMatches] = useState(false);
+  const [matchQuery, setMatchQuery] = useState('');
+  const [renameValue, setRenameValue] = useState('');
+  const [operationError, setOperationError] = useState('');
+  const [operationNotice, setOperationNotice] = useState('');
+  const returnParams = new URLSearchParams(window.location.search);
+  const createdDishId = returnParams.get('createdDishId');
+  const returnDishId = Number(returnParams.get('returnDishId'));
   const isMounted = useRef(false);
   const requestSequence = useRef(0);
 
@@ -79,6 +88,45 @@ export default function AdminDishVerifyPage() {
     setDecision({ dish, action });
   };
 
+  const openDishDetails = (dish) => {
+    setDetailDish(dish);
+    setMatchQuery(dish.name);
+    setRenameValue(dish.name);
+    setMatches([]);
+    setSearchedMatches(false);
+    setOperationError('');
+    setOperationNotice('');
+  };
+
+  useEffect(() => {
+    if (!createdDishId || !Number.isSafeInteger(returnDishId)) return;
+    const suggestion = dishes.find((dish) => String(dish.id) === String(returnDishId));
+    if (!suggestion) return;
+    setDetailDish(suggestion);
+    setMatchQuery(suggestion.name);
+    setRenameValue(suggestion.name);
+    setOperationNotice(`Dish #${createdDishId} đã được tạo và ghi nhận trong Database. Bạn đã quay lại đề xuất đang xử lý.`);
+  }, [createdDishId, returnDishId, dishes]);
+
+  const findSimilarDishes = async () => {
+    try {
+      setOperationError('');
+      setMatches(await searchAdminDishes(matchQuery.trim()));
+      setSearchedMatches(true);
+    } catch (requestError) { setOperationError(requestError.message); }
+  };
+
+  const saveRename = async () => {
+    if (!detailDish || !renameValue.trim()) return;
+    try {
+      setOperationError('');
+      const renamed = await renamePendingDish(detailDish.id, renameValue.trim());
+      setDetailDish((current) => ({ ...current, name: renamed.name }));
+      setDishes((current) => current.map((item) => String(item.id) === String(renamed.id) ? { ...item, name: renamed.name } : item));
+      setOperationNotice('Đã cập nhật tên đề xuất.');
+    } catch (requestError) { setOperationError(requestError.message); }
+  };
+
   return (
     <AdminLayout activeKey="dish-verify" title="Duyệt món ăn" user={user} onLogout={handleLogout}>
       {/* Duy's code: Giải thích quyết định duyệt và nút tải lại hàng chờ. */}
@@ -87,6 +135,7 @@ export default function AdminDishVerifyPage() {
         description="Duyệt đề xuất đang chờ hoặc xem lại các món đã được duyệt và bị từ chối. Quyết định được ghi AdminLog và gửi thông báo cho người đề xuất."
         actions={<Button variant="outline" icon="arrow-clockwise" onClick={loadDishes} disabled={loading}>Tải lại</Button>}
       />
+      {createdDishId && <Notice tone="success" className="mt-3">Dish #{createdDishId} đã được tạo. Bạn đang quay lại đúng đề xuất trước đó.</Notice>}
       {/* Duy's Code: Hai tab chuyển giữa hàng chờ duyệt và danh sách món đã có kết quả. */}
       <Tabs
         className="mt-3"
@@ -127,7 +176,7 @@ export default function AdminDishVerifyPage() {
               moderationNote={dish.moderationNote}
               action={(
                 <div className="d-flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" icon="eye" onClick={() => setDetailDish(dish)}>Xem chi tiết</Button>
+                  <Button size="sm" variant="outline" icon="eye" onClick={() => openDishDetails(dish)}>Xem chi tiết</Button>
                 </div>
               )}
             />
@@ -165,6 +214,20 @@ export default function AdminDishVerifyPage() {
       >
         {detailDish && (
           <div className={styles.detailLayout}>
+            {!isHistoryTab && <section className="w-100" aria-label="Đối chiếu món đã có">
+              <h3 className="h6">Kiểm tra món đã có</h3>
+              <div className="d-flex gap-2">
+                <input className="form-control" aria-label="Tìm món tương tự" value={matchQuery} onChange={(event) => setMatchQuery(event.target.value)} />
+                <Button type="button" variant="outline" onClick={findSimilarDishes}>Tìm</Button>
+              </div>
+              {matches.length > 0 && <ul className="mt-2">{matches.map((match) => <li key={match.id}>{match.name}</li>)}</ul>}
+              {searchedMatches && matches.length === 0 && <p className="small text-body-secondary mt-2">Không tìm thấy món phù hợp trong Database.</p>}
+              <label className="form-label mt-3" htmlFor="rename-pending-dish">Đổi tên đề xuất</label>
+              <div className="d-flex gap-2"><input id="rename-pending-dish" className="form-control" maxLength={200} value={renameValue} onChange={(event) => setRenameValue(event.target.value)} /><Button type="button" variant="outline" onClick={saveRename}>Lưu tên</Button></div>
+              {searchedMatches && matches.length === 0 && <Button type="button" className="mt-2" variant="outline" onClick={() => { window.location.assign(`/admin/dishes/create?returnDishId=${detailDish.id}&suggestedName=${encodeURIComponent(detailDish.name)}`); }}>Tạo Dish mới</Button>}
+              {operationError && <Notice tone="alert" className="mt-2">{operationError}</Notice>}
+              {operationNotice && <Notice tone="success" className="mt-2">{operationNotice}</Notice>}
+            </section>}
             <Photo
               src={detailDish.thumbnailUrl}
               alt={`Ảnh món ${detailDish.name}`}

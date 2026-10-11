@@ -67,6 +67,28 @@ async function getAdminDishes(req, res, next) {
   }
 }
 
+async function searchActiveDishes(req, res, next) {
+  try {
+    const query = String(req.query.q || '').normalize('NFC').trim();
+    if (!query || [...query].length > 200) throw new DishInputError('Nhập từ khóa từ 1 đến 200 ký tự để tìm món ăn.');
+    return res.json(await dishModel.searchActiveDishes(query));
+  } catch (error) {
+    return respondWithError(error, res, next);
+  }
+}
+
+async function renamePendingDish(req, res, next) {
+  try {
+    const dishId = Number(req.params.dishId);
+    if (!Number.isSafeInteger(dishId) || dishId < 1) throw new DishInputError('Mã món ăn không hợp lệ.');
+    const name = String(req.body?.name || '').normalize('NFC').trim();
+    if (!name || [...name].length > 200) throw new DishInputError('Tên món ăn phải có từ 1 đến 200 ký tự.');
+    return res.json(await dishModel.renamePendingDish(dishId, name, { id: req.account.id, ip: req.ip }));
+  } catch (error) {
+    return respondWithError(error, res, next);
+  }
+}
+
 // Duy's code: Kiểm tra quyết định và lý do trước khi thay đổi trạng thái Dish.
 async function decideDish(req, res, next) {
   try {
@@ -89,5 +111,6 @@ async function decideDish(req, res, next) {
 }
 
 module.exports = {
-  createAdminDish, decideDish, getAdminDishes, getCategories, getMyDishes, getPendingDishes, suggestDish,
+  createAdminDish, decideDish, getAdminDishes, getCategories, getMyDishes, getPendingDishes,
+  renamePendingDish, searchActiveDishes, suggestDish,
 };

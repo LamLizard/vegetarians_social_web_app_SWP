@@ -8,7 +8,6 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 import AdminDishCreatePage from './pages/AdminDishCreatePage';
 import AdminDishVerifyPage from './pages/AdminDishVerifyPage';
-import DishSuggestionPage from './pages/DishSuggestionPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
@@ -53,20 +52,17 @@ export default function App() {
     );
   }
 
-  // Duy's code: Đưa Member tới trang hồ sơ và trang gửi đề xuất Dish từ menu tài khoản.
+  // Duy's code: Đưa Member tới trang hồ sơ từ menu tài khoản.
   const feed = (
     <PostFeedPage
       user={user}
       accountMenu={[ /* Duy's code: Danh sách thao tác tài khoản trong menu avatar. */
         ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
-        ...(!isAdmin ? [{ icon: 'egg-fried', label: 'Đề xuất món ăn', onClick: () => goTo('/dishes/suggest') }] : []),
         { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
       ] /* Duy's code: Kết thúc danh sách thao tác tài khoản. */}
     />
   );
   if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
-  // Duy's code: Giới hạn trang đề xuất Dish cho Member đã đăng nhập.
-  if (!isAdmin && path === '/dishes/suggest') return <DishSuggestionPage />;
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.

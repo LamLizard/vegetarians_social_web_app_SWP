@@ -12,7 +12,9 @@ router.post('/', requireAuth, requireMember, dishController.suggestDish);
 router.post('/admin', requireAuth, requireAdmin, dishController.createAdminDish);
 // Duy's Code: Chỉ Admin được xem danh sách món đã duyệt và bị từ chối.
 router.get('/admin/all', requireAuth, requireAdmin, dishController.getAdminDishes);
+router.get('/admin/search', requireAuth, requireAdmin, dishController.searchActiveDishes);
 router.get('/admin/pending', requireAuth, requireAdmin, dishController.getPendingDishes);
+router.patch('/admin/:dishId/rename', requireAuth, requireAdmin, dishController.renamePendingDish);
 router.post('/admin/:dishId/decision', requireAuth, requireAdmin, dishController.decideDish);
 
 module.exports = router;

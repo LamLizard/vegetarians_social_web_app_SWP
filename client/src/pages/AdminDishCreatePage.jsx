@@ -11,7 +11,10 @@ const EMPTY_FORM = { name: '', description: '', thumbnailUrl: '', categoryIds: [
 // Duy's code: Màn hình Admin tải danh mục và gửi Dish mới thẳng vào active.
 export default function AdminDishCreatePage() {
   const { user, logout } = useAuth();
-  const [form, setForm] = useState(EMPTY_FORM);
+  const query = new URLSearchParams(window.location.search);
+  const returnDishId = query.get('returnDishId');
+  const suggestedName = query.get('suggestedName') || '';
+  const [form, setForm] = useState(() => ({ ...EMPTY_FORM, name: suggestedName }));
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoriesError, setCategoriesError] = useState('');
@@ -91,6 +94,10 @@ export default function AdminDishCreatePage() {
       setForm(EMPTY_FORM);
       setFieldErrors({});
       setNotice(`Đã tạo món “${dish.name}” ở trạng thái Đã duyệt.`);
+      if (returnDishId) {
+        window.location.assign(`/admin/dishes/verify?createdDishId=${dish.id}&returnDishId=${encodeURIComponent(returnDishId)}`);
+        return;
+      }
     } catch (requestError) {
       setError(requestError.message);
     } finally {

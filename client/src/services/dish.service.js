@@ -36,6 +36,17 @@ export async function getAdminDishes() {
   return apiFetch('/dishes/admin/all');
 }
 
+export async function searchAdminDishes(query) {
+  return apiFetch(`/dishes/admin/search?q=${encodeURIComponent(query)}`);
+}
+
+export async function renamePendingDish(dishId, name) {
+  return apiFetch(`/dishes/admin/${dishId}/rename`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
 // Duy's code: Gửi quyết định duyệt/từ chối và lý do tới backend.
 export async function decideDish(dishId, action, note = '') {
   return apiFetch(`/dishes/admin/${dishId}/decision`, {
