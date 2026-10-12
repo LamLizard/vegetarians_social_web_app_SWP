@@ -3,7 +3,8 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());          // dev cho thoáng; sau siết origin từ client/.env (CLIENT_URL)
-app.use(express.json());
+// Khoi's code: nội dung bài viết không giới hạn độ dài (D-11) → nới mức nhận JSON từ 100 KB mặc định lên 1 MB.
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -28,6 +29,15 @@ app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
+// Duy's code: Gắn API tạo, đề xuất và kiểm duyệt Dish vào ứng dụng Express.
+app.use('/api/dishes', require('./src/routes/dish.routes'));
+
+// Khoi's code: Upload ảnh bìa bài viết lên Cloudinary (POST /api/uploads/image).
+app.use('/api/uploads', require('./src/routes/upload.routes'));
+// Khoi's code: Danh sách tag cho form Đăng bài.
+app.use('/api/categories', require('./src/routes/category.routes'));
+// Khoi's code: Tạo công thức (chọn món, nguyên liệu, gửi chờ duyệt, công thức đã gửi).
+app.use('/api/recipes', require('./src/routes/recipe.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

@@ -1,30 +1,29 @@
-/* Trang Bảng tin — bố cục theo prototype UI v2.1 (src/v2/App.module.css).
-   Màu: biến --v-* / --ac-* trong styles/feed-theme.css → Sáng/Tối tự đổi.
-   Chỉ giữ cột giữa (bảng tin); cột trái (lời chào, Mầm) và cột phải (hoạt động, quán) chưa có chức năng nên chưa dựng. */
-.shell { --feed-w: 680px; display: flex; align-items: flex-start; }
-.main { flex: 1; min-width: 0; }
+/* Trang Bảng tin — bố cục theo prototype UI v2 (src/v2/App.module.css).
+   Màu: bảng 6 màu ở styles/theme.scss (biến --ac-* / bí danh --v-*) → Sáng/Tối tự đổi.
+   3 cột theo --v-cols (styles/feed-theme.css): lời chào | bảng tin | cột phải để trống
+   (Hoạt động, Quán chay, Sôi nổi, Mầm gợi ý chưa có dữ liệu thật → ẩn, 09/10/2026). */
+/* Khung (.shell, .main, thanh tab dưới đáy) đã chuyển sang components/MemberLayout (11/10/2026) */
 
-.feed {
+.layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 18px;
-  width: min(var(--feed-w), 100% - 48px);
+  grid-template-columns: var(--v-cols);
+  gap: 32px;
+  align-items: start;
+  width: min(var(--v-wrap), 100% - 48px);
   margin-inline: auto;
-  padding: 12px 0 96px;
+  padding: 24px 0 96px;
 }
+.left {
+  position: sticky;
+  top: 88px;
+}
+.feed { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 
 .list { display: grid; gap: 18px; }
 
-/* Tiêu đề dính ngay dưới thanh trên */
-.feedHead {
-  position: sticky;
-  top: 64px;
-  z-index: 20;
-  margin: 0 -8px;
-  padding: 12px 8px;
-  background: linear-gradient(to bottom, var(--v-bg) 72%, transparent);
-}
-.feedTitle { margin: 0; color: var(--v-text); font-size: 1.35rem; font-weight: 800; letter-spacing: -0.03em; }
+/* Tiêu đề + hàng lọc danh mục trên cùng 1 hàng */
+.feedHead { display: flex; align-items: center; gap: 16px; padding-top: 4px; }
+.feedTitle { flex: none; margin: 0; color: var(--v-text); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.03em; } /* 20px */
 
 .searchBar {
   display: flex;
@@ -47,6 +46,9 @@
 .detailHead { display: flex; align-items: center; gap: 0.75rem; }
 .muted { color: var(--ac-muted); font-size: 0.85rem; }
 .content { margin: 0; color: var(--ac-ink); line-height: 1.65; white-space: pre-line; }
+/* Khoi's code: nội dung bài giờ chia đoạn (PostRichText) → khoảng cách giữa các đoạn */
+.content p { margin: 0 0 0.75rem; }
+.content p:last-child { margin-bottom: 0; }
 .detailActions {
   display: flex;
   align-items: center;
@@ -55,28 +57,15 @@
   border-block: 1px solid var(--ac-border);
 }
 
-/* ---------- Điện thoại: thanh tab nổi dưới đáy ---------- */
-.mobileNav { display: none; }
+/* ---------- Màn hẹp ---------- */
+/* Vùng chính < 800px: còn 1 cột, lời chào nằm trên bảng tin */
+@container feedmain (max-width: 799.98px) {
+  .layout { grid-template-columns: minmax(0, 680px); justify-content: center; gap: 20px; }
+  .left { position: static; }
+}
+
+/* ---------- Điện thoại ---------- */
 @media (max-width: 767.98px) {
-  .feed { width: calc(100% - 24px); padding: 4px 0 120px; }
-  .mobileNav {
-    position: fixed;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    left: 12px;
-    z-index: 1040;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    align-items: center;
-    height: 64px;
-    border: 1px solid var(--v-line-2);
-    border-radius: 22px;
-    background: var(--v-header-bg);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: var(--v-shadow-pop);
-  }
-  .mItem { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--v-muted); font-size: 0.66rem; font-weight: 600; text-decoration: none; }
-  .mItem i { font-size: 1.2rem; }
-  .mOn { color: var(--v-accent-text); }
+  .layout { width: calc(100% - 24px); padding: 16px 0 120px; }
+  .feedHead { flex-direction: column; align-items: stretch; gap: 8px; }
 }

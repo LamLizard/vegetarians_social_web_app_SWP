@@ -1,14 +1,48 @@
 import { useEffect, useState } from 'react';
-import { Button, PasswordField, TextField } from '../components'; /* Duy's code: Dùng Button có sẵn cho điều hướng quay lại. */
-import { getProfile, updateProfile } from '../services/user.service';
+import {
+  Button, ChipInput, ConfirmDialog, ImageUpload, Modal, Notice, PasswordField, Select, Tabs, TextField,
+} from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
+import {
+  deleteHealthProfile, getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar,
+} from '../services/user.service';
 import { hasErrors } from '../utils/validate';
+import { calcHealth } from '../utils/health';
 import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng màu theme riêng cho hồ sơ. */
 
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/; /* Duy's code: Áp dụng đúng định dạng email đã thống nhất. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
-const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase(); /* Duy's code: Chuẩn hoá email để so sánh và lưu nhất quán. */
+const emptyHealthForm = {
+  gender: '',
+  dateOfBirth: '',
+  heightCm: '',
+  weightKg: '',
+  activityLevel: '',
+  healthGoal: '',
+  allergies: [],
+};
+
+// Duy's code: Chuyển hồ sơ API về dạng input editable, gồm cả dị ứng dạng chip.
+const toHealthForm = (profile) => ({
+  ...emptyHealthForm,
+  ...profile,
+  dateOfBirth: profile?.dateOfBirth?.slice(0, 10) || '',
+  heightCm: profile?.heightCm ?? '',
+  weightKg: profile?.weightKg ?? '',
+  allergies: (profile?.allergies || []).map((allergy) => allergy.name),
+});
+
+// Duy's code: Tính tuổi đủ năm theo sinh nhật để gửi đầu vào nhất quán lên preview.
+function ageFromDate(dateOfBirth) {
+  if (!dateOfBirth) return null;
+  const birth = new Date(`${dateOfBirth}T00:00:00.000Z`);
+  if (Number.isNaN(birth.getTime())) return null;
+  const today = new Date();
+  let age = today.getUTCFullYear() - birth.getUTCFullYear();
+  if (today.getUTCMonth() < birth.getUTCMonth()
+    || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
 
 const defaultValues = {
   fullName: '', /* Duy's code: Dùng fullName tương ứng với account.full_name. */
@@ -19,23 +53,15 @@ const defaultValues = {
   confirmPassword: '',
 };
 
-function validateProfile(values, savedEmail) { /* Duy's code: So sánh email mới với email hiện đang lưu. */
+function validateProfile(values) { /* Duy's code: Chỉ xác thực các trường tài khoản được phép chỉnh sửa. */
   const errors = {};
-  const email = normalizeEmail(values.email); /* Duy's code: Xác thực email sau khi bỏ khoảng trắng. */
-  const emailChanged = email !== normalizeEmail(savedEmail); /* Duy's code: Chỉ yêu cầu mật khẩu khi email thực sự đổi. */
-
-  if (email.length > 30) {
-    errors.email = 'Email không được vượt quá 30 ký tự.';
-  } else if (!EMAIL_REGEX.test(email)) { /* Duy's code: Kiểm tra email theo regex đã yêu cầu. */
-    errors.email = 'Email chưa đúng định dạng, ví dụ ten@gmail.com'; /* Duy's code: Báo lỗi định dạng email. */
-  }
 
   const fullName = normalizeFullName(values.fullName); /* Duy's code: Kiểm tra tên sau khi chuẩn hoá. */
-  if ([...fullName].length < 2 || [...fullName].length > 20 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo quy tắc tên. */
-    errors.fullName = 'Họ và tên phải dài 2-20 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
+  if ([...fullName].length < 2 || [...fullName].length > 30 || !FULL_NAME_REGEX.test(fullName)) { /* Duy's code: Kiểm tra độ dài và định dạng theo quy tắc tên. */
+    errors.fullName = 'Họ và tên phải dài 2-30 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
   }
 
-  if (values.password && values.password.toLowerCase() === email) { /* Duy's code: Không cho mật khẩu mới trùng email đã chuẩn hoá. */
+  if (values.password && values.password.toLowerCase() === String(values.email ?? '').toLowerCase()) { /* Duy's code: Không cho mật khẩu mới trùng email đăng nhập đã khóa. */
     errors.password = 'Password không được trùng với email đăng nhập';
   }
 
@@ -47,7 +73,7 @@ function validateProfile(values, savedEmail) { /* Duy's code: So sánh email m�
     errors.confirmPassword = 'Mật khẩu xác nhận không được chứa khoảng trắng.'; /* Duy's code: Báo lỗi ngay tại ô xác nhận. */
   }
 
-  if ((emailChanged || values.password) && !values.currentPassword) { /* Duy's code: Xác nhận mật khẩu khi đổi email hoặc mật khẩu. */
+  if (values.password && !values.currentPassword) { /* Duy's code: Chỉ yêu cầu xác nhận mật khẩu khi đổi mật khẩu. */
     errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận thay đổi'; /* Duy's code: Hiển thị yêu cầu xác nhận. */
   }
 
@@ -79,6 +105,8 @@ function ProfileBackNavigation() { /* Duy's code: Thanh điều hướng quay l�
 }
 
 export default function UserProfilePage() {
+  const [activeTab, setActiveTab] = useState('account');
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [form, setForm] = useState(defaultValues);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
@@ -86,7 +114,29 @@ export default function UserProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [avatarNotice, setAvatarNotice] = useState('');
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [healthForm, setHealthForm] = useState(emptyHealthForm);
+  const [healthLoading, setHealthLoading] = useState(true);
+  const [healthLoadFailed, setHealthLoadFailed] = useState(false);
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthDeleting, setHealthDeleting] = useState(false);
+  const [healthDeleteOpen, setHealthDeleteOpen] = useState(false);
+  const [healthError, setHealthError] = useState('');
+  const [healthNotice, setHealthNotice] = useState('');
+  const [ageWarningOpen, setAgeWarningOpen] = useState(false);
+  const [ageWarningAcceptedDob, setAgeWarningAcceptedDob] = useState('');
 
+  const healthPreview = calcHealth({
+    gender: healthForm.gender,
+    age: ageFromDate(healthForm.dateOfBirth),
+    heightCm: healthForm.heightCm,
+    weightKg: healthForm.weightKg,
+    activityLevel: healthForm.activityLevel,
+    goal: healthForm.healthGoal,
+  });
+
+  // Duy's code: Tải hồ sơ tài khoản khi mở trang và bỏ qua cập nhật khi unmount.
   useEffect(() => {
     let active = true;
     getProfile()
@@ -106,15 +156,153 @@ export default function UserProfilePage() {
     return () => { active = false; };
   }, []);
 
+  // Duy's code: Tải hồ sơ sức khỏe cho tab User Profile.
+  useEffect(() => {
+    let active = true;
+    getHealthProfile()
+      .then((result) => {
+        if (!active) return;
+        setHealthLoadFailed(false);
+        if (result.profile) {
+          setHealthForm(toHealthForm(result.profile));
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          setHealthLoadFailed(true);
+          setHealthError(error.message);
+        }
+      })
+      .finally(() => {
+        if (active) setHealthLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const retryLoadHealthProfile = async () => {
+    setHealthLoading(true);
+    setHealthLoadFailed(false);
+    setHealthError('');
+    try {
+      const result = await getHealthProfile();
+      setHealthForm(result.profile ? toHealthForm(result.profile) : emptyHealthForm);
+    } catch (error) {
+      setHealthLoadFailed(true);
+      setHealthError(error.message);
+    } finally {
+      setHealthLoading(false);
+    }
+  };
+
   const updateField = (field) => (value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setSubmitted(false);
+    setRequestError('');
+  };
+
+  // Duy's code: Gọi service upload Cloudinary rồi đồng bộ avatar mới vào state trang.
+  const handleAvatarUpload = async (file, options) => {
+    setAvatarBusy(true);
+    setRequestError('');
+    setAvatarNotice('');
+    try {
+      const result = await uploadAvatar(file, options);
+      setForm((current) => ({ ...current, avatar: result.avatar }));
+      setSavedProfile((current) => ({ ...current, avatar: result.avatar }));
+      if (result.cleanupWarning) setAvatarNotice(result.cleanupWarning);
+      return result.avatar;
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  // Duy's code: Gọi backend gỡ avatar khi người dùng xóa ảnh hiện tại.
+  const handleAvatarChange = async (avatar) => {
+    if (avatar) return;
+    setAvatarBusy(true);
+    setRequestError('');
+    setAvatarNotice('');
+    try {
+      const updated = await removeAvatar();
+      setForm((current) => ({ ...current, avatar: updated.avatar || '' }));
+      setSavedProfile((current) => ({ ...current, avatar: updated.avatar || '' }));
+      if (updated.cleanupWarning) setAvatarNotice(updated.cleanupWarning);
+    } catch (error) {
+      setRequestError(error.message);
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
+  // Duy's code: Cập nhật trường sức khỏe và xóa thông báo lỗi cũ khi sửa dữ liệu.
+  const updateHealthField = (field) => (value) => {
+    setHealthForm((current) => ({ ...current, [field]: value }));
+    setHealthError('');
+    setHealthNotice('');
+  };
+
+  const confirmDeleteHealthProfile = async () => {
+    setHealthDeleting(true);
+    setHealthError('');
+    setHealthNotice('');
+    try {
+      await deleteHealthProfile();
+      setHealthForm(emptyHealthForm);
+      setHealthDeleteOpen(false);
+      setHealthNotice('Hồ sơ sức khỏe và danh sách dị ứng đã được xóa.');
+    } catch (error) {
+      setHealthError(error.message);
+    } finally {
+      setHealthDeleting(false);
+    }
+  };
+
+  // Duy's code: Lưu hồ sơ sau khi hoàn tất xác nhận cảnh báo tuổi nếu cần.
+  const saveHealthForm = async (ageWarningAccepted = false) => {
+    setHealthError('');
+    setHealthNotice('');
+    setHealthSaving(true);
+    try {
+      const result = await saveHealthProfile({
+        ...healthForm,
+        ageWarningAccepted,
+      });
+      setHealthForm(toHealthForm(result.profile));
+      setHealthNotice('Hồ sơ sức khỏe đã được lưu.');
+    } catch (error) {
+      setHealthError(error.message);
+    } finally {
+      setHealthSaving(false);
+    }
+  };
+
+  // Duy's code: Yêu cầu người dưới 18 xác nhận cảnh báo trước khi gửi hồ sơ lên server.
+  const handleHealthSubmit = async (event) => {
+    event.preventDefault();
+    setHealthError('');
+    setHealthNotice('');
+    const age = ageFromDate(healthForm.dateOfBirth);
+    const isMinor = age !== null && age < 18;
+    if (isMinor && ageWarningAcceptedDob !== healthForm.dateOfBirth) {
+      setAgeWarningOpen(true);
+      return;
+    }
+    await saveHealthForm(isMinor);
+  };
+
+  // Duy's code: Chỉ cho tiếp tục lưu sau khi người dùng xác nhận cảnh báo dưới 18 tuổi.
+  const handleAgeWarningConfirm = async () => {
+    const dateOfBirth = healthForm.dateOfBirth;
+    setAgeWarningAcceptedDob(dateOfBirth);
+    setAgeWarningOpen(false);
+    await saveHealthForm(true);
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName), email: normalizeEmail(form.email) }; /* Duy's code: Chuẩn hoá tên và email trước khi validate và lưu. */
-    const nextErrors = validateProfile(normalizedForm, savedProfile.email); /* Duy's code: Kiểm tra email đổi so với hồ sơ đã lưu. */
+    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName) }; /* Duy's code: Chuẩn hoá họ tên trước khi validate và lưu. */
+    const nextErrors = validateProfile(normalizedForm); /* Duy's code: Kiểm tra các trường hồ sơ có thể thay đổi. */
     setErrors(nextErrors);
     setSubmitted(true);
     setRequestError('');
@@ -127,7 +315,6 @@ export default function UserProfilePage() {
     try {
       const updated = await updateProfile({
         fullName: normalizedForm.fullName, /* Duy's code: Gửi fullName thay vì displayName/username. */
-        email: normalizedForm.email, /* Duy's code: Gửi email mới để backend cập nhật DB. */
         currentPassword: form.currentPassword,
         password: form.password,
         confirmPassword: form.confirmPassword, /* Duy's code: Gửi mật khẩu xác nhận để backend cũng kiểm tra. */
@@ -169,11 +356,16 @@ export default function UserProfilePage() {
                   <h2 className={`mb-0 ${styles.title}`}>User Profile</h2>
                 </div>
                 <div className="d-flex align-items-center gap-3">
-                  <div className={`rounded-circle border d-flex align-items-center justify-content-center ${styles.avatar}`} style={{ width: 56, height: 56 }}>
-                    {form.avatar
-                      ? <img src={form.avatar} alt="" className="rounded-circle w-100 h-100 object-fit-cover" />
-                      : <span className="fw-bold">{form.fullName.slice(0, 1).toUpperCase()}</span> /* Duy's code: Lấy chữ đầu từ họ tên để tạo avatar dự phòng. */}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    icon="camera"
+                    className={styles.avatarButton}
+                    onClick={() => setAvatarModalOpen(true)}
+                    aria-haspopup="dialog"
+                  >
+                    Tải ảnh đại diện
+                  </Button>
                   <div>
                     <div className="fw-semibold">{form.fullName}</div> {/* Duy's code: Hiển thị full name lấy từ DB. */}
                     <div className={`small ${styles.muted}`}>{form.email}</div>
@@ -181,14 +373,31 @@ export default function UserProfilePage() {
                 </div>
               </div>
 
+              {/* Duy's code: Chuyển giữa thông tin tài khoản và hồ sơ sức khỏe. */}
+              <Tabs
+                items={[
+                  { key: 'account', label: 'Thông tin tài khoản', icon: 'person', id: 'profile-account-tab', controls: 'profile-account-panel' },
+                  { key: 'health', label: 'Hồ sơ sức khỏe', icon: 'heart-pulse', id: 'profile-health-tab', controls: 'profile-health-panel' },
+                ]}
+                value={activeTab}
+                onChange={setActiveTab}
+                label="Các phần hồ sơ"
+              />
+
+              {/* Duy's code: Tab tài khoản chứa ảnh đại diện và thông tin đăng nhập. */}
+              {activeTab === 'account' && (
+              <section id="profile-account-panel" role="tabpanel" aria-labelledby="profile-account-tab" tabIndex="0">
+              <p className="small text-body-secondary mt-3 mb-0">Ảnh đại diện được lưu ngay khi tải lên hoặc xóa; nút Huỷ bên dưới chỉ áp dụng cho thông tin tài khoản.</p>
+              {avatarNotice && <Notice tone="info" className="mt-3">{avatarNotice}</Notice>}
+
               <form onSubmit={handleSubmit} noValidate>
-                <div className="row g-3">
-                  <div className="col-md-6">
+                <div className="row g-3 mt-1">
+                  <div className="col-12">
                     <TextField
                       label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
                       value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
                       onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
-                      maxLength={20} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-20 ký tự. */
+                      maxLength={30} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-30 ký tự. */
                       error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
                       placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
                     />
@@ -196,7 +405,14 @@ export default function UserProfilePage() {
                 </div>
 
                 <div className="mt-3">
-                  <TextField label="Email" type="email" value={form.email} onChange={updateField('email')} maxLength={30} error={errors.email} autoComplete="email" /> {/* Duy's code: Giới hạn email hồ sơ tối đa 30 ký tự. */}
+                  <TextField
+                    label="Email đăng nhập"
+                    type="email"
+                    value={form.email}
+                    readOnly
+                    autoComplete="email"
+                    hint="Email được cố định từ khi tạo tài khoản và không thể chỉnh sửa tại Hồ sơ."
+                  /> {/* Duy's code: Chỉ hiển thị email tài khoản; không cho sửa từ trang Profile. */}
                 </div>
 
                 <div className="d-flex flex-column gap-3 mt-3">
@@ -226,7 +442,7 @@ export default function UserProfilePage() {
                       value={form.currentPassword}
                       onChange={updateField('currentPassword')}
                       autoComplete="current-password"
-                      hint="Bắt buộc khi đổi email hoặc mật khẩu"
+                      hint="Bắt buộc khi đổi mật khẩu"
                       error={errors.currentPassword}
                     />
                   </div>
@@ -242,6 +458,272 @@ export default function UserProfilePage() {
                   !requestError && !saving && <div className={`alert mt-4 mb-0 ${styles.successAlert}`}>Thông tin hồ sơ đã được lưu.</div>
                 )}
               </form>
+              </section>
+              )}
+
+              {/* Duy's code: Tab sức khỏe cho Member quản lý thông tin và chỉ số cá nhân. */}
+              {activeTab === 'health' && (
+              <section id="profile-health-panel" role="tabpanel" aria-labelledby="profile-health-tab" tabIndex="0" className="pt-4">
+                <h3 className="h5">Hồ sơ sức khỏe</h3>
+                <p className="text-body-secondary">
+                  Thông tin này là riêng tư, chỉ dùng cho tài khoản của bạn. Trường không bắt buộc; chỉ số sẽ không được ước tính nếu thiếu dữ liệu cần thiết.
+                </p>
+                {healthError && <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>}
+                {healthNotice && <Notice tone="success" className="mb-3">{healthNotice}</Notice>}
+                {/* Duy's code: Hiển thị form sức khỏe sau khi tải xong hồ sơ. */}
+                {healthLoading ? (
+                  <p role="status">Đang tải hồ sơ sức khỏe...</p>
+                ) : healthLoadFailed ? (
+                  <div>
+                    <p>Chưa tải được dữ liệu hồ sơ sức khỏe. Hãy thử lại trước khi chỉnh sửa hoặc lưu để tránh ghi đè dữ liệu hiện có.</p>
+                    <Button type="button" variant="outline" onClick={retryLoadHealthProfile}>Thử tải lại</Button>
+                  </div>
+                ) : (
+                  <form className={styles.healthFormLayout} onSubmit={handleHealthSubmit} noValidate>
+                    <div className={styles.healthLayout}>
+                      <section className={styles.healthPanel} aria-labelledby="health-basics-title">
+                        <h4 id="health-basics-title" className="h6 mb-3">Thông tin cơ bản</h4>
+                        <fieldset className="border-0 p-0 m-0">
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-gender">Giới tính</label>
+                            <Select
+                              id="health-gender"
+                              value={healthForm.gender}
+                              onChange={updateHealthField('gender')}
+                              placeholder="Chọn"
+                              options={[
+                                { value: 'male', label: 'Nam' },
+                                { value: 'female', label: 'Nữ' },
+                                { value: 'other', label: 'Khác / không muốn chọn công thức' },
+                              ]}
+                              hint="Chỉ dùng để chọn công thức ước tính năng lượng."
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-date-of-birth">Ngày sinh</label>
+                            <TextField
+                              id="health-date-of-birth"
+                              type="date"
+                              value={healthForm.dateOfBirth}
+                              onChange={updateHealthField('dateOfBirth')}
+                              max={new Date().toISOString().slice(0, 10)}
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-height">Chiều cao</label>
+                            <TextField
+                              id="health-height"
+                              type="number"
+                              value={healthForm.heightCm}
+                              onChange={updateHealthField('heightCm')}
+                              min="50"
+                              max="250"
+                              step="0.1"
+                              suffix="cm"
+                              hint="Nhập giá trị từ 50 đến 250 cm."
+                            />
+                          </div>
+                          <div className={styles.healthFieldRow}>
+                            <label className={styles.healthFieldLabel} htmlFor="health-weight">Cân nặng</label>
+                            <TextField
+                              id="health-weight"
+                              type="number"
+                              value={healthForm.weightKg}
+                              onChange={updateHealthField('weightKg')}
+                              min="10"
+                              max="500"
+                              step="0.1"
+                              suffix="kg"
+                              hint="Nhập giá trị từ 10 đến 500 kg."
+                            />
+                          </div>
+                        </fieldset>
+
+                        <div className="border-top mt-3 pt-3">
+                          <h5 className="h6">Vận động và mục tiêu</h5>
+                          <p className="small text-body-secondary">
+                            Chọn mức gần với sinh hoạt thường ngày; đây chỉ là ước lượng, không cần tính số buổi thật chính xác.
+                          </p>
+                          <Select
+                            label="Mức vận động"
+                            value={healthForm.activityLevel}
+                            onChange={updateHealthField('activityLevel')}
+                            placeholder="Chọn mức vận động"
+                            options={[
+                              { value: 'sedentary', label: 'Ít — chủ yếu ngồi, ít đi bộ/tập' },
+                              { value: 'light', label: 'Nhẹ — hoạt động nhẹ hoặc tập nhẹ vài buổi/tuần' },
+                              { value: 'moderate', label: 'Vừa — tập vừa khoảng 3–5 buổi/tuần' },
+                              { value: 'active', label: 'Cao — tập nặng thường xuyên hoặc làm việc thể lực' },
+                            ]}
+                          />
+                          <Select
+                            className="mt-3"
+                            label="Mục tiêu"
+                            value={healthForm.healthGoal}
+                            onChange={updateHealthField('healthGoal')}
+                            placeholder="Chọn mục tiêu"
+                            options={[
+                              { value: 'lose_weight', label: 'Giảm cân' },
+                              { value: 'maintain', label: 'Duy trì cân nặng' },
+                              { value: 'gain_muscle', label: 'Tăng cơ' },
+                            ]}
+                          />
+                          <div className="mt-3">
+                            <ChipInput
+                              label="Dị ứng / thực phẩm cần kiêng"
+                              value={healthForm.allergies}
+                              onChange={updateHealthField('allergies')}
+                              max={50}
+                              maxLength={120}
+                              placeholder="Nhập tên rồi nhấn Enter"
+                              hint="Được lưu trong hồ sơ; hiện chưa tự động lọc món ăn."
+                            />
+                          </div>
+                        </div>
+                      </section>
+
+                      <section className={styles.healthPanel} aria-labelledby="health-results-title" aria-live="polite">
+                        <h4 id="health-results-title" className="h6 mb-1">Chỉ số sức khỏe ước tính</h4>
+                        <p className="small text-body-secondary mb-3">
+                          Các kết quả thay đổi theo thông tin bạn nhập.
+                        </p>
+                        <div className={styles.healthResultsLayout}>
+                          <div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>BMI</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.bmi == null
+                                  ? 'Chưa tính được: cần chiều cao và cân nặng.'
+                                  : ageFromDate(healthForm.dateOfBirth) !== null && ageFromDate(healthForm.dateOfBirth) < 18
+                                    ? `${healthPreview.bmi} — chỉ số BMI; không phân loại theo ngưỡng người lớn.`
+                                    : `${healthPreview.bmi} — ${({
+                                    underweight: 'thấp',
+                                    normal: 'trong khoảng tham khảo',
+                                    overweight: 'cao',
+                                    obese: 'rất cao',
+                                  })[healthPreview.bmiCategory]}`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>BMR</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.bmr == null
+                                  ? 'Chưa tính được: cần ngày sinh và thông tin cơ thể phù hợp.'
+                                  : `Khoảng ${healthPreview.bmr} kcal/ngày`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>TDEE</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.tdee == null
+                                  ? 'Chưa tính được: cần BMR và mức vận động.'
+                                  : `Khoảng ${healthPreview.tdee} kcal/ngày`}
+                              </p>
+                            </div>
+                            <div className={styles.healthMetricRow}>
+                              <strong>Mục tiêu calo</strong>
+                              <p className={styles.healthMetricValue}>
+                                {healthPreview.targetCalories == null
+                                  ? 'Chưa tính được: cần TDEE và mục tiêu.'
+                                  : `Khoảng ${healthPreview.targetCalories} kcal/ngày`}
+                              </p>
+                            </div>
+                          </div>
+
+                          <aside className={styles.healthExplanation} aria-label="Giải thích các chỉ số">
+                            <h5 className="h6">Giải thích đơn giản</h5>
+                            <p className="small">
+                              <strong>BMI</strong> so sánh cân nặng với chiều cao. Nhóm BMI chỉ để tham khảo cho người lớn, không phải chẩn đoán.
+                            </p>
+                            <p className="small">
+                              <strong>BMR</strong> là năng lượng cơ thể ước tính cần khi nghỉ ngơi.
+                            </p>
+                            <p className="small">
+                              <strong>TDEE</strong> là năng lượng ước tính tiêu hao trong ngày, đã tính mức vận động; không có nghĩa bạn bắt buộc phải ăn đúng con số đó.
+                            </p>
+                            <p className="small mb-0">
+                              <strong>Mục tiêu calo</strong> là TDEE được điều chỉnh theo lựa chọn của bạn: giảm cân giảm 15%, duy trì giữ nguyên, tăng cơ cộng 200 kcal. Đây là ước tính, không cam kết kết quả.
+                            </p>
+                          </aside>
+                        </div>
+                        {healthForm.gender === 'other' && (
+                          <Notice tone="info" className="mt-3">
+                            BMI vẫn tính được khi đủ chiều cao và cân nặng. Ứng dụng không tự chọn công thức nam/nữ nên BMR, TDEE và mục tiêu calo sẽ để trống.
+                          </Notice>
+                        )}
+                      </section>
+                    </div>
+
+                    <Notice tone="info" title="Thông tin hồ sơ sức khỏe" className="mt-3">
+                      Thông tin bạn lưu sẽ được giữ trong hồ sơ tài khoản để hiển thị và tính các chỉ số tham khảo; các chỉ số này không thay thế tư vấn y tế.
+                    </Notice>
+
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
+                      <Button
+                        type="button"
+                        variant="alert"
+                        disabled={healthSaving || healthDeleting}
+                        onClick={() => setHealthDeleteOpen(true)}
+                      >
+                        Xóa hồ sơ sức khỏe
+                      </Button>
+                      <Button
+                        type="submit"
+                        loading={healthSaving || healthDeleting}
+                        disabled={healthSaving || healthDeleting}
+                      >
+                        Lưu hồ sơ sức khỏe
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </section>
+              )}
+
+              <ConfirmDialog
+                open={ageWarningOpen}
+                title="Lưu ý về chỉ số sức khỏe"
+                message="Bạn chưa đủ 18 tuổi , công thức năng lượng và chỉ số BMI có thể bị áp dụng sai cho trẻ vị thành niên . Thông tin chỉ mang tính tham khảo !"
+                confirmLabel="Tôi đã hiểu, tiếp tục"
+                cancelLabel="Quay lại chỉnh sửa"
+                tone="primary"
+                loading={healthSaving}
+                onConfirm={handleAgeWarningConfirm}
+                onCancel={() => setAgeWarningOpen(false)}
+              />
+              <ConfirmDialog
+                open={healthDeleteOpen}
+                title="Xóa hồ sơ sức khỏe?"
+                message="Thông tin sức khỏe và toàn bộ danh sách dị ứng/thực phẩm cần kiêng sẽ bị xóa khỏi hồ sơ của bạn. Thao tác này không thể hoàn tác."
+                confirmLabel="Xóa hồ sơ"
+                cancelLabel="Giữ lại"
+                loading={healthDeleting}
+                onConfirm={confirmDeleteHealthProfile}
+                onCancel={() => setHealthDeleteOpen(false)}
+              />
+              <Modal
+                open={avatarModalOpen}
+                onClose={() => setAvatarModalOpen(false)}
+                title="Ảnh đại diện"
+                description="Tải ảnh JPG, PNG hoặc WebP tối đa 5 MB. Thay đổi được lưu ngay."
+                size="md"
+                dismissible={!avatarBusy}
+                footer={<Button variant="subtle" onClick={() => setAvatarModalOpen(false)} disabled={avatarBusy}>Đóng</Button>}
+              >
+                <ImageUpload
+                  label="Ảnh hiện tại"
+                  value={form.avatar}
+                  onChange={handleAvatarChange}
+                  onUpload={handleAvatarUpload}
+                  maxSizeMB={5}
+                  accept="image/jpeg,image/png,image/webp"
+                  ratio="1/1"
+                  disabled={avatarBusy}
+                  showTooltips
+                />
+                {requestError && <Notice tone="alert" className="mt-3">{requestError}</Notice>}
+                {avatarNotice && <Notice tone="info" className="mt-3">{avatarNotice}</Notice>}
+              </Modal>
             </div>
           </div>
         </div>

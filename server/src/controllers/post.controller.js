@@ -1,6 +1,8 @@
 // Trang Bảng tin: đọc request → KIỂM TRA dữ liệu → gọi post.model → trả JSON.
 // Controller không viết SQL. Câu lỗi trả về là tiếng Việt vì FE hiện nguyên văn lên UI.
 const postModel = require('../models/post.model');
+// Khoi's code: Kiểm tra dữ liệu form Đăng bài (Sprint 2).
+const { parsePostInput, PostInputError } = require('../utils/postInput');
 
 const { PostError } = postModel;
 const MAX_COMMENT = 1000;
@@ -52,13 +54,15 @@ async function getPreview(req, res) {
   res.json({ items });
 }
 
-/** GET /api/posts?cursor=&limit=&q= — thành viên */
+/** GET /api/posts?cursor=&limit=&q=&categoryId= — thành viên */
 async function getFeed(req, res) {
   const cursor = req.query.cursor ? parseCursor(req.query.cursor) : null;
   const limit = parseLimit(req.query.limit);
   const q = String(req.query.q ?? '').trim();
   if (q.length > 100) throw new PostError(400, 'Từ khoá tối đa 100 ký tự.');
-  res.json(await postModel.findFeed({ viewerId: viewerId(req), cursor, q, limit }));
+  // Khoi's code: lọc theo danh mục (Sprint 2) — bỏ trống = tất cả
+  const categoryId = req.query.categoryId ? parseId(req.query.categoryId, 'Mã danh mục') : null;
+  res.json(await postModel.findFeed({ viewerId: viewerId(req), cursor, q, categoryId, limit }));
 }
 
 /** POST /api/posts/:id/vote — toggle */
@@ -87,6 +91,21 @@ async function addComment(req, res) {
   res.status(201).json(await postModel.createComment(postId, viewerId(req), content));
 }
 
+// Khoi's code: Đăng bài (Sprint 2).
+/** POST /api/posts  { postType, title, content, thumbnailUrl?, youtubeUrl?, categoryIds[] } → 201 bài 'pending' */
+async function createPost(req, res) {
+  let input;
+  try {
+    input = parsePostInput(req.body, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+  } catch (error) {
+    if (error instanceof PostInputError) throw new PostError(400, error.message);
+    throw error;
+  }
+  // D-03: từ khoá cấm KHÔNG chặn đăng bài — bài nào cũng chờ duyệt, Admin thấy từ vi phạm ở trang kiểm duyệt.
+  const post = await postModel.createPost({ ...input, authorId: viewerId(req) });
+  res.status(201).json({ message: 'Bài viết đã được gửi và đang chờ duyệt.', post });
+}
+
 /** Dùng chung cho báo cáo bài và bình luận */
 const report = (targetType) => async function createReport(req, res) {
   const targetId = parseId(req.params.id, targetType === 'post' ? 'Mã bài viết' : 'Mã bình luận');
@@ -102,6 +121,7 @@ const report = (targetType) => async function createReport(req, res) {
 
 module.exports = {
   getPreview: handle(getPreview),
+  createPost: handle(createPost),
   getFeed: handle(getFeed),
   toggleVote: handle(toggleVote),
   getComments: handle(getComments),

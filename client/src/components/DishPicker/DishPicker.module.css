@@ -1,0 +1,106 @@
+/* Ô chọn / đề xuất món — chỉ dùng biến màu, khoảng cách theo lưới 8pt */
+.wrap { position: relative; }
+
+.icon {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  color: var(--v-muted);
+  pointer-events: none;
+}
+.input {
+  min-height: 40px;
+  padding-left: 40px;
+  font-size: 16px; /* ≥ 16px: iPhone không tự phóng to */
+}
+
+.list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: 320px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--v-line-2);
+  border-radius: 14px;
+  background: var(--v-surface);
+  box-shadow: var(--v-shadow-pop);
+}
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--v-text);
+  font-size: 16px;
+  cursor: pointer;
+}
+.opt i { color: var(--v-muted); }
+.optOn { background: var(--v-surface-2); }
+.propose {
+  margin-top: 4px;
+  border-top: 1px solid var(--v-line);
+  border-radius: 0 0 8px 8px;
+  color: var(--v-accent-text);
+  font-weight: 600;
+}
+.propose i { color: var(--v-accent-text); }
+.propose b { font-weight: 700; }
+.same {
+  margin-left: auto;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 24px;
+}
+.empty {
+  padding: 8px 12px;
+  color: var(--v-muted);
+  font-size: 14px;
+}
+
+/* Đã chọn: thay ô gõ bằng thẻ món + nút Đổi */
+.chosen {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 4px 4px 8px;
+}
+.dishChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v-text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.change:hover { background: var(--v-surface-2); color: var(--v-text); }
+.note { margin: 8px 0 0; color: var(--v-text-2); font-size: 14px; }

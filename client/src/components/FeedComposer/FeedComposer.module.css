@@ -1,0 +1,32 @@
+/* Khoi's code: theo prototype UI v2 (src/v2/components/Hero.module.css → .composer). */
+.composer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--v-line-2);
+  border-radius: 16px;
+  background: var(--v-surface);
+  color: var(--v-muted);
+  text-align: left;
+  box-shadow: var(--v-shadow);
+  transition: border-color .2s;
+}
+.composer:hover { border-color: var(--v-accent-line); }
+.composer:active { transform: scale(0.995); }
+.placeholder { flex: 1; min-width: 0; overflow: hidden; font-size: 1rem; white-space: nowrap; text-overflow: ellipsis; }
+.tools { display: flex; gap: 12px; padding-right: 4px; color: var(--v-muted); font-size: 1rem; }
+.post {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--v-accent);
+  color: var(--v-on-accent);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+@media (max-width: 767.98px) { .tools { display: none; } }

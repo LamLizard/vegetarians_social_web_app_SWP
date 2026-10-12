@@ -6,6 +6,9 @@ import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
+import AdminDishCreatePage from './pages/AdminDishCreatePage';
+import AdminDishManagementPage from './pages/AdminDishManagementPage';
+import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
@@ -13,6 +16,8 @@ import AdminModerationPage from './pages/AdminModerationPage';
 
 // Khoi's code: Trang Bảng tin (ID01) — trang chủ của khách và thành viên.
 import PostFeedPage from './pages/PostFeedPage';
+// Khoi's code: Trang Tạo công thức (Sprint 2, dữ liệu giả tới khi nhóm sửa DB).
+import RecipeCreatePage from './pages/RecipeCreatePage';
 
 
 export default function App() {
@@ -50,16 +55,16 @@ export default function App() {
     );
   }
 
-  const feed = (
-    <PostFeedPage
-      user={user}
-      accountMenu={[ /* Duy's code: Danh sách thao tác tài khoản trong menu avatar. */
-        ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
-        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
-      ] /* Duy's code: Kết thúc danh sách thao tác tài khoản. */}
-    />
-  );
+  // Menu tài khoản giữ cả lối vào công thức và hồ sơ thành viên.
+  const accountMenu = [ /* Duy's code: Danh sách thao tác tài khoản trong menu avatar. */
+    ...(!isAdmin ? [{ icon: 'journal-plus', label: 'Tạo công thức', onClick: () => goTo('/recipes/new') }] : []), /* Khoi's code: lối vào Tạo công thức (chỉ thành viên). */
+    ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
+    { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
+  ]; /* Duy's code: Kết thúc danh sách thao tác tài khoản. */
+  const feed = <PostFeedPage user={user} accountMenu={accountMenu} />;
   if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
+  if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.
@@ -71,6 +76,10 @@ export default function App() {
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
   }
+  // Duy's code: Nối hai trang quản lý Dish tới các URL Admin tương ứng.
+  if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
+  if (isAdmin && path === '/admin/dishes') return <AdminDishManagementPage />;
+  if (isAdmin && path === '/admin/recipes/verify') return <AdminRecipeVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
