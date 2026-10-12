@@ -74,72 +74,32 @@ async function listPendingDishes() {
   return rows;
 }
 
-// Duy's Code: Trả danh sách món đã được duyệt hoặc bị từ chối cho trang quản lý tất cả món ăn.
+// Duy's Code : Nhóm danh mục món chung với các công thức đã được duyệt bên trong.
 async function listAdminDishes() {
   const { rows } = await pool.query(`
-    SELECT 'dish'::text AS "recordType", d.dish_id::text AS id, d.name, d.description,
-      d.thumbnail_url AS "thumbnailUrl", d.status::text AS status, d.moderation_note AS "moderationNote",
-      COALESCE(recipe_creator.full_name, creator.full_name) AS "creatorName",
-      COALESCE(recipe_creator.email, creator.email) AS "creatorEmail",
-      COALESCE(reviewer.full_name, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.full_name END) AS "reviewerName",
-      COALESCE(reviewer.email, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.email END) AS "reviewerEmail",
-      d.created_at AS "createdAt", d.moderated_at AS "moderatedAt",
+    SELECT d.dish_id::text AS id, d.name, d.description,
       COALESCE((SELECT json_agg(json_build_object('id', c.category_id, 'name', c.name) ORDER BY c.name)
         FROM public.dish_category dc JOIN public.category c ON c.category_id = dc.category_id
         WHERE dc.dish_id = d.dish_id), '[]'::json) AS categories,
-      recipe_creator.title AS "recipeTitle", d.dish_id::text AS "dishId",
-      recipe_creator.proposed_dish_name AS "proposedDishName", recipe_creator.servings,
-      recipe_creator."prepTimeMinutes", recipe_creator."cookTimeMinutes", recipe_creator.instructions,
-      COALESCE(recipe_creator.ingredients, '[]'::json) AS ingredients,
-      COALESCE(recipe_creator."proposedIngredients", '[]'::json) AS "proposedIngredients"
+      COALESCE((
+        SELECT json_agg(json_build_object(
+          'id', r.recipe_id::text, 'title', r.title, 'thumbnailUrl', r.thumbnail_url,
+          'servings', r.servings, 'prepTimeMinutes', r.prep_time_minutes,
+          'cookTimeMinutes', r.cook_time_minutes, 'instructions', r.instructions,
+          'createdAt', r.created_at,
+          'ingredients', COALESCE((
+            SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
+            FROM public.recipe_ingredient ri
+            JOIN public.ingredient i ON i.ingredient_id = ri.ingredient_id
+            WHERE ri.recipe_id = r.recipe_id
+          ), '[]'::json)
+        ) ORDER BY r.created_at DESC, r.recipe_id DESC)
+        FROM public.recipe r
+        WHERE r.dish_id = d.dish_id AND r.status = 'approved'
+      ), '[]'::json) AS recipes
     FROM public.dish d
-    LEFT JOIN public.account creator ON creator.account_id = d.created_by
-    LEFT JOIN public.account reviewer ON reviewer.account_id = d.moderated_by
-    LEFT JOIN LATERAL (
-      SELECT a.account_id, a.full_name, a.email, r.title, r.proposed_dish_name, r.servings,
-        r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes", r.instructions,
-        COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
-          FROM public.recipe_ingredient ri JOIN public.ingredient i ON i.ingredient_id = ri.ingredient_id
-          WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
-        COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
-          FROM public.recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
-      FROM public.recipe r JOIN public.account a ON a.account_id = r.author_id
-      WHERE r.dish_id = d.dish_id AND r.created_at <= d.created_at
-      ORDER BY r.created_at, r.recipe_id
-      LIMIT 1
-    ) recipe_creator ON true
-    UNION ALL
-    SELECT 'recipe'::text AS "recordType", r.recipe_id::text AS id,
-      COALESCE(d.name, r.proposed_dish_name, r.title) AS name,
-      r.instructions AS description, r.thumbnail_url AS "thumbnailUrl", r.status::text AS status,
-      r.moderation_note AS "moderationNote", author.full_name AS "creatorName", author.email AS "creatorEmail",
-      review_log.full_name AS "reviewerName", review_log.email AS "reviewerEmail",
-      r.created_at AS "createdAt", review_log."moderatedAt", '[]'::json AS categories,
-      r.title AS "recipeTitle", r.dish_id::text AS "dishId", r.proposed_dish_name AS "proposedDishName",
-      r.servings, r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes",
-      r.instructions,
-      COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
-        FROM public.recipe_ingredient ri JOIN public.ingredient i ON i.ingredient_id = ri.ingredient_id
-        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
-      COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
-        FROM public.recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
-    FROM public.recipe r
-    JOIN public.account author ON author.account_id = r.author_id
-    LEFT JOIN public.dish d ON d.dish_id = r.dish_id
-    LEFT JOIN LATERAL (
-      SELECT a.full_name, a.email, l.created_at AS "moderatedAt"
-      FROM public.admin_log l JOIN public.account a ON a.account_id = l.admin_id
-      WHERE l.target_type = 'recipe' AND l.target_id = r.recipe_id
-        AND l.action = CASE r.status::text
-          WHEN 'approved' THEN 'recipe_approved'
-          WHEN 'rejected' THEN 'recipe_rejected'
-          ELSE ''
-        END
-      ORDER BY l.created_at DESC
-      LIMIT 1
-    ) review_log ON true
-    WHERE r.status IN ('pending', 'rejected')
-    ORDER BY "createdAt" DESC, id DESC
+    WHERE d.status = 'active'
+    ORDER BY d.name, d.dish_id
   `);
   return rows;
 }

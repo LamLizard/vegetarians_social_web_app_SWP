@@ -2,7 +2,6 @@ const crypto = require('node:crypto');
 
 // Duy's code: Quy định namespace và giới hạn upload avatar dùng chung cho backend.
 const AVATAR_FOLDER = 'greenbowl';
-const AVATAR_UPLOAD_PRESET = 'greenbowl_avatar_signed';
 const AVATAR_FORMATS = 'jpg,jpeg,png,webp';
 const AVATAR_TRANSFORMATION = 'c_limit,w_2048,h_2048';
 const MAX_AVATAR_DIMENSION = 2048;
@@ -56,8 +55,6 @@ function createAvatarUploadSignature(accountId, timestamp = Math.floor(Date.now(
   const folder = getAvatarFolder(accountId);
   // Duy's code: Tạo public ID ngẫu nhiên để tránh đè lên ảnh cũ.
   const publicId = crypto.randomUUID();
-  // Duy's code: Ưu tiên tên preset cấu hình, nếu thiếu dùng tên preset chuẩn của ứng dụng.
-  const uploadPreset = process.env.CLOUDINARY_AVATAR_UPLOAD_PRESET || AVATAR_UPLOAD_PRESET;
   // Duy's code: Ký toàn bộ tham số quan trọng bao gồm giới hạn transformation.
   const parameters = {
     folder,
@@ -65,7 +62,6 @@ function createAvatarUploadSignature(accountId, timestamp = Math.floor(Date.now(
     public_id: publicId,
     timestamp: String(timestamp),
     transformation: AVATAR_TRANSFORMATION,
-    upload_preset: uploadPreset,
   };
 
   // Duy's code: Chỉ gửi dữ liệu công khai và chữ ký; không gửi API Secret tới trình duyệt.
@@ -204,7 +200,6 @@ async function deleteAvatar(publicId, accountId) {
 module.exports = {
   AVATAR_FORMATS,
   AVATAR_TRANSFORMATION,
-  AVATAR_UPLOAD_PRESET,
   CloudinaryConfigurationError,
   MAX_AVATAR_DIMENSION,
   MAX_AVATAR_BYTES,

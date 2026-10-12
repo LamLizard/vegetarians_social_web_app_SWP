@@ -46,6 +46,7 @@ async function createAdminDishWithRecipe(req, res, next) {
   }
 }
 
+// Duy's Code : Cấp các danh mục món và công thức đã duyệt cho trang quản lý theo nhóm.
 async function getAdminDishes(req, res, next) {
   try {
     return res.json(await dishModel.listAdminDishes());

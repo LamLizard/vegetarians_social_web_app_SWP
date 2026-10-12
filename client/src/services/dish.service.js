@@ -20,6 +20,7 @@ export async function createAdminDishWithRecipe(payload) {
   });
 }
 
+// Duy's Code : Lấy danh mục món cùng các công thức đã duyệt để dựng dạng nhóm.
 export async function getAdminDishes() {
   return apiFetch('/dishes/admin/all');
 }

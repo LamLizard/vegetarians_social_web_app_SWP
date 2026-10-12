@@ -50,6 +50,8 @@ app.use('/api/uploads', require('./src/routes/upload.routes'));
 app.use('/api/categories', require('./src/routes/category.routes'));
 // Khoi's code: Tạo công thức (chọn món, nguyên liệu, gửi chờ duyệt, công thức đã gửi).
 app.use('/api/recipes', require('./src/routes/recipe.routes'));
+// Duy's Code : Gắn API đề cử nguyên liệu, lưu đề cử qua allergy và duyệt vào ingredient.
+app.use('/api/ingredient-proposals', require('./src/routes/ingredientProposal.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;
