@@ -33,9 +33,6 @@ import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
-// Tùng — Sprint 2: BRIDGE-02A NAV/collapse/mobile tabs dùng chung với trang Shop/Profile.
-import useMemberSidebar, { MEMBER_NAV as NAV } from '../hooks/useMemberSidebar';
-import { MemberMobileNav } from '../components/MemberNavigationLayout';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
 import styles from './PostFeedPage.module.css';
@@ -44,9 +41,6 @@ import styles from './PostFeedPage.module.css';
 
 /** Đọc 1 tham số trên URL lúc mở trang (?q=…, ?compose=1) */
 const initialParam = (key) => new URLSearchParams(window.location.search).get(key)?.slice(0, 100) ?? '';
-
-/** user của BE ({ fullName }) → dạng component cần ({ name }) */
-const toPerson = (u) => (u ? { name: u.fullName, avatarUrl: u.avatarUrl ?? null } : null);
 
 // Người dùng tắt hiệu ứng trong hệ điều hành → thẻ bài hiện ngay, không mờ dần
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -92,8 +86,6 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       setCategories({ status: 'error', items: [], error: err.message || 'Vui lòng thử lại sau.' });
     }
   };
-  // Tùng — Sprint 2: sidebar giữ cùng lựa chọn thu gọn/ngăn kéo trên các trang Member.
-  const { isMobile, collapsed, drawerOpen, setDrawerOpen, toggleCollapsed } = useMemberSidebar();
 
   const openCreate = () => {
     if (isGuest) { requireLogin(); return; }
@@ -215,6 +207,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       activeKey="feed"
       user={user}
       accountMenu={accountMenu}
+      shopAction={shopAction}
       onCreate={openCreate}
       onLogin={onLogin}
       onRegister={onRegister}
@@ -335,9 +328,6 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
           )}
         </main>
         </div>
-
-      {/* Tùng — Sprint 2: thanh tab mobile chung; giữ mục Bảng tin đang active. */}
-      <MemberMobileNav activeKey="feed" />
 
       <PostDetailModal
         post={openedPost}

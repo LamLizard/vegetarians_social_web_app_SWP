@@ -72,12 +72,6 @@ function AppContent() {
     );
   }
 
-  // Menu tài khoản giữ cả lối vào công thức và hồ sơ thành viên.
-  const accountMenu = [ /* Duy's code: Danh sách thao tác tài khoản trong menu avatar. */
-    ...(!isAdmin ? [{ icon: 'journal-plus', label: 'Tạo công thức', onClick: () => goTo('/recipes/new') }] : []), /* Khoi's code: lối vào Tạo công thức (chỉ thành viên). */
-    ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
-    { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
-  ]; /* Duy's code: Kết thúc danh sách thao tác tài khoản. */
   // Tùng — Sprint 2: chỉ mở trang Shop đúng role sau khi khôi phục phiên/đăng nhập.
   if (user?.role === 'member' && path === '/shops/register') return <ShopRegisterPage />;
   if (user?.role === 'member' && path === '/shops/manage') return <ShopManagementPage />;
@@ -94,7 +88,6 @@ function AppContent() {
   );
   // Tùng — Sprint 2: đồng bộ sidebar cho Profile, không sửa form hoặc API hồ sơ của Duy.
   if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
-  if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */

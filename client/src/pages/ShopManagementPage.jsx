@@ -195,7 +195,7 @@ function ManagementContent({ initial, refreshing, onConflict, onReload, onAdopt,
       if (!alive.current) return false;
       onSuccess(result);
       onMessage({ text: result.unchanged ? 'Thông tin không thay đổi; không tạo hồ sơ mới.' : successText,
-        tone: result.unchanged ? 'info' : 'success', createdAt: Date.now() });
+        tone: result.unchanged ? 'info' : 'success', createdAt: messageTime() });
       return true;
     } catch (error) {
       if (alive.current) { setFailure({ area, error }); if (error.status === 409 || error.details?.code === 'SHOP_INACTIVE') onConflict(error.message); }
@@ -349,6 +349,9 @@ function UnverifiedProfile({ context, refreshing, onReload }) {
       onConfirm={() => window.location.assign(retryUrl('fresh'))} onCancel={() => setConfirmFresh(false)} />
   </>;
 }
+
+// Thời điểm tạo thông báo; tách ra ngoài component để không gọi Date.now() trong thân component (lint react-hooks/purity).
+const messageTime = () => Date.now();
 
 export default function ShopManagementPage() {
   // Tùng — Sprint 2: registration-context và getMine cùng Shop view, không thêm GET navbar riêng.

@@ -127,8 +127,6 @@
 .shopAction:disabled:hover { background: transparent; color: var(--v-muted); }
 .shopAction:disabled:active { transform: none; }
 
-.accountWrap { display: flex; width: 100%; }
-.account {
 /* Hộp tài khoản: lối tắt + người dùng */
 .accountBox {
   display: grid;

@@ -48,12 +48,13 @@ const useIsMobile = () => {
  * @param {string} [activeKey]   mục menu đang sáng ('feed'…); bỏ trống = không sáng mục nào (vd trang Tạo công thức)
  * @param {{id, fullName, role, avatarUrl?}|null} user   null = khách
  * @param {{icon?, label, onClick, tone?}[]} [accountMenu]
+ * @param {object} [shopAction]   nút Hồ sơ quán / Đăng ký quán (ShopNavigationContext)
  * @param {() => void} [onCreate]   nút "+ Đăng bài" (thanh bên + thanh dưới điện thoại), chỉ khi đã đăng nhập
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  * @param {({ openMenu }) => React.ReactNode} [renderTopbar]   thanh trên; openMenu mở ngăn kéo trên điện thoại
  */
 export default function MemberLayout({
-  activeKey, user, accountMenu = [], onCreate, onLogin, onRegister, renderTopbar, children,
+  activeKey, user, accountMenu = [], shopAction, onCreate, onLogin, onRegister, renderTopbar, children,
 }) {
   const isGuest = !user;
   const isMobile = useIsMobile();
@@ -79,6 +80,7 @@ export default function MemberLayout({
         activeKey={activeKey}
         user={user && { ...toPerson(user), roleLabel: ROLE[user.role] }}
         accountMenu={accountMenu}
+        shopAction={shopAction}
         collapsed={!isMobile && collapsed}
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}

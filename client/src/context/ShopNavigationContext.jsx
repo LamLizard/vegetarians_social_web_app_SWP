@@ -106,6 +106,7 @@ export function ShopNavigationProvider({ children }) {
 
   // Tùng — Sprint 2: giữ entry hồ sơ của Duy và đăng xuất của Khôi trong cùng menu Member.
   const accountMenu = useMemo(() => user ? [
+    ...(user.role !== 'admin' ? [{ icon: 'journal-plus', label: 'Tạo công thức', onClick: () => window.location.assign('/recipes/new') }] : []),
     ...(user.role !== 'admin' ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => window.location.assign('/profile') }] : []),
     { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
   ] : [], [user, logout]);

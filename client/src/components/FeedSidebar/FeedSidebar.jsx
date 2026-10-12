@@ -28,7 +28,7 @@ import s from './FeedSidebar.module.css';
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  */
 export default function FeedSidebar({
-  nav, activeKey, user, accountMenu = [], shopAction, collapsed, onToggle, mobileOpen, onCloseMobile, onLogin, onRegister,
+  nav, activeKey, user, accountMenu = [], shopAction, collapsed, onToggle, mobileOpen, onCloseMobile, onCreate, onLogin, onRegister,
 }) {
   const [theme, toggleTheme] = useTheme();
   const dark = theme === 'dark';
@@ -122,7 +122,7 @@ export default function FeedSidebar({
             <span className={s.label}>{shopAction.label}</span>
           </ShopAction>}
 
-          {user ? (
+          {user && collapsed && (
             <Menu
               side="right"
               width={240}
