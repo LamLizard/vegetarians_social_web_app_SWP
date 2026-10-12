@@ -31,7 +31,6 @@ function uploadToCloudinary(file, signature, { onProgress, signal }) {
     formData.append('signature', signature.signature);
     formData.append('folder', signature.folder);
     formData.append('public_id', signature.public_id);
-    formData.append('upload_preset', signature.upload_preset);
     formData.append('overwrite', signature.overwrite);
     formData.append('transformation', signature.transformation);
 

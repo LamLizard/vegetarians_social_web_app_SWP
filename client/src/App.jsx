@@ -9,6 +9,8 @@ import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 import AdminDishCreatePage from './pages/AdminDishCreatePage';
 import AdminDishManagementPage from './pages/AdminDishManagementPage';
 import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
+// Duy's Code : Đăng ký màn hình Admin duyệt nguyên liệu được đề cử từ hồ sơ dị ứng.
+import AdminIngredientVerifyPage from './pages/AdminIngredientVerifyPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
 import ShopExplorePage from './pages/ShopExplorePage'; /* Lam's code: Trang Khám phá quán chay (M-08). */
 import ShopDetailPage from './pages/ShopDetailPage'; /* Lam's code: Trang chi tiết quán chay (M-09). */
@@ -123,6 +125,8 @@ function AppContent() {
   if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
   if (isAdmin && path === '/admin/dishes') return <AdminDishManagementPage />;
   if (isAdmin && path === '/admin/recipes/verify') return <AdminRecipeVerifyPage />;
+  // Duy's Code : Giới hạn route duyệt nguyên liệu cho tài khoản Admin.
+  if (isAdmin && path === '/admin/ingredients/verify') return <AdminIngredientVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
