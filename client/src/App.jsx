@@ -7,7 +7,8 @@ import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
 import AdminDishCreatePage from './pages/AdminDishCreatePage';
-import AdminDishVerifyPage from './pages/AdminDishVerifyPage';
+import AdminDishManagementPage from './pages/AdminDishManagementPage';
+import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
@@ -77,7 +78,8 @@ export default function App() {
   }
   // Duy's code: Nối hai trang quản lý Dish tới các URL Admin tương ứng.
   if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
-  if (isAdmin && path === '/admin/dishes/verify') return <AdminDishVerifyPage />;
+  if (isAdmin && path === '/admin/dishes') return <AdminDishManagementPage />;
+  if (isAdmin && path === '/admin/recipes/verify') return <AdminRecipeVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 

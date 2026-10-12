@@ -54,9 +54,20 @@ async function listActiveCategories() {
 // Duy's code: Lấy hàng chờ pending theo thứ tự gửi để Admin xử lý tuần tự.
 async function listPendingDishes() {
   const { rows } = await pool.query(`
-    SELECT ${DISH_FIELDS}, a.full_name AS "authorName", a.email AS "authorEmail"
+    SELECT ${DISH_FIELDS}, COALESCE(recipe_creator.full_name, creator.full_name) AS "creatorName",
+      COALESCE(recipe_creator.email, creator.email) AS "creatorEmail",
+      COALESCE(reviewer.full_name, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.full_name END) AS "reviewerName",
+      COALESCE(reviewer.email, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.email END) AS "reviewerEmail"
     FROM public.dish d
-    LEFT JOIN public.account a ON a.account_id = d.created_by
+    LEFT JOIN public.account creator ON creator.account_id = d.created_by
+    LEFT JOIN public.account reviewer ON reviewer.account_id = d.moderated_by
+    LEFT JOIN LATERAL (
+      SELECT a.account_id, a.full_name, a.email
+      FROM public.recipe r JOIN public.account a ON a.account_id = r.author_id
+      WHERE r.dish_id = d.dish_id AND r.created_at <= d.created_at
+      ORDER BY r.created_at, r.recipe_id
+      LIMIT 1
+    ) recipe_creator ON true
     WHERE d.status = 'pending'
     ORDER BY d.created_at ASC, d.dish_id ASC
   `);
@@ -66,11 +77,69 @@ async function listPendingDishes() {
 // Duy's Code: Trả danh sách món đã được duyệt hoặc bị từ chối cho trang quản lý tất cả món ăn.
 async function listAdminDishes() {
   const { rows } = await pool.query(`
-    SELECT ${DISH_FIELDS}, a.full_name AS "authorName", a.email AS "authorEmail"
+    SELECT 'dish'::text AS "recordType", d.dish_id::text AS id, d.name, d.description,
+      d.thumbnail_url AS "thumbnailUrl", d.status::text AS status, d.moderation_note AS "moderationNote",
+      COALESCE(recipe_creator.full_name, creator.full_name) AS "creatorName",
+      COALESCE(recipe_creator.email, creator.email) AS "creatorEmail",
+      COALESCE(reviewer.full_name, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.full_name END) AS "reviewerName",
+      COALESCE(reviewer.email, CASE WHEN recipe_creator.account_id IS NOT NULL THEN creator.email END) AS "reviewerEmail",
+      d.created_at AS "createdAt", d.moderated_at AS "moderatedAt",
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id, 'name', c.name) ORDER BY c.name)
+        FROM public.dish_category dc JOIN public.category c ON c.category_id = dc.category_id
+        WHERE dc.dish_id = d.dish_id), '[]'::json) AS categories,
+      recipe_creator.title AS "recipeTitle", d.dish_id::text AS "dishId",
+      recipe_creator.proposed_dish_name AS "proposedDishName", recipe_creator.servings,
+      recipe_creator."prepTimeMinutes", recipe_creator."cookTimeMinutes", recipe_creator.instructions,
+      COALESCE(recipe_creator.ingredients, '[]'::json) AS ingredients,
+      COALESCE(recipe_creator."proposedIngredients", '[]'::json) AS "proposedIngredients"
     FROM public.dish d
-    LEFT JOIN public.account a ON a.account_id = d.created_by
-    WHERE d.status IN ('active', 'rejected')
-    ORDER BY d.updated_at DESC, d.dish_id DESC
+    LEFT JOIN public.account creator ON creator.account_id = d.created_by
+    LEFT JOIN public.account reviewer ON reviewer.account_id = d.moderated_by
+    LEFT JOIN LATERAL (
+      SELECT a.account_id, a.full_name, a.email, r.title, r.proposed_dish_name, r.servings,
+        r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes", r.instructions,
+        COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
+          FROM public.recipe_ingredient ri JOIN public.ingredient i ON i.ingredient_id = ri.ingredient_id
+          WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
+        COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
+          FROM public.recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
+      FROM public.recipe r JOIN public.account a ON a.account_id = r.author_id
+      WHERE r.dish_id = d.dish_id AND r.created_at <= d.created_at
+      ORDER BY r.created_at, r.recipe_id
+      LIMIT 1
+    ) recipe_creator ON true
+    UNION ALL
+    SELECT 'recipe'::text AS "recordType", r.recipe_id::text AS id,
+      COALESCE(d.name, r.proposed_dish_name, r.title) AS name,
+      r.instructions AS description, r.thumbnail_url AS "thumbnailUrl", r.status::text AS status,
+      r.moderation_note AS "moderationNote", author.full_name AS "creatorName", author.email AS "creatorEmail",
+      review_log.full_name AS "reviewerName", review_log.email AS "reviewerEmail",
+      r.created_at AS "createdAt", review_log."moderatedAt", '[]'::json AS categories,
+      r.title AS "recipeTitle", r.dish_id::text AS "dishId", r.proposed_dish_name AS "proposedDishName",
+      r.servings, r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes",
+      r.instructions,
+      COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
+        FROM public.recipe_ingredient ri JOIN public.ingredient i ON i.ingredient_id = ri.ingredient_id
+        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
+      COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
+        FROM public.recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
+    FROM public.recipe r
+    JOIN public.account author ON author.account_id = r.author_id
+    LEFT JOIN public.dish d ON d.dish_id = r.dish_id
+    LEFT JOIN LATERAL (
+      SELECT a.full_name, a.email, l.created_at AS "moderatedAt"
+      FROM public.admin_log l JOIN public.account a ON a.account_id = l.admin_id
+      WHERE l.target_type = 'recipe' AND l.target_id = r.recipe_id
+        AND l.action = CASE r.status::text
+          WHEN 'approved' THEN 'recipe_approved'
+          WHEN 'rejected' THEN 'recipe_rejected'
+          ELSE ''
+        END
+      ORDER BY l.created_at DESC
+      LIMIT 1
+    ) review_log ON true
+    WHERE r.status IN ('pending', 'rejected')
+    ORDER BY "createdAt" DESC, id DESC
   `);
   return rows;
 }
@@ -83,6 +152,23 @@ async function searchActiveDishes(query) {
     FROM public.dish d
     WHERE d.status = 'active' AND d.name ILIKE '%' || $1 || '%'
     ORDER BY CASE WHEN lower(d.name) = lower($1) THEN 0 ELSE 1 END, d.name
+    LIMIT 20
+  `, [query]);
+  return rows;
+}
+
+// Search all registered Dish records for the Admin create form, including non-active records.
+async function searchAdminDishes(query) {
+  const { rows } = await pool.query(`
+    SELECT d.dish_id::text AS id, d.name, d.status::text AS status
+    FROM public.dish d
+    WHERE d.name ILIKE '%' || $1 || '%'
+      OR EXISTS (
+        SELECT 1 FROM regexp_split_to_table(btrim($1), '\\s+') AS token
+        WHERE char_length(token) > 1 AND d.name ILIKE '%' || token || '%'
+      )
+    ORDER BY CASE WHEN lower(btrim(d.name)) = lower(btrim($1)) THEN 0 ELSE 1 END,
+      d.name, d.dish_id
     LIMIT 20
   `, [query]);
   return rows;
@@ -125,6 +211,14 @@ async function listMyDishes(accountId) {
 // Duy's code: Tạo Dish, liên kết danh mục và ghi AdminLog nếu Admin tạo active.
 async function createDish(input, actor, status) {
   return withTransaction(async (client) => {
+    if (status === 'active') {
+      const { rows: [existing] } = await client.query(`
+        SELECT dish_id FROM public.dish
+        WHERE lower(btrim(name)) = lower(btrim($1))
+        LIMIT 1 FOR SHARE
+      `, [input.name]);
+      if (existing) throw new DishModelError(409, 'Tên món này đã có trong Database. Hãy tìm và liên kết Recipe với món đang có.');
+    }
     // Duy's code: Khóa và kiểm tra category để tránh liên kết danh mục đã bị tắt.
     const { rows: categories } = await client.query(`
       SELECT category_id
@@ -162,6 +256,88 @@ async function createDish(input, actor, status) {
 
     const result = await client.query(`SELECT ${DISH_FIELDS} FROM public.dish d WHERE d.dish_id = $1`, [dish.id]);
     return result.rows[0];
+  });
+}
+
+// Create an Admin-owned Dish and its already-approved Recipe atomically.
+async function createAdminDishWithRecipe(dishInput, recipeInput, actor) {
+  return withTransaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext(lower(btrim($1))))', [dishInput.name]);
+    const { rows: [existing] } = await client.query(`
+      SELECT dish_id FROM public.dish
+      WHERE lower(btrim(name)) = lower(btrim($1))
+      LIMIT 1 FOR SHARE
+    `, [dishInput.name]);
+    if (existing) throw new DishModelError(409, 'Tên món này đã có trong Database. Hãy kiểm tra và chọn tên khác.');
+
+    const { rows: categories } = await client.query(`
+      SELECT category_id FROM public.category
+      WHERE is_active = true AND category_id = ANY($1::bigint[])
+      FOR SHARE
+    `, [dishInput.categoryIds]);
+    if (categories.length !== dishInput.categoryIds.length) {
+      throw new DishModelError(400, 'Một hoặc nhiều danh mục không còn hoạt động. Hãy tải lại danh sách.');
+    }
+
+    const { rows: [dish] } = await client.query(`
+      INSERT INTO public.dish (name, description, thumbnail_url, status, created_by, moderated_by, moderated_at)
+      VALUES ($1, $2, $3, 'active', $4, $4, NOW())
+      RETURNING dish_id::text AS id, name
+    `, [dishInput.name, dishInput.description, dishInput.thumbnailUrl, actor.id]);
+    for (const categoryId of dishInput.categoryIds) {
+      await client.query('INSERT INTO public.dish_category (dish_id, category_id) VALUES ($1, $2)', [dish.id, categoryId]);
+    }
+
+    const { rows: [recipe] } = await client.query(`
+      INSERT INTO public.recipe (dish_id, proposed_dish_name, author_id, title, thumbnail_url,
+        servings, prep_time_minutes, cook_time_minutes, instructions, status)
+      VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, 'approved')
+      RETURNING recipe_id::text AS id, title, status, created_at AS "createdAt"
+    `, [dish.id, actor.id, recipeInput.title, dishInput.thumbnailUrl, recipeInput.servings,
+      recipeInput.prepTimeMinutes, recipeInput.cookTimeMinutes, recipeInput.instructions]);
+
+    const { rows: ingredientRows } = await client.query(`
+      SELECT n.ord, i.ingredient_id::text AS "ingredientId"
+      FROM unnest($1::text[]) WITH ORDINALITY AS n(name, ord)
+      LEFT JOIN LATERAL (
+        SELECT ingredient_id FROM public.ingredient
+        WHERE lower(btrim(name)) = lower(n.name)
+        ORDER BY ingredient_id LIMIT 1
+      ) i ON true
+      ORDER BY n.ord
+    `, [recipeInput.ingredients.map((ingredient) => ingredient.name)]);
+    const known = [];
+    const proposed = [];
+    recipeInput.ingredients.forEach((ingredient, index) => {
+      const ingredientId = ingredientRows[index]?.ingredientId;
+      if (ingredientId) known.push({ ...ingredient, ingredientId });
+      else proposed.push(ingredient);
+    });
+    if (known.length) {
+      await client.query(`
+        INSERT INTO public.recipe_ingredient (recipe_id, ingredient_id, amount, unit)
+        SELECT $1, x.ingredient_id, x.amount, x.unit
+        FROM unnest($2::bigint[], $3::numeric[], $4::text[]) AS x(ingredient_id, amount, unit)
+      `, [recipe.id, known.map((item) => item.ingredientId), known.map((item) => item.amount), known.map((item) => item.unit)]);
+    }
+    if (proposed.length) {
+      await client.query(`
+        INSERT INTO public.recipe_proposed_ingredient (recipe_id, name, amount, unit)
+        SELECT $1, x.name, x.amount, x.unit
+        FROM unnest($2::text[], $3::numeric[], $4::text[]) AS x(name, amount, unit)
+      `, [recipe.id, proposed.map((item) => item.name), proposed.map((item) => item.amount), proposed.map((item) => item.unit)]);
+    }
+
+    await client.query(`
+      INSERT INTO public.admin_log (admin_id, action, target_type, target_id, after_value, ip_address)
+      VALUES ($1, 'dish_created', 'dish', $2, $3::jsonb, $4)
+    `, [actor.id, dish.id, JSON.stringify({ status: 'active', name: dish.name }), actor.ip]);
+    await client.query(`
+      INSERT INTO public.admin_log (admin_id, action, target_type, target_id, before_value, after_value, ip_address)
+      VALUES ($1, 'recipe_approved', 'recipe', $2, NULL, $3::jsonb, $4)
+    `, [actor.id, recipe.id, JSON.stringify({ status: 'approved', createdByAdmin: true }), actor.ip]);
+
+    return { dish: { ...dish, status: 'active' }, recipe };
   });
 }
 
@@ -229,6 +405,7 @@ async function decideDish(dishId, action, note, admin) {
 module.exports = {
   DishModelError,
   createDish,
+  createAdminDishWithRecipe,
   decideDish,
   listActiveCategories,
   listAdminDishes,
@@ -236,4 +413,5 @@ module.exports = {
   listPendingDishes,
   renamePendingDish,
   searchActiveDishes,
+  searchAdminDishes,
 };

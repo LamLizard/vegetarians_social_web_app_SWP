@@ -1,5 +1,6 @@
 const dishModel = require('../models/dish.model');
-const { DishInputError, getDishDecision, normalizeDishInput } = require('../utils/dish');
+const { normalizeDishInput } = require('../utils/dish');
+const { parseRecipeInput, RecipeInputError } = require('../utils/recipeInput');
 
 // Duy's code: Trả lỗi nghiệp vụ cho client và chuyển lỗi hệ thống qua middleware.
 function respondWithError(error, res, next) {
@@ -18,26 +19,6 @@ async function getCategories(req, res, next) {
   }
 }
 
-// Duy's code: Chỉ đọc các đề xuất của Member đang đăng nhập.
-async function getMyDishes(req, res, next) {
-  try {
-    return res.json(await dishModel.listMyDishes(req.account.id));
-  } catch (error) {
-    return next(error);
-  }
-}
-
-// Duy's code: Kiểm tra nội dung và tạo đề xuất mới ở trạng thái pending.
-async function suggestDish(req, res, next) {
-  try {
-    const input = normalizeDishInput(req.body);
-    const dish = await dishModel.createDish(input, { id: req.account.id }, 'pending');
-    return res.status(201).json(dish);
-  } catch (error) {
-    return respondWithError(error, res, next);
-  }
-}
-
 // Duy's code: Cho phép Admin tạo Dish trực tiếp ở trạng thái active.
 async function createAdminDish(req, res, next) {
   try {
@@ -49,16 +30,22 @@ async function createAdminDish(req, res, next) {
   }
 }
 
-// Duy's code: Nạp hàng chờ để Admin duyệt hoặc từ chối đề xuất.
-async function getPendingDishes(req, res, next) {
+async function createAdminDishWithRecipe(req, res, next) {
   try {
-    return res.json(await dishModel.listPendingDishes());
+    const dish = normalizeDishInput(req.body);
+    const recipe = parseRecipeInput({
+      ...req.body?.recipe,
+      proposedDishName: req.body?.name,
+      thumbnailUrl: dish.thumbnailUrl,
+    }, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+    const created = await dishModel.createAdminDishWithRecipe(dish, recipe, { id: req.account.id, ip: req.ip });
+    return res.status(201).json(created);
   } catch (error) {
-    return next(error);
+    if (error instanceof RecipeInputError) return res.status(400).json({ message: error.message });
+    return respondWithError(error, res, next);
   }
 }
 
-// Duy's Code: Tải món đã duyệt và bị từ chối để Admin tra cứu trạng thái sau kiểm duyệt.
 async function getAdminDishes(req, res, next) {
   try {
     return res.json(await dishModel.listAdminDishes());
@@ -67,50 +54,14 @@ async function getAdminDishes(req, res, next) {
   }
 }
 
-async function searchActiveDishes(req, res, next) {
+async function searchAdminDishes(req, res, next) {
   try {
-    const query = String(req.query.q || '').normalize('NFC').trim();
-    if (!query || [...query].length > 200) throw new DishInputError('Nhập từ khóa từ 1 đến 200 ký tự để tìm món ăn.');
-    return res.json(await dishModel.searchActiveDishes(query));
+    const query = String(req.query.q || '').trim();
+    if (!query) return res.json([]);
+    return res.json(await dishModel.searchAdminDishes(query));
   } catch (error) {
-    return respondWithError(error, res, next);
+    return next(error);
   }
 }
 
-async function renamePendingDish(req, res, next) {
-  try {
-    const dishId = Number(req.params.dishId);
-    if (!Number.isSafeInteger(dishId) || dishId < 1) throw new DishInputError('Mã món ăn không hợp lệ.');
-    const name = String(req.body?.name || '').normalize('NFC').trim();
-    if (!name || [...name].length > 200) throw new DishInputError('Tên món ăn phải có từ 1 đến 200 ký tự.');
-    return res.json(await dishModel.renamePendingDish(dishId, name, { id: req.account.id, ip: req.ip }));
-  } catch (error) {
-    return respondWithError(error, res, next);
-  }
-}
-
-// Duy's code: Kiểm tra quyết định và lý do trước khi thay đổi trạng thái Dish.
-async function decideDish(req, res, next) {
-  try {
-    const dishId = Number(req.params.dishId);
-    if (!Number.isSafeInteger(dishId) || dishId < 1) {
-      throw new DishInputError('Mã món ăn không hợp lệ.');
-    }
-    const { action } = req.body || {};
-    const decision = getDishDecision(action);
-    const note = String(req.body?.note ?? '').normalize('NFC').trim();
-    if (note.length > 255) throw new DishInputError('Lý do không được vượt quá 255 ký tự.');
-    if (decision.status === 'rejected' && !note) {
-      throw new DishInputError('Cần nhập lý do từ chối đề xuất món ăn.');
-    }
-    const dish = await dishModel.decideDish(dishId, action, note, { id: req.account.id, ip: req.ip });
-    return res.json(dish);
-  } catch (error) {
-    return respondWithError(error, res, next);
-  }
-}
-
-module.exports = {
-  createAdminDish, decideDish, getAdminDishes, getCategories, getMyDishes, getPendingDishes,
-  renamePendingDish, searchActiveDishes, suggestDish,
-};
+module.exports = { createAdminDish, createAdminDishWithRecipe, getAdminDishes, getCategories, searchAdminDishes };

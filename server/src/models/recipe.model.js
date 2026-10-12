@@ -121,6 +121,103 @@ async function findMine(authorId) {
   return rows;
 }
 
+// Admin queue: include the complete recipe and both known and proposed ingredients.
+async function listPendingForAdmin() {
+  const { rows } = await pool.query(`
+    SELECT r.recipe_id::text AS id, r.title, r.dish_id::text AS "dishId",
+      d.name AS "dishName", r.proposed_dish_name AS "proposedDishName",
+      r.thumbnail_url AS "thumbnailUrl", r.servings,
+      r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes",
+      r.instructions, r.status, r.moderation_note AS "moderationNote", r.created_at AS "createdAt",
+      a.full_name AS "authorName", a.email AS "authorEmail",
+      COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
+        FROM recipe_ingredient ri JOIN ingredient i ON i.ingredient_id = ri.ingredient_id
+        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
+      COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
+        FROM recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
+    FROM recipe r LEFT JOIN dish d ON d.dish_id = r.dish_id
+    JOIN account a ON a.account_id = r.author_id
+    WHERE r.status = 'pending'
+    ORDER BY r.created_at ASC, r.recipe_id ASC
+  `);
+  return rows;
+}
+
+async function searchAdminDishes(query) {
+  const { rows } = await pool.query(`
+    SELECT dish_id::text AS id, name
+    FROM dish WHERE status = 'active' AND name ILIKE '%' || $1 || '%'
+    ORDER BY CASE WHEN lower(name) = lower($1) THEN 0 ELSE 1 END, name
+    LIMIT 20
+  `, [query]);
+  return rows;
+}
+
+async function renameRecipeDish(recipeId, name, admin) {
+  return transaction(async (client) => {
+    const { rows } = await client.query(`SELECT recipe_id::text AS id, proposed_dish_name AS name, status
+      FROM recipe WHERE recipe_id = $1 FOR UPDATE`, [recipeId]);
+    const before = rows[0];
+    if (!before) throw new RecipeError(404, 'Không tìm thấy công thức.');
+    if (before.status !== 'pending' || !before.name) throw new RecipeError(409, 'Tên món này không còn chờ xử lý.');
+    const { rows: [updated] } = await client.query(`UPDATE recipe SET proposed_dish_name = $2
+      WHERE recipe_id = $1 RETURNING recipe_id::text AS id, proposed_dish_name AS name`, [recipeId, name]);
+    await client.query(`INSERT INTO admin_log (admin_id, action, target_type, target_id, before_value, after_value, ip_address)
+      VALUES ($1, 'recipe_dish_renamed', 'recipe', $2, $3::jsonb, $4::jsonb, $5)`,
+    [admin.id, recipeId, JSON.stringify({ proposedDishName: before.name }), JSON.stringify({ proposedDishName: name }), admin.ip]);
+    return updated;
+  });
+}
+
+async function linkRecipeDish(recipeId, dishId, admin, { createdFromRecipe = false } = {}) {
+  return transaction(async (client) => {
+    const { rows } = await client.query(`SELECT recipe_id::text AS id, author_id AS "authorId", proposed_dish_name AS proposedDishName, status
+      FROM recipe WHERE recipe_id = $1 FOR UPDATE`, [recipeId]);
+    const recipe = rows[0];
+    if (!recipe) throw new RecipeError(404, 'Không tìm thấy công thức.');
+    if (recipe.status !== 'pending') throw new RecipeError(409, 'Công thức không còn chờ duyệt.');
+    const { rows: [dish] } = await client.query("SELECT dish_id::text AS id, name FROM dish WHERE dish_id = $1 AND status = 'active' FOR SHARE", [dishId]);
+    if (!dish) throw new RecipeError(404, 'Không tìm thấy món đang hoạt động.');
+    await client.query('UPDATE recipe SET dish_id = $2, proposed_dish_name = NULL WHERE recipe_id = $1', [recipeId, dishId]);
+    if (createdFromRecipe) {
+      await client.query(`UPDATE dish SET created_by = $2, moderated_by = $3, moderated_at = NOW(), updated_at = NOW()
+        WHERE dish_id = $1`, [dishId, recipe.authorId, admin.id]);
+    }
+    await client.query(`INSERT INTO admin_log (admin_id, action, target_type, target_id, before_value, after_value, ip_address)
+      VALUES ($1, 'recipe_dish_linked', 'recipe', $2, $3::jsonb, $4::jsonb, $5)`,
+    [admin.id, recipeId, JSON.stringify({ proposedDishName: recipe.proposedDishName }), JSON.stringify({ dishId: dish.id, dishName: dish.name }), admin.ip]);
+    return { dishId: dish.id, dishName: dish.name };
+  });
+}
+
+async function decideRecipe(recipeId, action, note, admin) {
+  if (!['approve', 'reject'].includes(action)) throw new RecipeError(400, 'Quyết định công thức không hợp lệ.');
+  const status = action === 'approve' ? 'approved' : 'rejected';
+  return transaction(async (client) => {
+    const { rows } = await client.query(`
+      SELECT recipe_id::text AS id, title, author_id AS "authorId", status,
+        dish_id AS "dishId", proposed_dish_name AS "proposedDishName"
+      FROM recipe WHERE recipe_id = $1 FOR UPDATE
+    `, [recipeId]);
+    const before = rows[0];
+    if (!before) throw new RecipeError(404, 'Không tìm thấy công thức.');
+    if (before.status !== 'pending') throw new RecipeError(409, 'Công thức không còn chờ duyệt. Hãy tải lại danh sách.');
+    if (action === 'approve' && (!before.dishId || before.proposedDishName)) {
+      throw new RecipeError(409, 'Hãy liên kết công thức với một món trong Database trước khi duyệt.');
+    }
+    const { rows: [updated] } = await client.query(`
+      UPDATE recipe SET status = $2, moderation_note = $3
+      WHERE recipe_id = $1
+      RETURNING recipe_id::text AS id, status, moderation_note AS "moderationNote"
+    `, [recipeId, status, action === 'reject' ? note : null]);
+    await client.query(`
+      INSERT INTO admin_log (admin_id, action, target_type, target_id, before_value, after_value, reason, ip_address)
+      VALUES ($1, $2, 'recipe', $3, $4::jsonb, $5::jsonb, $6, $7)
+    `, [admin.id, `recipe_${status}`, recipeId, JSON.stringify({ status: before.status }), JSON.stringify({ status }), note || null, admin.ip]);
+    return updated;
+  });
+}
+
 // =====================================================================
 //  GHI
 // =====================================================================
@@ -210,4 +307,6 @@ async function createRecipe(authorId, input) {
 
 module.exports = {
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
+  listPendingForAdmin, decideRecipe,
+  searchAdminDishes, renameRecipeDish, linkRecipeDish,
 };

@@ -42,6 +42,15 @@ const recipeService = {
       ...(dish?.type === 'existing' ? { dishId: dish.dish.dish_id } : { proposedDishName: dish?.name }),
     }),
   }),
+  getPendingAdminRecipes: () => apiFetch('/recipes/admin/pending'),
+  decideAdminRecipe: (id, action, note = '') => apiFetch(`/recipes/admin/${id}/decision`, {
+    method: 'POST', body: JSON.stringify({ action, note }),
+  }),
+  searchAdminDishes: (query) => apiFetch(`/recipes/admin/dishes/search?q=${encodeURIComponent(query)}`),
+  renameRecipeDish: (id, name) => apiFetch(`/recipes/admin/${id}/dish-name`, { method: 'PATCH', body: JSON.stringify({ name }) }),
+  linkRecipeDish: (id, dishId, options = {}) => apiFetch(`/recipes/admin/${id}/dish`, {
+    method: 'PUT', body: JSON.stringify({ dishId, ...options }),
+  }),
 };
 
 export default recipeService;

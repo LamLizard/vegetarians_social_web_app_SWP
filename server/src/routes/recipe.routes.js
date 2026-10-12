@@ -6,7 +6,7 @@
 // Phần Admin duyệt công thức (Duy) đặt ở route admin riêng, không nằm ở đây.
 const express = require('express');
 const recipeController = require('../controllers/recipe.controller');
-const { requireAuth } = require('../middlewares/auth');
+const { requireAuth, requireAdmin } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -15,5 +15,10 @@ router.get('/ingredients', recipeController.getIngredients);
 router.post('/ingredients/check', requireAuth, recipeController.checkIngredients);
 router.get('/mine', requireAuth, recipeController.getMine);
 router.post('/', requireAuth, recipeController.createRecipe);
+router.get('/admin/pending', requireAuth, requireAdmin, recipeController.getPendingAdmin);
+router.post('/admin/:recipeId/decision', requireAuth, requireAdmin, recipeController.decideAdmin);
+router.get('/admin/dishes/search', requireAuth, requireAdmin, recipeController.searchAdminDishes);
+router.patch('/admin/:recipeId/dish-name', requireAuth, requireAdmin, recipeController.renameRecipeDish);
+router.put('/admin/:recipeId/dish', requireAuth, requireAdmin, recipeController.linkRecipeDish);
 
 module.exports = router;
