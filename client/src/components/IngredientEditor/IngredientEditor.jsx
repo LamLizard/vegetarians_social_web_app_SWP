@@ -22,11 +22,13 @@ import styles from './IngredientEditor.module.css';
  * @param {(rows) => void} onChange
  * @param {string[]} [suggestions]      tên nguyên liệu gợi ý (ingredient.name)
  * @param {({name?: string, amount?: string}|undefined)[]} [rowErrors]  lỗi từng dòng, cùng thứ tự với value
+ * @param {({tone: 'bad'|'warn', text: string}|undefined)[]} [rowNotes]  Khoi's code: lưu ý từng dòng, KHÔNG chặn gửi
+ *        (vd Tạo công thức: 'bad' = nghi không chay → tô đỏ ô tên · 'warn' = chưa có trong kho nguyên liệu)
  * @param {number} [max=40]
  * @param {string} [label='Nguyên liệu'] · [hint] · [error] · [required] · [disabled]
  */
 export default function IngredientEditor({
-  value = [], onChange, suggestions = [], rowErrors = [], max = 40,
+  value = [], onChange, suggestions = [], rowErrors = [], rowNotes = [], max = 40,
   label = 'Nguyên liệu', hint, error, required, disabled, className,
 }) {
   const id = useId();
@@ -88,6 +90,7 @@ export default function IngredientEditor({
       <ol className={styles.list}>
         {rows.map((r, i) => {
           const err = rowErrors[i];
+          const note = rowNotes[i];
           const noAmount = isNoAmountUnit(r.unit);
           const n = i + 1;
           return (
@@ -95,7 +98,7 @@ export default function IngredientEditor({
               <span className={styles.num} aria-hidden="true">{n}</span>
               <input
                 ref={(el) => { nameRefs.current[r.key] = el; }}
-                className={cx('form-control', styles.name, err?.name && 'is-invalid')}
+                className={cx('form-control', styles.name, err?.name && 'is-invalid', !err?.name && note && styles[`note_${note.tone}`])}
                 value={r.name} list={nameListId} placeholder="vd: Đậu hũ non" maxLength={120}
                 aria-label={`Tên nguyên liệu ${n}`} aria-invalid={err?.name ? true : undefined}
                 disabled={disabled} onChange={(e) => update(r.key, { name: e.target.value })}
@@ -122,6 +125,11 @@ export default function IngredientEditor({
               {err && (err.name || err.amount) && (
                 <span className={styles.rowError} role="alert">
                   <i className="bi bi-exclamation-circle" aria-hidden="true" /> Dòng {n}: {[err.name, err.amount].filter(Boolean).join(' · ')}
+                </span>
+              )}
+              {note && (
+                <span className={cx(styles.rowNote, styles[`rowNote_${note.tone}`])}>
+                  <i className={`bi bi-${note.tone === 'bad' ? 'exclamation-triangle-fill' : 'info-circle'}`} aria-hidden="true" /> Dòng {n}: {note.text}
                 </span>
               )}
             </li>

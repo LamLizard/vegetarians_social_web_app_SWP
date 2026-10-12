@@ -36,6 +36,8 @@ app.use('/api/dishes', require('./src/routes/dish.routes'));
 app.use('/api/uploads', require('./src/routes/upload.routes'));
 // Khoi's code: Danh sách tag cho form Đăng bài.
 app.use('/api/categories', require('./src/routes/category.routes'));
+// Khoi's code: Tạo công thức (chọn món, nguyên liệu, gửi chờ duyệt, công thức đã gửi).
+app.use('/api/recipes', require('./src/routes/recipe.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

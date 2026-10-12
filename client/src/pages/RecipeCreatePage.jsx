@@ -24,7 +24,8 @@ import recipeService from '../services/recipe.service';
 import s from './RecipeCreatePage.module.css';
 
 // Khoi's code: Trang Tạo công thức (/recipes/new) — chép từ prototype (Prototype_UI_SWP/src/v2/recipe, 11/10/2026).
-// CÁCH A: chưa có API Recipe + chưa sửa DB → dữ liệu giả ở services/recipe.service.js. Ảnh bìa tải thật lên Cloudinary.
+// PHƯƠNG ÁN B (12/10/2026): gọi API thật /api/recipes (DB đã có recipe.status, proposed_dish_name, recipe_proposed_ingredient).
+// Nguyên liệu chưa có trong kho → vẫn gửi được, Admin duyệt cùng công thức. Nghi không chay → tô đỏ, không chặn.
 // Lối vào: hộp tài khoản ở thanh bên → "Tạo công thức" (App.jsx).
 /**
  * Trang Tạo công thức — bố cục B (đã chốt 11/10/2026):
@@ -34,6 +35,18 @@ import s from './RecipeCreatePage.module.css';
  */
 
 const toMinutes = (v) => (v === '' || v == null ? null : Math.max(0, Math.min(600, Number(v))));
+/** Khoá so tên nguyên liệu giống server (gộp khoảng trắng, không phân biệt hoa/thường) */
+const nameKey = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** Kết quả soi 1 nguyên liệu → lưu ý dưới dòng đó (IngredientEditor rowNotes) */
+function ingredientNote(c) {
+  if (!c) return undefined;
+  const missing = c.known ? '' : ' Chưa có trong kho nguyên liệu đã duyệt, sẽ gửi Admin duyệt cùng công thức.';
+  if (c.isAnimalDerived) return { tone: 'bad', text: `Kho ghi đây là nguyên liệu có nguồn gốc động vật. Admin sẽ kiểm tra lại.${missing}` };
+  if (c.keyword) return { tone: 'bad', text: `Tên có từ “${c.keyword}”, có thể không phải đồ chay. Admin sẽ kiểm tra lại.${missing}` };
+  if (!c.known) return { tone: 'warn', text: missing.trim() };
+  return undefined;
+}
 
 const emptyForm = () => ({
   dish: null,
@@ -78,6 +91,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [form, setForm] = useState(emptyForm);
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [checks, setChecks] = useState({}); // nameKey → { name, known, isAnimalDerived, keyword }
 
   const loadDishes = async () => {
     setDishes((d) => ({ ...d, status: 'loading' }));
@@ -111,6 +125,32 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   };
 
   const ing = useMemo(() => validateIngredients(form.ingredients), [form.ingredients]);
+
+  // Soi tên nguyên liệu ở server (có trong kho chưa, có nghi không chay không) — chờ ngừng gõ 500ms
+  const namesToCheck = useMemo(() => {
+    const seen = new Set();
+    return form.ingredients.map((r) => r.name.trim()).filter((n) => n && !seen.has(nameKey(n)) && seen.add(nameKey(n)));
+  }, [form.ingredients]);
+  const checkKey = namesToCheck.map(nameKey).join('\n');
+  useEffect(() => {
+    const pending = namesToCheck.filter((n) => !checks[nameKey(n)]);
+    if (pending.length === 0) return undefined;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      recipeService.checkIngredients(pending, { signal: ctrl.signal })
+        .then(({ items }) => setChecks((m) => {
+          const next = { ...m };
+          items.forEach((c) => { next[nameKey(c.name)] = c; });
+          return next;
+        }))
+        .catch(() => { /* lỗi mạng: bỏ qua, server vẫn soi lại khi gửi */ });
+    }, 500);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy lại khi danh sách tên đổi
+  }, [checkKey]);
+  const rowNotes = form.ingredients.map((r) => (r.name.trim() ? ingredientNote(checks[nameKey(r.name)]) : undefined));
+  const flaggedCount = rowNotes.filter((n) => n?.tone === 'bad').length;
+  const unknownCount = form.ingredients.filter((r) => r.name.trim() && checks[nameKey(r.name)]?.known === false).length;
   const ingWithAmount = form.ingredients.filter((r) => r.name.trim() && r.amount > 0).length;
   const stepCount = form.steps.filter((x) => x.trim()).length;
 
@@ -145,17 +185,18 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     if (!ready || submitting) return;
     setSubmitting(true);
     try {
-      const created = await recipeService.createRecipe({
+      const { recipe: created } = await recipeService.createRecipe({
         dish: form.dish,
         title: form.title,
-        thumbnail_url: form.thumbnail || null,
+        thumbnailUrl: form.thumbnail || null,
         servings: form.servings,
-        prep_time_minutes: toMinutes(form.prep),
-        cook_time_minutes: toMinutes(form.cook),
+        prepTimeMinutes: toMinutes(form.prep),
+        cookTimeMinutes: toMinutes(form.cook),
         ingredients: cleanIngredients(form.ingredients),
         instructions: form.steps.filter((x) => x.trim()).join('\n'),
       });
       setRecipes((list) => [created, ...list]);
+      setSentStatus('ready');
       setForm(emptyForm());
       setTouched({});
       setTab('sent');
@@ -164,6 +205,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     } catch (err) {
       // Lỗi → giữ nguyên nháp để người dùng sửa rồi gửi lại
       toast(err.message || 'Gửi chưa được, bạn thử lại nhé.', { tone: 'alert' });
+      if (err.status === 409) loadDishes(); // món vừa bị ẩn / đã có sẵn → tải lại danh sách món
     } finally {
       setSubmitting(false);
     }
@@ -250,6 +292,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 hint={'Đơn vị "ít", "vừa đủ" không cần số lượng. Nhấn Enter để thêm dòng.'}
                 error={touched.ingredients && ingWithAmount < 1 ? 'Cần ít nhất 1 nguyên liệu có số lượng' : undefined}
                 rowErrors={touched.ingredients ? ing.rowErrors : []}
+                rowNotes={rowNotes}
               />
             </Section>
 
@@ -298,6 +341,16 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   </li>
                 ))}
               </ul>
+              {(unknownCount > 0 || flaggedCount > 0) && (
+                <ul className={s.notes} aria-live="polite">
+                  {unknownCount > 0 && (
+                    <li><i className="bi bi-info-circle" aria-hidden="true" />{unknownCount} nguyên liệu chưa có trong kho, sẽ gửi Admin duyệt cùng công thức.</li>
+                  )}
+                  {flaggedCount > 0 && (
+                    <li className={s.noteBad}><i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />{flaggedCount} nguyên liệu có thể không chay (tô đỏ). Vẫn gửi được, Admin sẽ kiểm tra lại.</li>
+                  )}
+                </ul>
+              )}
               <Button block icon="send" loading={submitting} disabled={!ready} onClick={submit}>
                 Gửi công thức
               </Button>
@@ -353,26 +406,30 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
           ) : (
             <ul className={s.sent}>
               {recipes.map((r) => (
-                <li key={r.recipe_id} className={s.sentItem}>
-                  <Photo src={r.thumbnail_url || undefined} ratio="4/3" shape="rounded" className={s.sentImg} />
+                <li key={r.id} className={s.sentItem}>
+                  <Photo src={r.thumbnailUrl || undefined} ratio="4/3" shape="rounded" className={s.sentImg} />
                   <div className={s.sentBody}>
                     <div className={s.sentTop}>
                       <h3 className={s.sentTitle}>{r.title}</h3>
                       <StatusBadge entity="recipe" status={r.status} size="sm" />
                     </div>
                     <p className={s.sentDish}>
-                      {r.proposed_dish_name ? (
-                        <><i className="bi bi-lightbulb" aria-hidden="true" />Món đề xuất: <b>{r.proposed_dish_name}</b></>
+                      {r.proposedDishName ? (
+                        <><i className="bi bi-lightbulb" aria-hidden="true" />Món đề xuất: <b>{r.proposedDishName}</b></>
                       ) : (
-                        <><i className="bi bi-bookmark" aria-hidden="true" />Món: <b>{r.dish_name}</b></>
+                        <><i className="bi bi-bookmark" aria-hidden="true" />Món: <b>{r.dishName}</b></>
                       )}
                     </p>
                     <p className={s.sentMeta}>
                       <i className="bi bi-clock" aria-hidden="true" />
-                      <span>Đã gửi: {timeAgo(r.created_at)}{r.ingredient_count ? ` · ${r.ingredient_count} nguyên liệu` : ''}</span>
+                      <span>
+                        Đã gửi: {timeAgo(r.createdAt)}
+                        {r.ingredientCount ? ` · ${r.ingredientCount} nguyên liệu` : ''}
+                        {r.status === 'pending' && r.proposedIngredientCount ? ` (${r.proposedIngredientCount} chờ duyệt)` : ''}
+                      </span>
                     </p>
-                    {r.status === 'rejected' && r.moderation_note && (
-                      <Notice tone="alert" title="Lý do từ chối" className={s.reason}>{r.moderation_note}</Notice>
+                    {r.status === 'rejected' && r.moderationNote && (
+                      <Notice tone="alert" title="Lý do từ chối" className={s.reason}>{r.moderationNote}</Notice>
                     )}
                   </div>
                 </li>
