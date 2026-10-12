@@ -149,3 +149,8 @@
   .sentItem { flex-direction: column; }
   .sentImg { width: 100%; }
 }
+
+/* Khoi's code: tóm tắt lưu ý nguyên liệu ở cột Gửi (không chặn gửi) */
+.notes { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--ac-muted); }
+.notes li { display: flex; gap: 0.4rem; align-items: baseline; }
+.noteBad { color: var(--ac-bad-fg); font-weight: 500; }
