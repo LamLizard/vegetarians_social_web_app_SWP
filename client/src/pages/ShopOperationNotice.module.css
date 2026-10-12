@@ -1,0 +1,4 @@
+/* Tùng — Sprint 2: chuyển tiếp chỉ cho thông báo thao tác, không áp dụng lý do cố định. */
+.notice { opacity: 1; transition: opacity 350ms ease; }
+.fading { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .notice { transition: none; } }

@@ -1,0 +1,25 @@
+/* Tùng — Sprint 2: hồ sơ Admin, responsive theo UI kit. */
+.page, .detail { display: grid; gap: 24px; }
+.filters { display: grid; grid-template-columns: minmax(260px, 1.5fr) minmax(160px, 1fr) minmax(160px, 1fr) auto; align-items: end; gap: 16px; }
+.search { display: flex; align-items: center; gap: 8px; }
+.search > form { flex: 1; min-width: 0; }
+@media (max-width: 1050px) { .filters { grid-template-columns: 1fr 1fr; } .search { grid-column: 1 / -1; } }
+.metadata { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; margin: 0; font-size: .9rem; }
+.metadata > div { min-width: 0; overflow-wrap: anywhere; }
+.metadata dt { color: var(--ac-muted); font-size: .8rem; font-weight: 400; }
+.metadata dd { color: var(--ac-ink); margin: 5px 0 0; }
+.shopName { font-size: 1.4rem; font-weight: 700; margin: 0 0 16px; overflow-wrap: anywhere; }
+.history { display: grid; gap: 20px; }
+.historyList { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.historyList > li { padding: 18px 0; border-bottom: 1px solid var(--ac-border); overflow-wrap: anywhere; }
+.eventHeader { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; }
+.eventHeader time { color: var(--ac-muted); font-size: .85rem; white-space: nowrap; }
+.historyList p { color: var(--ac-muted); font-size: .9rem; margin: 6px 0 0; }
+.historyList .eventNote { color: var(--ac-ink); white-space: pre-wrap; }
+.title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+.shopState { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border-bottom: 1px solid var(--ac-border); padding-bottom: 18px; font-size: .85rem; }
+.operatingNotice[role='alert'] { background: var(--ac-warn-bg); border-color: color-mix(in srgb, var(--ac-warn-fg) 30%, var(--ac-border)); border-left-color: var(--ac-warn-fg); }
+.operatingNotice[role='alert'] > i, .operatingNotice[role='alert'] > div > div:first-child { color: var(--ac-warn-fg); }
+.operatingReason { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0 0 8px; }
+.operatingMeta { color: var(--ac-muted); margin: 0 0 8px; font-size: .82rem; }
+@media (max-width: 550px) { .filters, .metadata { grid-template-columns: 1fr; } .search { grid-column: auto; } .eventHeader { flex-wrap: wrap; gap: 6px; } }

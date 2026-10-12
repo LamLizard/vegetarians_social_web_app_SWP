@@ -19,17 +19,22 @@ import s from './FeedSidebar.module.css';
  * @param {string} activeKey
  * @param {{name, avatarUrl?, roleLabel?}|null} user   null = khách
  * @param {{icon?, label, onClick, tone?}[]} [accountMenu]  mục tone="alert" (Đăng xuất) luôn nằm cuối
+ * @param {{icon?, label, onClick, tone?, divider?}[]} [accountMenu]
+ * Tùng — Sprint 2: shopAction là nút Shop do provider cấp, component không gọi API.
+ * @param {{label, icon, href?, onClick?, disabled?, active?, title?}} [shopAction]
  * @param {boolean} collapsed · @param {() => void} onToggle
  * @param {boolean} mobileOpen · @param {() => void} onCloseMobile
  * @param {() => void} [onCreate]   nút "+ Đăng bài" (chỉ hiện khi đã đăng nhập)
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  */
 export default function FeedSidebar({
-  nav, activeKey, user, accountMenu = [], collapsed, onToggle, mobileOpen, onCloseMobile, onCreate, onLogin, onRegister,
+  nav, activeKey, user, accountMenu = [], shopAction, collapsed, onToggle, mobileOpen, onCloseMobile, onLogin, onRegister,
 }) {
   const [theme, toggleTheme] = useTheme();
   const dark = theme === 'dark';
   const [accountOpen, setAccountOpen] = useState(false);
+  // Tùng — Sprint 2: link điều hướng khi đã biết Shop; button cho loading/retry.
+  const ShopAction = shopAction?.href ? 'a' : 'button';
 
   const item = (n) => {
     const on = n.key === activeKey;
@@ -103,7 +108,21 @@ export default function FeedSidebar({
             <span className={s.label}>{dark ? 'Chế độ sáng' : 'Chế độ tối'}</span>
           </button>
 
-          {user && collapsed && (
+          {/* Tùng — Sprint 2: BRIDGE-02A nút Shop nằm giữa chế độ sáng/tối và profile. */}
+          {user && shopAction && <ShopAction
+            {...(shopAction.href ? { href: shopAction.href } : { type: 'button', disabled: shopAction.disabled })}
+            className={cx(s.theme, s.shopAction, shopAction.active && s.on)}
+            onClick={shopAction.onClick}
+            aria-label={shopAction.label}
+            aria-current={shopAction.active && shopAction.href ? 'page' : undefined}
+            aria-busy={shopAction.disabled || undefined}
+            title={shopAction.title || (collapsed ? shopAction.label : undefined)}
+          >
+            <i className={`bi bi-${shopAction.icon} ${s.icon}`} aria-hidden="true" />
+            <span className={s.label}>{shopAction.label}</span>
+          </ShopAction>}
+
+          {user ? (
             <Menu
               side="right"
               width={240}

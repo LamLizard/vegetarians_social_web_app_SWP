@@ -1,1 +1,8 @@
-{}
+{
+  "scripts": {
+    "dev:all": "concurrently \"npm --prefix client run dev\" \"npm --prefix server run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

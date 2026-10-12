@@ -10,6 +10,16 @@ import AdminDishCreatePage from './pages/AdminDishCreatePage';
 import AdminDishManagementPage from './pages/AdminDishManagementPage';
 import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
 import UserProfilePage from './pages/UserProfilePage'; /* Duy's code: Import trang hồ sơ cá nhân của thành viên. */
+import ShopExplorePage from './pages/ShopExplorePage'; /* Lam's code: Trang Khám phá quán chay (M-08). */
+import ShopDetailPage from './pages/ShopDetailPage'; /* Lam's code: Trang chi tiết quán chay (M-09). */
+
+// Tùng — Sprint 2: BRIDGE-01 import ba trang Shop, dùng phiên đăng nhập hiện có.
+import ShopRegisterPage from './pages/ShopRegisterPage';
+import ShopManagementPage from './pages/ShopManagementPage';
+import ShopVerifyPage from './pages/ShopVerifyPage';
+// Tùng — Sprint 2: BRIDGE-02A navbar Member dùng chung Shop state và khung navigation.
+import { ShopNavigationProvider, useShopNavigation } from './context/ShopNavigationContext';
+import MemberNavigationLayout from './components/MemberNavigationLayout';
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
@@ -20,8 +30,15 @@ import PostFeedPage from './pages/PostFeedPage';
 import RecipeCreatePage from './pages/RecipeCreatePage';
 
 
+// Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
 export default function App() {
-  const { user, isAuthenticated, isCheckingSession, logout } = useAuth();
+  return <ShopNavigationProvider><AppContent /></ShopNavigationProvider>;
+}
+
+// Tùng — Sprint 2: giữ điều hướng/session hiện có bên trong provider navigation.
+function AppContent() {
+  const { user, logout, isAuthenticated, isCheckingSession } = useAuth();
+  const { shopAction, accountMenu } = useShopNavigation();
 
   // 'admin' là key trong ROLE (constants/domain.js) — DB: role 2 = admin
   const isAdmin = user?.role === 'admin';
@@ -61,10 +78,43 @@ export default function App() {
     ...(!isAdmin ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') }] : []), /* Duy's code: Chỉ thêm lối vào hồ sơ cho User thường. */
     { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout }, /* Khoi's code: Giữ thao tác đăng xuất ở cuối menu. */
   ]; /* Duy's code: Kết thúc danh sách thao tác tài khoản. */
-  const feed = <PostFeedPage user={user} accountMenu={accountMenu} />;
+  // Tùng — Sprint 2: chỉ mở trang Shop đúng role sau khi khôi phục phiên/đăng nhập.
+  if (user?.role === 'member' && path === '/shops/register') return <ShopRegisterPage />;
+  if (user?.role === 'member' && path === '/shops/manage') return <ShopManagementPage />;
+  if (isAdmin && path === '/admin/shops/verify') return <ShopVerifyPage />;
+  // Tùng — Sprint 2: kết thúc nhánh Shop; các URL khác giữ luồng hiện có.
+
+  const feed = (
+    <PostFeedPage
+      user={user}
+      // Tùng — Sprint 2: menu giữ profile/logout; một nút Shop theo dữ liệu nằm ngoài menu avatar.
+      accountMenu={accountMenu}
+      shopAction={shopAction}
+    />
+  );
+  // Tùng — Sprint 2: đồng bộ sidebar cho Profile, không sửa form hoặc API hồ sơ của Duy.
+  if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
   if (!isAdmin && path === '/profile') return <UserProfilePage />; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
+  /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
+  if (!isAdmin && path === '/shops') return (
+    <ShopExplorePage
+      user={user}
+      accountMenu={[
+        { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
+        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+      ]}
+    />
+  );
+  /* Lam's code: Trang Chi tiết quán (M-09) — thành viên đã đăng nhập. */
+  if (!isAdmin && path.startsWith('/shops/')) {
+    const shopId = path.split('/')[2];
+    return <ShopDetailPage shopId={shopId} user={user} accountMenu={[
+      { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
+      { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
+    ]} />;
+  }
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
   // Khoi's code: Kết thúc điểm nối điều hướng.
