@@ -2,7 +2,7 @@ const pool = require('../config/db');
 
 // Duy's code: Chuẩn hóa các cột hồ sơ sức khỏe thành cấu trúc phản hồi API.
 const PROFILE_FIELDS = `
-  p.profile_id AS id, p.gender, p.date_of_birth AS "dateOfBirth",
+  p.profile_id AS id, p.gender, p.date_of_birth::text AS "dateOfBirth",
   p.height_cm AS "heightCm", p.weight_kg AS "weightKg",
   p.bmi, p.bmi_category AS "bmiCategory", p.activity_level AS "activityLevel",
   p.health_goal AS "healthGoal", p.tdee_kcal AS "tdeeKcal",

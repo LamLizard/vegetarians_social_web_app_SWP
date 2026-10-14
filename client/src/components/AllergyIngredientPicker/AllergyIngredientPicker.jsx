@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Button from '../Button/Button';
 import Chip from '../Chip/Chip';
 import Notice from '../Notice/Notice';
 import recipeService from '../../services/recipe.service';
-import { submitIngredientProposal } from '../../services/ingredientProposal.service';
+import { getMyIngredientProposals, submitIngredientProposal } from '../../services/ingredientProposal.service';
 import styles from './AllergyIngredientPicker.module.css';
 
 const sameName = (left, right) => left.trim().toLocaleLowerCase('vi') === right.trim().toLocaleLowerCase('vi');
@@ -16,6 +16,34 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
   const [loadError, setLoadError] = useState('');
   const [submitBusy, setSubmitBusy] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [proposals, setProposals] = useState([]);
+  const latestSelection = useRef({ value, onChange });
+  const previousStatuses = useRef(null);
+  latestSelection.current = { value, onChange };
+
+  useEffect(() => {
+    let active = true;
+    const refresh = () => getMyIngredientProposals().then((items) => {
+      if (!active) return;
+      setProposals(items);
+      const oldStatuses = previousStatuses.current;
+      const newlyApproved = oldStatuses
+        ? items.filter((item) => item.status === 'approved' && oldStatuses.get(item.id) === 'pending')
+        : [];
+      previousStatuses.current = new Map(items.map((item) => [item.id, item.status]));
+      if (newlyApproved.length) {
+        const { value: current, onChange: change } = latestSelection.current;
+        const next = [...current];
+        newlyApproved.forEach(({ name }) => {
+          if (!next.some((selected) => sameName(selected, name))) next.push(name);
+        });
+        if (next.length !== current.length) change?.(next);
+      }
+    }).catch(() => {});
+    refresh();
+    const timer = setInterval(refresh, 15000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
 
   useEffect(() => {
     const term = query.trim();
@@ -49,8 +77,8 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
     setFeedback(null);
     try {
       const result = await submitIngredientProposal(name);
-      onChange?.(value.some((item) => sameName(item, result.proposal.name)) ? value : [...value, result.proposal.name]);
-      setFeedback({ tone: 'success', text: result.message || 'Đã gửi nguyên liệu cho Admin duyệt.' });
+      setProposals(await getMyIngredientProposals());
+      setFeedback({ tone: 'success', text: result.message || 'Tên dị ứng đã được lưu vào hồ sơ sức khỏe và gửi Admin phân loại.' });
       setQuery('');
     } catch (error) {
       setFeedback({ tone: 'alert', text: error.message });
@@ -103,7 +131,25 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
         </div>
       )}
       {feedback && <p className={feedback.tone === 'alert' ? styles.error : styles.success} role={feedback.tone === 'alert' ? 'alert' : 'status'}>{feedback.text}</p>}
-      <p className={styles.hint}>Nguyên liệu mới sẽ được gửi Admin duyệt và lưu trong hồ sơ dị ứng của bạn.</p>
+      <p className={styles.hint}>Tên dị ứng được lưu trong hồ sơ sức khỏe ngay khi gửi. Admin sẽ phân loại và thêm tên vào danh mục nguyên liệu để hệ thống nhận biết chính xác.</p>
+      {proposals.some((item) => item.status === 'pending') && (
+        <div className={styles.hint} aria-live="polite">
+          Đang chờ duyệt: {proposals.filter((item) => item.status === 'pending').map((item) => item.name).join(', ')}
+        </div>
+      )}
+      {proposals.some((item) => item.status !== 'pending') && (
+        <ul className={styles.proposalStatus} aria-label="Kết quả đề nghị nguyên liệu">
+          {proposals.filter((item) => item.status !== 'pending').slice(0, 3).map((item) => (
+            <li key={item.id}>
+              {item.name}: {item.status === 'approved'
+                ? 'đã được phân loại và thêm vào danh mục.'
+                : item.status === 'removed'
+                  ? 'đã được gỡ khỏi hàng đợi duyệt; tên dị ứng vẫn còn trong hồ sơ sức khỏe.'
+                  : `đã bị từ chối${item.reviewNote ? `: ${item.reviewNote}` : ''}. Bạn có thể kiểm tra lại tên nguyên liệu.`}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -42,7 +42,15 @@ export default function NotificationList({
             const [Tag, linkProps] = n.href ? getLink(linkAs, n.href) : ['button', { type: 'button' }];
             return (
               <li key={n.id}>
-                <Tag {...linkProps} className={cx(styles.item, !n.isRead && styles.unread)} onClick={() => onItemClick?.(n)}>
+                <Tag {...linkProps} className={cx(styles.item, !n.isRead && styles.unread)} onClick={async (event) => {
+                  if (!onItemClick) return;
+                  const result = onItemClick(n);
+                  if (result && typeof result.then === 'function') {
+                    event.preventDefault();
+                    await result;
+                    if (n.href) window.location.assign(n.href);
+                  }
+                }}>
                   <span className={cx(styles.icon, styles[t.tone])} aria-hidden="true"><i className={`bi bi-${t.icon}`} /></span>
                   <span className={styles.text}>
                     <b>{n.title}</b>
