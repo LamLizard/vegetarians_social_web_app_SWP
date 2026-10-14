@@ -218,6 +218,16 @@ async function decideRecipe(recipeId, action, note, admin) {
     if (action === 'approve' && (!before.dishId || before.proposedDishName)) {
       throw new RecipeError(409, 'Hãy liên kết công thức với một món trong Database trước khi duyệt.');
     }
+    if (action === 'approve') {
+      const { rows: [pendingIngredients] } = await client.query(`
+        SELECT count(*)::int AS count
+        FROM public.recipe_proposed_ingredient
+        WHERE recipe_id = $1
+      `, [recipeId]);
+      if (pendingIngredients.count > 0) {
+        throw new RecipeError(409, 'Công thức còn nguyên liệu chưa được duyệt vào kho. Hãy xử lý các đề nghị nguyên liệu trước.');
+      }
+    }
     const { rows: [updated] } = await client.query(`
       UPDATE recipe SET status = $2, moderation_note = $3
       WHERE recipe_id = $1

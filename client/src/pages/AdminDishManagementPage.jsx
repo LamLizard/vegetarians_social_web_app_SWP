@@ -13,15 +13,24 @@ const formatDate = (value) => {
 // Duy's Code : Nhận diện tên món chung để gom các món cùng họ vào một nhóm mà không sửa dữ liệu DB.
 const DISH_FAMILIES = [
   'Bánh Mì', 'Bánh Cuốn', 'Bánh Xèo', 'Bánh Canh', 'Gỏi Cuốn', 'Hủ Tiếu', 'Nước Ép', 'Sinh Tố', 'Yến Mạch',
-  'Cà Ri', 'Đậu Hũ', 'Rau Củ', 'Cơm', 'Bún', 'Phở', 'Mì', 'Cháo', 'Chè', 'Gỏi', 'Canh', 'Lẩu',
+  'Cà Ri', 'Đậu Hũ', 'Rau Củ', 'Nấm', 'Cơm', 'Bún', 'Phở', 'Mì', 'Cháo', 'Chè', 'Gỏi', 'Canh', 'Lẩu',
   'Xôi', 'Súp', 'Salad', 'Nộm', 'Bánh',
 ].sort((a, b) => b.length - a.length);
 
+function normalizeDishKey(value = '') {
+  return String(value)
+    .normalize('NFC')
+    .trim()
+    .replace(/[.,;:!?()\[\]{}"'`_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('vi');
+}
+
 function getDishFamily(name = '') {
   const normalized = String(name).normalize('NFC').trim().replace(/\s+/g, ' ');
-  const lowerName = normalized.toLocaleLowerCase('vi');
+  const lowerName = normalizeDishKey(normalized);
   const family = DISH_FAMILIES.find((item) => {
-    const lowerFamily = item.toLocaleLowerCase('vi');
+    const lowerFamily = normalizeDishKey(item);
     return lowerName === lowerFamily || lowerName.startsWith(`${lowerFamily} `);
   });
   return family || normalized;
@@ -62,7 +71,40 @@ export default function AdminDishManagementPage() {
       byFamily.get(family).push(dish);
     });
     return [...byFamily.entries()]
-      .map(([name, items]) => ({ name, dishes: items }))
+      .map(([name, items]) => {
+        // Duplicate rows with the same normalized name are displayed once; all their
+        // recipes and categories remain reachable from that one variant.
+        const byDishName = new Map();
+        items.forEach((dish) => {
+          const key = normalizeDishKey(dish.name);
+          const existing = byDishName.get(key);
+          if (!existing) {
+            byDishName.set(key, {
+              ...dish,
+              displayKey: `${name}:${key}`,
+              categories: [...(dish.categories || [])],
+              recipes: [...(dish.recipes || [])],
+            });
+            return;
+          }
+
+          const categories = new Map(existing.categories.map((category) => [normalizeDishKey(category.name), category]));
+          (dish.categories || []).forEach((category) => {
+            const categoryKey = normalizeDishKey(category.name);
+            if (!categories.has(categoryKey)) categories.set(categoryKey, category);
+          });
+          existing.categories = [...categories.values()];
+
+          const recipes = new Map(existing.recipes.map((recipe, index) => [recipe.id || `${normalizeDishKey(recipe.title)}:${recipe.createdAt || index}`, recipe]));
+          (dish.recipes || []).forEach((recipe, index) => {
+            const recipeKey = recipe.id || `${normalizeDishKey(recipe.title)}:${recipe.createdAt || index}`;
+            if (!recipes.has(recipeKey)) recipes.set(recipeKey, recipe);
+          });
+          existing.recipes = [...recipes.values()];
+          if (!existing.description && dish.description) existing.description = dish.description;
+        });
+        return { name, dishes: [...byDishName.values()] };
+      })
       .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   }, [dishes, query]);
 
@@ -96,10 +138,10 @@ export default function AdminDishManagementPage() {
                     </button>
                     {familyOpen && <div className={styles.variants}>
                       {group.dishes.map((dish) => {
-                        const dishOpen = Boolean(expandedDish[dish.id]);
+                        const dishOpen = Boolean(expandedDish[dish.displayKey]);
                         const recipes = dish.recipes || [];
-                        return <section className={styles.variant} key={dish.id}>
-                          <button type="button" className={styles.variantHeader} aria-expanded={dishOpen} onClick={() => setExpandedDish((current) => ({ ...current, [dish.id]: !current[dish.id] }))}>
+                        return <section className={styles.variant} key={dish.displayKey}>
+                          <button type="button" className={styles.variantHeader} aria-expanded={dishOpen} onClick={() => setExpandedDish((current) => ({ ...current, [dish.displayKey]: !current[dish.displayKey] }))}>
                             <span className={styles.variantText}>
                               <span className={styles.variantTitle}>{dish.name}</span>
                               {dish.description && <span className={styles.description}>{dish.description}</span>}
