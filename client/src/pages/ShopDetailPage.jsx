@@ -246,8 +246,8 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
                                 <Photo src={item.imageUrl} alt={item.name} ratio="1/1" shape="leaf" className={styles.dishPhoto} />
                                 <div className={styles.dishBody}>
                                   <div className={styles.dishNameRow}>
-                                    {/* Lam's code: Liên kết chi tiết món chờ trang M-13. */}
-                                    <a href="#" className={styles.dishName}>{item.name}</a>
+                                    {/* Lam's code: Tên hiển thị của món tại quán (shop_dish.display_name) — chữ thường, không phải liên kết. */}
+                                    <span className={styles.dishName}>{item.name}</span>
                                     {item.isAvailable === false && <StatusBadge entity="shopDish" status="unavailable" size="sm" />}
                                   </div>
                                   {item.ingredientNote && <p className={styles.dishNote}>{item.ingredientNote}</p>}
@@ -283,13 +283,23 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
                         <div><dt>Thực đơn</dt><dd>{dishCount} món trong thực đơn</dd></div>
                       </div>
                     </dl>
-                    {(shop.phone || shop.address) && (
-                      <div className={`${styles.infoActions} ${!shop.phone || !shop.address ? styles.singleAction : ''}`}>
-                        {shop.phone && <Button as="a" variant="outline" icon="telephone-fill" href={`tel:${shop.phone.replace(/\s+/g, '')}`}>Gọi điện</Button>}
-                        {shop.address && <Button as="a" variant="primary" icon="sign-turn-right-fill" href={mapsSearchUrl(shop.address)} target="_blank" rel="noreferrer">Chỉ đường</Button>}
+                    {shop.address && (
+                      <div className={styles.infoActions}>
+                        <Button as="a" variant="primary" icon="sign-turn-right-fill" href={mapsSearchUrl(shop.address)} target="_blank" rel="noreferrer" className={styles.singleAction}>Chỉ đường</Button>
                       </div>
                     )}
                   </section>
+                  {shop.address && (
+                    <section className={styles.mapCard} aria-label={`Bản đồ đường tới ${shop.name}`}>
+                      <iframe
+                        className={styles.mapFrame}
+                        title={`Bản đồ đường tới ${shop.name}`}
+                        src={`https://www.google.com/maps?q=${encodeURIComponent(shop.address)}&output=embed`}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </section>
+                  )}
                   <p className={styles.infoNote}>Giờ mở cửa hiển thị theo dữ liệu quán cập nhật — bản đồ &amp; giờ chi tiết mở qua Chỉ đường.</p>
                 </aside>
               </div>

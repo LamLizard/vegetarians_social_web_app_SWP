@@ -71,5 +71,23 @@ export function getTodayHours(schedule = [], now = new Date()) {
     dayLabel: WEEKDAY_LABELS[dayOfWeek - 1],
     hoursText,
     isClosed: slots.length === 0,
+    slots,
   };
+}
+
+/**
+ * Trạng thái mở/đóng THEO THỜI GIAN THỰC từ các ca hôm nay.
+ * @param {Array<{openTime:string, closeTime:string}>} slots
+ * @returns {'open'|'closingSoon'|'closed'|null}  null = không có ca nào / thiếu giờ
+ */
+export function getOpenStateFromSlots(slots = [], now = new Date(), soonMinutes = 30) {
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const ranges = (slots || [])
+    .map((s) => [toMinutes(s?.openTime), toMinutes(s?.closeTime)])
+    .filter(([o, c]) => o != null && c != null);
+  if (!ranges.length) return null;
+  for (const [o, c] of ranges) {
+    if (cur >= o && cur < c) return (c - cur <= soonMinutes) ? 'closingSoon' : 'open';
+  }
+  return 'closed';
 }

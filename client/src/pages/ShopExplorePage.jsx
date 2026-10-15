@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Button, EmptyState, Notice, Pagination, Select, SkeletonCard, ShopCard } from '../components';
+import { Button, EmptyState, Notice, Pagination, SkeletonCard, ShopCard } from '../components';
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import shopService from '../services/shop.service';
+import { getOpenStateFromSlots, getTodayHours } from '../utils/time';
 import '../styles/feed-theme.css';
 import styles from './ShopExplorePage.module.css';
 
@@ -51,9 +52,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
-  const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
@@ -61,6 +60,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   const [totalItems, setTotalItems] = useState(0);
   const [pageSize, setPageSize] = useState(8);
   const [reloadKey, setReloadKey] = useState(0);
+  const [now, setNow] = useState(() => new Date());
 
   useLayoutEffect(() => {
     document.documentElement.dataset.feedV2 = '';
@@ -68,16 +68,8 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   }, []);
 
   useEffect(() => {
-    let ignore = false;
-    shopService.getCategories()
-      .then((res) => {
-        if (ignore) return;
-        setCategories((res?.items ?? []).map((item) => ({ value: String(item.id), label: item.name })));
-      })
-      .catch(() => {
-        if (!ignore) setCategories([]);
-      });
-    return () => { ignore = true; };
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -87,7 +79,6 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
       try {
         const res = await shopService.getShops({
           q: query || undefined,
-          category: category || undefined,
           page,
         });
         if (ignore) return;
@@ -103,7 +94,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
       }
     })();
     return () => { ignore = true; };
-  }, [category, page, query, reloadKey]);
+  }, [page, query, reloadKey]);
 
   const toggleCollapsed = () => setCollapsed((value) => {
     try {
@@ -117,11 +108,10 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   const clearFilters = () => {
     setSearchText('');
     setQuery('');
-    setCategory('');
     setPage(1);
   };
 
-  const hasFilters = Boolean(query || category);
+  const hasFilters = Boolean(query);
 
   return (
     <div className={`feed-v2-page ${styles.shell}`}>
@@ -147,7 +137,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
             setPage(1);
           }}
           onOpenMenu={() => setDrawerOpen(true)}
-          placeholder="Tìm quán theo tên hoặc địa chỉ…"
+          placeholder="Tìm quán, món ăn, danh mục…"
           searchLabel="Tìm quán chay"
         />
 
@@ -157,18 +147,6 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
           </div>
 
           <div className={styles.filterBar}>
-            <div className={styles.filterWrap}>
-              <Select
-                label="Danh mục món"
-                value={category}
-                onChange={(value) => {
-                  setCategory(value);
-                  setPage(1);
-                }}
-                options={[{ value: '', label: 'Tất cả danh mục' }, ...categories]}
-              />
-            </div>
-
             {hasFilters && (
               <Button type="button" variant="subtle" icon="x-lg" size="sm" onClick={clearFilters}>
                 Xoá lọc
@@ -180,7 +158,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
 
           {status === 'loading' && (
             <div className={styles.list} aria-busy="true">
-              {Array.from({ length: 3 }).map((_, idx) => <SkeletonCard key={idx} />)}
+              {Array.from({ length: 6 }).map((_, idx) => <SkeletonCard key={idx} />)}
             </div>
           )}
 
@@ -191,10 +169,10 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
           )}
 
           {status === 'ready' && items.length === 0 && (
-            query || category
+            query
               ? (
                 <EmptyState icon="search" title="Không tìm thấy quán nào">
-                  Thử từ khoá khác hoặc bỏ lọc danh mục để xem thêm kết quả.
+                  Thử từ khoá khác để xem thêm kết quả.
                 </EmptyState>
               )
               : (
@@ -206,22 +184,26 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
 
           {status === 'ready' && items.length > 0 && (
             <div className={styles.list}>
-              {items.map((shop) => (
-                <div key={shop.id} className={styles.shopEntry}>
-                  {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
-                  <ShopCard
-                  name={shop.name}
-                  imageUrl={shop.imageUrl}
-                  address={shop.address}
-                  phone={shop.phone}
-                  openTime={shop.openTime}
-                  closeTime={shop.closeTime}
-                  showOpenState={shop.operatingStatus !== 'inactive'}
-                  dishCount={shop.dishCount}
-                  href={`/shops/${shop.id}`}
-                />
-                </div>
-              ))}
+              {items.map((shop) => {
+                const today = getTodayHours(shop.schedule ?? [], now);
+                const openState = today.slots?.length ? (today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots, now)) : null;
+                return (
+                  <div key={shop.id} className={styles.shopEntry}>
+                    {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
+                    <ShopCard
+                      name={shop.name}
+                      imageUrl={shop.imageUrl}
+                      address={shop.address}
+                      phone={shop.phone}
+                      hoursText={today.hoursText}
+                      openState={openState}
+                      showOpenState={shop.operatingStatus !== 'inactive'}
+                      dishCount={shop.dishCount}
+                      href={`/shops/${shop.id}`}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
 

@@ -16,7 +16,7 @@ export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
   { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '#' },
   { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '#' },
+  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
 
 /** user của BE ({ fullName }) → dạng component cần ({ name }) */

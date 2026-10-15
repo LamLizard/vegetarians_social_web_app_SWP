@@ -23,15 +23,6 @@ function parseOptionalText(value, maxLength = 100) {
   return `%${escapeLikeText(text)}%`;
 }
 
-function parseCategory(value) {
-  if (value === undefined || value === null || value === '') return null;
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw new ShopError(400, 'Danh mục không hợp lệ.');
-  }
-  return n;
-}
-
 function parsePage(value) {
   const n = Number(value ?? 1);
   if (!Number.isInteger(n) || n < 1) {
@@ -54,12 +45,10 @@ const handle = (fn) => async (req, res) => {
 
 async function getShops(req, res) {
   const q = parseOptionalText(req.query.q, 100);
-  const categoryId = parseCategory(req.query.category);
   const page = parsePage(req.query.page ?? 1);
 
   const { items, total } = await shopModel.findVerifiedShops({
     q,
-    categoryId,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -71,11 +60,10 @@ async function getShops(req, res) {
       address: r.address,
       phone: r.phone ?? null,
       operatingStatus: r.status,
-      openTime: r.open_time ?? null,
-      closeTime: r.close_time ?? null,
       openDays: r.open_days ?? null,
       imageUrl: r.avt_shop_url,
       dishCount: r.dish_count,
+      schedule: r.schedule ?? [],
     })),
     page,
     pageSize: PAGE_SIZE,
@@ -106,7 +94,6 @@ async function getShop(req, res) {
   }
 
   res.json({
-    // TODO(schedule): giờ lấy từ shop_schedule
     shop: {
       id: String(detail.shop.shop_id),
       name: detail.shop.name,

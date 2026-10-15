@@ -1,48 +1,91 @@
 const pool = require('../config/db');
 
-async function findVerifiedShops({ q = null, categoryId = null, page = 1, pageSize = 8 }) {
+/** Gom rows shop_schedule thành [{ dayOfWeek, isClosed, slots:[{openTime, closeTime}] }] (chỉ đọc — lỗi/thiếu thì trả phần đọc được). */
+function groupScheduleRows(rows = []) {
+  const byDay = new Map();
+  for (const row of rows) {
+    const dayOfWeek = Number(row.dayOfWeek);
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) continue;
+    if (!byDay.has(dayOfWeek)) {
+      byDay.set(dayOfWeek, { dayOfWeek, isClosed: false, slots: [] });
+    }
+    const day = byDay.get(dayOfWeek);
+    if (row.isClosed) {
+      day.isClosed = true;
+      day.slots = [];
+    } else if (!day.isClosed && row.openTime && row.closeTime) {
+      day.slots.push({ openTime: row.openTime, closeTime: row.closeTime });
+    }
+  }
+  return [...byDay.values()]
+    .map((day) => ({
+      ...day,
+      slots: day.slots.sort((a, b) => a.openTime.localeCompare(b.openTime)),
+    }))
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+}
+
+async function findVerifiedShops({ q = null, page = 1, pageSize = 8 }) {
   const effectivePage = Number(page) > 0 ? Number(page) : 1;
   const effectivePageSize = Number(pageSize) > 0 ? Number(pageSize) : 8;
   const offset = (effectivePage - 1) * effectivePageSize;
 
   const itemsQuery = `
-    SELECT s.shop_id, s.name, s.address, s.phone, s.status,
-           to_char(s.open_time,  'HH24:MI') AS open_time,
-           to_char(s.close_time, 'HH24:MI') AS close_time,
-           s.open_days, s.avt_shop_url,
+    SELECT s.shop_id, s.name, s.address, s.phone, s.status, s.open_days, s.avt_shop_url,
            (SELECT count(*) FROM shop_dish sd
               JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
              WHERE sd.shop_id = s.shop_id)::int AS dish_count
     FROM shop s
     WHERE s.verification_status = 'verified'
-      AND ($1::text IS NULL OR s.name ILIKE $1 OR s.address ILIKE $1)
-      AND ($2::bigint IS NULL OR EXISTS (
+      AND ($1::text IS NULL OR s.name ILIKE $1 OR s.address ILIKE $1 OR EXISTS (
             SELECT 1 FROM shop_dish sd
               JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
-              JOIN dish_category dc ON dc.dish_id = sd.dish_id
-             WHERE sd.shop_id = s.shop_id AND dc.category_id = $2))
-    ORDER BY s.name ASC, s.shop_id ASC
-    LIMIT $3 OFFSET $4
+             WHERE sd.shop_id = s.shop_id
+               AND (d.name ILIKE $1 OR sd.display_name ILIKE $1 OR sd.dish_category ILIKE $1)))
+    ORDER BY s.created_at DESC, s.shop_id DESC
+    LIMIT $2 OFFSET $3
   `;
 
   const totalQuery = `
     SELECT COUNT(*)::int AS total
     FROM shop s
     WHERE s.verification_status = 'verified'
-      AND ($1::text IS NULL OR s.name ILIKE $1 OR s.address ILIKE $1)
-      AND ($2::bigint IS NULL OR EXISTS (
+      AND ($1::text IS NULL OR s.name ILIKE $1 OR s.address ILIKE $1 OR EXISTS (
             SELECT 1 FROM shop_dish sd
               JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
-              JOIN dish_category dc ON dc.dish_id = sd.dish_id
-             WHERE sd.shop_id = s.shop_id AND dc.category_id = $2))
+             WHERE sd.shop_id = s.shop_id
+               AND (d.name ILIKE $1 OR sd.display_name ILIKE $1 OR sd.dish_category ILIKE $1)))
   `;
 
-  const params = [q ?? null, categoryId ?? null, effectivePageSize, offset];
-  const totalResult = await pool.query(totalQuery, [q ?? null, categoryId ?? null]);
+  const params = [q ?? null, effectivePageSize, offset];
+  const totalResult = await pool.query(totalQuery, [q ?? null]);
   const itemsResult = await pool.query(itemsQuery, params);
 
+  const ids = itemsResult.rows.map((row) => row.shop_id);
+  let scheduleByShop = new Map();
+  if (ids.length) {
+    const scRes = await pool.query(`
+      SELECT shop_id, day_of_week AS "dayOfWeek", slot_no AS "slotNo", is_closed AS "isClosed",
+             to_char(open_time,  'HH24:MI') AS "openTime",
+             to_char(close_time, 'HH24:MI') AS "closeTime"
+      FROM shop_schedule WHERE shop_id = ANY($1::bigint[]) ORDER BY shop_id, day_of_week, slot_no
+    `, [ids]);
+    const mapped = new Map();
+    for (const row of scRes.rows) {
+      const shopId = Number(row.shop_id);
+      if (!mapped.has(shopId)) mapped.set(shopId, []);
+      mapped.get(shopId).push(row);
+    }
+    scheduleByShop = new Map(
+      [...mapped.entries()].map(([shopId, rows]) => [shopId, groupScheduleRows(rows)])
+    );
+  }
+
   return {
-    items: itemsResult.rows,
+    items: itemsResult.rows.map((row) => ({
+      ...row,
+      schedule: scheduleByShop.get(Number(row.shop_id)) ?? [],
+    })),
     total: Number(totalResult.rows[0]?.total ?? 0),
   };
 }
@@ -64,15 +107,14 @@ async function findShopDetail(shopId) {
   }
 
   const menuResult = await pool.query(`
-    SELECT sd.shop_dish_id, sd.dish_id, d.name, sd.price, sd.ingredient_note,
-           sd.is_available, sd.dish_category, d.thumbnail_url
+    SELECT sd.shop_dish_id, sd.dish_id, COALESCE(sd.display_name, d.name) AS name, sd.price,
+           sd.ingredient_note, sd.is_available, sd.dish_category, d.thumbnail_url
     FROM shop_dish sd
     JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
     WHERE sd.shop_id = $1
     ORDER BY sd.dish_category NULLS LAST, sd.is_available DESC, d.name
   `, [shopId]);
 
-  /* Lam's code: Lịch công khai đọc độc lập; dữ liệu thiếu hoặc lỗi không chặn trang chi tiết. */
   let schedule = [];
   try {
     const scheduleResult = await pool.query(`
@@ -81,27 +123,7 @@ async function findShopDetail(shopId) {
              to_char(close_time, 'HH24:MI') AS "closeTime"
       FROM shop_schedule WHERE shop_id = $1 ORDER BY day_of_week, slot_no
     `, [shopId]);
-    const days = new Map();
-    for (const row of scheduleResult.rows) {
-      const dayOfWeek = Number(row.dayOfWeek);
-      if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) continue;
-      if (!days.has(dayOfWeek)) {
-        days.set(dayOfWeek, { dayOfWeek, isClosed: false, slots: [] });
-      }
-      const day = days.get(dayOfWeek);
-      if (row.isClosed) {
-        day.isClosed = true;
-        day.slots = [];
-      } else if (!day.isClosed && row.openTime && row.closeTime) {
-        day.slots.push({ openTime: row.openTime, closeTime: row.closeTime });
-      }
-    }
-    schedule = [...days.values()]
-      .map((day) => ({
-        ...day,
-        slots: day.slots.sort((a, b) => a.openTime.localeCompare(b.openTime)),
-      }))
-      .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+    schedule = groupScheduleRows(scheduleResult.rows);
   } catch {
     schedule = [];
   }
