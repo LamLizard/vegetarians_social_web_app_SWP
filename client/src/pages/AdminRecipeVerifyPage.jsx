@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout, Button, ConfirmDialog, EmptyState, Notice, PageHeader, Panel, Photo, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import recipeService from '../services/recipe.service';
+import AnimalWarnings from '../components/AnimalWarnings/AnimalWarnings'; // Khoi's code
 
 export default function AdminRecipeVerifyPage() {
   const { user, logout } = useAuth();
@@ -89,6 +90,7 @@ export default function AdminRecipeVerifyPage() {
               <div className="col-12 col-md-4"><Photo src={item.thumbnailUrl} alt={`Ảnh công thức ${item.title}`} ratio="4/3" /></div>
               <div className="col-12 col-md-8">
                 <h2 className="h5">{item.title}</h2>
+                <AnimalWarnings warnings={item.animalWarnings} className="mb-3" />
                 <p className="text-body-secondary mb-2">Món: <b>{item.proposedDishName || item.dishName || 'Chưa xác định'}</b> · Gửi bởi {item.authorName || item.authorEmail}</p>
                 {item.proposedDishName ? <div className="border rounded p-3 mb-3">
                   <h3 className="h6">Đối chiếu món được đề xuất</h3>

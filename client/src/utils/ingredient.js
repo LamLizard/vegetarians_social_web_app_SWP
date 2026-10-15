@@ -43,7 +43,7 @@ export function validateIngredients(rows = [], { min = 1 } = {}) {
     const empty = !r.name.trim() && r.amount == null && !r.unit.trim();
     if (empty) return undefined;
     const e = {};
-    if (!r.name.trim()) e.name = 'Nhập tên nguyên liệu';
+    if (!r.name.trim()) e.name = 'Chọn hoặc nhập tên nguyên liệu';
     else if (seen.has(plain(r.name))) e.name = 'Trùng với dòng phía trên';
     else seen.set(plain(r.name), true);
     if (r.amount != null && (Number.isNaN(r.amount) || r.amount <= 0)) e.amount = 'Số lượng phải lớn hơn 0';

@@ -26,19 +26,28 @@ export function matchScore(query, name) {
 }
 
 /**
+ * Lọc + xếp hạng một danh sách bất kỳ theo tên (dùng chung cho món và nguyên liệu).
+ * Khoi's code: tách từ searchDishes để ô chọn nguyên liệu dùng cùng cách so (12/10/2026).
+ * @param {object[]} items · @param {string} query · @param {(item) => string} getName
+ * @returns {{ options: object[], exact: object|undefined }}  exact: trùng hẳn tên (bỏ dấu)
+ */
+export function searchByName(items, query, getName, limit = 8) {
+  if (!plain(query)) return { options: items.slice(0, limit), exact: undefined };
+  const scored = items
+    .map((item) => ({ item, score: matchScore(query, getName(item)) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || getName(a.item).localeCompare(getName(b.item), 'vi'));
+  return {
+    options: scored.slice(0, limit).map((x) => x.item),
+    exact: scored.find((x) => x.score === 100)?.item,
+  };
+}
+
+/**
  * Lọc + xếp hạng món đang active theo chữ đã gõ.
  * @returns {{ options: object[], exact: object|undefined }}
  *   exact: món có tên trùng hẳn (bỏ dấu) → không cho đề xuất trùng.
  */
 export function searchDishes(dishes, query, limit = 8) {
-  const active = dishes.filter((d) => d.status === 'active');
-  if (!plain(query)) return { options: active.slice(0, limit), exact: undefined };
-  const scored = active
-    .map((d) => ({ dish: d, score: matchScore(query, d.name) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || a.dish.name.localeCompare(b.dish.name, 'vi'));
-  return {
-    options: scored.slice(0, limit).map((x) => x.dish),
-    exact: scored.find((x) => x.score === 100)?.dish,
-  };
+  return searchByName(dishes.filter((d) => d.status === 'active'), query, (d) => d.name, limit);
 }

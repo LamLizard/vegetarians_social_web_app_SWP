@@ -154,3 +154,6 @@
 .notes { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--ac-muted); }
 .notes li { display: flex; gap: 0.4rem; align-items: baseline; }
 .noteBad { color: var(--ac-bad-fg); font-weight: 500; }
+
+/* Khoi's code: cảnh báo đồ động vật dưới ô tên món / tên công thức — không phải lỗi, vẫn gửi được */
+.flag { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.4rem 0 0; color: var(--ac-bad-fg); font-size: 0.8rem; font-weight: 500; }
