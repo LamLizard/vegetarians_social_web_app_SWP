@@ -56,9 +56,41 @@ async function getMine(req, res) {
  * → 201 { message, recipe, ingredients }  (công thức 'pending')
  */
 async function createRecipe(req, res) {
-  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true });
   const { recipe, ingredients } = await recipeModel.createRecipe(req.account.id, input);
   res.status(201).json({ message: 'Công thức đã được gửi và đang chờ duyệt.', recipe, ingredients });
+}
+
+/** Khoi's code: mã công thức trên URL → số nguyên dương, sai → 400 */
+function parseRecipeId(value) {
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id < 1) throw new RecipeInputError('Mã công thức không hợp lệ.');
+  return id;
+}
+
+/** GET /api/recipes/mine/:recipeId → MyRecipe + { instructions, ingredients: [{ name, amount, unit, proposed }] } */
+async function getMineDetail(req, res) {
+  const recipe = await recipeModel.findMineDetail(req.account.id, parseRecipeId(req.params.recipeId));
+  if (!recipe) throw new RecipeError(404, 'Không tìm thấy công thức của bạn.');
+  res.json(recipe);
+}
+
+/** GET /api/recipes/:recipeId — Khoi's code: xem công thức đã duyệt, ai cũng gọi được (kể cả khách) */
+async function getPublicDetail(req, res) {
+  const recipe = await recipeModel.findPublicDetail(parseRecipeId(req.params.recipeId));
+  if (!recipe) throw new RecipeError(404, 'Không tìm thấy công thức, hoặc công thức chưa được duyệt.');
+  res.json(recipe);
+}
+
+/**
+ * PUT /api/recipes/:recipeId — Khoi's code: "Sửa và gửi lại" công thức bị từ chối.
+ * Body giống POST /api/recipes. → 200 { message, recipe, ingredients } (công thức quay về 'pending')
+ */
+async function resubmitRecipe(req, res) {
+  const recipeId = parseRecipeId(req.params.recipeId);
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true });
+  const { recipe, ingredients } = await recipeModel.resubmitRecipe(req.account.id, recipeId, input);
+  res.json({ message: 'Đã gửi lại công thức, đang chờ duyệt.', recipe, ingredients });
 }
 
 async function getPendingAdmin(req, res) {
@@ -109,6 +141,9 @@ module.exports = {
   checkIngredients: handle(checkIngredients),
   getMine: handle(getMine),
   createRecipe: handle(createRecipe),
+  getMineDetail: handle(getMineDetail),
+  getPublicDetail: handle(getPublicDetail),
+  resubmitRecipe: handle(resubmitRecipe),
   getPendingAdmin: handle(getPendingAdmin),
   getAllAdmin: handle(getAllAdmin),
   decideAdmin: handle(decideAdmin),
