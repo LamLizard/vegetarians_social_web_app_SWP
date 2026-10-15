@@ -12,6 +12,19 @@ const MAX_INGREDIENTS = 40;       // giống IngredientEditor (max=40)
 const MAX_INSTRUCTIONS = 10000;
 const MAX_MINUTES = 600;          // giống form (0–600 phút)
 const MAX_SERVINGS = 20;          // giống NumberStepper (1–20 người)
+const MAX_DESCRIPTION = 1000;     // Khoi's code: recipe.description TEXT — giới hạn cho vừa thẻ/trang chi tiết
+const MAX_CALORIES = 5000;        // Khoi's code: recipe.calories_kcal INT — calo ước tính cho 1 người
+const MAX_GRAMS = 1000;           // Khoi's code: đạm/tinh bột/béo/xơ/đường (g, 1 người) — NUMERIC(6,1)
+const MAX_SODIUM = 20000;         // Khoi's code: natri (mg, 1 người) — INT
+/** Khoi's code: chỉ số dinh dưỡng tuỳ chọn (tính cho 1 người): khoá body → [tên hiển thị, tối đa, số lẻ] */
+const NUTRIENTS = {
+  proteinG: ['Đạm', MAX_GRAMS, 1],
+  carbG: ['Tinh bột', MAX_GRAMS, 1],
+  fatG: ['Chất béo', MAX_GRAMS, 1],
+  fiberG: ['Chất xơ', MAX_GRAMS, 1],
+  sugarG: ['Đường', MAX_GRAMS, 1],
+  sodiumMg: ['Natri', MAX_SODIUM, 0],
+};
 /** Đơn vị không cần số lượng — giống INGREDIENT_UNIT (noAmount) ở client/src/constants/domain.js */
 const NO_AMOUNT_UNITS = ['ít', 'vừa đủ'];
 
@@ -37,6 +50,38 @@ function parseOptionalInt(value, label, min, max) {
   const n = Number(value);
   if (!Number.isInteger(n) || n < min || n > max) fail(`${label} phải là số nguyên từ ${min} đến ${max}.`);
   return n;
+}
+
+// Khoi's code: dùng chung cách nhận link YouTube với form Đăng bài (FE: utils/validate.js)
+const { getYouTubeId } = require('./postInput');
+
+/** Mô tả ngắn: không bắt buộc, bỏ trống → null */
+function parseDescription(value) {
+  if (isEmpty(value)) return null;
+  if (typeof value !== 'string') fail('Mô tả không hợp lệ.');
+  const text = value.trim();
+  if (!text) return null;
+  if (charCount(text) > MAX_DESCRIPTION) fail(`Mô tả tối đa ${MAX_DESCRIPTION} ký tự.`);
+  return text;
+}
+
+/** Link YouTube: không bắt buộc, phải là link video YouTube hợp lệ */
+function parseYouTubeUrl(value) {
+  if (isEmpty(value)) return null;
+  if (typeof value !== 'string') fail('Link YouTube không hợp lệ.');
+  const url = value.trim();
+  if (!url) return null;
+  if (charCount(url) > MAX_URL || !getYouTubeId(url)) fail('Link YouTube không hợp lệ. Dán link video dạng youtube.com/watch?v=… hoặc youtu.be/…');
+  return url;
+}
+
+/** Số không âm, tuỳ chọn, làm tròn `digits` chữ số lẻ: "12,5" → 12.5 · bỏ trống → null */
+function parseOptionalNumber(value, label, max, digits) {
+  if (isEmpty(value)) return null;
+  const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0 || n > max) fail(`${label} phải là số từ 0 đến ${max}.`);
+  const k = 10 ** digits;
+  return Math.round(n * k) / k;
 }
 
 /** Chọn món có sẵn (dishId) HOẶC đề xuất tên món mới (proposedDishName) — đúng 1 trong 2 */
@@ -111,11 +156,19 @@ function parseIngredients(value) {
 
 /**
  * @param {object} body  req.body
- * @param {{ cloudName?: string }} options
- * @returns {{ dishId, proposedDishName, title, thumbnailUrl, servings, prepTimeMinutes, cookTimeMinutes, ingredients, instructions }}
+ * @param {{ cloudName?: string, requireMeta?: boolean }} options
+ *        requireMeta (Khoi's code): form Tạo công thức BẮT BUỘC khẩu phần, thời gian chuẩn bị, thời gian nấu (cho phép 0 phút).
+ *        Mặc định false để luồng Admin tạo món kèm công thức (dish.controller) không đổi.
+ * @returns {{ dishId, proposedDishName, title, description, thumbnailUrl, youtubeUrl, servings, prepTimeMinutes,
+ *             cookTimeMinutes, caloriesKcal, proteinG, carbG, fatG, fiberG, sugarG, sodiumMg, ingredients, instructions }}
  */
-function parseRecipeInput(body, { cloudName } = {}) {
+function parseRecipeInput(body, { cloudName, requireMeta = false } = {}) {
   const b = body ?? {};
+  if (requireMeta) {
+    if (isEmpty(b.servings)) fail('Nhập khẩu phần.');
+    if (isEmpty(b.prepTimeMinutes)) fail('Nhập thời gian chuẩn bị (không cần thì ghi 0).');
+    if (isEmpty(b.cookTimeMinutes)) fail('Nhập thời gian nấu (không cần thì ghi 0).');
+  }
   const dish = parseDish(b);
 
   if (typeof b.title !== 'string' || !b.title.trim()) fail('Nhập tên công thức.');
@@ -129,10 +182,15 @@ function parseRecipeInput(body, { cloudName } = {}) {
   return {
     ...dish,
     title,
+    description: parseDescription(b.description),
     thumbnailUrl: parseThumbnailUrl(b.thumbnailUrl, cloudName),
+    youtubeUrl: parseYouTubeUrl(b.youtubeUrl),
     servings: parseOptionalInt(b.servings, 'Khẩu phần', 1, MAX_SERVINGS),
     prepTimeMinutes: parseOptionalInt(b.prepTimeMinutes, 'Thời gian chuẩn bị', 0, MAX_MINUTES),
     cookTimeMinutes: parseOptionalInt(b.cookTimeMinutes, 'Thời gian nấu', 0, MAX_MINUTES),
+    caloriesKcal: parseOptionalInt(b.caloriesKcal, 'Calo', 1, MAX_CALORIES),
+    ...Object.fromEntries(Object.entries(NUTRIENTS)
+      .map(([key, [label, max, digits]]) => [key, parseOptionalNumber(b[key], label, max, digits)])),
     ingredients: parseIngredients(b.ingredients),
     instructions,
   };

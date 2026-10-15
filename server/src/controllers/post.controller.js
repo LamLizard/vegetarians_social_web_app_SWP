@@ -3,6 +3,8 @@
 const postModel = require('../models/post.model');
 // Khoi's code: Kiểm tra dữ liệu form Đăng bài (Sprint 2).
 const { parsePostInput, PostInputError } = require('../utils/postInput');
+// Khoi's code: kiểm tra video YouTube có phát được trên trang khác không (15/10/2026)
+const { checkYouTubeVideo, youTubeRejectMessage } = require('../utils/youtubeCheck');
 // Khoi's code: Cloud lưu ảnh bìa (bộ CLOUDINARY_POST_*), khớp với nơi API upload đẩy ảnh lên.
 const { POST_CLOUD_NAME } = require('../config/cloudinary');
 
@@ -103,9 +105,25 @@ async function createPost(req, res) {
     if (error instanceof PostInputError) throw new PostError(400, error.message);
     throw error;
   }
+  // Khoi's code: bài video — chặn video chủ kênh tắt nhúng / đã xoá (YouTube trục trặc thì vẫn cho đăng)
+  if (input.youtubeUrl) {
+    const rejected = await youTubeRejectMessage(input.youtubeUrl);
+    if (rejected) throw new PostError(400, rejected);
+  }
   // D-03: từ khoá cấm KHÔNG chặn đăng bài — bài nào cũng chờ duyệt, Admin thấy từ vi phạm ở trang kiểm duyệt.
   const post = await postModel.createPost({ ...input, authorId: viewerId(req) });
   res.status(201).json({ message: 'Bài viết đã được gửi và đang chờ duyệt.', post });
+}
+
+/**
+ * Khoi's code: POST /api/posts/youtube-check { url } → { status, videoId?, title?, author?, message? }
+ * Form Đăng bài + Tạo công thức gọi khi người dùng dán link, để báo trước video có phát được không.
+ * status: ok | invalid | blocked | missing | unknown (unknown = chưa hỏi được YouTube, vẫn cho gửi)
+ */
+async function checkYouTube(req, res) {
+  const url = req.body?.url;
+  if (typeof url !== 'string' || !url.trim() || url.length > 500) throw new PostError(400, 'Link YouTube không hợp lệ.');
+  res.json(await checkYouTubeVideo(url.trim()));
 }
 
 /** Dùng chung cho báo cáo bài và bình luận */
@@ -124,6 +142,7 @@ const report = (targetType) => async function createReport(req, res) {
 module.exports = {
   getPreview: handle(getPreview),
   createPost: handle(createPost),
+  checkYouTube: handle(checkYouTube),
   getFeed: handle(getFeed),
   toggleVote: handle(toggleVote),
   getComments: handle(getComments),

@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Panel, Photo, Spinner, StatusBadge } from '../components';
 import useAuth from '../hooks/useAuth';
 import recipeService from '../services/recipe.service';
+import YouTubeEmbed from '../components/YouTubeEmbed/YouTubeEmbed'; // Khoi's code: xem video người dùng gửi kèm
 import styles from './AdminRecipeVerifyPage.module.css';
+
+// Khoi's code: chỉ số dinh dưỡng tuỳ chọn (1 người) người dùng nhập ở form Tạo công thức
+const NUTRITION_FACTS = [
+  ['caloriesKcal', 'Calo', 'kcal'], ['proteinG', 'Đạm', 'g'], ['carbG', 'Tinh bột', 'g'], ['fatG', 'Chất béo', 'g'],
+  ['fiberG', 'Chất xơ', 'g'], ['sugarG', 'Đường', 'g'], ['sodiumMg', 'Natri', 'mg'],
+];
 
 const STATUS_TABS = [
   { key: 'pending', label: 'Đang chờ', icon: 'hourglass-split' },
@@ -158,7 +165,22 @@ export default function AdminRecipeVerifyPage() {
                         {item.prepTimeMinutes != null && <span><b>Chuẩn bị</b>{item.prepTimeMinutes} phút</span>}
                         {item.cookTimeMinutes != null && <span><b>Nấu</b>{item.cookTimeMinutes} phút</span>}
                         {item.servings != null && <span><b>Khẩu phần</b>{item.servings}</span>}
+                        {/* Khoi's code: dinh dưỡng (tuỳ chọn, 1 người) */}
+                        {NUTRITION_FACTS.filter(([key]) => item[key] != null).map(([key, label, unit]) => (
+                          <span key={key}><b>{label}</b>{Number(item[key]).toLocaleString('vi-VN')} {unit}</span>
+                        ))}
                       </div>
+                      {/* Khoi's code: mô tả + video người dùng gửi kèm — Admin phải xem được để kiểm tra nội dung */}
+                      {item.description && <div className={styles.extra}><h3>Mô tả</h3><p className={styles.instructions}>{item.description}</p></div>}
+                      {item.youtubeUrl && (
+                        <div className={styles.extra}>
+                          <h3>Video hướng dẫn</h3>
+                          <div className={styles.video}><YouTubeEmbed url={item.youtubeUrl} title={`Video của công thức ${item.title}`} /></div>
+                          <a className={styles.videoLink} href={item.youtubeUrl} target="_blank" rel="noopener noreferrer">
+                            <i className="bi bi-box-arrow-up-right" aria-hidden="true" /> {item.youtubeUrl}
+                          </a>
+                        </div>
+                      )}
                       <div className={styles.detailColumns}>
                         <div><h3>Nguyên liệu</h3><ul>{[...(item.ingredients || []), ...(item.proposedIngredients || [])].map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}</li>)}</ul></div>
                         <div><h3>Cách làm</h3><p className={styles.instructions}>{item.instructions || 'Chưa có hướng dẫn.'}</p></div>
