@@ -1,5 +1,9 @@
 /* Tùng — Sprint 2: hồ sơ Admin, responsive theo UI kit. */
 .page, .detail { display: grid; gap: 24px; }
+.detail { gap: 20px; }
+.rejectionNote { display: flex; align-items: flex-start; gap: 10px; margin: 0; color: var(--ac-alert); font-size: .9rem; line-height: 1.6; }
+.rejectionNote > i { flex: none; }
+.rejectionNote > span { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .filters { display: grid; grid-template-columns: minmax(260px, 1.5fr) minmax(160px, 1fr) minmax(160px, 1fr) auto; align-items: end; gap: 16px; }
 .search { display: flex; align-items: center; gap: 8px; }
 .search > form { flex: 1; min-width: 0; }
@@ -9,6 +13,11 @@
 .metadata dt { color: var(--ac-muted); font-size: .8rem; font-weight: 400; }
 .metadata dd { color: var(--ac-ink); margin: 5px 0 0; }
 .shopName { font-size: 1.4rem; font-weight: 700; margin: 0 0 16px; overflow-wrap: anywhere; }
+.shopNameCell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.shopNameCell > button { flex: none; }
+.shopNameCell > span { min-width: 0; overflow-wrap: anywhere; }
+.activeIcon { background: var(--ac-ok-bg); color: var(--ac-ok-fg); }
+.lockedIcon { background: var(--ac-bad-bg); color: var(--ac-bad-fg); }
 .history { display: grid; gap: 20px; }
 .historyList { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
 .historyList > li { padding: 18px 0; border-bottom: 1px solid var(--ac-border); overflow-wrap: anywhere; }

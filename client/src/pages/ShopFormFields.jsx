@@ -89,10 +89,10 @@ function IdentityComparisonField({ field, current, proposed, beforeLabel = 'Hi�
     <div className={styles.pendingHeading}><b>{FIELD_LABELS[field]}</b></div>
     <div className={styles.comparison}>
       <div><span className={styles.valueLabel}>{beforeLabel}</span>{image
-        ? <Photo src={current} alt={`Ảnh quán · ${beforeLabel}`} ratio="4/3" shape="rounded" className={styles.image} />
+        ? <Photo src={current} alt={`Ảnh quán · ${beforeLabel}`} ratio="1/1" shape="rounded" className={styles.image} />
         : <p>{current || 'Chưa có'}</p>}</div>
       <div><span className={styles.valueLabel}>{afterLabel}</span>{image
-        ? <Photo src={proposed} alt={`Ảnh quán · ${afterLabel}`} ratio="4/3" shape="rounded" className={styles.image} />
+        ? <Photo src={proposed} alt={`Ảnh quán · ${afterLabel}`} ratio="1/1" shape="rounded" className={styles.image} />
         : <p>{proposed || 'Chưa có'}</p>}</div>
     </div>
   </section>;
@@ -224,12 +224,14 @@ function displayTime(value) {
 
 export function ShopSnapshot({ value }) {
   if (!value) return <p className={styles.hint}>Chưa có bản trước khi gửi.</p>;
-  return <div className={styles.snapshot}>
-    {Object.hasOwn(value, 'avtShopUrl') && <Photo src={value.avtShopUrl} alt={`Ảnh quán ${value.name || ''}`} ratio="4/3" shape="rounded" className={styles.snapshotImage} />}
-    <dl>{Object.entries(FIELD_LABELS).filter(([key]) => key !== 'avtShopUrl' && Object.hasOwn(value, key)).map(([key, label]) =>
-      <div key={key}><dt>{label}</dt><dd>{value[key] || 'Chưa có'}</dd></div>)}</dl>
-    {Array.isArray(value.schedule) && !value.schedule.length && <p className={styles.hint}>Chưa cập nhật lịch mở cửa.</p>}
-    {Array.isArray(value.schedule) && value.schedule.length > 0 && <ul className={styles.scheduleList} aria-label="Lịch mở cửa">
+  const hasImage = Object.hasOwn(value, 'avtShopUrl');
+  const identityFields = Object.entries(FIELD_LABELS).filter(([key]) => key !== 'avtShopUrl' && Object.hasOwn(value, key));
+  return <div className={`${styles.snapshot} ${hasImage ? styles.snapshotWithImage : ''}`}>
+    {identityFields.length > 0 && <dl>{identityFields.map(([key, label]) =>
+      <div key={key}><dt>{label}</dt><dd>{value[key] || 'Chưa có'}</dd></div>)}</dl>}
+    {hasImage && <Photo src={value.avtShopUrl} alt={`Ảnh quán ${value.name || ''}`} ratio="1/1" shape="rounded" className={styles.snapshotImage} />}
+    {Array.isArray(value.schedule) && !value.schedule.length && <p className={`${styles.hint} ${styles.snapshotSchedule}`}>Chưa cập nhật lịch mở cửa.</p>}
+    {Array.isArray(value.schedule) && value.schedule.length > 0 && <ul className={`${styles.scheduleList} ${styles.snapshotSchedule}`} aria-label="Lịch mở cửa">
       {value.schedule.map(day => <li key={day.dayOfWeek}><span>{SHOP_DAY_LABELS[day.dayOfWeek - 1]}</span>
         <div>{day.isClosed ? <b>Nghỉ</b> : Array.isArray(day.slots) && day.slots.length
           ? day.slots.map((slot, index) => <b key={index}>{displayTime(slot.openTime)} – {displayTime(slot.closeTime)}</b>)

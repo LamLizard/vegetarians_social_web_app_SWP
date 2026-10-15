@@ -21,13 +21,14 @@ function unavailable(code = 'SHOP_IMAGE_UPLOAD_NOT_READY') {
 }
 
 function readConfiguration(env) {
-  const supplied = [env.CLOUDINARY_CLOUD_NAME, env.CLOUDINARY_API_KEY, env.CLOUDINARY_API_SECRET];
+  // Chỉ dùng bộ khóa Shop cho đăng ký, sửa hồ sơ và ảnh menu; không lấy cloud của chức năng khác.
+  const supplied = [env.CLOUDINARY_SHOP_CLOUD_NAME, env.CLOUDINARY_SHOP_API_KEY, env.CLOUDINARY_SHOP_API_SECRET];
   let cloudName; let apiKey; let apiSecret;
   if (supplied.some(value => value !== undefined && value !== '')) {
     [cloudName, apiKey, apiSecret] = supplied;
-  } else if (env.CLOUDINARY_URL) {
+  } else if (env.CLOUDINARY_SHOP_URL) {
     try {
-      const url = new URL(env.CLOUDINARY_URL);
+      const url = new URL(env.CLOUDINARY_SHOP_URL);
       if (url.protocol !== 'cloudinary:' || url.port || (url.pathname && url.pathname !== '/') || url.search || url.hash) throw new Error();
       cloudName = url.hostname;
       apiKey = decodeURIComponent(url.username);

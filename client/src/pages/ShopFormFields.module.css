@@ -27,13 +27,15 @@
 .comparison > div { min-width: 0; overflow-wrap: anywhere; }
 .comparison p { margin: 4px 0 0; }
 .valueLabel { display: block; color: var(--ac-muted); font-size: .8rem; margin-bottom: 6px; }
-.image { max-width: 280px; width: 100%; }
-.snapshot { overflow-wrap: anywhere; }
-.snapshotImage { width: 100%; max-width: 360px; margin-bottom: 20px; }
+.image { max-width: 180px; width: 100%; }
+.snapshot { display: grid; gap: 24px; min-width: 0; overflow-wrap: anywhere; }
+.snapshotWithImage { grid-template-columns: minmax(0, 1fr) 168px; align-items: start; }
+.snapshotImage { width: 168px; max-width: 100%; justify-self: end; }
+.snapshotSchedule { grid-column: 1 / -1; }
 .snapshot dl { display: grid; gap: 12px; margin: 0; }
 .snapshot dt { font-size: .8rem; color: var(--ac-muted); }
 .snapshot dd { margin: 2px 0 0; }
-.scheduleList { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
+.scheduleList { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .scheduleList li { display: flex; justify-content: space-between; gap: 16px; font-size: .9rem; }
 .scheduleList li > div { display: grid; gap: 4px; text-align: right; }
 .submission { display: inline-block; border-radius: 6px; padding: 5px 9px; font-size: .8rem; font-weight: 600; }
@@ -41,9 +43,12 @@
 .accepted { background: var(--ac-ok-bg); color: var(--ac-ok-fg); }
 .rejected { background: var(--ac-bad-bg); color: var(--ac-bad-fg); }
 @media (max-width: 680px) {
+  .snapshotWithImage { grid-template-columns: minmax(0, 1fr) 112px; gap: 18px; }
+  .snapshotImage { width: 112px; }
   .slot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
   .slotLabel { grid-column: 1 / -1; }
   .slot > button { grid-column: 1 / -1; justify-self: start; }
   .comparison { grid-template-columns: 1fr; }
 }
 @media (max-width: 400px) { .copyDays { grid-template-columns: 1fr; } .time { gap: 4px; } }
+@media (max-width: 400px) { .snapshotWithImage { grid-template-columns: minmax(0, 1fr) 80px; gap: 12px; } .snapshotImage { width: 80px; } }

@@ -24,6 +24,7 @@ function createShopStorage(database) {
     const { rows } = await pool.query(`
       WITH required_columns(table_name, column_name) AS (VALUES
         ('shop', 'row_version'), ('shop', 'avt_shop_url'), ('shop_dish', 'row_version'), ('notification', 'metadata'),
+        ('shop_dish', 'display_name'), ('shop_dish', 'img_url'),
         ('shop_submission', 'shop_submission_id'), ('shop_submission', 'before_value'),
         ('shop_submission', 'after_value'), ('shop_submission', 'reviewed_by'),
         ('shop_submission', 'reviewed_at'), ('shop_submission', 'review_note'),
@@ -39,7 +40,7 @@ function createShopStorage(database) {
         WHERE NOT EXISTS (SELECT 1 FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
           WHERE t.typname = 'notification_type_enum' AND e.enumlabel = label)
         UNION ALL
-        SELECT name FROM (VALUES ('uq_shop_submission_pending'), ('uq_shop_dish_shop_dish')) required_indexes(name)
+        SELECT name FROM (VALUES ('uq_shop_submission_pending'), ('uq_shop_menu_dish_name')) required_indexes(name)
         WHERE NOT EXISTS (SELECT 1 FROM pg_indexes i WHERE i.schemaname = 'public' AND i.indexname = name)
         UNION ALL
         SELECT name FROM (VALUES ('trg_shop_row_version'), ('trg_shop_dish_guard_update'),
