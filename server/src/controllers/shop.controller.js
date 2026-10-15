@@ -106,18 +106,18 @@ async function getShop(req, res) {
   }
 
   res.json({
+    // TODO(schedule): giờ lấy từ shop_schedule
     shop: {
       id: String(detail.shop.shop_id),
       name: detail.shop.name,
       address: detail.shop.address,
       phone: detail.shop.phone ?? null,
       operatingStatus: detail.shop.status,
-      openTime: detail.shop.open_time ?? null,
-      closeTime: detail.shop.close_time ?? null,
       openDays: detail.shop.open_days ?? null,
       imageUrl: detail.shop.avt_shop_url,
       dishCount: detail.shop.dish_count,
     },
+    schedule: detail.schedule ?? [],
     menu: detail.menu.map((m) => ({
       id: String(m.shop_dish_id),
       dishId: String(m.dish_id),

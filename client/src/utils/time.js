@@ -46,3 +46,30 @@ export function formatDuration(minutes) {
   if (!h) return `${r} phút`;
   return r ? `${h} giờ ${r} phút` : `${h} giờ`;
 }
+
+/* Lam's code: Quy ước ngày đồng nhất với shop_schedule và SHOP_DAY_LABELS. */
+const WEEKDAY_LABELS = ['Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật'];
+
+/** Ngày hiện tại theo quy ước DB: 1 = Thứ hai … 7 = Chủ nhật. */
+export function todayDayOfWeek(now = new Date()) {
+  const day = now.getDay();
+  return day === 0 ? 7 : day;
+}
+
+/** Lấy các ca mở cửa hôm nay; nghỉ hoặc thiếu giờ trả về "--:--". */
+export function getTodayHours(schedule = [], now = new Date()) {
+  const dayOfWeek = todayDayOfWeek(now);
+  const day = schedule.find((item) => item.dayOfWeek === dayOfWeek) || null;
+  const slots = (!day || day.isClosed ? [] : (day.slots || []))
+    .filter((slot) => slot && slot.openTime && slot.closeTime)
+    .sort((a, b) => a.openTime.localeCompare(b.openTime));
+  const hoursText = slots.length
+    ? slots.map((slot) => `${slot.openTime.slice(0, 5)} - ${slot.closeTime.slice(0, 5)}`).join(', ')
+    : '--:--';
+  return {
+    dayOfWeek,
+    dayLabel: WEEKDAY_LABELS[dayOfWeek - 1],
+    hoursText,
+    isClosed: slots.length === 0,
+  };
+}
