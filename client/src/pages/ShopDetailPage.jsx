@@ -13,7 +13,7 @@ import {
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import shopService from '../services/shop.service';
 import { formatPrice } from '../utils/format';
-import { getTodayHours } from '../utils/time';
+import { getHoursForDay, getTodayHours, todayDayOfWeek } from '../utils/time';
 import '../styles/feed-theme.css';
 import pageStyles from './ShopExplorePage.module.css';
 import styles from './ShopDetailPage.module.css';
@@ -37,6 +37,7 @@ const readCollapsed = () => {
 };
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
+const WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const useIsMobile = () => {
   const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
   const [shop, setShop] = useState(null);
   const [menu, setMenu] = useState([]);
   const [schedule, setSchedule] = useState([]);
+  const [scheduleDay, setScheduleDay] = useState(null);
   const [activeCategory, setActiveCategory] = useState('*');
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -89,6 +91,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
     setShop(null);
     setMenu([]);
     setSchedule([]);
+    setScheduleDay(null);
     setActiveCategory('*');
 
     (async () => {
@@ -138,7 +141,9 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
   const visibleGroups = activeCategory === '*'
     ? groupedMenu
     : groupedMenu.filter(([category]) => category === activeCategory);
-  const { dayLabel, hoursText } = getTodayHours(schedule);
+  const activeDay = scheduleDay ?? todayDayOfWeek();
+  const dayInfo = getHoursForDay(schedule, activeDay);
+  const { hoursText } = getTodayHours(schedule);
   const dishCount = shop?.dishCount ?? menu.length;
 
   const goTo = (url) => window.location.assign(url);
@@ -242,8 +247,10 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
                           <h3 className={styles.groupTitle}>{category}<span>{items.length} món</span></h3>
                           <ul className={styles.menuList}>
                             {items.map((item) => (
-                              <li key={item.id} className={`${styles.dishCard} ${item.isAvailable === false ? styles.unavailable : ''}`}>
-                                <Photo src={item.imageUrl} alt={item.name} ratio="1/1" shape="leaf" className={styles.dishPhoto} />
+                              <li key={item.id} className={`${styles.dishCard} ${item.isAvailable === false ? styles.unavailable : ''} ${item.imageUrl ? '' : styles.dishCardNoPhoto}`}>
+                                {item.imageUrl && (
+                                  <Photo src={item.imageUrl} alt={item.name} ratio="1/1" shape="leaf" className={styles.dishPhoto} />
+                                )}
                                 <div className={styles.dishBody}>
                                   <div className={styles.dishNameRow}>
                                     {/* Lam's code: Tên hiển thị của món tại quán (shop_dish.display_name) — chữ thường, không phải liên kết. */}
@@ -270,10 +277,30 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
                         <span className={styles.infoIcon}><i className="bi bi-geo-alt" aria-hidden="true" /></span>
                         <div><dt>Địa chỉ</dt><dd>{shop.address || 'Chưa cập nhật'}</dd></div>
                       </div>
-                      <div className={styles.infoRow}>
-                        <span className={styles.infoIcon}><i className="bi bi-clock" aria-hidden="true" /></span>
-                        <div><dt>Giờ mở cửa</dt><dd>{dayLabel}: {hoursText}</dd></div>
+                    </dl>
+                    {/* Lam's code: Lịch mở cửa — bấm từng thứ để xem giờ, mặc định thứ của hôm nay. */}
+                    <div className={styles.scheduleBlock}>
+                      <p className={styles.scheduleTitle}><i className="bi bi-calendar-week" aria-hidden="true" /> Lịch mở cửa</p>
+                      <div className={styles.scheduleDays} role="group" aria-label="Chọn thứ trong tuần">
+                        {WEEKDAY_SHORT.map((label, index) => {
+                          const day = index + 1;
+                          const isOn = day === activeDay;
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              className={`${styles.scheduleDay} ${isOn ? styles.scheduleDayOn : ''}`}
+                              aria-pressed={isOn}
+                              onClick={() => setScheduleDay(day)}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
+                      <p className={styles.scheduleHours}>{dayInfo.hoursText}</p>
+                    </div>
+                    <dl className={styles.infoList}>
                       <div className={styles.infoRow}>
                         <span className={styles.infoIcon}><i className="bi bi-telephone" aria-hidden="true" /></span>
                         <div><dt>Điện thoại</dt><dd>{shop.phone || 'Chưa cập nhật'}</dd></div>
@@ -300,7 +327,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [] }) {
                       />
                     </section>
                   )}
-                  <p className={styles.infoNote}>Giờ mở cửa hiển thị theo dữ liệu quán cập nhật — bản đồ &amp; giờ chi tiết mở qua Chỉ đường.</p>
+                  <p className={styles.infoNote}>Lịch mở cửa hiển thị theo dữ liệu quán cập nhật — bản đồ chỉ đường ở ngay bên dưới.</p>
                 </aside>
               </div>
             </>

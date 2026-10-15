@@ -16,16 +16,16 @@ export const mapsSearchUrl = (address) => `https://www.google.com/maps/search/?a
  *
  * @param {'card'|'row'} [layout='card']
  * @param {string} name · [imageUrl] · [address] · [phone]
- * @param {string} [openTime] · [closeTime]   "HH:mm" → tự tính Đang mở / Sắp đóng / Đã đóng
+ * @param {string} [openTime] · [closeTime]   "HH:mm" → tự tính giờ và nhãn Mở cửa/Đóng cửa
  * @param {Date} [now]                        giờ để tính (mặc định bây giờ; truyền vào khi test)
  * @param {string} [hoursText]                override giờ hiển thị; nếu không truyền thì dùng formatHours(openTime, closeTime)
- * @param {'open'|'closingSoon'|'closed'|null} [openState]  override trạng thái mở/đóng; không truyền = tự tính như cũ
+ * @param {'open'|'closingSoon'|'closed'|null} [openState]  open/closingSoon → "Mở cửa", closed → "Đóng cửa", null → không nhãn; không truyền = tự tính từ giờ (thiếu giờ → null)
  * @param {string} href · [linkAs]            link tới Chi tiết Shop (M-09)
  * @param {number} [dishCount]                số món trong menu
  * @param {{name: string, price?: number}} [matchedDish]  UC-08: món người dùng đang tìm mà quán có bán
  * @param {string} [status] · [showStatus] · [moderationNote]  shop.verification_status, cho chủ quán / admin
  * @param {boolean} [showDirections=true]     link "Chỉ đường" mở Google Maps theo địa chỉ
- * @param {boolean} [showOpenState=true]      false = ẩn badge Đang mở/Sắp đóng/Đã đóng (vẫn giữ dòng giờ)
+ * @param {boolean} [showOpenState=true]      false = ẩn nhãn Mở cửa/Đóng cửa (vẫn giữ dòng giờ)
  */
 export default function ShopCard({
   layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, hoursText, openState,
@@ -35,13 +35,19 @@ export default function ShopCard({
   const [Link, linkProps] = getLink(linkAs, href);
   const computedState = getOpenState(openTime, closeTime, now);
   const resolvedState = openState !== undefined ? openState : computedState;
+  const tagState = resolvedState === 'open' || resolvedState === 'closingSoon' ? 'open'
+    : resolvedState === 'closed' ? 'closed' : null;
 
   const hours = (
     <div className={styles.line}>
       <i className="bi bi-clock" aria-hidden="true" />
       <span className="visually-hidden">Giờ mở cửa: </span>
       <span className={openTime && closeTime ? styles.hours : undefined}>{hoursText ?? formatHours(openTime, closeTime)}</span>
-      {resolvedState && showOpenState && <StatusBadge entity="shopOpen" status={resolvedState} size="sm" />}
+      {tagState && showOpenState && (
+        <span className={cx(styles.openTag, tagState === 'open' ? styles.openTagOn : styles.openTagOff)}>
+          {tagState === 'open' ? 'Mở cửa' : 'Đóng cửa'}
+        </span>
+      )}
     </div>
   );
   const addr = address && (

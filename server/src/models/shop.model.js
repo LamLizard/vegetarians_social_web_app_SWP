@@ -108,7 +108,7 @@ async function findShopDetail(shopId) {
 
   const menuResult = await pool.query(`
     SELECT sd.shop_dish_id, sd.dish_id, COALESCE(sd.display_name, d.name) AS name, sd.price,
-           sd.ingredient_note, sd.is_available, sd.dish_category, d.thumbnail_url
+           sd.ingredient_note, sd.is_available, sd.dish_category, sd.img_url
     FROM shop_dish sd
     JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
     WHERE sd.shop_id = $1

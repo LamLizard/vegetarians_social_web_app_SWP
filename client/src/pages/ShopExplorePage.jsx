@@ -158,7 +158,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
 
           {status === 'loading' && (
             <div className={styles.list} aria-busy="true">
-              {Array.from({ length: 6 }).map((_, idx) => <SkeletonCard key={idx} />)}
+              {Array.from({ length: 9 }).map((_, idx) => <SkeletonCard key={idx} />)}
             </div>
           )}
 
@@ -186,7 +186,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
             <div className={styles.list}>
               {items.map((shop) => {
                 const today = getTodayHours(shop.schedule ?? [], now);
-                const openState = today.slots?.length ? (today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots, now)) : null;
+                const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
                 return (
                   <div key={shop.id} className={styles.shopEntry}>
                     {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}

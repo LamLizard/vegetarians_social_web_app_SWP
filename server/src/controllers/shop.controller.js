@@ -1,6 +1,6 @@
 const shopModel = require('../models/shop.model');
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 9;
 
 class ShopError extends Error {
   constructor(status, message) {
@@ -111,7 +111,7 @@ async function getShop(req, res) {
       name: m.name,
       price: m.price,
       ingredientNote: m.ingredient_note ?? null,
-      imageUrl: m.thumbnail_url ?? null,
+      imageUrl: m.img_url ?? null,
       isAvailable: m.is_available,
       category: m.dish_category ?? null,
     })),

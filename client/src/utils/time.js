@@ -56,9 +56,8 @@ export function todayDayOfWeek(now = new Date()) {
   return day === 0 ? 7 : day;
 }
 
-/** Lấy các ca mở cửa hôm nay; nghỉ hoặc thiếu giờ trả về "--:--". */
-export function getTodayHours(schedule = [], now = new Date()) {
-  const dayOfWeek = todayDayOfWeek(now);
+/** Giờ mở cửa của một thứ bất kỳ (1 = Thứ hai … 7 = Chủ nhật). Nghỉ/thiếu → "--:--". */
+export function getHoursForDay(schedule = [], dayOfWeek) {
   const day = schedule.find((item) => item.dayOfWeek === dayOfWeek) || null;
   const slots = (!day || day.isClosed ? [] : (day.slots || []))
     .filter((slot) => slot && slot.openTime && slot.closeTime)
@@ -73,6 +72,11 @@ export function getTodayHours(schedule = [], now = new Date()) {
     isClosed: slots.length === 0,
     slots,
   };
+}
+
+/** Lấy các ca mở cửa hôm nay; nghỉ hoặc thiếu giờ trả về "--:--". */
+export function getTodayHours(schedule = [], now = new Date()) {
+  return getHoursForDay(schedule, todayDayOfWeek(now));
 }
 
 /**
