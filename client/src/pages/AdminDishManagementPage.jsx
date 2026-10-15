@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminLayout, Button, EmptyState, Notice, PageHeader, Panel, Photo, SearchInput, Spinner } from '../components';
+import { AdminLayout, Button, EmptyState, ErrorDialog, PageHeader, Panel, Photo, SearchInput, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import { getAdminDishes } from '../services/dish.service';
 import styles from './AdminDishManagementPage.module.css';
@@ -116,7 +116,8 @@ export default function AdminDishManagementPage() {
           description="Các món được gom theo danh mục chung. Chọn một nhóm để xem từng món và công thức đã duyệt."
           actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>}
         />
-        {error && <Notice tone="alert" title="Không tải được danh mục món ăn" action={{ label: 'Thử lại', onClick: load }}>{error}</Notice>}
+        {/* Duy's Code: Giữ thao tác tải lại trong hộp thoại lỗi cấp trang. */}
+        <ErrorDialog error={error} title="Không tải được danh mục món ăn" onRetry={load} />
         <div className={styles.toolbar}>
           <SearchInput value={query} onChange={setQuery} placeholder="Tìm danh mục hoặc công thức" label="Tìm món ăn" />
           <span>{groups.length} nhóm · {groups.reduce((total, group) => total + group.dishes.length, 0)} món</span>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AdminLayout, Button, ConfirmDialog, EmptyState, Notice, PageHeader, Panel, Spinner } from '../components';
+import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, PageHeader, Panel, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import { decideIngredientProposal, getPendingIngredientProposals } from '../services/ingredientProposal.service';
 
@@ -120,7 +120,8 @@ export default function AdminIngredientVerifyPage() {
         description="Dị ứng trong hồ sơ sức khỏe cần được phân loại đầy đủ; đề xuất từ công thức được xử lý riêng theo mức độ phù hợp."
         actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>}
       />
-      {error && <Notice tone="alert" title="Không thể tải hoặc xử lý đề xuất" className="mt-3">{error}</Notice>}
+      {/* Duy's Code: Báo lỗi duyệt nguyên liệu bằng hộp thoại nổi. */}
+      <ErrorDialog error={error} title="Không thể tải hoặc xử lý đề xuất" />
       {loading ? <div className="py-5 text-center"><Spinner label="Đang tải nguyên liệu chờ duyệt…" showLabel /></div>
         : <div className="d-grid gap-4 mt-3">
           <section aria-labelledby="mandatory-ingredients-title">
