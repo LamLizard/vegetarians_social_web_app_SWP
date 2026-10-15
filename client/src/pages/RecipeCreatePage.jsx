@@ -402,7 +402,9 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
         <PageHeader
           breadcrumb={[{ label: 'Tài khoản' }, { label: 'Công thức đã gửi' }, { label: 'Sửa' }]}
           title="Sửa công thức"
-          description="Sửa theo góp ý rồi gửi lại. Bản gửi lại thay cho bản cũ và quay về trạng thái Chờ duyệt."
+          description={editing.status === 'approved'
+            ? 'Bản sửa thay cho bản cũ và phải chờ Admin duyệt lại. Trong lúc chờ, công thức tạm ẩn với mọi người.'
+            : 'Sửa theo góp ý rồi gửi lại. Bản gửi lại thay cho bản cũ và quay về trạng thái Chờ duyệt.'}
         />
       ) : (
         <>
@@ -629,7 +631,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                     ? `Cần ${[youtubeBad && 'sửa link YouTube', nutritionBad && 'sửa chỉ số dinh dưỡng'].filter(Boolean).join(' và ')} ở khối Thông tin.`
                     : ingWithAmount >= 1 && ing.hasError ? 'Có dòng nguyên liệu bị lỗi, sửa rồi gửi nhé.' : 'Bấm vào mục chưa xong để tới đúng chỗ.')
                   : editing && !dirty
-                    ? 'Bạn chưa thay đổi gì. Sửa theo lý do từ chối rồi gửi lại.'
+                    ? (editing.status === 'approved' ? 'Bạn chưa thay đổi gì.' : 'Bạn chưa thay đổi gì. Sửa theo lý do từ chối rồi gửi lại.')
                     : 'Sẵn sàng. Sau khi gửi, công thức chờ Admin duyệt rồi mới công khai.'}
               </p>
             </section>
@@ -685,7 +687,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   <div className={s.sentBody}>
                     <div className={s.sentTop}>
                       <h3 className={s.sentTitle}>
-                        {r.status === 'approved' ? <a href={`/recipes/${r.id}`} className={s.sentLink}>{r.title}</a> : r.title}
+                        {/* Khoi's code: tạm ẩn link sang /recipes/:id — hiện lại khi làm xong trang công thức */}
+                        {r.title}
                       </h3>
                       <StatusBadge entity="recipe" status={r.status} size="sm" />
                     </div>
@@ -704,9 +707,11 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                         {r.status === 'pending' && r.proposedIngredientCount ? ` (${r.proposedIngredientCount} chờ duyệt)` : ''}
                       </span>
                     </p>
+                    {/* Khoi's code: tạm ẩn "Xem công thức" — hiện lại khi làm xong trang công thức.
+                        Công thức đã duyệt sửa được, gửi lại thì quay về Chờ duyệt. */}
                     {r.status === 'approved' && (
                       <div className={s.sentActs}>
-                        <Button as="a" href={`/recipes/${r.id}`} variant="outline" icon="eye">Xem công thức</Button>
+                        <Button variant="outline" icon="pencil" loading={opening === r.id} disabled={!!opening} onClick={() => startEdit(r)}>Sửa công thức</Button>
                       </div>
                     )}
                     {r.status === 'rejected' && (
@@ -728,7 +733,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
       <ConfirmDialog
         open={confirmLeave}
         title="Bỏ các thay đổi?"
-        message="Những gì bạn vừa sửa sẽ mất. Công thức vẫn giữ trạng thái Bị từ chối."
+        message="Những gì bạn vừa sửa sẽ mất. Công thức vẫn giữ nguyên như trước."
         confirmLabel="Bỏ thay đổi"
         cancelLabel="Sửa tiếp"
         onConfirm={exitEdit}

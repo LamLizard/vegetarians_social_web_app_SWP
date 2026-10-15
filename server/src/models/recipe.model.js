@@ -480,7 +480,7 @@ async function createRecipe(authorId, input) {
 }
 
 /**
- * Khoi's code: "Sửa và gửi lại" — chỉ TÁC GIẢ, chỉ công thức đang 'rejected'.
+ * Khoi's code: "Sửa và gửi lại" — chỉ TÁC GIẢ, công thức đang 'rejected' hoặc 'approved'.
  * Cập nhật CÙNG recipe_id: thay toàn bộ nội dung + nguyên liệu, status về 'pending', xoá lý do từ chối cũ.
  * Lịch sử từ chối lần trước vẫn còn ở admin_log (Admin ghi lúc từ chối).
  * @returns {Promise<{ recipe: object, ingredients: object[] }>}
@@ -493,8 +493,9 @@ async function resubmitRecipe(authorId, recipeId, input) {
       [recipeId, authorId],
     );
     if (!before) throw new RecipeError(404, 'Không tìm thấy công thức của bạn.');
-    if (before.status !== 'rejected') {
-      throw new RecipeError(409, 'Chỉ sửa và gửi lại được công thức bị từ chối. Hãy tải lại danh sách.');
+    // Khoi's code (15/10/2026): công thức đã duyệt cũng sửa được → về Chờ duyệt, Admin duyệt lại
+    if (before.status !== 'rejected' && before.status !== 'approved') {
+      throw new RecipeError(409, 'Chỉ sửa được công thức đã duyệt hoặc bị từ chối. Hãy tải lại danh sách.');
     }
 
     const dishName = await resolveDish(client, input);
