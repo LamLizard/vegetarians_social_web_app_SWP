@@ -19,6 +19,7 @@ import { useToast } from '../components/Toast/Toast';
 import { cleanIngredients, newIngredientRow, validateIngredients } from '../utils/ingredient';
 import { timeAgo } from '../utils/format';
 import { getYouTubeId } from '../utils/validate';
+import useYouTubeCheck, { youTubeCheckText } from '../hooks/useYouTubeCheck';
 import { findAnimalWord } from '../utils/animalWords';
 import DishPicker from '../components/DishPicker/DishPicker';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
@@ -240,7 +241,11 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const ingWithAmount = form.ingredients.filter((r) => r.name.trim() && r.amount > 0).length;
   const stepCount = form.steps.filter((x) => x.trim()).length;
   // Khoi's code: 2 trường tuỳ chọn có kiểm tra — bỏ trống thì không sao, gõ sai thì chặn gửi
-  const youtubeBad = !!form.youtube.trim() && !getYouTubeId(form.youtube);
+  const youtubeFormatBad = !!form.youtube.trim() && !getYouTubeId(form.youtube);
+  // Khoi's code: hỏi YouTube video có cho phát trên trang khác không (chủ kênh tắt nhúng / đã xoá → chặn gửi)
+  const ytCheck = useYouTubeCheck(form.youtube);
+  const ytText = youTubeCheckText(ytCheck);
+  const youtubeBad = youtubeFormatBad || ytCheck.rejected;
   const calories = toCalories(form.calories);
   const caloriesBad = Number.isNaN(calories);
   // Khoi's code: dinh dưỡng tuỳ chọn — bỏ trống được, gõ sai (âm, chữ, quá lớn) thì chặn gửi
@@ -480,8 +485,10 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 onBlur={() => setTouched((t) => ({ ...t, youtube: true }))}
                 maxLength={500}
                 placeholder="https://youtu.be/…"
-                hint="Không bắt buộc. Dán link video YouTube nếu bạn có quay lại cách nấu."
-                error={(touched.youtube || form.youtube.length > 20) && youtubeBad ? 'Link YouTube không hợp lệ. Dán link dạng youtube.com/watch?v=… hoặc youtu.be/…' : undefined}
+                hint={ytText.hint || 'Không bắt buộc. Dán link video YouTube nếu bạn có quay lại cách nấu.'}
+                error={(touched.youtube || form.youtube.length > 20) && youtubeFormatBad
+                  ? 'Link YouTube không hợp lệ. Dán link dạng youtube.com/watch?v=… hoặc youtu.be/…'
+                  : ytText.error}
               />
               <div id="rc-meta" className={`${s.row3} ${s.anchor}`}>
                 <NumberStepper

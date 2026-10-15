@@ -17,6 +17,7 @@ import TextArea from '../TextArea/TextArea';
 import TextField from '../TextField/TextField';
 import YouTubeEmbed from '../YouTubeEmbed/YouTubeEmbed';
 import { rules, validate, hasErrors, getYouTubeId } from '../../utils/validate';
+import useYouTubeCheck, { youTubeCheckText } from '../../hooks/useYouTubeCheck'; // Khoi's code: video có phát được không
 import styles from './CreatePostModal.module.css';
 
 const MAX_TITLE = 255; // = VARCHAR(255) của post.title
@@ -47,6 +48,9 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
 
   const isVideo = form.postType === 'video';
   const videoId = isVideo ? getYouTubeId(form.youtubeUrl) : null;
+  // Khoi's code: hỏi YouTube video có cho phát trên trang khác không — không cho thì khoá nút Đăng, ẩn khung xem trước
+  const ytCheck = useYouTubeCheck(isVideo ? form.youtubeUrl : '');
+  const ytText = youTubeCheckText(ytCheck);
 
   const set = (key) => (v) => {
     setForm((f) => ({ ...f, [key]: v }));
@@ -97,6 +101,7 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
       youtubeUrl: isVideo ? [rules.required('Dán link video YouTube'), rules.youtubeUrl()] : [],
       categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 tag để mọi người dễ tìm')],
     });
+    if (!errs.youtubeUrl && isVideo && ytCheck.rejected) errs.youtubeUrl = ytCheck.message;
     setErrors(errs);
     if (hasErrors(errs)) return;
 
@@ -136,7 +141,7 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
       footer={(
         <>
           <Button variant="subtle" onClick={onClose} disabled={sending}>Để sau</Button>
-          <Button type="submit" form={formId} icon="send" loading={sending} disabled={uploading > 0}>
+          <Button type="submit" form={formId} icon="send" loading={sending} disabled={uploading > 0 || (isVideo && ytCheck.rejected)}>
             {uploading > 0 ? 'Đang tải ảnh…' : 'Đăng bài'}
           </Button>
         </>
@@ -172,13 +177,13 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
               icon="youtube"
               value={form.youtubeUrl}
               onChange={set('youtubeUrl')}
-              error={errors.youtubeUrl}
-              hint="Dán link dạng youtube.com/watch?v=… hoặc youtu.be/…"
+              error={errors.youtubeUrl || ytText.error}
+              hint={ytText.hint || 'Dán link dạng youtube.com/watch?v=… hoặc youtu.be/…'}
               placeholder="https://www.youtube.com/watch?v=..."
               required
               disabled={sending}
             />
-            {videoId && <YouTubeEmbed videoId={videoId} title={form.title || 'Xem trước video'} />}
+            {videoId && !ytCheck.rejected && <YouTubeEmbed videoId={videoId} title={form.title || 'Xem trước video'} />}
           </>
         )}
 

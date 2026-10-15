@@ -13,6 +13,8 @@
 //   POST /posts  { postType, title, content, youtubeUrl?, thumbnailUrl?, categoryIds[] } → { message, post: { id, status: 'pending' } }   (Khôi · Sprint 2)
 //   GET  /categories                     → { items: [{ id, name }] }      tag đang bật                    (Khôi · Sprint 2)
 //   POST /uploads/image   form-data "image" → { url }                     ảnh bìa lên Cloudinary          (Khôi · Sprint 2)
+//   POST /posts/youtube-check  { url } → { status: ok|invalid|blocked|missing|unknown, title?, author?, message? }
+//                                        video có phát được trên trang khác không                       (Khôi · 15/10)
 //   Lỗi: { message } — 400 dữ liệu sai · 401 chưa đăng nhập · 404 bài đã gỡ · 409 báo cáo trùng · 422 từ khoá cấm
 //
 // Post    = { id, type, title, content, thumbnailUrl, youtubeUrl, status, voteCount, commentCount,
@@ -45,6 +47,10 @@ const real = {
   // Khoi's code: Đăng bài (Sprint 2)
   createPost: (data) => apiFetch('/posts', { method: 'POST', body: JSON.stringify(data) }),
   getCategories: () => apiFetch('/categories'),
+  // Khoi's code: video YouTube có phát được trên trang mình không (hooks/useYouTubeCheck.js)
+  checkYouTube: (url, { signal } = {}) => apiFetch('/posts/youtube-check', {
+    method: 'POST', body: JSON.stringify({ url }), signal,
+  }),
   /** Dùng làm onUpload của ImageUpload: tải 1 ảnh, trả về link Cloudinary */
   uploadImage: async (file, { onProgress, signal } = {}) => {
     const body = new FormData();
@@ -188,6 +194,10 @@ Object.assign(mock, {
     };
     posts.push(post);
     return { message: 'Bài viết đã được gửi và đang chờ duyệt.', post: { id: post.id, status: post.status } };
+  },
+  async checkYouTube() {
+    await wait();
+    return { status: 'ok', title: 'Video thử', author: 'Kênh thử' };
   },
   async getCategories() {
     await wait();
