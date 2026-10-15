@@ -50,8 +50,6 @@ async function findVerifiedShops({ q = null, categoryId = null, page = 1, pageSi
 async function findShopDetail(shopId) {
   const shopResult = await pool.query(`
     SELECT s.shop_id, s.name, s.address, s.phone, s.status,
-           to_char(s.open_time,  'HH24:MI') AS open_time,
-           to_char(s.close_time, 'HH24:MI') AS close_time,
            s.open_days, s.avt_shop_url,
            (SELECT count(*) FROM shop_dish sd
               JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
@@ -74,9 +72,44 @@ async function findShopDetail(shopId) {
     ORDER BY sd.dish_category NULLS LAST, sd.is_available DESC, d.name
   `, [shopId]);
 
+  /* Lam's code: Lịch công khai đọc độc lập; dữ liệu thiếu hoặc lỗi không chặn trang chi tiết. */
+  let schedule = [];
+  try {
+    const scheduleResult = await pool.query(`
+      SELECT day_of_week AS "dayOfWeek", slot_no AS "slotNo", is_closed AS "isClosed",
+             to_char(open_time,  'HH24:MI') AS "openTime",
+             to_char(close_time, 'HH24:MI') AS "closeTime"
+      FROM shop_schedule WHERE shop_id = $1 ORDER BY day_of_week, slot_no
+    `, [shopId]);
+    const days = new Map();
+    for (const row of scheduleResult.rows) {
+      const dayOfWeek = Number(row.dayOfWeek);
+      if (!Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) continue;
+      if (!days.has(dayOfWeek)) {
+        days.set(dayOfWeek, { dayOfWeek, isClosed: false, slots: [] });
+      }
+      const day = days.get(dayOfWeek);
+      if (row.isClosed) {
+        day.isClosed = true;
+        day.slots = [];
+      } else if (!day.isClosed && row.openTime && row.closeTime) {
+        day.slots.push({ openTime: row.openTime, closeTime: row.closeTime });
+      }
+    }
+    schedule = [...days.values()]
+      .map((day) => ({
+        ...day,
+        slots: day.slots.sort((a, b) => a.openTime.localeCompare(b.openTime)),
+      }))
+      .sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+  } catch {
+    schedule = [];
+  }
+
   return {
     shop: shopResult.rows[0],
     menu: menuResult.rows,
+    schedule,
   };
 }
 
