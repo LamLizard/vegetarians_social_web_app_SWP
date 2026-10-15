@@ -10,7 +10,7 @@ export default function ShopOperationNotice({ message, onDismiss }) {
   useEffect(() => {
     setFading(false);
     if (!message) return;
-    const duration = message.tone === 'alert' ? 6000 : 4000;
+    const duration = message.tone === 'alert' ? 6000 : 3000;
     const remaining = duration - Math.max(0, Date.now() - (message.createdAt || Date.now()));
     const fadeTimer = window.setTimeout(() => setFading(true), Math.max(0, remaining));
     const closeTimer = window.setTimeout(() => dismiss.current?.(), Math.max(0, remaining + 350));

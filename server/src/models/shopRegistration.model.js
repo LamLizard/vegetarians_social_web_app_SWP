@@ -27,8 +27,16 @@ function createShopRegistrationModel(database, dependencies = {}) {
       const shop = await storage.ownedShop(client, actor, { allowMissing: true });
       const context = await storage.view(client, shop);
       let reviewNotification = null;
-      const latest = context.latestSubmission;
-      if (shop && !context.pendingSubmission && latest && ['accepted', 'rejected'].includes(latest.status)
+      let latest = context.latestSubmission;
+      // Lý do từ chối chưa ẩn tiếp tục hiện khi owner đang gửi vòng mới; kết quả mới thay thế nó.
+      if (shop && latest?.status === 'pending') {
+        const terminal = await client.query(`SELECT shop_submission_id::text AS "submissionId",
+          submission_type AS "submissionType", status FROM shop_submission
+          WHERE shop_id = $1 AND status IN ('accepted', 'rejected')
+          ORDER BY reviewed_at DESC, shop_submission_id DESC LIMIT 1`, [shop.shopId]);
+        if (terminal.rows[0]?.status === 'rejected') latest = terminal.rows[0];
+      }
+      if (shop && latest && ['accepted', 'rejected'].includes(latest.status)
         && ['registration', 'resubmission', 'identity_edit'].includes(latest.submissionType)) {
         const notices = await client.query(`SELECT n.notification_id::text AS "notificationId",
           ss.shop_submission_id::text AS "submissionId", ss.submission_type AS "submissionType",
@@ -53,15 +61,22 @@ function createShopRegistrationModel(database, dependencies = {}) {
     const accountId = requireActor(actor, 'member');
     const id = parseId(rawId, 'notificationId');
     return storage.transaction(async client => {
-      const result = await client.query(`UPDATE notification n SET metadata =
-        CASE WHEN NULLIF(n.metadata->>'popupSeenAt', '') IS NOT NULL THEN n.metadata
-          ELSE jsonb_set(COALESCE(n.metadata, '{}'::jsonb), '{popupSeenAt}', to_jsonb(now()), true) END
-        FROM shop_submission ss JOIN shop s ON s.shop_id = ss.shop_id
+      const matched = await client.query(`SELECT n.notification_id::text AS "notificationId",
+        NULLIF(n.metadata->>'popupSeenAt', '') AS "popupSeenAt"
+        FROM notification n JOIN shop_submission ss ON ss.shop_id = n.ref_id
+        JOIN shop s ON s.shop_id = ss.shop_id
         WHERE n.notification_id = $2 AND ${REVIEW_NOTIFICATION_MATCH}
-        RETURNING n.notification_id::text AS "notificationId", n.metadata->>'popupSeenAt' AS "popupSeenAt"`,
+        FOR UPDATE OF n`,
       [accountId, id]);
-      if (!result.rows[0]) throw new ShopError(404, 'SHOP_REVIEW_NOTIFICATION_NOT_FOUND', 'Không tìm thấy thông báo kết quả hồ sơ quán.');
-      return result.rows[0];
+      const notice = matched.rows[0];
+      if (!notice) throw new ShopError(404, 'SHOP_REVIEW_NOTIFICATION_NOT_FOUND', 'Không tìm thấy thông báo kết quả hồ sơ quán.');
+      if (notice.popupSeenAt) return { ...notice, newlySeen: false };
+      const result = await client.query(`UPDATE notification SET metadata =
+        jsonb_set(COALESCE(metadata, '{}'::jsonb), '{popupSeenAt}', to_jsonb(now()), true)
+        WHERE notification_id = $2 AND account_id = $1
+        RETURNING notification_id::text AS "notificationId", metadata->>'popupSeenAt' AS "popupSeenAt"`,
+      [accountId, id]);
+      return { ...result.rows[0], newlySeen: true };
     });
   }
 

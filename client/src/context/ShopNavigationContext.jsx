@@ -1,8 +1,7 @@
 // Tùng — Sprint 2: BRIDGE-02A dùng cùng trạng thái Shop cho navbar và hai trang owner.
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import useAuth from '../hooks/useAuth';
 import shopRegistrationService from '../services/shopRegistration.service';
-import ShopReviewPopup from '../pages/ShopReviewPopup';
 
 const ShopNavigationContext = createContext(null);
 const emptyState = { accountId: null, data: null, error: null, loading: false, refreshError: null, refreshOutcome: null };
@@ -14,6 +13,10 @@ export function ShopNavigationProvider({ children }) {
   const [state, setState] = useState(emptyState);
   const [revision, setRevision] = useState({ id: 0, manual: false, accountId: null });
   const request = useRef(null);
+  const receiptScope = useRef(null);
+  useEffect(() => {
+    receiptScope.current = { accountId, notificationId: state.accountId === accountId ? state.data?.reviewNotification?.notificationId : null };
+  }, [accountId, state.accountId, state.data?.reviewNotification?.notificationId]);
   // Tùng — BRIDGE-15: tải thủ công có phản hồi riêng; refresh nền không tạo thông báo.
   const reload = useCallback(options => {
     if (options?.manual && request.current) return;
@@ -73,23 +76,28 @@ export function ShopNavigationProvider({ children }) {
   const adopt = useCallback(data => {
     if (!data || !Object.hasOwn(data, 'shop')) { reload(); return; }
     request.current?.abort();
-    setState({ accountId, data, error: null, loading: false, refreshError: null, refreshOutcome: null });
+    setState(previous => {
+      const review = previous.accountId === accountId ? previous.data?.reviewNotification : null;
+      const keepRejection = !Object.hasOwn(data, 'reviewNotification') && review?.status === 'rejected' && !review.popupSeenAt
+        && previous.data?.shop?.shopId === data.shop?.shopId
+        && (data.latestSubmission?.status === 'pending' || data.latestSubmission?.submissionId === review.submissionId);
+      return { accountId, data: keepRejection ? { ...data, reviewNotification: review } : data,
+        error: null, loading: false, refreshError: null, refreshOutcome: null };
+    });
   }, [accountId, reload]);
-  const current = member && state.accountId === accountId ? state : null;
-  const resource = { data: current?.data || null, error: current?.error || null,
-    loading: member && (!current || (current.loading && !current.data)),
-    refreshing: Boolean(current?.data && current.loading), refreshError: current?.refreshError || null,
-    refreshOutcome: current?.refreshOutcome || null, clearRefreshFeedback, reload, adopt };
-  const review = current?.data?.reviewNotification;
-  const showReview = member && review && !review.popupSeenAt && ['registration', 'resubmission'].includes(review.submissionType)
-    && ['accepted', 'rejected'].includes(review.status);
-  const onReviewSeen = result => {
+  const adoptReviewReceipt = useCallback(result => {
+    if (receiptScope.current?.accountId !== accountId || receiptScope.current.notificationId !== result.notificationId) return;
     request.current?.abort();
     setState(previous => {
       if (previous.accountId !== accountId || previous.data?.reviewNotification?.notificationId !== result.notificationId) return previous;
       return { ...previous, loading: false, data: { ...previous.data, reviewNotification: { ...previous.data.reviewNotification, popupSeenAt: result.popupSeenAt } } };
     });
-  };
+  }, [accountId]);
+  const current = member && state.accountId === accountId ? state : null;
+  const resource = { data: current?.data || null, error: current?.error || null,
+    loading: member && (!current || (current.loading && !current.data)),
+    refreshing: Boolean(current?.data && current.loading), refreshError: current?.refreshError || null,
+    refreshOutcome: current?.refreshOutcome || null, clearRefreshFeedback, reload, adopt, adoptReviewReceipt };
 
   // Tùng — Sprint 2: có bản ghi Shop là Hồ sơ quán, độc lập pending/rejected/verified.
   let shopAction;
@@ -104,16 +112,16 @@ export function ShopNavigationProvider({ children }) {
     }
   }
 
-  // Tùng — Sprint 2: giữ entry hồ sơ của Duy và đăng xuất của Khôi trong cùng menu Member.
-  const accountMenu = useMemo(() => user ? [
+  // Tùng — BRIDGE-16: một menu tài khoản chung, gồm Shop action theo context hiện hành.
+  const accountMenu = user ? [
+    ...(shopAction ? [{ ...shopAction, onClick: shopAction.href ? () => window.location.assign(shopAction.href) : shopAction.onClick }] : []),
     ...(user.role !== 'admin' ? [{ icon: 'journal-plus', label: 'Tạo công thức', onClick: () => window.location.assign('/recipes/new') }] : []),
     ...(user.role !== 'admin' ? [{ icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => window.location.assign('/profile') }] : []),
     { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
-  ] : [], [user, logout]);
+  ] : [];
 
   return <ShopNavigationContext.Provider value={{ member, isCheckingSession, resource, shopAction, accountMenu }}>
     {children}
-    {showReview && <ShopReviewPopup key={`${accountId}:${review.notificationId}`} notification={review} onSeen={onReviewSeen} />}
   </ShopNavigationContext.Provider>;
 }
 

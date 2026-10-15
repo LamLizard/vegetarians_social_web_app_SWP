@@ -7,6 +7,7 @@ import AdminLayout from '../components/AdminLayout/AdminLayout';
 import Button from '../components/Button/Button';
 import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
 import DataTable from '../components/DataTable/DataTable';
+import IconButton from '../components/IconButton/IconButton';
 import Modal from '../components/Modal/Modal';
 import Notice from '../components/Notice/Notice';
 import PageHeader from '../components/PageHeader/PageHeader';
@@ -17,7 +18,7 @@ import Select from '../components/Select/Select';
 import StatusBadge from '../components/StatusBadge/StatusBadge';
 import Tabs from '../components/Tabs/Tabs';
 import ShopOperationNotice from './ShopOperationNotice';
-import { ShopIdentityComparison, ShopSnapshot, ShopSubmissionStatus, ShopOperatingStatus, SUBMISSION_LABELS, SHOP_OPERATING_LABELS, shopDate } from './ShopFormFields';
+import { ShopIdentityComparison, ShopSnapshot, ShopSubmissionStatus, SUBMISSION_LABELS, SHOP_OPERATING_LABELS, shopDate } from './ShopFormFields';
 import styles from './ShopVerifyPage.module.css';
 
 const LIST_TABS = [{ key: 'queue', label: 'Hồ sơ chờ duyệt' }, { key: 'shops', label: 'Tất cả quán' }];
@@ -26,6 +27,16 @@ const EVENT_LABELS = { submitted: 'Nộp hồ sơ', accepted: 'Duyệt hồ sơ'
 const OPERATING_OPTIONS = [{ value: '', label: 'Tất cả trạng thái' }, ...Object.entries(SHOP_OPERATING_LABELS).map(([value, label]) => ({ value, label }))];
 const SUBMISSION_OPTIONS = [{ value: '', label: 'Tất cả loại hồ sơ' }, ...Object.entries(SUBMISSION_LABELS).map(([value, label]) => ({ value, label }))];
 const VERIFICATION_OPTIONS = [{ value: '', label: 'Tất cả trạng thái' }, { value: 'pending', label: 'Chờ xác minh' }, { value: 'verified', label: 'Đã xác minh' }, { value: 'rejected', label: 'Bị từ chối' }];
+
+function ShopName({ name, status, disabled, onToggle }) {
+  const locked = status === 'inactive';
+  return <span className={styles.shopNameCell}>
+    <IconButton size="sm" icon={locked ? 'lock-fill' : 'unlock-fill'}
+      label={`${locked ? 'Mở khóa' : 'Khóa'} quán “${name}”`} disabled={disabled} onClick={onToggle}
+      className={locked ? styles.lockedIcon : styles.activeIcon} />
+    <span>{name}</span>
+  </span>;
+}
 
 function HistoryPanel({ resource, onPageChange }) {
   if (resource.loading || (!resource.data && !resource.error)) return <Spinner showLabel />;
@@ -97,19 +108,32 @@ export default function ShopVerifyPage() {
   };
   const reloadLists = () => { queue.reload(); shops.reload(); };
   const refreshDetail = () => { detail.reload(); history.reload(); reloadLists(); };
+  const openOperatingDecision = async targetId => {
+    if (!admin || inFlight.current) return;
+    inFlight.current = true; setSaving(true); setFailure(null); setMessage(null);
+    try {
+      const result = await shopVerificationService.shopDetail(targetId);
+      if (alive.current) setDecision({ kind: 'status', id: result.shop.shopId, name: result.shop.name,
+        version: result.shop.version, status: result.shop.status === 'inactive' ? 'active' : 'inactive' });
+    } catch (error) {
+      if (alive.current) setFailure(error);
+    } finally {
+      inFlight.current = false;
+      if (alive.current) setSaving(false);
+    }
+  };
   const confirm = async reason => {
-    if (!decision || inFlight.current || !detailMatches) return;
-    if (decision.kind === 'review' && (!canDecide || decision.id !== submission.submissionId)) return;
-    if (decision.kind === 'status' && (decision.id !== shop.shopId || decision.version !== shop.version)) return;
+    if (!decision || inFlight.current || !admin) return;
+    if (decision.kind === 'review' && (!detailMatches || !canDecide || decision.id !== submission.submissionId)) return;
     inFlight.current = true; setSaving(true); setFailure(null);
     try {
       const result = decision.kind === 'review'
         ? await shopVerificationService.decide(decision.id, decision.action, reason)
         : await shopVerificationService.setStatus(decision.id, decision.status, decision.version, reason);
       if (alive.current) {
-        setMessage({ createdAt: Date.now(), tone: decision.kind === 'review' ? decision.action === 'reject' ? 'alert' : 'success'
+        setMessage({ createdAt: Date.now(), tone: decision.kind === 'review' ? 'success'
           : result.unchanged ? 'info' : decision.status === 'inactive' ? 'alert' : 'success',
-          text: decision.kind === 'review' ? decision.action === 'reject' ? 'Đã từ chối hồ sơ và gửi lý do cho chủ quán.' : 'Đã duyệt hồ sơ và gửi thông báo cho chủ quán.'
+          text: decision.kind === 'review' ? decision.action === 'reject' ? 'Đã từ chối hồ sơ thành công và gửi lý do cho chủ quán.' : 'Đã duyệt hồ sơ thành công và gửi thông báo cho chủ quán.'
             : result.unchanged ? 'Trạng thái quán không thay đổi.' : decision.status === 'inactive' ? 'Đã khóa quán và lưu lý do cho chủ quán.' : 'Đã mở khóa quán.' });
         setDecision(null); refreshDetail();
       }
@@ -121,18 +145,18 @@ export default function ShopVerifyPage() {
     } finally { inFlight.current = false; if (alive.current) setSaving(false); }
   };
   const queueColumns = [
-    { key: 'shopName', header: 'Quán', primary: true },
+    { key: 'shopName', header: 'Quán', primary: true, render: row => <ShopName name={row.shopName} status={row.shopStatus}
+      disabled={saving} onToggle={() => openOperatingDecision(row.shopId)} /> },
     { key: 'submissionType', header: 'Loại hồ sơ', render: row => SUBMISSION_LABELS[row.submissionType] },
-    { key: 'shopStatus', header: 'Hoạt động', render: row => <ShopOperatingStatus status={row.shopStatus} /> },
     { key: 'ownerName', header: 'Chủ quán', render: row => row.ownerName || row.ownerEmail },
     { key: 'submittedAt', header: 'Ngày gửi', render: row => shopDate(row.submittedAt) },
     { key: 'actions', header: 'Chi tiết', align: 'right', render: row => <Button size="sm" variant="outline" disabled={saving} onClick={() => openDetail('submission', row.submissionId)}>Xem hồ sơ</Button> },
   ];
   const shopColumns = [
-    { key: 'name', header: 'Quán', primary: true },
+    { key: 'name', header: 'Quán', primary: true, render: row => <ShopName name={row.name} status={row.status}
+      disabled={saving} onToggle={() => openOperatingDecision(row.shopId)} /> },
     { key: 'ownerName', header: 'Chủ quán', render: row => row.ownerName || row.ownerEmail },
     { key: 'verificationStatus', header: 'Xác minh', render: row => <StatusBadge entity="shop" status={row.verificationStatus} /> },
-    { key: 'status', header: 'Hoạt động', render: row => <ShopOperatingStatus status={row.status} /> },
     { key: 'actions', header: 'Chi tiết', align: 'right', render: row => <Button size="sm" variant="outline" disabled={saving} onClick={() => openDetail('shop', row.shopId)}>Xem quán</Button> },
   ];
   const reviewDecision = decision?.kind === 'review';
@@ -165,22 +189,20 @@ export default function ShopVerifyPage() {
       </>}
     </div>
     <Modal open={Boolean(selected) && admin} onClose={closeDetail} title="Chi tiết quán" size="lg" dismissible={!saving}
-      footer={detailMatches && <>
-        <Button variant={shop.status === 'inactive' ? 'outline' : 'alert'} disabled={saving} onClick={() => {
-          setFailure(null); setDecision({ kind: 'status', id: shop.shopId, name: shop.name, version: shop.version, status: shop.status === 'inactive' ? 'active' : 'inactive' });
-        }}>{shop.status === 'inactive' ? 'Mở khóa quán' : 'Khóa quán'}</Button>
-        {canDecide && <><Button variant="alert" disabled={saving} onClick={() => { setFailure(null); setDecision({ kind: 'review', id: submission.submissionId, type: submission.submissionType, action: 'reject' }); }}>Từ chối</Button>
-          <Button disabled={saving} onClick={() => { setFailure(null); setDecision({ kind: 'review', id: submission.submissionId, type: submission.submissionType, action: 'accept' }); }}>Duyệt hồ sơ</Button></>}
+      footer={canDecide && <>
+        <Button variant="alert" disabled={saving} onClick={() => { setFailure(null); setDecision({ kind: 'review', id: submission.submissionId, type: submission.submissionType, action: 'reject' }); }}>Từ chối</Button>
+        <Button disabled={saving} onClick={() => { setFailure(null); setDecision({ kind: 'review', id: submission.submissionId, type: submission.submissionType, action: 'accept' }); }}>Duyệt hồ sơ</Button>
       </>}>
-      {failure && !decision && <Notice tone="alert" onDismiss={() => setFailure(null)}>{failure.message}</Notice>}
-      <ShopOperationNotice message={message} onDismiss={() => setMessage(null)} />
-      {detail.loading || (!detail.data && !detail.error) || (!detail.error && !detailMatches) ? <Spinner showLabel />
-        : detail.error ? <Notice tone="alert" action={{ label: 'Thử lại', onClick: detail.reload }}>{detail.error.message}</Notice>
-          : <div className={styles.detail}>
-            <header><h2 className={styles.shopName}>{shop.name}</h2>
-              <div className={styles.shopState}><span>Xác minh quán:</span><StatusBadge entity="shop" status={shop.verificationStatus} />
-                <ShopOperatingStatus status={shop.status} /></div>
-            </header>
+      <div className={styles.detail}>
+        {detailMatches && <header><h2 className={styles.shopName}><ShopName name={shop.name} status={shop.status}
+          disabled={saving} onToggle={() => openOperatingDecision(shop.shopId)} /></h2>
+          <div className={styles.shopState}><span>Xác minh quán:</span><StatusBadge entity="shop" status={shop.verificationStatus} /></div>
+        </header>}
+        <ShopOperationNotice message={message} onDismiss={() => setMessage(null)} />
+        {failure && !decision && <Notice tone="alert" onDismiss={() => setFailure(null)}>{failure.message}</Notice>}
+        {detail.loading || (!detail.data && !detail.error) || (!detail.error && !detailMatches) ? <Spinner showLabel />
+          : detail.error ? <Notice tone="alert" action={{ label: 'Thử lại', onClick: detail.reload }}>{detail.error.message}</Notice>
+            : <>
             <Tabs items={DETAIL_TABS} value={detailTab} onChange={setDetailTab} label="Chi tiết quán" />
             {detailTab === 'history' ? <HistoryPanel resource={history} onPageChange={setHistoryPage} /> : <>
               <dl className={styles.metadata}>
@@ -207,11 +229,18 @@ export default function ShopVerifyPage() {
                 <ShopSnapshot value={submission?.afterValue || shop} />
                 {!submission && shop.scheduleIncomplete && <Notice>Lịch mở cửa hiện tại chưa đầy đủ.</Notice>}
               </section>}
-              {submission?.status === 'rejected' && submission.reviewNote?.trim() && <Notice tone="alert" title="Lý do từ chối">{submission.reviewNote.trim()}</Notice>}
+              {submission?.status === 'rejected' && submission.reviewNote?.trim() && <p className={styles.rejectionNote} role="note">
+                <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+                <span><strong>Lý do từ chối: </strong>{submission.reviewNote.trim()}</span>
+              </p>}
               {!submission && detail.data.latestSubmission?.status === 'rejected' && detail.data.latestSubmission.reviewNote?.trim()
-                && <Notice tone="alert" title="Lý do từ chối hồ sơ gần nhất">{detail.data.latestSubmission.reviewNote.trim()}</Notice>}
+                && <p className={styles.rejectionNote} role="note">
+                  <i className="bi bi-exclamation-triangle" aria-hidden="true" />
+                  <span><strong>Lý do từ chối hồ sơ gần nhất: </strong>{detail.data.latestSubmission.reviewNote.trim()}</span>
+                </p>}
             </>}
-          </div>}
+            </>}
+      </div>
     </Modal>
     <ConfirmDialog open={Boolean(decision) && admin} loading={saving} tone={accepting || unlocking ? 'primary' : 'alert'} cancelLabel="Hủy"
       title={reviewDecision ? (accepting ? 'Duyệt ' : 'Từ chối ') + (identity ? 'yêu cầu sửa thông tin?' : 'đăng ký quán?')

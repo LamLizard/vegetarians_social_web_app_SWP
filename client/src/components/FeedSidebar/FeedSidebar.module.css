@@ -121,12 +121,6 @@
 .theme:hover { background: var(--v-surface-2); color: var(--v-text); }
 .theme:active { transform: scale(0.94); }
 
-/* Tùng — Sprint 2: BRIDGE-02A nút Shop dùng cùng style theme, có active/loading và thu gọn. */
-.shopAction { position: relative; width: 100%; text-align: left; text-decoration: none; }
-.shopAction:disabled { opacity: .6; cursor: wait; }
-.shopAction:disabled:hover { background: transparent; color: var(--v-muted); }
-.shopAction:disabled:active { transform: none; }
-
 /* Hộp tài khoản: lối tắt + người dùng */
 .accountBox {
   display: grid;
@@ -153,6 +147,9 @@
   white-space: nowrap;
 }
 .link:hover { background: var(--v-surface-2); color: var(--v-text); text-decoration: none; }
+.linkActive, .linkActive:hover { background: var(--v-surface-3); color: var(--v-accent-text); }
+.link:disabled { opacity: .6; cursor: wait; }
+.link:disabled:hover { background: transparent; color: var(--v-muted); }
 .link .icon { font-size: 1rem; }
 .linkAlert, .linkAlert:hover { color: var(--ac-alert); }
 .drawer {

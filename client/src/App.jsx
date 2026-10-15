@@ -83,7 +83,7 @@ function AppContent() {
   const feed = (
     <PostFeedPage
       user={user}
-      // Tùng — Sprint 2: menu giữ profile/logout; một nút Shop theo dữ liệu nằm ngoài menu avatar.
+      // Tùng — BRIDGE-16: Shop/profile/logout nằm trong cùng menu tài khoản dùng chung.
       accountMenu={accountMenu}
       shopAction={shopAction}
     />
@@ -96,19 +96,13 @@ function AppContent() {
   if (!isAdmin && path === '/shops') return (
     <ShopExplorePage
       user={user}
-      accountMenu={[
-        { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
-        { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
-      ]}
+      accountMenu={accountMenu}
     />
   );
   /* Lam's code: Trang Chi tiết quán (M-09) — thành viên đã đăng nhập. */
   if (!isAdmin && path.startsWith('/shops/')) {
     const shopId = path.split('/')[2];
-    return <ShopDetailPage shopId={shopId} user={user} accountMenu={[
-      { icon: 'person', label: 'Hồ sơ cá nhân', onClick: () => goTo('/profile') },
-      { icon: 'box-arrow-right', label: 'Đăng xuất', tone: 'alert', onClick: logout },
-    ]} />;
+    return <ShopDetailPage shopId={shopId} user={user} accountMenu={accountMenu} />;
   }
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;

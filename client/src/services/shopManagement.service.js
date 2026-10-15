@@ -11,6 +11,6 @@ const shopManagementService = {
   addMenu: item => send(`${ROOT}/menu`, 'POST', item),
   updateMenu: (id, update) => send(`${ROOT}/menu/${encodeURIComponent(id)}`, 'PATCH', update),
   removeMenu: (id, expectedVersion) => send(`${ROOT}/menu/${encodeURIComponent(id)}`, 'DELETE', { expectedVersion }),
-  listDishes: (page = 1, pendingPage = 1, signal) => apiFetch(`${ROOT}/dishes?${new URLSearchParams({ page: String(page), pendingPage: String(pendingPage), pageSize: '20' })}`, { signal }),
+  listDishes: (page = 1, pendingPage = 1, signal, q = '') => apiFetch(`${ROOT}/dishes?${new URLSearchParams({ page: String(page), pendingPage: String(pendingPage), pageSize: '20', q })}`, { signal }),
 };
 export default shopManagementService;

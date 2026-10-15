@@ -2,12 +2,45 @@
 const { createShopStorage, MENU_FIELDS } = require('./shopWorkflow.model');
 const { parseIdentity } = require('../utils/shopRegistration');
 const { createShopImageUpload } = require('../utils/shopImageUpload');
-const { parseScheduleUpdate, parseMenu, parseMenuRemoval } = require('../utils/shopManagement');
+const { parseScheduleUpdate, parseMenu, parseMenuRemoval, parseDishSearch, menuNameKey, DISH_SEARCH_FROM, DISH_SEARCH_TO } = require('../utils/shopManagement');
 const { requireActor, parseId, parsePagination, whitelist, conflict, ShopError, pageResult } = require('../utils/shopWorkflow');
+
+// Fields catalog giữ nghĩa cũ; phần riêng/effective chỉ bổ sung DTO Management.
+const OWNER_MENU_FIELDS = `${MENU_FIELDS}, sd.display_name AS "displayName", sd.img_url AS "customImageUrl"`;
+const menuDTO = row => ({ ...row, price: Number(row.price), dishImageUrl: row.imageUrl,
+  effectiveName: row.displayName || row.dishName, effectiveImageUrl: row.customImageUrl || row.imageUrl });
 
 function createShopManagementModel(database, dependencies = {}) {
   const storage = createShopStorage(database);
-  const verifyImageUpload = dependencies.verifyImageUpload || createShopImageUpload().verifyImageUpload;
+  const imageUpload = dependencies.imageUpload || createShopImageUpload();
+  const verifyImageUpload = dependencies.verifyImageUpload || imageUpload.verifyImageUpload;
+
+  async function verifyMenuImage(url, actor) {
+    try { return await verifyImageUpload(url, actor); }
+    catch (error) {
+      if (!(error instanceof ShopError)) throw error;
+      throw new ShopError(error.status, error.code, error.message.replaceAll('Ảnh quán', 'Ảnh món').replaceAll('ảnh quán', 'ảnh món'),
+        error.fieldErrors ? { imageUrl: error.fieldErrors.avtShopUrl || error.message } : undefined);
+    }
+  }
+
+  async function prepareMenuImageUpload(actor) {
+    requireActor(actor, 'member');
+    return storage.transaction(async client => {
+      await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
+      return imageUpload.prepareImageUpload(actor);
+    });
+  }
+
+  async function checkMenuName(client, shopId, dishId, name, exceptId = null) {
+    const { rows } = await client.query(`SELECT sd.shop_dish_id::text AS id,
+      COALESCE(sd.display_name, d.name) AS name FROM shop_dish sd JOIN dish d ON d.dish_id = sd.dish_id
+      WHERE sd.shop_id = $1 AND sd.dish_id = $2`, [shopId, dishId]);
+    if (rows.some(row => row.id !== exceptId && menuNameKey(row.name) === menuNameKey(name))) {
+      throw new ShopError(409, 'SHOP_MENU_NAME_EXISTS', 'Tên món đã có trong phân loại này. Bạn có thể sửa hoặc bật lại món đã tắt bán.',
+        { displayName: 'Tên này đã có trong cùng phân loại của quán.' });
+    }
+  }
 
   async function getMine(actor) {
     requireActor(actor, 'member');
@@ -49,33 +82,40 @@ function createShopManagementModel(database, dependencies = {}) {
     requireActor(actor, 'member');
     return storage.transaction(async client => {
       const shop = await storage.ownedShop(client, actor);
-      const { rows } = await client.query(`SELECT ${MENU_FIELDS} FROM shop_dish sd JOIN dish d ON d.dish_id = sd.dish_id
+      const { rows } = await client.query(`SELECT ${OWNER_MENU_FIELDS} FROM shop_dish sd JOIN dish d ON d.dish_id = sd.dish_id
         WHERE sd.shop_id = $1 ORDER BY sd.shop_dish_id`, [shop.shopId]);
-      return { items: rows.map(row => ({ ...row, price: Number(row.price) })) };
+      return { items: rows.map(menuDTO) };
     }, true);
   }
 
   async function getMenuItem(client, id, shopId) {
-    const { rows } = await client.query(`SELECT ${MENU_FIELDS} FROM shop_dish sd JOIN dish d ON d.dish_id = sd.dish_id
+    const { rows } = await client.query(`SELECT ${OWNER_MENU_FIELDS} FROM shop_dish sd JOIN dish d ON d.dish_id = sd.dish_id
       WHERE sd.shop_dish_id = $1 AND sd.shop_id = $2`, [id, shopId]);
     if (!rows[0]) throw new ShopError(404, 'SHOP_MENU_NOT_FOUND', 'Không tìm thấy món trong menu của bạn.');
-    return { ...rows[0], price: Number(rows[0].price) };
+    return menuDTO(rows[0]);
   }
 
   async function addMenu(raw, actor) {
     requireActor(actor, 'member');
     const item = parseMenu(raw, true);
-    return storage.transaction(async client => {
-      const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
-      const dish = await client.query("SELECT dish_id FROM dish WHERE dish_id = $1 AND status = 'active' FOR SHARE", [item.dishId]);
-      if (!dish.rows[0]) throw new ShopError(400, 'SHOP_DISH_INELIGIBLE', 'Chỉ món đã được duyệt được thêm vào menu.');
-      const duplicate = await client.query('SELECT shop_dish_id FROM shop_dish WHERE shop_id = $1 AND dish_id = $2', [shop.shopId, item.dishId]);
-      if (duplicate.rows[0]) conflict('Món đã có trong menu. Bạn có thể bật lại đang bán.');
-      const inserted = await client.query(`INSERT INTO shop_dish (shop_id, dish_id, price, ingredient_note, is_available, created_by, updated_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $6) RETURNING shop_dish_id::text AS id`,
-      [shop.shopId, item.dishId, item.price, item.ingredientNote || null, item.isAvailable ?? true, actor.id]);
-      return { item: await getMenuItem(client, inserted.rows[0].id, shop.shopId) };
-    });
+    try {
+      return await storage.transaction(async client => {
+        await client.query("SET LOCAL lock_timeout = '10s'");
+        const shop = await storage.ownedShop(client, actor, { lock: true, verified: true, active: true });
+        const dish = await client.query("SELECT dish_id FROM dish WHERE dish_id = $1 AND status = 'active' FOR SHARE", [item.dishId]);
+        if (!dish.rows[0]) throw new ShopError(400, 'SHOP_DISH_INELIGIBLE', 'Chỉ món đã được duyệt được thêm vào menu.');
+        // Khóa Shop giữ kiểm tra tên và INSERT trong cùng transaction, tránh hai request cùng thêm một tên.
+        await checkMenuName(client, shop.shopId, item.dishId, item.displayName);
+        if (item.imageUrl) await verifyMenuImage(item.imageUrl, actor);
+        const inserted = await client.query(`INSERT INTO shop_dish (shop_id, dish_id, display_name, img_url, price, ingredient_note, is_available, created_by, updated_by)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8) RETURNING shop_dish_id::text AS id`,
+          [shop.shopId, item.dishId, item.displayName, item.imageUrl, item.price, item.ingredientNote || null, item.isAvailable ?? true, actor.id]);
+        return { item: await getMenuItem(client, inserted.rows[0].id, shop.shopId) };
+      });
+    } catch (error) {
+      if (error.code === '55P03') throw new ShopError(409, 'SHOP_MENU_BUSY', 'Quán đang có thay đổi khác được xử lý. Vui lòng thử lại sau.');
+      throw error;
+    }
   }
 
   async function updateMenu(rawId, raw, actor) {
@@ -88,7 +128,10 @@ function createShopManagementModel(database, dependencies = {}) {
         WHERE shop_dish_id = $1 AND shop_id = $2 FOR UPDATE`, [id, shop.shopId]);
       if (!locked.rows[0]) throw new ShopError(404, 'SHOP_MENU_NOT_FOUND', 'Không tìm thấy món trong menu của bạn.');
       storage.checkVersion(locked.rows[0].version, update.expectedVersion);
-      const columns = { price: 'price', ingredientNote: 'ingredient_note', isAvailable: 'is_available' };
+      const current = await getMenuItem(client, id, shop.shopId);
+      if (Object.hasOwn(update, 'displayName')) await checkMenuName(client, shop.shopId, current.dishId, update.displayName, id);
+      if (update.imageUrl && update.imageUrl !== current.customImageUrl) await verifyMenuImage(update.imageUrl, actor);
+      const columns = { displayName: 'display_name', imageUrl: 'img_url', price: 'price', ingredientNote: 'ingredient_note', isAvailable: 'is_available' };
       const keys = Object.keys(columns).filter(key => Object.hasOwn(update, key));
       const values = keys.map(key => update[key]);
       await client.query(`UPDATE shop_dish SET ${keys.map((key, index) => `${columns[key]} = $${index + 1}`).join(', ')},
@@ -120,32 +163,43 @@ function createShopManagementModel(database, dependencies = {}) {
   // Tùng — Sprint 2: lookup owner riêng; pending do người khác/null creator không được trả.
   async function listDishes(rawQuery, actor) {
     const ownerId = requireActor(actor, 'member');
-    whitelist(rawQuery, ['page', 'pageSize', 'pendingPage']);
+    whitelist(rawQuery, ['page', 'pageSize', 'pendingPage', 'q']);
+    const search = parseDishSearch(rawQuery.q);
+    const escapeLike = value => value.replace(/[\\%_]/g, character => '\\' + character);
     const query = parsePagination(rawQuery);
     const pendingQuery = parsePagination({ page: rawQuery.pendingPage, pageSize: rawQuery.pageSize });
     return storage.transaction(async client => {
       const shop = await storage.ownedShop(client, actor);
       async function group(pending) {
-        const where = pending ? "d.status = 'pending' AND d.created_by = $1" : "d.status = 'active'";
-        const values = pending ? [ownerId] : [];
+        const values = [DISH_SEARCH_FROM, DISH_SEARCH_TO];
+        const bind = value => { values.push(value); return `$${values.length}`; };
+        const key = "lower(btrim(regexp_replace(translate(d.name, $1, $2), '[[:space:]]+', ' ', 'g')))";
+        const terms = search ? [...new Set(search.split(' '))] : [''];
+        const matches = terms.map(term => `${key} LIKE ${bind('%' + escapeLike(term) + '%')} ESCAPE CHR(92)`);
+        const where = [pending ? `d.status = 'pending' AND d.created_by = ${bind(ownerId)}` : "d.status = 'active'", ...matches].join(' AND ');
         const counted = await client.query(`SELECT count(*)::int AS total FROM dish d WHERE ${where}`, values);
         const total = counted.rows[0].total;
         const page = Math.min(pending ? pendingQuery.page : query.page, Math.max(1, Math.ceil(total / query.pageSize)));
+        const exact = bind(search);
+        const prefix = bind(escapeLike(search) + '%');
+        const shopParam = bind(shop.shopId);
+        const limit = bind(query.pageSize);
+        const offset = bind((page - 1) * query.pageSize);
         const { rows } = await client.query(`SELECT d.dish_id::text AS "dishId", d.name, d.status,
-          EXISTS(SELECT 1 FROM shop_dish sd WHERE sd.shop_id = $${values.length + 1} AND sd.dish_id = d.dish_id) AS "alreadyLinked"
-          FROM dish d WHERE ${where} ORDER BY d.name, d.dish_id
-          LIMIT $${values.length + 2} OFFSET $${values.length + 3}`,
-        [...values, shop.shopId, query.pageSize, (page - 1) * query.pageSize]);
+          EXISTS(SELECT 1 FROM shop_dish sd WHERE sd.shop_id = ${shopParam} AND sd.dish_id = d.dish_id) AS "alreadyLinked"
+          FROM dish d WHERE ${where}
+          ORDER BY CASE WHEN ${key} = ${exact} THEN 0 WHEN ${key} LIKE ${prefix} ESCAPE CHR(92) THEN 1 ELSE 2 END,
+            d.name, d.dish_id LIMIT ${limit} OFFSET ${offset}`, values);
         // Tùng — Sprint 2: BRIDGE-03 chỉ trả DTO picker, không lan truyền fields riêng của catalog.
         return pageResult(rows.map(row => ({ dishId: row.dishId, name: row.name, status: row.status,
           alreadyLinked: row.alreadyLinked,
-          selectable: shop.status === 'active' && shop.verificationStatus === 'verified' && !pending && !row.alreadyLinked })), total, page, query.pageSize);
+          selectable: shop.status === 'active' && shop.verificationStatus === 'verified' && !pending })), total, page, query.pageSize);
       }
       return { active: await group(false), ownPending: await group(true) };
     }, true);
   }
 
-  return { getMine, requestIdentity, updateSchedule, listMenu, addMenu, updateMenu, removeMenu, listDishes };
+  return { getMine, requestIdentity, updateSchedule, listMenu, addMenu, updateMenu, removeMenu, listDishes, prepareMenuImageUpload };
 }
 
 module.exports = { createShopManagementModel };
