@@ -36,7 +36,7 @@ export default function NumberStepper({
           max={max}
           step={step}
           disabled={disabled}
-          onChange={(e) => e.target.value !== '' && set(Number(e.target.value))}
+          onChange={(e) => (e.target.value === '' ? onChange?.(null) : set(Number(e.target.value)))}
         />
         {unit && <span className={styles.unit}>{unit}</span>}
         <button type="button" className={styles.btn} onClick={() => set(num + step)} disabled={disabled || num >= max} aria-label="Tăng">

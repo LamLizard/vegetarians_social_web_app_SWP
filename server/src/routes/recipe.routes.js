@@ -17,7 +17,7 @@ router.get('/animal-words', recipeController.getAnimalWords); // Khoi's code: ba
 router.post('/ingredients/check', requireAuth, recipeController.checkIngredients);
 router.get('/mine', requireAuth, recipeController.getMine);
 router.post('/', requireAuth, recipeController.createRecipe);
-// Khoi's code: Sửa và gửi lại — chỉ tác giả, chỉ công thức 'rejected'
+// Khoi's code: Sửa và gửi lại — chỉ tác giả, công thức 'rejected' hoặc 'approved' (sửa xong về Chờ duyệt)
 router.get('/mine/:recipeId', requireAuth, recipeController.getMineDetail);
 router.put('/:recipeId', requireAuth, recipeController.resubmitRecipe);
 // Duy's Code : Trang Admin dùng endpoint này để lọc công thức theo cả ba trạng thái.
