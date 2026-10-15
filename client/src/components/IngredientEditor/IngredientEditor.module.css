@@ -2,7 +2,7 @@
 .head,
 .row {
   display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr) 5.5rem 8.5rem 2rem;
+  grid-template-columns: 1.6rem minmax(0, 1fr) 8rem 8.5rem 2rem;
   align-items: center;
   gap: 0.5rem;
 }

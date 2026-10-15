@@ -93,7 +93,7 @@ export default function IngredientEditor({
       error={error} hint={hint ?? 'Mỗi dòng 1 nguyên liệu. Đơn vị "ít", "vừa đủ" không cần số lượng. Enter để thêm dòng.'}
       className={className}>
       <div className={styles.head} aria-hidden="true">
-        <span>Tên nguyên liệu</span><span>Số lượng</span><span>Đơn vị</span><span />
+        <span>Tên nguyên liệu</span><span>Số lượng/khối lượng</span><span>Đơn vị</span><span />
       </div>
       <ol className={styles.list}>
         {rows.map((r, i) => {
