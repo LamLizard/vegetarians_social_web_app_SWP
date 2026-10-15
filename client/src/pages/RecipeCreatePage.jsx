@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Avatar from '../components/Avatar/Avatar';
 import Button from '../components/Button/Button';
+import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
 import EmptyState from '../components/EmptyState/EmptyState';
 import HighlightChip from '../components/HighlightChip/HighlightChip';
 import ImageUpload from '../components/ImageUpload/ImageUpload';
@@ -11,11 +12,13 @@ import PageHeader from '../components/PageHeader/PageHeader';
 import Photo from '../components/Photo/Photo';
 import StatusBadge from '../components/StatusBadge/StatusBadge';
 import StepEditor from '../components/StepEditor/StepEditor';
+import TextArea from '../components/TextArea/TextArea';
 import Tabs from '../components/Tabs/Tabs';
 import TextField from '../components/TextField/TextField';
 import { useToast } from '../components/Toast/Toast';
 import { cleanIngredients, newIngredientRow, validateIngredients } from '../utils/ingredient';
 import { timeAgo } from '../utils/format';
+import { getYouTubeId } from '../utils/validate';
 import { findAnimalWord } from '../utils/animalWords';
 import DishPicker from '../components/DishPicker/DishPicker';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
@@ -32,10 +35,42 @@ import s from './RecipeCreatePage.module.css';
  * Trang Tạo công thức — bố cục B (đã chốt 11/10/2026):
  *  form 608px (4 khối) | cột phụ 336px cố định khi cuộn (Xem trước + Gửi).
  *  Tab thứ 2 "Công thức đã gửi": trạng thái Chờ duyệt / Đã duyệt / Bị từ chối + lý do.
+ *  Khoi's code (15/10/2026, chép từ prototype): công thức bị từ chối có nút "Sửa và gửi lại" → mở lại form
+ *  điền sẵn nội dung đã gửi, gửi lại = cập nhật CÙNG công thức, quay về Chờ duyệt (PUT /api/recipes/:id).
+ *  Khoi's code (15/10/2026): thêm 3 trường tuỳ chọn (mô tả, link YouTube, calo); công thức Đã duyệt bấm được
+ *  sang trang xem /recipes/:id; mở trang bằng ?tab=sent (link trong thông báo) thì vào thẳng tab Công thức đã gửi.
+ *  Khoi's code (15/10/2026, sửa lỗi): khẩu phần + thời gian chuẩn bị + thời gian nấu BẮT BUỘC (cho phép 0 phút),
+ *  số âm báo lỗi (trước đây tự về 0). Khối "Dinh dưỡng (không bắt buộc)" gập/mở: calo, đạm, tinh bột, béo, xơ, đường, natri.
+ *  Bước nấu có xuống dòng bên trong được gộp thành 1 dòng khi gửi (trước đây bị tách thành nhiều bước).
  * Gửi xong: recipe.status = 'pending', KHÔNG tạo Dish (món đề xuất chỉ là chữ gửi kèm).
  */
 
-const toMinutes = (v) => (v === '' || v == null ? null : Math.max(0, Math.min(600, Number(v))));
+/** Khoi's code: ô số nguyên trong khoảng [min, max] → số · bỏ trống → null · sai (âm, lẻ, quá lớn) → NaN */
+const toInt = (v, min, max) => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= min && n <= max ? n : NaN;
+};
+const toMinutes = (v) => toInt(v, 0, 600);
+const toCalories = (v) => toInt(v, 1, 5000);
+/** Khoi's code: ô dinh dưỡng → số không âm (nhận "12,5"), làm tròn `digits` số lẻ · bỏ trống → null · sai → NaN */
+const toNutrient = (v, max, digits) => {
+  if (v === '' || v == null) return null;
+  const n = Number(String(v).replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0 || n > max) return NaN;
+  return Math.round(n * 10 ** digits) / 10 ** digits;
+};
+/** Khoi's code: 6 chỉ số dinh dưỡng tuỳ chọn (1 người) — cùng giới hạn với server/src/utils/recipeInput.js */
+const NUTRIENTS = [
+  { key: 'protein', api: 'proteinG', label: 'Đạm', unit: 'g', max: 1000, digits: 1, placeholder: '12' },
+  { key: 'carb', api: 'carbG', label: 'Tinh bột', unit: 'g', max: 1000, digits: 1, placeholder: '45' },
+  { key: 'fat', api: 'fatG', label: 'Chất béo', unit: 'g', max: 1000, digits: 1, placeholder: '10' },
+  { key: 'fiber', api: 'fiberG', label: 'Chất xơ', unit: 'g', max: 1000, digits: 1, placeholder: '6' },
+  { key: 'sugar', api: 'sugarG', label: 'Đường', unit: 'g', max: 1000, digits: 1, placeholder: '5' },
+  { key: 'sodium', api: 'sodiumMg', label: 'Natri', unit: 'mg', max: 20000, digits: 0, placeholder: '400' },
+];
+/** Khoi's code: 1 bước nấu = 1 dòng (instructions lưu mỗi bước 1 dòng) → gộp xuống dòng bên trong bước thành dấu cách */
+const oneLine = (step) => step.replace(/\s*\n+\s*/g, ' ').trim();
 /** Khoá so tên nguyên liệu giống server (gộp khoảng trắng, không phân biệt hoa/thường) */
 const nameKey = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -52,13 +87,48 @@ function ingredientNote(c) {
 const emptyForm = () => ({
   dish: null,
   title: '',
+  description: '',
   thumbnail: '',
+  youtube: '',
   servings: null,
   prep: '',
   cook: '',
+  calories: '',
+  ...Object.fromEntries(NUTRIENTS.map((n) => [n.key, ''])),
   ingredients: [newIngredientRow()],
   steps: [''],
 });
+
+/**
+ * Khoi's code: công thức đã gửi (GET /recipes/mine/:id) → nội dung form để "Sửa và gửi lại".
+ * Món cũ không còn trong danh sách món đang hoạt động → để trống, người dùng chọn lại.
+ * @returns {{ form: object, dishLost: boolean }}
+ */
+function formFromRecipe(r, dishes) {
+  const dish = r.dishId ? dishes.find((d) => String(d.dish_id) === String(r.dishId)) : null;
+  const steps = String(r.instructions ?? '').split('\n').map((x) => x.trim()).filter(Boolean);
+  return {
+    dishLost: !!r.dishId && !dish,
+    form: {
+      dish: dish ? { type: 'existing', dish } : (r.proposedDishName ? { type: 'proposed', name: r.proposedDishName } : null),
+      title: r.title ?? '',
+      description: r.description ?? '',
+      thumbnail: r.thumbnailUrl ?? '',
+      youtube: r.youtubeUrl ?? '',
+      servings: r.servings ?? null,
+      prep: r.prepTimeMinutes ?? '',
+      cook: r.cookTimeMinutes ?? '',
+      calories: r.caloriesKcal ?? '',
+      ...Object.fromEntries(NUTRIENTS.map((n) => [n.key, r[n.api] ?? ''])),
+      ingredients: r.ingredients?.length
+        ? r.ingredients.map((i) => newIngredientRow({
+          name: i.name, amount: i.amount ?? null, unit: i.unit ?? '', ...(i.proposed ? { proposed: true } : {}),
+        }))
+        : [newIngredientRow()],
+      steps: steps.length ? steps : [''],
+    },
+  };
+}
 
 /** Khối form: tiêu đề + 1 dòng gợi ý (đúng box model: tiêu đề → gợi ý 4, → nội dung 16) */
 function Section({ id, title, hint, required, onLeave, children }) {
@@ -83,7 +153,8 @@ function Section({ id, title, hint, required, onLeave, children }) {
  */
 export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const toast = useToast();
-  const [tab, setTab] = useState('create');
+  // Khoi's code: link trong thông báo "bị từ chối" là /recipes/new?tab=sent → mở thẳng tab Công thức đã gửi
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'sent' ? 'sent' : 'create'));
   const [recipes, setRecipes] = useState([]);
   const [sentStatus, setSentStatus] = useState('loading'); // loading | ready | error
   const [dishes, setDishes] = useState({ status: 'loading', items: [] }); // loading | ready | error
@@ -94,6 +165,14 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [checks, setChecks] = useState({}); // nameKey → { name, known, isAnimalDerived, keyword }
+  // Khoi's code: chế độ "Sửa và gửi lại" — công thức đang sửa + bản gốc (biết đã đổi gì chưa)
+  const [editing, setEditing] = useState(null);
+  const [snapshot, setSnapshot] = useState('');
+  const [draft, setDraft] = useState(null); // form Tạo công thức đang gõ dở, trả lại khi thoát chế độ sửa
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [opening, setOpening] = useState(null); // id công thức đang tải để mở form sửa
+  const [nutritionOpen, setNutritionOpen] = useState(false); // khối Dinh dưỡng gập/mở
+  const dirty = !!editing && JSON.stringify(form) !== snapshot;
 
   const loadDishes = async () => {
     setDishes((d) => ({ ...d, status: 'loading' }));
@@ -160,6 +239,26 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const unknownCount = form.ingredients.filter((r) => r.name.trim() && checks[nameKey(r.name)]?.known === false).length;
   const ingWithAmount = form.ingredients.filter((r) => r.name.trim() && r.amount > 0).length;
   const stepCount = form.steps.filter((x) => x.trim()).length;
+  // Khoi's code: 2 trường tuỳ chọn có kiểm tra — bỏ trống thì không sao, gõ sai thì chặn gửi
+  const youtubeBad = !!form.youtube.trim() && !getYouTubeId(form.youtube);
+  const calories = toCalories(form.calories);
+  const caloriesBad = Number.isNaN(calories);
+  // Khoi's code: dinh dưỡng tuỳ chọn — bỏ trống được, gõ sai (âm, chữ, quá lớn) thì chặn gửi
+  const nutrients = Object.fromEntries(NUTRIENTS.map((n) => [n.key, toNutrient(form[n.key], n.max, n.digits)]));
+  const badNutrients = NUTRIENTS.filter((n) => Number.isNaN(nutrients[n.key]));
+  const nutritionBad = caloriesBad || badNutrients.length > 0;
+  const nutritionCount = [form.calories, ...NUTRIENTS.map((n) => form[n.key])].filter((v) => String(v).trim() !== '').length;
+  // Khoi's code: khẩu phần + 2 ô thời gian BẮT BUỘC (cho phép 0 phút), số âm / số lẻ → lỗi
+  const prep = toMinutes(form.prep);
+  const cook = toMinutes(form.cook);
+  const metaError = {
+    servings: form.servings == null ? 'Chọn khẩu phần' : undefined,
+    prep: prep === null ? 'Nhập thời gian (không cần thì ghi 0)' : Number.isNaN(prep) ? 'Nhập số phút từ 0 đến 600' : undefined,
+    cook: cook === null ? 'Nhập thời gian (không cần thì ghi 0)' : Number.isNaN(cook) ? 'Nhập số phút từ 0 đến 600' : undefined,
+  };
+  const metaOk = !metaError.servings && !metaError.prep && !metaError.cook;
+  // Lỗi "chưa nhập" chỉ hiện khi đã rời ô; lỗi "nhập sai" (vd số âm) hiện ngay
+  const showMeta = (key, value) => (touched[key] || (value !== null && Number.isNaN(value)) ? metaError[key] : undefined);
 
   const missing = [
     !form.dish && 'món ăn',
@@ -167,13 +266,18 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     ingWithAmount < 1 && 'nguyên liệu có số lượng',
     ingWithAmount >= 1 && ing.hasError && 'sửa dòng nguyên liệu bị lỗi',
     stepCount < 1 && 'cách làm',
+    !metaOk && 'khẩu phần và thời gian',
+    youtubeBad && 'sửa link YouTube',
+    nutritionBad && 'sửa chỉ số dinh dưỡng',
   ].filter(Boolean);
   const ready = missing.length === 0;
+  const canSend = ready && (!editing || dirty);
 
   // Thanh tiến trình: 4 mục bắt buộc, bấm mục chưa xong → cuộn tới đúng khối
   const progress = [
     { key: 'dish', label: 'Chọn món ăn', done: !!form.dish, target: 'rc-dish' },
     { key: 'title', label: 'Đặt tên công thức', done: !!form.title.trim(), target: 'rc-info' },
+    { key: 'meta', label: 'Khẩu phần, thời gian chuẩn bị và nấu', done: metaOk, target: 'rc-meta' },
     { key: 'ing', label: 'Ít nhất 1 nguyên liệu có số lượng', done: ingWithAmount >= 1 && !ing.hasError, target: 'rc-ing' },
     { key: 'steps', label: 'Ít nhất 1 bước nấu', done: stepCount >= 1, target: 'rc-steps' },
   ];
@@ -185,34 +289,85 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     el.querySelector('input, textarea, button')?.focus({ preventScroll: true });
   };
 
-  const totalTime = (toMinutes(form.prep) ?? 0) + (toMinutes(form.cook) ?? 0);
+  const totalTime = (prep > 0 ? prep : 0) + (cook > 0 ? cook : 0);
   const filledIngredients = cleanIngredients(form.ingredients).length;
 
+  // Khoi's code: mở form sửa — tải đủ nội dung (nguyên liệu, cách làm) của công thức bị từ chối
+  const startEdit = async (r) => {
+    if (opening) return;
+    setOpening(r.id);
+    try {
+      const detail = await recipeService.getMyRecipe(r.id);
+      const { form: f, dishLost } = formFromRecipe(detail, dishes.items);
+      if (!editing) setDraft(form);
+      setForm(f);
+      setSnapshot(JSON.stringify(f));
+      setEditing(detail);
+      setTouched({});
+      setNutritionOpen([detail.caloriesKcal, ...NUTRIENTS.map((n) => detail[n.api])].some((v) => v != null));
+      window.scrollTo({ top: 0 });
+      if (dishLost) toast(`Món “${detail.dishName ?? ''}” không còn hoạt động, bạn chọn lại món nhé.`, { tone: 'alert' });
+    } catch (err) {
+      toast(err.message || 'Chưa mở được công thức, bạn thử lại nhé.', { tone: 'alert' });
+    } finally {
+      setOpening(null);
+    }
+  };
+
+  const exitEdit = () => {
+    setEditing(null);
+    setForm(draft ?? emptyForm());
+    setDraft(null);
+    setTouched({});
+    setConfirmLeave(false);
+    setTab('sent');
+    window.scrollTo({ top: 0 });
+  };
+  // Đã sửa mà bấm Hủy → hỏi trước, tránh mất công sửa
+  const cancelEdit = () => (dirty ? setConfirmLeave(true) : exitEdit());
+
   const submit = async () => {
-    if (!ready || submitting) return;
+    if (!canSend || submitting) return;
     setSubmitting(true);
     try {
-      const { recipe: created } = await recipeService.createRecipe({
+      const payload = {
         dish: form.dish,
         title: form.title,
+        description: form.description.trim() || null,
         thumbnailUrl: form.thumbnail || null,
+        youtubeUrl: form.youtube.trim() || null,
+        caloriesKcal: calories,
         servings: form.servings,
-        prepTimeMinutes: toMinutes(form.prep),
-        cookTimeMinutes: toMinutes(form.cook),
+        prepTimeMinutes: prep,
+        cookTimeMinutes: cook,
+        ...Object.fromEntries(NUTRIENTS.map((n) => [n.api, nutrients[n.key]])),
         ingredients: cleanIngredients(form.ingredients),
-        instructions: form.steps.filter((x) => x.trim()).join('\n'),
-      });
-      setRecipes((list) => [created, ...list]);
-      setSentStatus('ready');
-      setForm(emptyForm());
+        instructions: form.steps.map(oneLine).filter(Boolean).join('\n'),
+      };
+      if (editing) {
+        // Gửi lại = cập nhật CÙNG công thức, quay về Chờ duyệt, xoá lý do cũ
+        const { recipe: updated } = await recipeService.resubmitRecipe(editing.id, payload);
+        setRecipes((list) => list.map((r) => (r.id === updated.id ? updated : r)));
+        setEditing(null);
+        setForm(draft ?? emptyForm());
+        setDraft(null);
+      } else {
+        const { recipe: created } = await recipeService.createRecipe(payload);
+        setRecipes((list) => [created, ...list]);
+        setSentStatus('ready');
+        setForm(emptyForm());
+      }
       setTouched({});
       setTab('sent');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      toast('Đã gửi công thức. Admin sẽ duyệt trước khi công khai.', { tone: 'success' });
+      toast(editing ? 'Đã gửi lại. Công thức đang chờ duyệt.' : 'Đã gửi công thức. Admin sẽ duyệt trước khi công khai.', { tone: 'success' });
     } catch (err) {
       // Lỗi → giữ nguyên nháp để người dùng sửa rồi gửi lại
       toast(err.message || 'Gửi chưa được, bạn thử lại nhé.', { tone: 'alert' });
-      if (err.status === 409) loadDishes(); // món vừa bị ẩn / đã có sẵn → tải lại danh sách món
+      if (err.status === 409) {
+        loadDishes(); // món vừa bị ẩn / đã có sẵn → tải lại danh sách món
+        if (editing) loadSent(); // công thức không còn ở trạng thái Bị từ chối → cập nhật danh sách
+      }
     } finally {
       setSubmitting(false);
     }
@@ -238,25 +393,37 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
       renderTopbar={topbar}
     >
     <div className={s.page}>
-      <PageHeader
-        breadcrumb={[{ label: 'Tài khoản' }, { label: 'Tạo công thức' }]}
-        title="Tạo công thức"
-        description="Chia sẻ cách làm của bạn. Admin sẽ duyệt trước khi công khai. Mục có dấu * là bắt buộc."
-      />
+      {editing ? (
+        <PageHeader
+          breadcrumb={[{ label: 'Tài khoản' }, { label: 'Công thức đã gửi' }, { label: 'Sửa' }]}
+          title="Sửa công thức"
+          description="Sửa theo góp ý rồi gửi lại. Bản gửi lại thay cho bản cũ và quay về trạng thái Chờ duyệt."
+        />
+      ) : (
+        <>
+          <PageHeader
+            breadcrumb={[{ label: 'Tài khoản' }, { label: 'Tạo công thức' }]}
+            title="Tạo công thức"
+            description="Chia sẻ cách làm của bạn. Admin sẽ duyệt trước khi công khai. Mục có dấu * là bắt buộc."
+          />
+          <Tabs
+            label="Tạo công thức"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: 'create', label: 'Tạo công thức', icon: 'pencil-square' },
+              { key: 'sent', label: 'Công thức đã gửi', icon: 'send', count: sentStatus === 'ready' ? recipes.length : undefined },
+            ]}
+          />
+        </>
+      )}
 
-      <Tabs
-        label="Tạo công thức"
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: 'create', label: 'Tạo công thức', icon: 'pencil-square' },
-          { key: 'sent', label: 'Công thức đã gửi', icon: 'send', count: sentStatus === 'ready' ? recipes.length : undefined },
-        ]}
-      />
-
-      {tab === 'create' ? (
-        <div className={s.grid} role="tabpanel" aria-label="Tạo công thức">
+      {editing || tab === 'create' ? (
+        <div className={s.grid} role={editing ? undefined : 'tabpanel'} aria-label={editing ? 'Sửa công thức' : 'Tạo công thức'}>
           <div className={s.form}>
+            {editing?.moderationNote && (
+              <Notice tone="alert" title="Admin từ chối lần trước vì">{editing.moderationNote}</Notice>
+            )}
             <Section
               id="rc-dish"
               title="Công thức này nấu món gì?"
@@ -294,11 +461,80 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   Tên công thức có từ “{titleWord}”, có thể không phải đồ chay. Vẫn gửi được, Admin sẽ kiểm tra lại.
                 </p>
               )}
+              <TextArea
+                label="Mô tả ngắn"
+                value={form.description}
+                onChange={set('description')}
+                rows={2}
+                maxRows={6}
+                maxLength={1000}
+                placeholder="Vài câu giới thiệu: món này hợp bữa nào, vị ra sao…"
+              />
               <ImageUpload label="Ảnh bìa" value={form.thumbnail} onChange={set('thumbnail')} onUpload={postService.uploadImage} ratio="16/9" />
-              <div className={s.row3}>
-                <NumberStepper label="Khẩu phần" value={form.servings} onChange={set('servings')} min={1} max={20} unit="người" />
-                <TextField label="Chuẩn bị" type="number" inputMode="numeric" min={0} max={600} suffix="phút" value={form.prep} onChange={set('prep')} placeholder="15" />
-                <TextField label="Nấu" type="number" inputMode="numeric" min={0} max={600} suffix="phút" value={form.cook} onChange={set('cook')} placeholder="20" />
+              <TextField
+                label="Video hướng dẫn trên YouTube"
+                type="url"
+                icon="youtube"
+                value={form.youtube}
+                onChange={set('youtube')}
+                onBlur={() => setTouched((t) => ({ ...t, youtube: true }))}
+                maxLength={500}
+                placeholder="https://youtu.be/…"
+                hint="Không bắt buộc. Dán link video YouTube nếu bạn có quay lại cách nấu."
+                error={(touched.youtube || form.youtube.length > 20) && youtubeBad ? 'Link YouTube không hợp lệ. Dán link dạng youtube.com/watch?v=… hoặc youtu.be/…' : undefined}
+              />
+              <div id="rc-meta" className={`${s.row3} ${s.anchor}`}>
+                <NumberStepper
+                  label="Khẩu phần" required value={form.servings} onChange={(v) => { set('servings')(v); setTouched((t) => ({ ...t, servings: true })); }}
+                  min={1} max={20} unit="người" error={touched.servings ? metaError.servings : undefined}
+                />
+                <TextField
+                  label="Chuẩn bị" required type="number" inputMode="numeric" min={0} max={600} suffix="phút"
+                  value={form.prep} onChange={set('prep')} placeholder="15"
+                  onBlur={() => setTouched((t) => ({ ...t, prep: true }))} error={showMeta('prep', prep)}
+                />
+                <TextField
+                  label="Nấu" required type="number" inputMode="numeric" min={0} max={600} suffix="phút"
+                  value={form.cook} onChange={set('cook')} placeholder="20"
+                  onBlur={() => setTouched((t) => ({ ...t, cook: true }))} error={showMeta('cook', cook)}
+                />
+              </div>
+
+              {/* Khoi's code: Dinh dưỡng tuỳ chọn — bấm để mở/gập theo chiều dọc */}
+              <div className={`${s.nutri} ${nutritionOpen ? s.nutriOpen : ''}`}>
+                <button
+                  type="button"
+                  className={s.nutriToggle}
+                  aria-expanded={nutritionOpen}
+                  aria-controls="rc-nutrition"
+                  onClick={() => setNutritionOpen((o) => !o)}
+                >
+                  <i className="bi bi-heart-pulse" aria-hidden="true" />
+                  <span className={s.nutriTitle}>Dinh dưỡng <span className={s.nutriOptional}>(không bắt buộc)</span></span>
+                  {nutritionBad
+                    ? <span className={s.nutriBad}>Có ô nhập sai</span>
+                    : nutritionCount > 0 && <span className={s.nutriCount}>Đã nhập {nutritionCount}</span>}
+                  <i className={`bi bi-chevron-down ${s.nutriChevron}`} aria-hidden="true" />
+                </button>
+                <div id="rc-nutrition" className={s.nutriPanel} inert={!nutritionOpen}>
+                  <div className={s.nutriInner}>
+                    <p className={s.hint}>Ước tính cho 1 người. Không chắc thì để trống, có thể tra trên bao bì hoặc ứng dụng tính calo.</p>
+                    <div className={s.nutriGrid}>
+                      <TextField
+                        label="Calo" type="number" inputMode="numeric" min={1} max={5000} suffix="kcal"
+                        value={form.calories} onChange={set('calories')} placeholder="350"
+                        error={caloriesBad ? 'Số nguyên từ 1 đến 5000' : undefined}
+                      />
+                      {NUTRIENTS.map((n) => (
+                        <TextField
+                          key={n.key} label={n.label} inputMode="decimal" suffix={n.unit}
+                          value={form[n.key]} onChange={set(n.key)} placeholder={n.placeholder}
+                          error={Number.isNaN(nutrients[n.key]) ? `Số từ 0 đến ${n.max.toLocaleString('vi-VN')}` : undefined}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             </Section>
 
@@ -308,6 +544,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 value={form.ingredients}
                 onChange={set('ingredients')}
                 catalog={ingredientNames}
+                unitSuggestions={false}
                 hint={<>Gõ để tìm trong kho nguyên liệu. Không thấy thì chọn “+ Đề xuất nguyên liệu mới” ở cuối danh sách.<br />Đơn vị “ít”, “vừa đủ” không cần số lượng.</>}
                 error={touched.ingredients && ingWithAmount < 1 ? 'Cần ít nhất 1 nguyên liệu có số lượng' : undefined}
                 rowErrors={touched.ingredients ? ing.rowErrors : []}
@@ -373,13 +610,20 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   )}
                 </ul>
               )}
-              <Button block icon="send" loading={submitting} disabled={!ready} onClick={submit}>
-                Gửi công thức
+              <Button block icon="send" loading={submitting} disabled={!canSend} onClick={submit}>
+                {editing ? 'Gửi lại công thức' : 'Gửi công thức'}
               </Button>
-              <p className={ready ? s.ok : s.hint} aria-live="polite">
-                {ready
-                  ? 'Sẵn sàng. Sau khi gửi, công thức chờ Admin duyệt rồi mới công khai.'
-                  : (ingWithAmount >= 1 && ing.hasError ? 'Có dòng nguyên liệu bị lỗi, sửa rồi gửi nhé.' : 'Bấm vào mục chưa xong để tới đúng chỗ.')}
+              {editing && (
+                <Button block variant="subtle" disabled={submitting} onClick={cancelEdit}>Hủy, quay lại danh sách</Button>
+              )}
+              <p className={canSend ? s.ok : s.hint} aria-live="polite">
+                {!ready
+                  ? (youtubeBad || nutritionBad
+                    ? `Cần ${[youtubeBad && 'sửa link YouTube', nutritionBad && 'sửa chỉ số dinh dưỡng'].filter(Boolean).join(' và ')} ở khối Thông tin.`
+                    : ingWithAmount >= 1 && ing.hasError ? 'Có dòng nguyên liệu bị lỗi, sửa rồi gửi nhé.' : 'Bấm vào mục chưa xong để tới đúng chỗ.')
+                  : editing && !dirty
+                    ? 'Bạn chưa thay đổi gì. Sửa theo lý do từ chối rồi gửi lại.'
+                    : 'Sẵn sàng. Sau khi gửi, công thức chờ Admin duyệt rồi mới công khai.'}
               </p>
             </section>
             <section className={s.card} aria-labelledby="recipe-preview-title">
@@ -398,6 +642,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                     {[
                       form.servings && `${form.servings} người`,
                       totalTime > 0 && `${totalTime} phút`,
+                      calories > 0 && `${calories} kcal`,
                       filledIngredients > 0 && `${filledIngredients} nguyên liệu`,
                     ].filter(Boolean).join(' · ') || 'Khẩu phần, thời gian sẽ hiện ở đây'}
                   </p>
@@ -432,7 +677,9 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   <Photo src={r.thumbnailUrl || undefined} ratio="4/3" shape="rounded" className={s.sentImg} />
                   <div className={s.sentBody}>
                     <div className={s.sentTop}>
-                      <h3 className={s.sentTitle}>{r.title}</h3>
+                      <h3 className={s.sentTitle}>
+                        {r.status === 'approved' ? <a href={`/recipes/${r.id}`} className={s.sentLink}>{r.title}</a> : r.title}
+                      </h3>
                       <StatusBadge entity="recipe" status={r.status} size="sm" />
                     </div>
                     <p className={s.sentDish}>
@@ -450,8 +697,18 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                         {r.status === 'pending' && r.proposedIngredientCount ? ` (${r.proposedIngredientCount} chờ duyệt)` : ''}
                       </span>
                     </p>
-                    {r.status === 'rejected' && r.moderationNote && (
-                      <Notice tone="alert" title="Lý do từ chối" className={s.reason}>{r.moderationNote}</Notice>
+                    {r.status === 'approved' && (
+                      <div className={s.sentActs}>
+                        <Button as="a" href={`/recipes/${r.id}`} variant="outline" icon="eye">Xem công thức</Button>
+                      </div>
+                    )}
+                    {r.status === 'rejected' && (
+                      <>
+                        {r.moderationNote && <Notice tone="alert" title="Lý do từ chối" className={s.reason}>{r.moderationNote}</Notice>}
+                        <div className={s.sentActs}>
+                          <Button icon="pencil" loading={opening === r.id} disabled={!!opening} onClick={() => startEdit(r)}>Sửa và gửi lại</Button>
+                        </div>
+                      </>
                     )}
                   </div>
                 </li>
@@ -460,6 +717,16 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmLeave}
+        title="Bỏ các thay đổi?"
+        message="Những gì bạn vừa sửa sẽ mất. Công thức vẫn giữ trạng thái Bị từ chối."
+        confirmLabel="Bỏ thay đổi"
+        cancelLabel="Sửa tiếp"
+        onConfirm={exitEdit}
+        onCancel={() => setConfirmLeave(false)}
+      />
     </div>
     </MemberLayout>
   );

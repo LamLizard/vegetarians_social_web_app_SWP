@@ -29,6 +29,12 @@
 .detailColumns ul, .instructions { margin: 8px 0 0; padding-left: 18px; color: var(--ac-muted); font-size: .9rem; }
 .instructions { padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* Khoi's code: mô tả + video người dùng gửi kèm */
+.extra { display: grid; gap: 8px; }
+.extra h3 { margin: 0; font-size: .94rem; font-weight: 750; }
+.video { max-width: 560px; }
+.videoLink { display: inline-flex; gap: 6px; align-items: center; color: var(--ac-muted); font-size: .84rem; overflow-wrap: anywhere; }
+
 @media (max-width: 760px) {
   .page { padding: 18px 12px 40px; }
   .summary { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; padding: 13px; }

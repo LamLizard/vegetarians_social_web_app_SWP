@@ -28,11 +28,12 @@ import styles from './IngredientEditor.module.css';
  * @param {({name?: string, amount?: string}|undefined)[]} [rowErrors]  lỗi từng dòng, cùng thứ tự với value
  * @param {({tone: 'bad'|'warn', text: string}|undefined)[]} [rowNotes]  Khoi's code: lưu ý từng dòng, KHÔNG chặn gửi
  *        (vd Tạo công thức: 'bad' = nghi không chay → tô đỏ ô tên · 'warn' = chưa có trong kho nguyên liệu)
+ * @param {boolean} [unitSuggestions=true]  Khoi's code: false → ô đơn vị gõ tự do, không hiện danh sách gợi ý của trình duyệt
  * @param {number} [max=40]
  * @param {string} [label='Nguyên liệu'] · [hint] · [error] · [required] · [disabled]
  */
 export default function IngredientEditor({
-  value = [], onChange, suggestions = [], catalog, rowErrors = [], rowNotes = [], max = 40,
+  value = [], onChange, suggestions = [], catalog, rowErrors = [], rowNotes = [], max = 40, unitSuggestions = true,
   label = 'Nguyên liệu', hint, error, required, disabled, className,
 }) {
   const id = useId();
@@ -134,7 +135,9 @@ export default function IngredientEditor({
                 onKeyDown={(e) => onEnter(e, i)}
               />
               <input
-                className={cx('form-control', styles.unit)} value={r.unit} list={unitListId}
+                className={cx('form-control', styles.unit)} value={r.unit}
+                // Khoi's code: unitSuggestions={false} → ô đơn vị gõ tự do, không bật danh sách gợi ý (datalist) của trình duyệt
+                list={unitSuggestions ? unitListId : undefined} autoComplete={unitSuggestions ? undefined : 'off'}
                 placeholder="g, muỗng..." maxLength={30} aria-label={`Đơn vị nguyên liệu ${n}`}
                 disabled={disabled}
                 onChange={(e) => { const unit = e.target.value; update(r.key, isNoAmountUnit(unit) ? { unit, amount: null } : { unit }); }}
@@ -161,7 +164,7 @@ export default function IngredientEditor({
         <span className={styles.count}>{filled} nguyên liệu</span>
       </div>
       {!catalog && <datalist id={nameListId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>}
-      <datalist id={unitListId}>{INGREDIENT_UNIT.map((u) => <option key={u.value} value={u.value} />)}</datalist>
+      {unitSuggestions && <datalist id={unitListId}>{INGREDIENT_UNIT.map((u) => <option key={u.value} value={u.value} />)}</datalist>}
     </Field>
   );
 }

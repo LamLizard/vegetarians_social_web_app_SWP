@@ -150,6 +150,13 @@
   .sentImg { width: 100%; }
 }
 
+/* Khoi's code: tên công thức Đã duyệt bấm được sang trang xem */
+.sentLink { color: inherit; text-decoration: none; }
+.sentLink:hover { color: var(--ac-moss); text-decoration: underline; }
+
+/* Khoi's code: nút "Sửa và gửi lại" dưới công thức bị từ chối */
+.sentActs { display: flex; gap: 8px; margin-top: 12px; }
+
 /* Khoi's code: tóm tắt lưu ý nguyên liệu ở cột Gửi (không chặn gửi) */
 .notes { display: grid; gap: 0.35rem; margin: 0; padding: 0; list-style: none; font-size: 0.8rem; color: var(--ac-muted); }
 .notes li { display: flex; gap: 0.4rem; align-items: baseline; }
@@ -157,3 +164,26 @@
 
 /* Khoi's code: cảnh báo đồ động vật dưới ô tên món / tên công thức — không phải lỗi, vẫn gửi được */
 .flag { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.4rem 0 0; color: var(--ac-bad-fg); font-size: 0.8rem; font-weight: 500; }
+
+/* Khoi's code: khối "Dinh dưỡng (không bắt buộc)" — mở/gập theo chiều dọc (grid-template-rows 0fr → 1fr) */
+.nutri { border: 1px solid var(--v-line); border-radius: var(--ac-radius-surface); }
+.nutriToggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px 16px; border: 0; border-radius: inherit; background: none;
+  color: var(--v-text); font-size: 15px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.nutriToggle:hover { background: var(--ac-hover-soft); }
+.nutriToggle:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }
+.nutriTitle { flex: 1; }
+.nutriOptional { color: var(--v-muted); font-weight: 400; }
+.nutriCount { color: var(--v-muted); font-size: 13px; font-weight: 500; }
+.nutriBad { color: var(--ac-bad-fg); font-size: 13px; font-weight: 600; }
+.nutriChevron { transition: transform .25s var(--ac-ease-out, ease-out); }
+.nutriOpen .nutriChevron { transform: rotate(180deg); }
+.nutriPanel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .25s var(--ac-ease-out, ease-out); }
+.nutriOpen .nutriPanel { grid-template-rows: 1fr; }
+.nutriInner { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: hidden; padding: 0 16px; }
+.nutriOpen .nutriInner { padding-bottom: 16px; }
+.nutriGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; }
+@media (prefers-reduced-motion: reduce) { .nutriPanel, .nutriChevron { transition: none; } }
+@media (max-width: 767.98px) { .nutriGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
