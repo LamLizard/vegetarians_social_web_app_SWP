@@ -45,9 +45,18 @@ async function findActiveDishes() {
   return rows;
 }
 
+// Duy's Code : Tìm ingredient đã duyệt theo từ khóa để chọn dị ứng trong hồ sơ.
 /** Tên nguyên liệu trong kho (bảng ingredient) để gợi ý khi gõ */
-async function findIngredientNames() {
-  const { rows } = await pool.query('SELECT name FROM ingredient ORDER BY name');
+async function findIngredientNames(query = '') {
+  const term = String(query).normalize('NFC').trim();
+  const { rows } = term
+    ? await pool.query(`
+      SELECT name FROM ingredient
+      WHERE position(lower($1) in lower(name)) > 0
+      ORDER BY (lower(name) = lower($1)) DESC, name
+      LIMIT 20
+    `, [term])
+    : await pool.query('SELECT name FROM ingredient ORDER BY name');
   return rows.map((r) => r.name);
 }
 
@@ -124,7 +133,8 @@ async function findMine(authorId) {
 }
 
 // Admin queue: include the complete recipe and both known and proposed ingredients.
-async function listPendingForAdmin() {
+// Duy's Code : Trả toàn bộ công thức để trang Admin phân tab theo trạng thái.
+async function listAdminRecipes(includeHistory = false) {
   const { rows } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, r.dish_id::text AS "dishId",
       d.name AS "dishName", r.proposed_dish_name AS "proposedDishName",
@@ -140,9 +150,9 @@ async function listPendingForAdmin() {
         FROM recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
     FROM recipe r LEFT JOIN dish d ON d.dish_id = r.dish_id
     JOIN account a ON a.account_id = r.author_id
-    WHERE r.status = 'pending'
+    WHERE $1::boolean OR r.status = 'pending'
     ORDER BY r.created_at ASC, r.recipe_id ASC
-  `);
+  `, [includeHistory]);
   // Khoi's code: cảnh báo đồ động vật cho Admin (không chặn): chữ người dùng tự gõ + nguyên liệu kho ghi là động vật
   const keywords = await getKeywords('animal');
   return rows.map((r) => ({
@@ -161,6 +171,8 @@ async function listPendingForAdmin() {
 
 /** Từ động vật (banned_keyword category 'animal') — trang Tạo công thức soi tên món, tên công thức ngay khi gõ */
 const findAnimalWords = () => getKeywords('animal');
+const listPendingForAdmin = () => listAdminRecipes(false);
+const listAllAdminRecipes = () => listAdminRecipes(true);
 
 async function searchAdminDishes(query) {
   const { rows } = await pool.query(`
@@ -223,6 +235,16 @@ async function decideRecipe(recipeId, action, note, admin) {
     if (before.status !== 'pending') throw new RecipeError(409, 'Công thức không còn chờ duyệt. Hãy tải lại danh sách.');
     if (action === 'approve' && (!before.dishId || before.proposedDishName)) {
       throw new RecipeError(409, 'Hãy liên kết công thức với một món trong Database trước khi duyệt.');
+    }
+    if (action === 'approve') {
+      const { rows: [pendingIngredients] } = await client.query(`
+        SELECT count(*)::int AS count
+        FROM public.recipe_proposed_ingredient
+        WHERE recipe_id = $1
+      `, [recipeId]);
+      if (pendingIngredients.count > 0) {
+        throw new RecipeError(409, 'Công thức còn nguyên liệu chưa được duyệt vào kho. Hãy xử lý các đề nghị nguyên liệu trước.');
+      }
     }
     const { rows: [updated] } = await client.query(`
       UPDATE recipe SET status = $2, moderation_note = $3
@@ -327,6 +349,6 @@ async function createRecipe(authorId, input) {
 module.exports = {
   findAnimalWords,
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
-  listPendingForAdmin, decideRecipe,
+  listPendingForAdmin, listAllAdminRecipes, decideRecipe,
   searchAdminDishes, renameRecipeDish, linkRecipeDish,
 };

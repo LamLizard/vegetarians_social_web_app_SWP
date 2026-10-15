@@ -70,6 +70,7 @@ test('loads a health profile and its allergies without checking consent', async 
 test('saves a profile and replaces its allergies in one transaction', async () => {
   await withClient([
     { sql: /^BEGIN$/ },
+    { sql: /FROM unnest\(\$1::text\[\]\).*public\.ingredient/s, rows: [] },
     { sql: /INSERT INTO public\.profile/ },
     { sql: /SELECT profile_id FROM public\.profile/, rows: [{ profile_id: '8' }] },
     { sql: /DELETE FROM public\.allergy/ },
@@ -95,6 +96,23 @@ test('saves a profile and replaces its allergies in one transaction', async () =
     assert.equal(result.profile.id, '8');
     assert.deepEqual(result.profile.allergies, [{ id: '11', name: 'Đậu phộng' }]);
     assert.equal(calls.some(({ sql }) => /health_consent_event/.test(sql)), false);
+    verify();
+  });
+});
+
+test('saves unlisted allergy names using the existing allergy table', async () => {
+  await withClient([
+    { sql: /^BEGIN$/ },
+    { sql: /INSERT INTO public\.profile/ },
+    { sql: /SELECT profile_id FROM public\.profile/, rows: [{ profile_id: '8' }] },
+    { sql: /DELETE FROM public\.allergy/ },
+    { sql: /INSERT INTO public\.allergy/ },
+    { sql: /FROM public\.profile p/, rows: [{ id: '8' }] },
+    { sql: /FROM public\.allergy/, rows: [{ id: '11', name: 'Nguyên Liệu Lạ' }] },
+    { sql: /^COMMIT$/ },
+  ], async ({ verify }) => {
+    const result = await saveHealthProfile('42', { allergies: ['Nguyên Liệu Lạ'] }, {});
+    assert.deepEqual(result.profile.allergies, [{ id: '11', name: 'Nguyên Liệu Lạ' }]);
     verify();
   });
 });

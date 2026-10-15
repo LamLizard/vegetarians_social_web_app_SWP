@@ -21,6 +21,8 @@ const recipeService = {
 
   /** Tên nguyên liệu trong kho để gợi ý khi gõ → { items: string[] } */
   getIngredientNames: () => apiFetch('/recipes/ingredients'),
+  // Duy's Code : Tìm ingredient theo từ khóa để người dùng chọn dị ứng có sẵn.
+  searchIngredientNames: (query, { signal } = {}) => apiFetch(`/recipes/ingredients?q=${encodeURIComponent(query)}`, { signal }),
 
   /** Khoi's code: từ chỉ đồ động vật (banned_keyword category 'animal') → { items: string[] } */
   getAnimalWords: () => apiFetch('/recipes/animal-words'),
@@ -46,6 +48,8 @@ const recipeService = {
     }),
   }),
   getPendingAdminRecipes: () => apiFetch('/recipes/admin/pending'),
+  // Duy's Code : Lấy công thức chờ, đã duyệt và bị từ chối cho trang Admin.
+  getAdminRecipes: () => apiFetch('/recipes/admin/all'),
   decideAdminRecipe: (id, action, note = '') => apiFetch(`/recipes/admin/${id}/decision`, {
     method: 'POST', body: JSON.stringify({ action, note }),
   }),

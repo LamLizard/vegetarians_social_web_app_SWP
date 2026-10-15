@@ -12,6 +12,8 @@ const MENU = [
   { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
   { key: 'dish-management', label: 'Quản lý món ăn', icon: 'egg-fried', href: '/admin/dishes' },
   { key: 'recipe-verify', label: 'Duyệt công thức', icon: 'book-half', href: '/admin/recipes/verify' },
+  // Duy's Code : Mở trang Admin xử lý tên nguyên liệu do thành viên đề cử.
+  { key: 'ingredient-verify', label: 'Duyệt nguyên liệu', icon: 'basket', href: '/admin/ingredients/verify' },
   // Tùng — Sprint 2: BRIDGE-02 thêm entry riêng, khớp activeKey của ShopVerifyPage.
   { key: 'shops', label: 'Xác minh quán', icon: 'shop', href: '/admin/shops/verify' },
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },

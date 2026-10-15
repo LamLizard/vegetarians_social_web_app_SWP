@@ -1,0 +1,2 @@
+.menu { z-index: 1060; }
+.list { max-height: min(70vh, 560px); overflow: auto; }

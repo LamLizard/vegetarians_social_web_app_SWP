@@ -1,108 +1,183 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminLayout, Button, EmptyState, Notice, PageHeader, Panel, Photo, SearchInput, Spinner, StatusBadge, Tabs } from '../components';
+import { AdminLayout, Button, EmptyState, Notice, PageHeader, Panel, Photo, SearchInput, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import { getAdminDishes } from '../services/dish.service';
 import styles from './AdminDishManagementPage.module.css';
 
 const formatDate = (value) => {
-  if (!value) return 'Không rõ thời gian';
+  if (!value) return '';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Không rõ thời gian' : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(date);
 };
 
+// Duy's Code : Nhận diện tên món chung để gom các món cùng họ vào một nhóm mà không sửa dữ liệu DB.
+const DISH_FAMILIES = [
+  'Bánh Mì', 'Bánh Cuốn', 'Bánh Xèo', 'Bánh Canh', 'Gỏi Cuốn', 'Hủ Tiếu', 'Nước Ép', 'Sinh Tố', 'Yến Mạch',
+  'Cà Ri', 'Đậu Hũ', 'Rau Củ', 'Nấm', 'Cơm', 'Bún', 'Phở', 'Mì', 'Cháo', 'Chè', 'Gỏi', 'Canh', 'Lẩu',
+  'Xôi', 'Súp', 'Salad', 'Nộm', 'Bánh',
+].sort((a, b) => b.length - a.length);
+
+function normalizeDishKey(value = '') {
+  return String(value)
+    .normalize('NFC')
+    .trim()
+    .replace(/[.,;:!?()\[\]{}"'`_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('vi');
+}
+
+function getDishFamily(name = '') {
+  const normalized = String(name).normalize('NFC').trim().replace(/\s+/g, ' ');
+  const lowerName = normalizeDishKey(normalized);
+  const family = DISH_FAMILIES.find((item) => {
+    const lowerFamily = normalizeDishKey(item);
+    return lowerName === lowerFamily || lowerName.startsWith(`${lowerFamily} `);
+  });
+  return family || normalized;
+}
+
+function matchesSearch(dish, needle) {
+  return [dish.name, dish.description, ...(dish.categories || []).map((category) => category.name), ...(dish.recipes || []).map((recipe) => recipe.title)]
+    .some((value) => String(value || '').toLocaleLowerCase('vi').includes(needle));
+}
+
+// Duy's Code : Trình bày theo nhóm món chung > từng món cụ thể > công thức đã duyệt.
 export default function AdminDishManagementPage() {
   const { user, logout } = useAuth();
   const [dishes, setDishes] = useState([]);
-  const [status, setStatus] = useState('all');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [expandedItems, setExpandedItems] = useState({});
+  const [expandedFamily, setExpandedFamily] = useState({});
+  const [expandedDish, setExpandedDish] = useState({});
+  const [expandedRecipe, setExpandedRecipe] = useState({});
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try { setDishes(await getAdminDishes()); }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const counts = useMemo(() => ({
-    all: dishes.length,
-    active: dishes.filter((dish) => dish.status === 'active' || dish.status === 'approved').length,
-    pending: dishes.filter((dish) => dish.status === 'pending').length,
-    rejected: dishes.filter((dish) => dish.status === 'rejected').length,
-  }), [dishes]);
-  const visible = useMemo(() => dishes.filter((dish) => {
-    const matchesStatus = status === 'all'
-      || (status === 'active' && (dish.status === 'active' || dish.status === 'approved'))
-      || dish.status === status;
+  const groups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase('vi');
-    const matchesQuery = !needle || [dish.name, dish.recipeTitle, dish.description, dish.creatorName, dish.creatorEmail, dish.reviewerName, dish.reviewerEmail, ...(dish.categories || []).map((category) => category.name)]
-      .some((value) => String(value || '').toLocaleLowerCase('vi').includes(needle));
-    return matchesStatus && matchesQuery;
-  }), [dishes, status, query]);
-  const handleLogout = () => { logout(); window.location.assign('/'); };
+    const filtered = needle ? dishes.filter((dish) => matchesSearch(dish, needle)) : dishes;
+    const byFamily = new Map();
+    filtered.forEach((dish) => {
+      const family = getDishFamily(dish.name);
+      if (!byFamily.has(family)) byFamily.set(family, []);
+      byFamily.get(family).push(dish);
+    });
+    return [...byFamily.entries()]
+      .map(([name, items]) => {
+        // Duplicate rows with the same normalized name are displayed once; all their
+        // recipes and categories remain reachable from that one variant.
+        const byDishName = new Map();
+        items.forEach((dish) => {
+          const key = normalizeDishKey(dish.name);
+          const existing = byDishName.get(key);
+          if (!existing) {
+            byDishName.set(key, {
+              ...dish,
+              displayKey: `${name}:${key}`,
+              categories: [...(dish.categories || [])],
+              recipes: [...(dish.recipes || [])],
+            });
+            return;
+          }
 
-  return <AdminLayout activeKey="dish-management" title="Quản lý món ăn" user={user} onLogout={handleLogout}>
-    <div className={styles.page}>
-      <PageHeader title="Quản lý món ăn" description="Tra cứu Dish và lịch sử Recipe, gồm các yêu cầu đã duyệt, đang chờ hoặc bị từ chối; xem người tạo và Admin xử lý." actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>} />
-      {error && <Notice tone="alert" title="Không tải được danh sách món ăn" action={{ label: 'Thử lại', onClick: load }}>{error}</Notice>}
-      <Tabs label="Lọc món ăn theo trạng thái" value={status} onChange={setStatus} items={[
-        { key: 'all', label: 'Tất cả', icon: 'egg-fried', count: counts.all },
-        { key: 'active', label: 'Đã duyệt', icon: 'check-circle', count: counts.active },
-        { key: 'pending', label: 'Đang chờ', icon: 'hourglass-split', count: counts.pending },
-        { key: 'rejected', label: 'Bị từ chối', icon: 'x-circle', count: counts.rejected },
-      ]} />
-      <div className={styles.search}><SearchInput value={query} onChange={setQuery} placeholder="Tìm tên món, mô tả, người tạo hoặc danh mục" label="Tìm món ăn" /></div>
-      <div className={styles.list}>
-        {loading ? <div className="py-5 text-center"><Spinner label="Đang tải danh sách món ăn…" showLabel /></div>
-          : visible.length === 0 ? <EmptyState icon="egg-fried" title={query ? 'Không tìm thấy món phù hợp' : 'Chưa có món ăn trong trạng thái này'} description={query ? 'Thử từ khóa khác hoặc chọn trạng thái khác.' : 'Các món được tạo và các đề xuất cũ sẽ được lưu tại đây.'} />
-            : visible.map((dish) => {
-              const itemKey = `${dish.recordType}:${dish.id}`;
-              const isExpanded = !!expandedItems[itemKey];
-              const ingredients = dish.ingredients || [];
-              return <Panel key={itemKey} className={styles.card}>
-              <article className={styles.item}>
-                <Photo src={dish.thumbnailUrl} alt={`Ảnh món ${dish.name}`} ratio="4/3" className={styles.image} />
-                <div className={styles.body}>
-                <div className={styles.titleRow}><h2>{dish.name}</h2><StatusBadge entity={dish.recordType === 'recipe' ? 'recipe' : 'dish'} status={dish.status} size="sm" />{dish.recordType === 'recipe' && <span className={styles.recordType}>Recipe</span>}<button type="button" className={styles.moreButton} aria-expanded={isExpanded} aria-controls={`dish-details-${itemKey}`} onClick={() => setExpandedItems((current) => ({ ...current, [itemKey]: !current[itemKey] }))}>{isExpanded ? 'Thu gọn' : 'Xem thêm'}</button></div>
-                {dish.recipeTitle && <p className={styles.recipeTitle}>Công thức: <b>{dish.recipeTitle}</b></p>}
-                <p className={`${styles.description} ${dish.recordType === 'recipe' ? styles.clamp : ''}`}>{dish.description || 'Chưa có mô tả.'}</p>
-                {!!dish.categories?.length && <div className={styles.categories}>{dish.categories.map((category) => <span key={category.id}>{category.name}</span>)}</div>}
-                <div className={styles.people}>
-                  <div><b>Người tạo</b><span>{dish.creatorName || 'Không rõ'}</span>{dish.creatorEmail && <small>{dish.creatorEmail}</small>}</div>
-                  <div><b>Người duyệt</b><span>{dish.reviewerName || (dish.status === 'pending' ? 'Chưa được duyệt' : 'Không qua bước duyệt (Admin tạo trực tiếp)')}</span>{dish.reviewerEmail && <small>{dish.reviewerEmail}</small>}</div>
-                  <time dateTime={dish.moderatedAt || dish.createdAt}>{dish.moderatedAt ? 'Duyệt lúc' : 'Tạo lúc'} {formatDate(dish.moderatedAt || dish.createdAt)}</time>
-                </div>
-                {dish.moderationNote && <Notice tone="alert" title="Lý do từ chối" className={styles.note}>{dish.moderationNote}</Notice>}
-                </div>
-              </article>
-              {isExpanded && <section className={styles.details} id={`dish-details-${itemKey}`} aria-label={`Chi tiết ${dish.name}`}>
-                <h3>{dish.recordType === 'recipe' || dish.recipeTitle ? 'Chi tiết công thức người dùng gửi' : 'Chi tiết món ăn'}</h3>
-                {(dish.recordType === 'recipe' || dish.recipeTitle) ? <>
-                  {dish.recipeTitle && <p><b>Tên công thức:</b> {dish.recipeTitle}</p>}
-                  {dish.proposedDishName && <p><b>Dish đề xuất:</b> {dish.proposedDishName}</p>}
-                  <div className={styles.facts}>
-                    {dish.servings != null && <span><b>Khẩu phần:</b> {dish.servings}</span>}
-                    {dish.prepTimeMinutes != null && <span><b>Thời gian chuẩn bị:</b> {dish.prepTimeMinutes} phút</span>}
-                    {dish.cookTimeMinutes != null && <span><b>Thời gian nấu:</b> {dish.cookTimeMinutes} phút</span>}
-                  </div>
-                  <div className={styles.detailColumns}>
-                    <div><h4>Nguyên liệu ({ingredients.length})</h4>{ingredients.length ? <ul>{ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}</li>)}</ul> : <p>Không có thông tin nguyên liệu.</p>}</div>
-                    {dish.proposedIngredients?.length > 0 && <div><h4>Nguyên liệu cần Admin kiểm tra</h4><ul>{dish.proposedIngredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}</li>)}</ul></div>}
-                  </div>
-                  <div><h4>Cách làm</h4><p className={styles.instructions}>{dish.instructions || 'Không có hướng dẫn.'}</p></div>
-                </> : <>
-                  <p><b>Mô tả:</b> {dish.description || 'Chưa có mô tả.'}</p>
-                  <p><b>Danh mục:</b> {dish.categories?.length ? dish.categories.map((category) => category.name).join(', ') : 'Chưa gán danh mục.'}</p>
-                  {dish.moderationNote && <p><b>Lý do xử lý:</b> {dish.moderationNote}</p>}
-                  <p><b>Mã Dish:</b> {dish.id}</p>
-                </>}
-                <p className={styles.detailMeta}><b>Mã bản ghi:</b> {dish.recordType === 'recipe' ? `Recipe #${dish.id}` : `Dish #${dish.id}`}{dish.dishId && dish.recordType === 'recipe' ? ` · Dish #${dish.dishId}` : ''}</p>
-              </section>}
-            </Panel>})}
+          const categories = new Map(existing.categories.map((category) => [normalizeDishKey(category.name), category]));
+          (dish.categories || []).forEach((category) => {
+            const categoryKey = normalizeDishKey(category.name);
+            if (!categories.has(categoryKey)) categories.set(categoryKey, category);
+          });
+          existing.categories = [...categories.values()];
+
+          const recipes = new Map(existing.recipes.map((recipe, index) => [recipe.id || `${normalizeDishKey(recipe.title)}:${recipe.createdAt || index}`, recipe]));
+          (dish.recipes || []).forEach((recipe, index) => {
+            const recipeKey = recipe.id || `${normalizeDishKey(recipe.title)}:${recipe.createdAt || index}`;
+            if (!recipes.has(recipeKey)) recipes.set(recipeKey, recipe);
+          });
+          existing.recipes = [...recipes.values()];
+          if (!existing.description && dish.description) existing.description = dish.description;
+        });
+        return { name, dishes: [...byDishName.values()] };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  }, [dishes, query]);
+
+  return (
+    <AdminLayout activeKey="dish-management" title="Quản lý món ăn" user={user} onLogout={() => { logout(); window.location.assign('/'); }}>
+      <div className={styles.page}>
+        <PageHeader
+          title="Quản lý món ăn"
+          description="Các món được gom theo danh mục chung. Chọn một nhóm để xem từng món và công thức đã duyệt."
+          actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>}
+        />
+        {error && <Notice tone="alert" title="Không tải được danh mục món ăn" action={{ label: 'Thử lại', onClick: load }}>{error}</Notice>}
+        <div className={styles.toolbar}>
+          <SearchInput value={query} onChange={setQuery} placeholder="Tìm danh mục hoặc công thức" label="Tìm món ăn" />
+          <span>{groups.length} nhóm · {groups.reduce((total, group) => total + group.dishes.length, 0)} món</span>
+        </div>
+
+        <div className={styles.list}>
+          {loading ? <div className="py-5 text-center"><Spinner label="Đang tải danh mục món ăn…" showLabel /></div>
+            : groups.length === 0 ? <EmptyState icon="egg-fried" title={query ? 'Không tìm thấy món phù hợp' : 'Chưa có danh mục món ăn'} description={query ? 'Thử từ khóa khác.' : 'Tạo danh mục chung như Bánh Mì, Cơm, Cháo hoặc Chè để nhóm các công thức.'} />
+              : groups.map((group) => {
+                const familyOpen = Boolean(expandedFamily[group.name]);
+                const recipeCount = group.dishes.reduce((total, dish) => total + (dish.recipes || []).length, 0);
+                return (
+                  <Panel key={group.name} className={styles.family}>
+                    <button type="button" className={styles.familyHeader} aria-expanded={familyOpen} onClick={() => setExpandedFamily((current) => ({ ...current, [group.name]: !current[group.name] }))}>
+                      <span className={styles.familyIcon}><i className="bi bi-collection" aria-hidden="true" /></span>
+                      <span className={styles.familyTitle}>{group.name}</span>
+                      <span className={styles.familyCount}>{group.dishes.length} món · {recipeCount} công thức</span>
+                      <i className={`bi bi-chevron-${familyOpen ? 'up' : 'down'} ${styles.chevron}`} aria-hidden="true" />
+                    </button>
+                    {familyOpen && <div className={styles.variants}>
+                      {group.dishes.map((dish) => {
+                        const dishOpen = Boolean(expandedDish[dish.displayKey]);
+                        const recipes = dish.recipes || [];
+                        return <section className={styles.variant} key={dish.displayKey}>
+                          <button type="button" className={styles.variantHeader} aria-expanded={dishOpen} onClick={() => setExpandedDish((current) => ({ ...current, [dish.displayKey]: !current[dish.displayKey] }))}>
+                            <span className={styles.variantText}>
+                              <span className={styles.variantTitle}>{dish.name}</span>
+                              {dish.description && <span className={styles.description}>{dish.description}</span>}
+                              <span className={styles.categories}>{(dish.categories || []).map((category) => <span key={category.id}>{category.name}</span>)}</span>
+                            </span>
+                            <span className={styles.recipeCount}>{recipes.length} công thức</span>
+                            <i className={`bi bi-chevron-${dishOpen ? 'up' : 'down'} ${styles.chevron}`} aria-hidden="true" />
+                          </button>
+                          {dishOpen && <div className={styles.recipeList}>
+                            {recipes.length === 0 ? <p className={styles.noRecipes}>Chưa có công thức nào được duyệt trong món này.</p>
+                              : recipes.map((recipe) => {
+                                const recipeOpen = Boolean(expandedRecipe[recipe.id]);
+                                return <article className={styles.recipe} key={recipe.id}>
+                                  <div className={styles.recipeSummary}>
+                                    <Photo src={recipe.thumbnailUrl} alt={`Ảnh ${recipe.title}`} ratio="1/1" className={styles.recipeImage} />
+                                    <div className={styles.recipeInfo}>
+                                      <h3>{recipe.title}</h3>
+                                      <p>{[recipe.servings && `${recipe.servings} khẩu phần`, recipe.cookTimeMinutes != null && `${recipe.cookTimeMinutes} phút`, formatDate(recipe.createdAt)].filter(Boolean).join(' · ')}</p>
+                                    </div>
+                                    <Button size="sm" variant="outline" icon={recipeOpen ? 'chevron-up' : 'eye'} onClick={() => setExpandedRecipe((current) => ({ ...current, [recipe.id]: !current[recipe.id] }))}>{recipeOpen ? 'Thu gọn' : 'Xem công thức'}</Button>
+                                  </div>
+                                  {recipeOpen && <div className={styles.recipeDetails}>
+                                    <div><h4>Nguyên liệu</h4><ul>{(recipe.ingredients || []).map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}</li>)}</ul></div>
+                                    <div><h4>Cách làm</h4><p>{recipe.instructions || 'Chưa có hướng dẫn.'}</p></div>
+                                  </div>}
+                                </article>;
+                              })}
+                          </div>}
+                        </section>;
+                      })}
+                    </div>}
+                  </Panel>
+                );
+              })}
+        </div>
       </div>
-    </div>
-  </AdminLayout>;
+    </AdminLayout>
+  );
 }

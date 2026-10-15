@@ -10,9 +10,9 @@ const {
 // Duy's code: Kiểm tra chữ ký upload gắn account namespace, public ID duy nhất và giới hạn ảnh.
 test('avatar upload signature binds an account folder, unique ID, and bounded transformation', () => {
   // Duy's code: Cấu hình thông tin giả lập trong tiến trình test, không dùng credential thật.
-  process.env.CLOUDINARY_CLOUD_NAME = 'greenbowl-test';
-  process.env.CLOUDINARY_API_KEY = 'test-key';
-  process.env.CLOUDINARY_API_SECRET = 'test-secret';
+  process.env.CLOUDINARY_AVATAR_CLOUD_NAME = 'greenbowl-test';
+  process.env.CLOUDINARY_AVATAR_API_KEY = 'test-key';
+  process.env.CLOUDINARY_AVATAR_API_SECRET = 'test-secret';
   process.env.CLOUDINARY_AVATAR_UPLOAD_PRESET = 'greenbowl_avatar_signed';
   process.env.NODE_ENV = 'development';
   // Duy's code: Tạo chữ ký upload với timestamp cố định để kiểm tra tham số ổn định.
@@ -45,10 +45,10 @@ test('createSignature sorts parameters before hashing', () => {
 
 // Duy's code: Chấp nhận URL ảnh Cloudinary thuộc folder của account đã yêu cầu.
 test('getAvatarPublicId accepts an account avatar URL in the configured folder', () => {
-  process.env.CLOUDINARY_CLOUD_NAME = 'greenbowl-test';
+  process.env.CLOUDINARY_AVATAR_CLOUD_NAME = 'greenbowl-test';
   process.env.NODE_ENV = 'development';
-  process.env.CLOUDINARY_API_KEY = 'test-key';
-  process.env.CLOUDINARY_API_SECRET = 'test-secret';
+  process.env.CLOUDINARY_AVATAR_API_KEY = 'test-key';
+  process.env.CLOUDINARY_AVATAR_API_SECRET = 'test-secret';
   // Duy's code: Tạo URL mẫu có version để kiểm tra việc trích xuất public ID.
   const accountId = '42';
   const publicId = '12345678-1234-4234-8234-123456789abc';
@@ -64,9 +64,9 @@ test('getAvatarPublicId accepts an account avatar URL in the configured folder',
 
 // Duy's code: Từ chối URL không thuộc Cloudinary hoặc thuộc tài khoản khác.
 test('getAvatarPublicId rejects non-Cloudinary and another account URLs', () => {
-  process.env.CLOUDINARY_CLOUD_NAME = 'greenbowl-test';
-  process.env.CLOUDINARY_API_KEY = 'test-key';
-  process.env.CLOUDINARY_API_SECRET = 'test-secret';
+  process.env.CLOUDINARY_AVATAR_CLOUD_NAME = 'greenbowl-test';
+  process.env.CLOUDINARY_AVATAR_API_KEY = 'test-key';
+  process.env.CLOUDINARY_AVATAR_API_SECRET = 'test-secret';
   const publicId = '12345678-1234-4234-8234-123456789abc';
 
   assert.equal(getAvatarPublicId('https://example.com/avatar.jpg', '42'), null);

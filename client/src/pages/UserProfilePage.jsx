@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  Button, ChipInput, ConfirmDialog, ImageUpload, Modal, Notice, PasswordField, Select, Tabs, TextField,
+  Button, ConfirmDialog, ImageUpload, Modal, Notice, PasswordField, Select, Tabs, TextField,
 } from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
 import {
   deleteHealthProfile, getHealthProfile, getProfile, removeAvatar, saveHealthProfile, updateProfile, uploadAvatar,
 } from '../services/user.service';
+import Avatar from '../components/Avatar/Avatar';
+import AllergyIngredientPicker from '../components/AllergyIngredientPicker/AllergyIngredientPicker';
 import { hasErrors } from '../utils/validate';
 import { calcHealth } from '../utils/health';
 import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng màu theme riêng cho hồ sơ. */
@@ -347,7 +349,7 @@ export default function UserProfilePage() {
     <div className={`container py-4 ${styles.page}`}>
       <ProfileBackNavigation /> {/* Duy's code: Hiển thị thanh quay lại phía trên trang hồ sơ. */}
       <div className="row justify-content-center">
-        <div className="col-lg-8">
+        <div className="col-12 col-xxl-10">
           <div className={`card shadow-sm border-0 ${styles.card}`}>
             <div className="card-body p-4 p-lg-5">
               <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
@@ -366,6 +368,7 @@ export default function UserProfilePage() {
                   >
                     Tải ảnh đại diện
                   </Button>
+                  <Avatar src={form.avatar} name={form.fullName} size={72} className={styles.profileAvatar} />
                   <div>
                     <div className="fw-semibold">{form.fullName}</div> {/* Duy's code: Hiển thị full name lấy từ DB. */}
                     <div className={`small ${styles.muted}`}>{form.email}</div>
@@ -569,14 +572,12 @@ export default function UserProfilePage() {
                             ]}
                           />
                           <div className="mt-3">
-                            <ChipInput
-                              label="Dị ứng / thực phẩm cần kiêng"
+                            {/* Duy's Code : Tìm ingredient có sẵn hoặc gửi tên mới vào hàng duyệt Admin. */}
+                            <label className="form-label fw-semibold">Dị ứng / thực phẩm cần kiêng</label>
+                            <AllergyIngredientPicker
                               value={healthForm.allergies}
                               onChange={updateHealthField('allergies')}
                               max={50}
-                              maxLength={120}
-                              placeholder="Nhập tên rồi nhấn Enter"
-                              hint="Được lưu trong hồ sơ; hiện chưa tự động lọc món ăn."
                             />
                           </div>
                         </div>

@@ -26,7 +26,8 @@ async function getDishes(req, res) {
 
 /** GET /api/recipes/ingredients → { items: ["Đậu hũ", ...] } — tên trong kho để gợi ý */
 async function getIngredients(req, res) {
-  res.json({ items: await recipeModel.findIngredientNames() });
+  // Duy's Code : Chuyển từ khóa ô dị ứng xuống truy vấn nguyên liệu hiện hữu.
+  res.json({ items: await recipeModel.findIngredientNames(req.query.q ?? '') });
 }
 
 /** GET /api/recipes/animal-words → { items: ["nước mắm", "cá", ...] } — Khoi's code: từ động vật để FE tô đỏ khi gõ */
@@ -62,6 +63,11 @@ async function createRecipe(req, res) {
 
 async function getPendingAdmin(req, res) {
   res.json(await recipeModel.listPendingForAdmin());
+}
+
+// Duy's Code : Cấp dữ liệu mọi trạng thái cho trang lịch sử duyệt công thức Admin.
+async function getAllAdmin(req, res) {
+  res.json(await recipeModel.listAllAdminRecipes());
 }
 
 async function decideAdmin(req, res) {
@@ -104,6 +110,7 @@ module.exports = {
   getMine: handle(getMine),
   createRecipe: handle(createRecipe),
   getPendingAdmin: handle(getPendingAdmin),
+  getAllAdmin: handle(getAllAdmin),
   decideAdmin: handle(decideAdmin),
   searchAdminDishes: handle(searchAdminDishes),
   renameRecipeDish: handle(renameRecipeDish),

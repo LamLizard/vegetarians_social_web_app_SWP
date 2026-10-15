@@ -28,7 +28,7 @@ import s from './FeedSidebar.module.css';
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  */
 export default function FeedSidebar({
-  nav, activeKey, user, accountMenu = [], shopAction, collapsed, onToggle, mobileOpen, onCloseMobile, onCreate, onLogin, onRegister,
+  nav, activeKey, user, accountMenu = [], shopAction, notificationSlot, collapsed, onToggle, mobileOpen, onCloseMobile, onCreate, onLogin, onRegister,
 }) {
   const [theme, toggleTheme] = useTheme();
   const dark = theme === 'dark';
@@ -96,6 +96,7 @@ export default function FeedSidebar({
         <nav className={s.nav}>{nav.map(item)}</nav>
 
         <div className={s.bottom}>
+          {user && notificationSlot}
           {/* Một nút: icon + chữ là chế độ SẼ chuyển sang (chốt 08/10/2026) */}
           <button
             type="button"

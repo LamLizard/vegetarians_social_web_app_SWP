@@ -16,6 +16,8 @@ router.get('/animal-words', recipeController.getAnimalWords); // Khoi's code: ba
 router.post('/ingredients/check', requireAuth, recipeController.checkIngredients);
 router.get('/mine', requireAuth, recipeController.getMine);
 router.post('/', requireAuth, recipeController.createRecipe);
+// Duy's Code : Trang Admin dùng endpoint này để lọc công thức theo cả ba trạng thái.
+router.get('/admin/all', requireAuth, requireAdmin, recipeController.getAllAdmin);
 router.get('/admin/pending', requireAuth, requireAdmin, recipeController.getPendingAdmin);
 router.post('/admin/:recipeId/decision', requireAuth, requireAdmin, recipeController.decideAdmin);
 router.get('/admin/dishes/search', requireAuth, requireAdmin, recipeController.searchAdminDishes);
