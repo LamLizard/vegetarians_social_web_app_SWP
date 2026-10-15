@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AdminLayout, Button, CategoryPicker, Notice, PageHeader, TextArea, TextField } from '../components';
+import { AdminLayout, Button, CategoryPicker, ErrorDialog, Notice, PageHeader, TextArea, TextField } from '../components';
 import useAuth from '../hooks/useAuth';
 import { createAdminDish, getDishCategories, searchAdminDishes } from '../services/dish.service';
 
@@ -76,9 +76,11 @@ export default function AdminDishCreatePage() {
         title="Tạo danh mục món ăn"
         description="Tạo tên món chung như Bánh Mì, Cơm, Cháo hoặc Chè. Công thức và biến thể cụ thể sẽ được liên kết riêng."
       />
-      {error && <Notice tone="alert" title="Chưa thể tạo danh mục" className="mt-3">{error}</Notice>}
+      {/* Duy's Code: Đưa lỗi tạo danh mục lên hộp thoại để không bị khuất đầu trang. */}
+      <ErrorDialog error={error} title="Chưa thể tạo danh mục" />
       {success && <Notice tone="success" title="Đã tạo danh mục" className="mt-3">{success}</Notice>}
-      {categoriesError && <Notice tone="alert" title="Không tải được danh mục" className="mt-3">{categoriesError}</Notice>}
+      {/* Duy's Code: Báo lỗi tải danh mục phân loại bằng hộp thoại. */}
+      <ErrorDialog error={categoriesError} title="Không tải được danh mục" />
       {/* Duy's Code : Mở rộng khung nhập theo toàn bộ vùng nội dung, giữ lề cân đối hai bên. */}
       <form className="mt-4 w-100" onSubmit={submit}>
         <div className="card border-0 shadow-sm"><div className="card-body p-4 p-lg-5 d-grid gap-4">

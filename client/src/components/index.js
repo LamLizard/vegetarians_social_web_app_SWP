@@ -18,6 +18,8 @@ export { default as StatusBadge } from './StatusBadge/StatusBadge';
 export { default as Chip } from './Chip/Chip';
 export { default as HighlightChip } from './HighlightChip/HighlightChip';
 export { default as Notice } from './Notice/Notice';
+// Duy's Code: Dùng chung hộp thoại cho lỗi cần báo ngay ở cấp trang.
+export { default as ErrorDialog } from './ErrorDialog/ErrorDialog';
 export { ToastProvider, useToast } from './Toast/Toast';
 export { default as Modal } from './Modal/Modal';
 export { default as ConfirmDialog } from './ConfirmDialog/ConfirmDialog';

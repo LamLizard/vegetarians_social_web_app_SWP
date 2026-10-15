@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminLayout, Button, ConfirmDialog, EmptyState, Notice, PageHeader, Panel, Photo, Spinner, StatusBadge } from '../components';
+import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Panel, Photo, Spinner, StatusBadge } from '../components';
 import useAuth from '../hooks/useAuth';
 import recipeService from '../services/recipe.service';
 import styles from './AdminRecipeVerifyPage.module.css';
@@ -57,7 +57,8 @@ export default function AdminRecipeVerifyPage() {
       await recipeService.decideAdminRecipe(decision.id, decision.action, note);
       await load();
       setDecision(null);
-      setStatus(decision.action === 'approve' ? 'approved' : 'rejected');
+      // Duy's Code: Sau khi duyệt, ở lại danh sách Đang chờ để tiếp tục xử lý.
+      if (decision.action === 'reject') setStatus('rejected');
     } catch (e) { setError(e.message); setDecision(null); }
     finally { setSaving(false); }
   };
@@ -105,8 +106,6 @@ export default function AdminRecipeVerifyPage() {
           description="Theo dõi công thức thành viên gửi và lịch sử đã duyệt hoặc từ chối."
           actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>}
         />
-        {error && <Notice tone="alert" title="Không thể tải hoặc xử lý công thức" className="mt-3">{error}</Notice>}
-
         <div className={styles.tabs} role="tablist" aria-label="Trạng thái công thức">
           {STATUS_TABS.map((tab) => (
             <button key={tab.key} type="button" role="tab" aria-selected={status === tab.key} className={status === tab.key ? styles.activeTab : ''} onClick={() => setStatus(tab.key)}>
@@ -170,6 +169,8 @@ export default function AdminRecipeVerifyPage() {
               })}
         </div>
       </div>
+      {/* Duy's Code: Hiện lỗi duyệt công thức ngay giữa màn hình. */}
+      <ErrorDialog error={error} title="Không thể tải hoặc xử lý công thức" />
       <ConfirmDialog
         open={!!decision}
         title={decision?.action === 'reject' ? 'Từ chối công thức?' : 'Duyệt công thức?'}
