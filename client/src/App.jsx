@@ -30,6 +30,7 @@ import AdminModerationPage from './pages/AdminModerationPage';
 import PostFeedPage from './pages/PostFeedPage';
 // Khoi's code: Trang Tạo công thức (Sprint 2, dữ liệu giả tới khi nhóm sửa DB).
 import RecipeCreatePage from './pages/RecipeCreatePage';
+import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
 
 
 // Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
@@ -61,9 +62,12 @@ function AppContent() {
   const path = window.location.pathname.replace(/\/$/, '') || '/';
   const isFeedPath = path === '/' || path === '/feed';
   const goTo = (url) => window.location.assign(url);
+  // Khoi's code: /recipes/123 → xem công thức đã duyệt (khách cũng xem được). /recipes/new KHÔNG khớp vì chỉ nhận số.
+  const recipeViewId = /^\/recipes\/(\d+)$/.exec(path)?.[1];
 
   if (!isAuthenticated) {
     if (isFeedPath) return <PostFeedPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
+    if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
     const isAuthPath = path === '/login' || path === '/register';
     return (
       <AuthPage
@@ -92,6 +96,8 @@ function AppContent() {
   if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
+  // Khoi's code: xem công thức đã duyệt — thành viên và Admin
+  if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
     <ShopExplorePage
