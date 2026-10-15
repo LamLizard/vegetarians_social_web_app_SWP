@@ -1,5 +1,5 @@
 // Khoi's code: Nhận ảnh từ client (đã qua multer) rồi đẩy lên Cloudinary, trả link về.
-const cloudinary = require('../config/cloudinary');
+const { cloudinary } = require('../config/cloudinary');
 
 /** Đẩy ảnh đang nằm trong RAM (buffer) lên Cloudinary. */
 function uploadBuffer(buffer) {

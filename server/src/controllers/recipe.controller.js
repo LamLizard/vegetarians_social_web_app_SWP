@@ -2,6 +2,8 @@
 // Controller không viết SQL. Câu lỗi tiếng Việt vì FE hiện nguyên văn lên UI.
 const recipeModel = require('../models/recipe.model');
 const { parseRecipeInput, parseCheckNames, RecipeInputError } = require('../utils/recipeInput');
+// Khoi's code: Cloud lưu ảnh bìa (bộ CLOUDINARY_POST_*), khớp với nơi API upload đẩy ảnh lên.
+const { POST_CLOUD_NAME } = require('../config/cloudinary');
 
 const { RecipeError } = recipeModel;
 
@@ -53,7 +55,7 @@ async function getMine(req, res) {
  * → 201 { message, recipe, ingredients }  (công thức 'pending')
  */
 async function createRecipe(req, res) {
-  const input = parseRecipeInput(req.body, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME });
   const { recipe, ingredients } = await recipeModel.createRecipe(req.account.id, input);
   res.status(201).json({ message: 'Công thức đã được gửi và đang chờ duyệt.', recipe, ingredients });
 }

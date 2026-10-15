@@ -1,6 +1,8 @@
 const dishModel = require('../models/dish.model');
 const { normalizeDishInput } = require('../utils/dish');
 const { parseRecipeInput, RecipeInputError } = require('../utils/recipeInput');
+// Khoi's code: Ảnh món/công thức Admin tải qua API upload ảnh bìa (POST /api/uploads/image) → kiểm tra theo cùng cloud đó.
+const { POST_CLOUD_NAME } = require('../config/cloudinary');
 
 // Duy's code: Trả lỗi nghiệp vụ cho client và chuyển lỗi hệ thống qua middleware.
 function respondWithError(error, res, next) {
@@ -37,7 +39,7 @@ async function createAdminDishWithRecipe(req, res, next) {
       ...req.body?.recipe,
       proposedDishName: req.body?.name,
       thumbnailUrl: dish.thumbnailUrl,
-    }, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+    }, { cloudName: POST_CLOUD_NAME });
     const created = await dishModel.createAdminDishWithRecipe(dish, recipe, { id: req.account.id, ip: req.ip });
     return res.status(201).json(created);
   } catch (error) {

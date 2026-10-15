@@ -3,6 +3,8 @@
 const postModel = require('../models/post.model');
 // Khoi's code: Kiểm tra dữ liệu form Đăng bài (Sprint 2).
 const { parsePostInput, PostInputError } = require('../utils/postInput');
+// Khoi's code: Cloud lưu ảnh bìa (bộ CLOUDINARY_POST_*), khớp với nơi API upload đẩy ảnh lên.
+const { POST_CLOUD_NAME } = require('../config/cloudinary');
 
 const { PostError } = postModel;
 const MAX_COMMENT = 1000;
@@ -96,7 +98,7 @@ async function addComment(req, res) {
 async function createPost(req, res) {
   let input;
   try {
-    input = parsePostInput(req.body, { cloudName: process.env.CLOUDINARY_CLOUD_NAME });
+    input = parsePostInput(req.body, { cloudName: POST_CLOUD_NAME });
   } catch (error) {
     if (error instanceof PostInputError) throw new PostError(400, error.message);
     throw error;
