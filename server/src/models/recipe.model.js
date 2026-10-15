@@ -3,7 +3,8 @@
 //       recipe_proposed_ingredient (nguyên liệu chưa có trong kho, chờ Admin duyệt).
 // Model không kiểm tra dữ liệu form — việc đó ở utils/recipeInput.js.
 const pool = require('../config/db');
-const { findAnimalWord } = require('../utils/animalWords');
+const { findAnimalWord, animalWarnings } = require('../utils/animalWords');
+const { getKeywords } = require('./bannedKeyword.model');
 
 /** Lỗi nghiệp vụ có mã HTTP — controller trả nguyên message cho FE */
 class RecipeError extends Error {
@@ -54,7 +55,7 @@ async function findIngredientNames() {
  * Soi từng tên nguyên liệu (giữ đúng thứ tự):
  *  - known: tên có trong kho ingredient (so không phân biệt hoa/thường)
  *  - isAnimalDerived: kho đánh dấu có nguồn gốc động vật
- *  - keyword: tên CHƯA có trong kho mà chứa từ động vật (vd "cá" trong "chả cá chay", xem utils/animalWords.js)
+ *  - keyword: tên CHƯA có trong kho mà chứa từ động vật (vd "cá" trong "chả cá chay") — từ lấy ở banned_keyword (category 'animal')
  *             — CHỈ cảnh báo, Admin xem lại. Có trong kho rồi thì tin isAnimalDerived, không soi tên.
  * @param {import('pg').Pool|import('pg').PoolClient} db
  * @param {string[]} names  đã làm sạch (recipeInput)
@@ -75,12 +76,13 @@ async function inspectIngredients(db, names) {
     ) i ON true
     ORDER BY n.ord
   `, [names]);
+  const keywords = await getKeywords('animal', db);
   return rows.map((r, idx) => ({
     name: names[idx],
     ingredientId: r.ingredientId,
     known: r.ingredientId !== null,
     isAnimalDerived: r.isAnimalDerived,
-    keyword: r.ingredientId === null ? findAnimalWord(names[idx]) : null,
+    keyword: r.ingredientId === null ? findAnimalWord(names[idx], keywords) : null,
   }));
 }
 
@@ -130,7 +132,8 @@ async function listPendingForAdmin() {
       r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes",
       r.instructions, r.status, r.moderation_note AS "moderationNote", r.created_at AS "createdAt",
       a.full_name AS "authorName", a.email AS "authorEmail",
-      COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
+      COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit,
+          'isAnimalDerived', i.is_animal_derived) ORDER BY i.name)
         FROM recipe_ingredient ri JOIN ingredient i ON i.ingredient_id = ri.ingredient_id
         WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
       COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
@@ -140,8 +143,24 @@ async function listPendingForAdmin() {
     WHERE r.status = 'pending'
     ORDER BY r.created_at ASC, r.recipe_id ASC
   `);
-  return rows;
+  // Khoi's code: cảnh báo đồ động vật cho Admin (không chặn): chữ người dùng tự gõ + nguyên liệu kho ghi là động vật
+  const keywords = await getKeywords('animal');
+  return rows.map((r) => ({
+    ...r,
+    animalWarnings: [
+      ...animalWarnings([
+        { field: 'title', label: 'Tên công thức', text: r.title },
+        { field: 'proposedDishName', label: 'Món đề xuất', text: r.proposedDishName },
+        ...r.proposedIngredients.map((i) => ({ field: 'proposedIngredient', label: 'Nguyên liệu mới', text: i.name })),
+      ], keywords),
+      ...r.ingredients.filter((i) => i.isAnimalDerived)
+        .map((i) => ({ field: 'ingredient', label: 'Nguyên liệu trong kho', text: i.name, keyword: 'nguồn gốc động vật' })),
+    ],
+  }));
 }
+
+/** Từ động vật (banned_keyword category 'animal') — trang Tạo công thức soi tên món, tên công thức ngay khi gõ */
+const findAnimalWords = () => getKeywords('animal');
 
 async function searchAdminDishes(query) {
   const { rows } = await pool.query(`
@@ -306,6 +325,7 @@ async function createRecipe(authorId, input) {
 }
 
 module.exports = {
+  findAnimalWords,
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
   listPendingForAdmin, decideRecipe,
   searchAdminDishes, renameRecipeDish, linkRecipeDish,

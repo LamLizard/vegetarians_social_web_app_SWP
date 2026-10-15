@@ -2,9 +2,11 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Button from '../Button/Button';
 import Field from '../Field/Field';
 import IconButton from '../IconButton/IconButton';
+import IngredientPicker from '../IngredientPicker/IngredientPicker';
 import cx from '../cx';
 import { INGREDIENT_UNIT } from '../../constants/domain';
 import { formatAmount, isNoAmountUnit, newIngredientRow, parseAmount } from '../../utils/ingredient';
+import { plain } from '../../utils/dishMatch';
 import styles from './IngredientEditor.module.css';
 
 /**
@@ -20,7 +22,9 @@ import styles from './IngredientEditor.module.css';
  *
  * @param {{key: string, name: string, amount: number|null, unit: string}[]} value  tạo dòng mới bằng newIngredientRow()
  * @param {(rows) => void} onChange
- * @param {string[]} [suggestions]      tên nguyên liệu gợi ý (ingredient.name)
+ * @param {string[]} [suggestions]      tên nguyên liệu gợi ý (ingredient.name) — ô tên vẫn gõ tự do
+ * @param {string[]} [catalog]   Khoi's code: có prop này → ô tên thành Ô CHỌN từ kho (IngredientPicker), không gõ tự do.
+ *        Không có trong kho → chọn "Đề xuất nguyên liệu mới", dòng đó có thêm `proposed: true`.
  * @param {({name?: string, amount?: string}|undefined)[]} [rowErrors]  lỗi từng dòng, cùng thứ tự với value
  * @param {({tone: 'bad'|'warn', text: string}|undefined)[]} [rowNotes]  Khoi's code: lưu ý từng dòng, KHÔNG chặn gửi
  *        (vd Tạo công thức: 'bad' = nghi không chay → tô đỏ ô tên · 'warn' = chưa có trong kho nguyên liệu)
@@ -28,7 +32,7 @@ import styles from './IngredientEditor.module.css';
  * @param {string} [label='Nguyên liệu'] · [hint] · [error] · [required] · [disabled]
  */
 export default function IngredientEditor({
-  value = [], onChange, suggestions = [], rowErrors = [], rowNotes = [], max = 40,
+  value = [], onChange, suggestions = [], catalog, rowErrors = [], rowNotes = [], max = 40,
   label = 'Nguyên liệu', hint, error, required, disabled, className,
 }) {
   const id = useId();
@@ -36,6 +40,7 @@ export default function IngredientEditor({
   const unitListId = `${id}-units`;
   const [amountText, setAmountText] = useState({});
   const nameRefs = useRef({});
+  const amountRefs = useRef({});
   const focusKey = useRef(null);
 
   const fallback = useRef(null);
@@ -79,6 +84,8 @@ export default function IngredientEditor({
   };
 
   const filled = rows.filter((r) => r.name.trim()).length;
+  // Tên đã chọn ở từng dòng (bỏ dấu) → ô chọn của dòng khác không hiện lại
+  const takenBy = (key) => new Set(rows.filter((r) => r.key !== key && r.name.trim()).map((r) => plain(r.name)));
 
   return (
     <Field id={id} as="legend" label={label} required={required}
@@ -96,15 +103,28 @@ export default function IngredientEditor({
           return (
             <li key={r.key} className={styles.row}>
               <span className={styles.num} aria-hidden="true">{n}</span>
+              {catalog ? (
+                <div className={styles.name}>
+                  <IngredientPicker
+                    name={r.name} proposed={!!r.proposed} catalog={catalog} taken={takenBy(r.key)}
+                    onPick={(v) => update(r.key, v)} onDone={() => amountRefs.current[r.key]?.focus()}
+                    tone={err?.name ? undefined : note?.tone} invalid={!!err?.name}
+                    inputRef={(el) => { nameRefs.current[r.key] = el; }}
+                    ariaLabel={`Tên nguyên liệu ${n}`} disabled={disabled}
+                  />
+                </div>
+              ) : (
+                <input
+                  ref={(el) => { nameRefs.current[r.key] = el; }}
+                  className={cx('form-control', styles.name, err?.name && 'is-invalid', !err?.name && note && styles[`note_${note.tone}`])}
+                  value={r.name} list={nameListId} placeholder="vd: Đậu hũ non" maxLength={120}
+                  aria-label={`Tên nguyên liệu ${n}`} aria-invalid={err?.name ? true : undefined}
+                  disabled={disabled} onChange={(e) => update(r.key, { name: e.target.value })}
+                  onKeyDown={(e) => onEnter(e, i)}
+                />
+              )}
               <input
-                ref={(el) => { nameRefs.current[r.key] = el; }}
-                className={cx('form-control', styles.name, err?.name && 'is-invalid', !err?.name && note && styles[`note_${note.tone}`])}
-                value={r.name} list={nameListId} placeholder="vd: Đậu hũ non" maxLength={120}
-                aria-label={`Tên nguyên liệu ${n}`} aria-invalid={err?.name ? true : undefined}
-                disabled={disabled} onChange={(e) => update(r.key, { name: e.target.value })}
-                onKeyDown={(e) => onEnter(e, i)}
-              />
-              <input
+                ref={(el) => { amountRefs.current[r.key] = el; }}
                 className={cx('form-control', styles.amount, err?.amount && 'is-invalid')}
                 inputMode="decimal" value={amountText[r.key] ?? (r.amount == null ? '' : formatAmount(r.amount))}
                 placeholder={noAmount ? '' : '0'} aria-label={`Số lượng nguyên liệu ${n}`}
@@ -140,7 +160,7 @@ export default function IngredientEditor({
         <Button variant="subtle" size="sm" icon="plus-lg" onClick={add} disabled={disabled || rows.length >= max}>Thêm nguyên liệu</Button>
         <span className={styles.count}>{filled} nguyên liệu</span>
       </div>
-      <datalist id={nameListId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>
+      {!catalog && <datalist id={nameListId}>{suggestions.map((s) => <option key={s} value={s} />)}</datalist>}
       <datalist id={unitListId}>{INGREDIENT_UNIT.map((u) => <option key={u.value} value={u.value} />)}</datalist>
     </Field>
   );

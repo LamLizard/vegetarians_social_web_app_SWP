@@ -27,6 +27,11 @@ async function getIngredients(req, res) {
   res.json({ items: await recipeModel.findIngredientNames() });
 }
 
+/** GET /api/recipes/animal-words → { items: ["nước mắm", "cá", ...] } — Khoi's code: từ động vật để FE tô đỏ khi gõ */
+async function getAnimalWords(req, res) {
+  res.json({ items: await recipeModel.findAnimalWords() });
+}
+
 /**
  * POST /api/recipes/ingredients/check { names: string[] }
  * → { items: [{ name, known, isAnimalDerived, keyword }] } — form dùng để báo "chưa có trong kho" và tô đỏ.
@@ -92,6 +97,7 @@ async function linkRecipeDish(req, res) {
 module.exports = {
   getDishes: handle(getDishes),
   getIngredients: handle(getIngredients),
+  getAnimalWords: handle(getAnimalWords),
   checkIngredients: handle(checkIngredients),
   getMine: handle(getMine),
   createRecipe: handle(createRecipe),

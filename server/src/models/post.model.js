@@ -169,10 +169,11 @@ async function findComments(postId, viewerId) {
 // Chưa có quy ước chuẩn hóa chung nên không suy đoán cách dùng normalized_keyword.
 // Schema không còn mức độ/phạm vi/bật tắt: mọi keyword trong bảng đều áp dụng
 // cho bình luận. Giữ tham số _scope để controller vẫn gọi (content, 'comment').
+// Khoi's code (12/10/2026): chỉ lấy category = 'spam'. Từ 'animal' (cá, gà…) chỉ để cảnh báo, không chặn bình luận.
 async function findBlockedKeyword(text, _scope) {
   const { rows } = await pool.query(`
     SELECT keyword FROM banned_keyword
-    WHERE btrim(keyword) <> ''
+    WHERE category = 'spam' AND btrim(keyword) <> ''
       AND strpos(lower($1::text), lower(keyword)) > 0
     ORDER BY keyword_id
     LIMIT 1

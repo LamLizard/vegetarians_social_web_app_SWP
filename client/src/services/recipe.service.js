@@ -22,6 +22,9 @@ const recipeService = {
   /** Tên nguyên liệu trong kho để gợi ý khi gõ → { items: string[] } */
   getIngredientNames: () => apiFetch('/recipes/ingredients'),
 
+  /** Khoi's code: từ chỉ đồ động vật (banned_keyword category 'animal') → { items: string[] } */
+  getAnimalWords: () => apiFetch('/recipes/animal-words'),
+
   /** Soi tên nguyên liệu → { items: IngredientCheck[] } (cùng thứ tự, đã bỏ trùng/rỗng) */
   checkIngredients: (names, { signal } = {}) => apiFetch('/recipes/ingredients/check', {
     method: 'POST', body: JSON.stringify({ names }), signal,
