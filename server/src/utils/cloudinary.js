@@ -18,7 +18,11 @@ class CloudinaryConfigurationError extends Error {
 // Duy's code: Đọc thông tin bí mật chỉ từ môi trường backend và kiểm tra cloud name.
 function getConfiguration() {
   // Duy's code: Đọc bộ khóa bí mật từ process.env, không trả chúng về client.
-  const { CLOUDINARY_CLOUD_NAME: cloudName, CLOUDINARY_API_KEY: apiKey, CLOUDINARY_API_SECRET: apiSecret } = process.env;
+  const {
+    CLOUDINARY_AVATAR_CLOUD_NAME: cloudName,
+    CLOUDINARY_AVATAR_API_KEY: apiKey,
+    CLOUDINARY_AVATAR_API_SECRET: apiSecret,
+  } = process.env;
   // Duy's code: Dừng cấp chữ ký nếu thiếu cấu hình bắt buộc.
   if (!cloudName || !apiKey || !apiSecret) throw new CloudinaryConfigurationError();
   // Duy's code: Chặn cloud name sai định dạng trước khi tạo endpoint Cloudinary.

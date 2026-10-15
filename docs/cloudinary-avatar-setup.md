@@ -1,6 +1,6 @@
 # Thiết lập Cloudinary cho ảnh đại diện
 
-Ảnh được upload trực tiếp từ trình duyệt bằng chữ ký do backend cấp. `CLOUDINARY_API_SECRET` chỉ đặt ở môi trường chạy server; không thêm secret vào biến `VITE_*` hoặc mã frontend.
+Ảnh được upload trực tiếp từ trình duyệt bằng chữ ký do backend cấp. `CLOUDINARY_AVATAR_API_SECRET` chỉ đặt ở môi trường chạy server; không thêm secret vào biến `VITE_*` hoặc mã frontend.
 
 ## Cấu hình Cloudinary
 
@@ -10,16 +10,16 @@
 4. Không cho phép ghi đè asset đã có. Thư mục upload do backend ký, theo dạng `greenbowl/{development|production}/avatars/{accountId}`.
 5. Bật quyền Admin API cho API key mà backend dùng để xác minh asset và xóa ảnh cũ.
 
-Preset phải được tạo trong cùng Cloudinary account với `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` và `CLOUDINARY_API_SECRET`.
+Preset phải được tạo trong cùng Cloudinary account với `CLOUDINARY_AVATAR_CLOUD_NAME`, `CLOUDINARY_AVATAR_API_KEY` và `CLOUDINARY_AVATAR_API_SECRET`.
 
 ## Biến môi trường server
 
 Thiết lập các biến sau trong `server/.env` (local) hoặc secret store của môi trường deploy:
 
 ```dotenv
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
+CLOUDINARY_AVATAR_CLOUD_NAME=
+CLOUDINARY_AVATAR_API_KEY=
+CLOUDINARY_AVATAR_API_SECRET=
 CLOUDINARY_AVATAR_UPLOAD_PRESET=greenbowl_avatar_signed
 ```
 

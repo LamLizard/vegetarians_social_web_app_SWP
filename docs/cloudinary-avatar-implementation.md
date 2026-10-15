@@ -113,9 +113,9 @@ Tài liệu Cloudinary: [Managing upload presets](https://cloudinary.com/documen
 Thêm các biến sau vào **`server/.env`** trên máy chạy backend:
 
 ```dotenv
-CLOUDINARY_CLOUD_NAME=<Cloud name trong Dashboard>
-CLOUDINARY_API_KEY=<API Key trong Dashboard>
-CLOUDINARY_API_SECRET=<API Secret trong Dashboard>
+CLOUDINARY_AVATAR_CLOUD_NAME=<Cloud name trong Dashboard>
+CLOUDINARY_AVATAR_API_KEY=<API Key trong Dashboard>
+CLOUDINARY_AVATAR_API_SECRET=<API Secret trong Dashboard>
 CLOUDINARY_AVATAR_UPLOAD_PRESET=greenbowl_avatar_signed
 ```
 
@@ -130,9 +130,9 @@ Có thể kiểm tra sự hiện diện các biến bằng PowerShell mà chỉ 
 ```powershell
 $envFile = 'server\.env'
 $keys = @(
-  'CLOUDINARY_CLOUD_NAME',
-  'CLOUDINARY_API_KEY',
-  'CLOUDINARY_API_SECRET',
+  'CLOUDINARY_AVATAR_CLOUD_NAME',
+  'CLOUDINARY_AVATAR_API_KEY',
+  'CLOUDINARY_AVATAR_API_SECRET',
   'CLOUDINARY_AVATAR_UPLOAD_PRESET'
 )
 $lines = Get-Content $envFile
@@ -367,7 +367,7 @@ Các asset thử nghiệm nói trên được tạo riêng và đã xóa. Bằng
 
 ### Xin chữ ký trả `503`
 
-- Xác nhận ba biến bắt buộc `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` tồn tại và không rỗng trong `server/.env`.
+- Xác nhận ba biến bắt buộc `CLOUDINARY_AVATAR_CLOUD_NAME`, `CLOUDINARY_AVATAR_API_KEY`, `CLOUDINARY_AVATAR_API_SECRET` tồn tại và không rỗng trong `server/.env`.
 - Restart backend.
 - Preset có fallback tên `greenbowl_avatar_signed`; khai báo biến `CLOUDINARY_AVATAR_UPLOAD_PRESET` rõ ràng giúp phát hiện lệch tên.
 
