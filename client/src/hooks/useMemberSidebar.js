@@ -5,7 +5,7 @@ export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
   { key: 'dishes', label: 'Món chay', icon: 'egg-fried', href: '#' },
   { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '#' },
+  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
 const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';
 const MOBILE_QUERY = '(max-width: 767.98px)';

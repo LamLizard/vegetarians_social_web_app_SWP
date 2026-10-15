@@ -24,6 +24,9 @@
 .line > i { color: var(--ac-moss); }
 .addr { flex: 1; min-width: 0; }
 .hours { color: var(--ac-ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.openTag { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: .72rem; font-weight: 700; }
+.openTagOn { background: var(--ac-ok-bg); color: var(--ac-ok-fg); }
+.openTagOff { background: var(--ac-neutral-bg); color: var(--ac-neutral-fg); }
 
 .matched {
   display: flex;
