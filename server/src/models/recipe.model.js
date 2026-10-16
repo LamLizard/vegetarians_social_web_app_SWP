@@ -146,7 +146,14 @@ async function listAdminRecipes(includeHistory = false) {
           'isAnimalDerived', i.is_animal_derived) ORDER BY i.name)
         FROM recipe_ingredient ri JOIN ingredient i ON i.ingredient_id = ri.ingredient_id
         WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients,
-      COALESCE((SELECT json_agg(json_build_object('name', pi.name, 'amount', pi.amount, 'unit', pi.unit) ORDER BY pi.name)
+      -- Duy's Code: Đọc trạng thái từ admin_log hiện có để phân biệt đề xuất nguyên liệu bị từ chối.
+      COALESCE((SELECT json_agg(json_build_object(
+          'name', pi.name, 'amount', pi.amount, 'unit', pi.unit,
+          'rejected', EXISTS (SELECT 1 FROM admin_log l
+            WHERE l.action = 'ingredient_proposal_rejected'
+              AND COALESCE(l.after_value->>'sourceType', 'all') IN ('recipe', 'all')
+              AND lower(COALESCE(l.after_value->>'name', '')) = lower(btrim(pi.name)))
+        ) ORDER BY pi.name)
         FROM recipe_proposed_ingredient pi WHERE pi.recipe_id = r.recipe_id), '[]'::json) AS "proposedIngredients"
     FROM recipe r LEFT JOIN dish d ON d.dish_id = r.dish_id
     JOIN account a ON a.account_id = r.author_id
