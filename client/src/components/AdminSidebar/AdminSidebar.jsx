@@ -19,8 +19,7 @@ const MENU = [
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
   { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
   { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
-  { divider: true },
-  { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
+  { divider: true }
 ];
 
 export default function AdminSidebar({ activeKey, user, onLogout, linkAs, onNavigate }) {
