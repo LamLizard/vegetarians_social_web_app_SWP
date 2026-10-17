@@ -39,15 +39,26 @@ export default function AdminRecipeVerifyPage() {
       const params = new URLSearchParams(window.location.search);
       const createdDishId = params.get('createdDishId');
       const returnRecipeId = params.get('returnRecipeId');
+      const requestedRecipeId = params.get('recipeId');
       const dishName = params.get('dishName');
+      // Duy's Code: Tạo Dish từ công thức đang chờ sẽ liên kết Recipe bằng API rồi cập nhật đúng dòng.
       if (createdDishId && returnRecipeId) {
         const linked = await recipeService.linkRecipeDish(returnRecipeId, createdDishId);
         recipes = recipes.map((item) => String(item.id) === String(returnRecipeId)
           ? { ...item, dishId: createdDishId, dishName: linked.dishName || dishName, proposedDishName: null }
           : item);
-        window.history.replaceState(null, '', '/admin/recipes/verify');
       }
       setItems(recipes);
+      // Duy's Code: Link từ Ingredient Verify hoặc Dish Create mở và bung đúng công thức cần tiếp tục xử lý.
+      const focusRecipeId = returnRecipeId || requestedRecipeId;
+      const focusedRecipe = recipes.find((item) => String(item.id) === String(focusRecipeId));
+      if (focusedRecipe) {
+        setStatus(focusedRecipe.status);
+        setExpanded((current) => ({ ...current, [focusedRecipe.id]: true }));
+      }
+      if (createdDishId || returnRecipeId || requestedRecipeId || dishName) {
+        window.history.replaceState(null, '', '/admin/recipes/verify');
+      }
     } catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, []);
@@ -55,6 +66,10 @@ export default function AdminRecipeVerifyPage() {
 
   const counts = useMemo(() => Object.fromEntries(STATUS_TABS.map(({ key }) => [key, items.filter((item) => item.status === key).length])), [items]);
   const visible = useMemo(() => items.filter((item) => item.status === status), [items, status]);
+  // Duy's Code: Đếm nguyên liệu đề xuất của các Recipe đang chờ để dẫn sang đúng màn duyệt.
+  const pendingIngredientCount = items
+    .filter((item) => item.status === 'pending')
+    .reduce((total, item) => total + (item.proposedIngredients || []).length, 0);
 
   const decide = async (note) => {
     if (!decision) return;
@@ -111,7 +126,13 @@ export default function AdminRecipeVerifyPage() {
         <PageHeader
           title="Duyệt công thức"
           description="Theo dõi công thức thành viên gửi và lịch sử đã duyệt hoặc từ chối."
-          actions={<Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>}
+          actions={<>
+            {/* Duy's Code: Cho Admin đi tới hàng đợi nguyên liệu từ luồng duyệt Recipe. */}
+            <Button variant="outline" icon="basket" onClick={() => window.location.assign('/admin/ingredients/verify')}>
+              Nguyên liệu cần duyệt{pendingIngredientCount ? ` (${pendingIngredientCount})` : ''}
+            </Button>
+            <Button variant="outline" icon="arrow-clockwise" onClick={load} disabled={loading}>Tải lại</Button>
+          </>}
         />
         <div className={styles.tabs} role="tablist" aria-label="Trạng thái công thức">
           {STATUS_TABS.map((tab) => (
@@ -128,6 +149,9 @@ export default function AdminRecipeVerifyPage() {
                 const isExpanded = !!expanded[item.id];
                 const matches = dishMatches[item.id] || [];
                 const searchValue = dishSearch[item.id] ?? item.proposedDishName ?? '';
+                // Duy's Code: Phân biệt nguyên liệu còn chờ với đề xuất đã bị từ chối trong lịch sử hiện có.
+                const proposedIngredients = item.proposedIngredients || [];
+                const rejectedIngredients = proposedIngredients.filter((ingredient) => ingredient.rejected);
                 return (
                   <Panel key={item.id} className={styles.card}>
                     <article className={styles.summary}>
@@ -140,26 +164,42 @@ export default function AdminRecipeVerifyPage() {
                             {isExpanded ? 'Thu gọn' : 'Xem toàn bộ'}
                           </Button>
                         </div>
-                        <p className={styles.meta}>Danh mục món: <b>{item.dishName || item.proposedDishName || 'Chưa liên kết'}</b></p>
+                        <p className={styles.meta}>Dish: <b>{item.dishName || item.proposedDishName || 'Chưa liên kết'}</b></p>
                         <p className={styles.meta}>Gửi bởi {item.authorName || item.authorEmail || 'Thành viên'} · {item.servings || '—'} khẩu phần · {item.cookTimeMinutes ?? '—'} phút</p>
+                        {/* Duy's Code: Chỉ cho duyệt Recipe sau khi Dish đã liên kết và nguyên liệu đề xuất đã xử lý. */}
+                        {item.status === 'pending' && proposedIngredients.length > 0 && <Notice tone="alert">
+                          {rejectedIngredients.length > 0
+                            ? `${rejectedIngredients.length} đề xuất nguyên liệu đã bị từ chối. Recipe chưa thể duyệt; hãy xem lại và quyết định từ chối công thức nếu không thể xử lý tiếp.`
+                            : `Còn ${proposedIngredients.length} nguyên liệu chờ duyệt. Hãy xử lý ở trang duyệt nguyên liệu trước khi duyệt công thức.`}
+                          {proposedIngredients.some((ingredient) => !ingredient.rejected) && <div className="mt-2">
+                            <Button size="sm" variant="outline" icon="basket" onClick={() => window.location.assign('/admin/ingredients/verify')}>Mở duyệt nguyên liệu</Button>
+                          </div>}
+                        </Notice>}
                         {item.moderationNote && <Notice tone={item.status === 'rejected' ? 'alert' : 'success'}>{item.moderationNote}</Notice>}
                         {item.status === 'pending' && <div className={styles.actions}>
                           <Button variant="alert" icon="x-circle" onClick={() => setDecision({ id: item.id, title: item.title, action: 'reject' })}>Từ chối</Button>
-                          <Button icon="check-circle" disabled={!item.dishId} title={!item.dishId ? 'Liên kết công thức với danh mục món trước khi duyệt' : undefined} onClick={() => setDecision({ id: item.id, title: item.title, action: 'approve' })}>Duyệt công thức</Button>
+                          <Button
+                            icon="check-circle"
+                            disabled={!item.dishId || Boolean(item.proposedDishName) || proposedIngredients.length > 0}
+                            title={!item.dishId || item.proposedDishName
+                              ? 'Liên kết công thức với một Dish trước khi duyệt'
+                              : proposedIngredients.length > 0 ? 'Xử lý nguyên liệu đề xuất trước khi duyệt' : undefined}
+                            onClick={() => setDecision({ id: item.id, title: item.title, action: 'approve' })}
+                          >Duyệt công thức</Button>
                         </div>}
                       </div>
                     </article>
 
                     {isExpanded && <section className={styles.details}>
                       {item.status === 'pending' && item.proposedDishName && <div className={styles.dishLink}>
-                        <h3>Liên kết danh mục món</h3>
+                        <h3>Liên kết với Dish</h3>
                         <div className={styles.searchRow}>
-                          <input className="form-control" value={searchValue} aria-label="Tên danh mục món" onChange={(event) => { setDishSearch((current) => ({ ...current, [item.id]: event.target.value })); setDishMatches((current) => ({ ...current, [item.id]: [] })); }} />
-                          <Button variant="outline" loading={dishBusy === item.id} onClick={() => findDishes(item)}>Tìm danh mục</Button>
+                          <input className="form-control" value={searchValue} aria-label="Tên Dish" onChange={(event) => { setDishSearch((current) => ({ ...current, [item.id]: event.target.value })); setDishMatches((current) => ({ ...current, [item.id]: [] })); }} />
+                          <Button variant="outline" loading={dishBusy === item.id} onClick={() => findDishes(item)}>Tìm Dish</Button>
                           <Button variant="outline" disabled={dishBusy === item.id} onClick={() => renameDish(item)}>Lưu tên đề xuất</Button>
                         </div>
-                        {matches.length > 0 && <ul className={styles.matchList}>{matches.map((dish) => <li key={dish.id}>{dish.name}<Button size="sm" variant="outline" disabled={dishBusy === item.id} onClick={() => linkDish(item, dish)}>Dùng danh mục này</Button></li>)}</ul>}
-                        {Object.hasOwn(dishMatches, item.id) && matches.length === 0 && <div className={styles.createPrompt}>Không tìm thấy danh mục phù hợp. <Button size="sm" onClick={() => window.location.assign(`/admin/dishes/create?returnRecipeId=${encodeURIComponent(item.id)}&suggestedName=${encodeURIComponent(searchValue)}`)}>Tạo danh mục món</Button></div>}
+                        {matches.length > 0 && <ul className={styles.matchList}>{matches.map((dish) => <li key={dish.id}>{dish.name}<Button size="sm" variant="outline" disabled={dishBusy === item.id} onClick={() => linkDish(item, dish)}>Liên kết Dish này</Button></li>)}</ul>}
+                        {Object.hasOwn(dishMatches, item.id) && matches.length === 0 && <div className={styles.createPrompt}>Không tìm thấy Dish phù hợp. <Button size="sm" onClick={() => window.location.assign(`/admin/dishes/create?returnRecipeId=${encodeURIComponent(item.id)}&suggestedName=${encodeURIComponent(searchValue)}`)}>Tạo Dish và liên kết</Button></div>}
                       </div>}
                       <div className={styles.facts}>
                         {item.prepTimeMinutes != null && <span><b>Chuẩn bị</b>{item.prepTimeMinutes} phút</span>}
@@ -182,7 +222,9 @@ export default function AdminRecipeVerifyPage() {
                         </div>
                       )}
                       <div className={styles.detailColumns}>
-                        <div><h3>Nguyên liệu</h3><ul>{[...(item.ingredients || []), ...(item.proposedIngredients || [])].map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}</li>)}</ul></div>
+                        <div><h3>Nguyên liệu</h3><ul>{[...(item.ingredients || []), ...proposedIngredients].map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>
+                          {ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}{ingredient.rejected ? ' · Đề xuất đã bị từ chối' : ''}
+                        </li>)}</ul></div>
                         <div><h3>Cách làm</h3><p className={styles.instructions}>{item.instructions || 'Chưa có hướng dẫn.'}</p></div>
                       </div>
                     </section>}

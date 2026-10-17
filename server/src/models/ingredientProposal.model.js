@@ -85,6 +85,47 @@ async function listPending() {
   return rows.map((row) => ({ ...row, name: formatIngredientName(row.name) }));
 }
 
+// Duy's Code: Đọc danh sách Banned Keyword từ bảng hiện có; lấy category an toàn nếu schema đang có thuộc tính đó.
+async function listBannedKeywords() {
+  const { rows } = await pool.query(`
+    SELECT bk.keyword_id::text AS id, bk.keyword, bk.normalized_keyword AS "normalizedKeyword",
+      to_jsonb(bk)->>'category' AS category
+    FROM public.banned_keyword bk
+    ORDER BY category NULLS LAST, bk.normalized_keyword, bk.keyword_id
+  `);
+  return rows;
+}
+
+// Duy's Code: Phân trang lịch sử duyệt từ admin_log, không tạo bảng lưu lịch sử riêng.
+async function listHistory(page = 1, pageSize = 20) {
+  const countResult = await pool.query(`
+    SELECT count(*)::int AS total
+    FROM public.admin_log l
+    WHERE l.target_type = 'ingredient'
+      AND l.action IN ('ingredient_proposal_approved', 'ingredient_proposal_rejected', 'ingredient_proposal_removed')
+  `);
+  const totalItems = countResult.rows[0].total;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const { rows } = await pool.query(`
+    SELECT l.admin_log_id::text AS id, l.action, l.reason,
+      l.after_value->>'name' AS name,
+      COALESCE(l.after_value->>'status', CASE
+        WHEN l.action = 'ingredient_proposal_approved' THEN 'approved'
+        WHEN l.action = 'ingredient_proposal_rejected' THEN 'rejected'
+        ELSE 'removed' END) AS status,
+      COALESCE(l.after_value->>'sourceType', 'unknown') AS "sourceType",
+      l.created_at AS "createdAt", a.full_name AS "adminName", a.email AS "adminEmail"
+    FROM public.admin_log l
+    JOIN public.account a ON a.account_id = l.admin_id
+    WHERE l.target_type = 'ingredient'
+      AND l.action IN ('ingredient_proposal_approved', 'ingredient_proposal_rejected', 'ingredient_proposal_removed')
+    ORDER BY l.created_at DESC, l.admin_log_id DESC
+    LIMIT $1 OFFSET $2
+  `, [pageSize, (currentPage - 1) * pageSize]);
+  return { items: rows, page: currentPage, pageSize, totalItems, totalPages };
+}
+
 async function decide(rawName, sourceType, adminId, action, note = '', classification = {}, ipAddress = null) {
   const name = cleanName(rawName);
   if (!['health_profile', 'recipe'].includes(sourceType)) throw new IngredientProposalError(400, 'Nguồn đề xuất không hợp lệ.');
@@ -141,4 +182,4 @@ async function decide(rawName, sourceType, adminId, action, note = '', classific
   } finally { client.release(); }
 }
 
-module.exports = { IngredientProposalError, submit, listMine, listPending, decide };
+module.exports = { IngredientProposalError, submit, listMine, listPending, listBannedKeywords, listHistory, decide };

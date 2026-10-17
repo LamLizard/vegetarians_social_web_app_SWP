@@ -1,28 +1,24 @@
-/* Duy's Code : Phân cấp UI nhóm món chung, món cụ thể và công thức đã duyệt. */
 .page { display: grid; gap: 20px; width: 100%; padding: 26px 32px 48px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
 .toolbar > :first-child { width: min(620px, 100%); }
 .toolbar > span { color: var(--ac-muted); font-size: .9rem; }
-.list { display: grid; gap: 14px; }
-.family { overflow: hidden; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg, 1rem); }
-.familyHeader { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 22px; align-items: center; gap: 16px; width: 100%; padding: 20px 22px; border: 0; background: var(--ac-card); color: var(--ac-ink); text-align: left; }
-.familyHeader:hover, .variantHeader:hover { background: var(--ac-bg-subtle, var(--ac-card)); }
-.familyIcon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 15px; background: var(--ac-tag-bg); color: var(--ac-moss); font-size: 1.2rem; }
-.familyTitle { font-size: 1.2rem; font-weight: 750; }
-.familyCount, .recipeCount { padding: 6px 11px; border-radius: 999px; background: var(--ac-tag-bg); color: var(--ac-moss); font-size: .82rem; font-weight: 700; white-space: nowrap; }
-.chevron { color: var(--ac-muted); }
-.variants { display: grid; padding: 0 18px 18px; border-top: 1px solid var(--ac-border); background: var(--ac-bg-subtle, transparent); }
-.variant { overflow: hidden; border-bottom: 1px solid var(--ac-border); }
-.variant:last-child { border-bottom: 0; }
-.variantHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto 22px; align-items: center; gap: 14px; width: 100%; padding: 16px 10px; border: 0; background: transparent; color: var(--ac-ink); text-align: left; }
-.variantText { display: grid; gap: 5px; min-width: 0; }
-.variantTitle { font-weight: 700; }
+.list { display: grid; gap: 12px; }
+.dish { overflow: hidden; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg, 1rem); }
+.dishHeader { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto 22px; align-items: center; gap: 16px; width: 100%; padding: 18px 20px; border: 0; background: var(--ac-card); color: var(--ac-ink); text-align: left; }
+.dishHeader:hover { background: var(--ac-bg-subtle, var(--ac-card)); }
+.dishIcon { display: grid; width: 48px; height: 48px; place-items: center; border-radius: 15px; background: var(--ac-tag-bg); color: var(--ac-moss); font-size: 1.2rem; }
+.dishText { display: grid; gap: 6px; min-width: 0; }
+.dishTitle { font-size: 1.08rem; font-weight: 750; }
 .description { overflow: hidden; color: var(--ac-muted); text-overflow: ellipsis; white-space: nowrap; }
 .categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .categories span { padding: 3px 9px; border: 1px solid var(--ac-border); border-radius: 999px; color: var(--ac-muted); font-size: .75rem; }
-.recipeList { display: grid; gap: 0; padding-left: 16px; }
-.noRecipes { margin: 0; padding: 10px 14px 18px; color: var(--ac-muted); }
-.recipe { padding: 14px; border-top: 1px solid var(--ac-border); }
+.categories .noCategory { border-style: dashed; }
+.recipeCount { padding: 6px 11px; border-radius: 999px; background: var(--ac-tag-bg); color: var(--ac-moss); font-size: .82rem; font-weight: 700; white-space: nowrap; }
+.chevron { color: var(--ac-muted); }
+.recipeList { display: grid; padding: 0 18px 12px; border-top: 1px solid var(--ac-border); background: var(--ac-bg-subtle, transparent); }
+.noRecipes { margin: 0; padding: 16px 12px; color: var(--ac-muted); }
+.recipe { padding: 14px 8px; border-bottom: 1px solid var(--ac-border); }
+.recipe:last-child { border-bottom: 0; }
 .recipeSummary { display: flex; align-items: center; gap: 14px; }
 .recipeImage { width: 58px; flex: 0 0 58px; overflow: hidden; border-radius: 12px; }
 .recipeInfo { flex: 1; min-width: 0; }
@@ -36,15 +32,11 @@
 
 @media (max-width: 720px) {
   .page { padding: 18px 12px 40px; }
-  .familyHeader { grid-template-columns: 40px minmax(0, 1fr) 20px; gap: 10px; padding: 16px; }
-  .familyIcon { width: 40px; height: 40px; }
-  .familyCount { grid-column: 2; justify-self: start; }
-  .familyHeader > .chevron { grid-column: 3; grid-row: 1; }
-  .variants { padding: 0 10px 12px; }
-  .variantHeader { grid-template-columns: minmax(0, 1fr) 20px; gap: 8px; padding: 14px 4px; }
-  .variantHeader .recipeCount { grid-column: 1; grid-row: 2; justify-self: start; }
-  .variantHeader .chevron { grid-column: 2; grid-row: 1; }
-  .recipeList { padding-left: 0; }
+  .dishHeader { grid-template-columns: 40px minmax(0, 1fr) 20px; gap: 10px; padding: 15px; }
+  .dishIcon { width: 40px; height: 40px; }
+  .recipeCount { grid-column: 2; grid-row: 2; justify-self: start; }
+  .dishHeader > .chevron { grid-column: 3; grid-row: 1; }
+  .recipeList { padding: 0 10px 8px; }
   .recipeSummary { flex-wrap: wrap; }
   .recipeSummary > :last-child { margin-left: 72px; }
   .recipeDetails { grid-template-columns: minmax(0, 1fr); margin-left: 0; }
