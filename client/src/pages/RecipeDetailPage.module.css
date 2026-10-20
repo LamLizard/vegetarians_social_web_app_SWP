@@ -68,3 +68,39 @@
   .page { width: calc(100% - 24px); padding: 16px 0 120px; }
   .card { padding: 16px; }
 }
+
+/* Khoi's code 20/10: nút "Quay lại Công thức" trên breadcrumb */
+.back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  min-height: 36px;
+  margin-bottom: -12px;
+  padding: 0 12px 0 8px;
+  border-radius: 10px;
+  color: var(--v-text-2);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.back:hover { background: var(--v-surface-2); color: var(--v-text); }
+.back:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }
+
+/* Khoi's code 20/10: gợi ý công thức khác (cuối trang) */
+.related { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; padding-top: 32px; border-top: 1px solid var(--v-line); }
+.relatedHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+.more { color: var(--v-accent-text); font-size: 14px; font-weight: 600; text-underline-offset: 3px; }
+.more:hover { color: var(--v-text); }
+.relatedGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.plate {
+  display: grid;
+  place-items: center;
+  height: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
+}
+@media (max-width: 767.98px) {
+  .relatedGrid { grid-template-columns: minmax(0, 1fr); }
+}
