@@ -7,6 +7,15 @@ import { getMyIngredientProposals, submitIngredientProposal } from '../../servic
 import styles from './AllergyIngredientPicker.module.css';
 
 const sameName = (left, right) => left.trim().toLocaleLowerCase('vi') === right.trim().toLocaleLowerCase('vi');
+const STATUS_SEEN_KEY = 'health-profile-allergy-status-seen-v1';
+const statusKey = (item) => `${item.status}:${item.name.trim().toLocaleLowerCase('vi')}`;
+
+function readSeenStatuses() {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(STATUS_SEEN_KEY) || '[]');
+    return new Set(Array.isArray(stored) ? stored : []);
+  } catch { return new Set(); }
+}
 
 // Duy's Code : Tìm nguyên liệu đã duyệt; tên chưa có được gửi duyệt qua bảng allergy có sẵn.
 export default function AllergyIngredientPicker({ value = [], onChange, max = 50 }) {
@@ -19,18 +28,36 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
   const [proposals, setProposals] = useState([]);
   const latestSelection = useRef({ value, onChange });
   const previousStatuses = useRef(null);
+  const seenStatuses = useRef(null);
+  const shownStatusesThisPage = useRef(new Set());
   latestSelection.current = { value, onChange };
 
   useEffect(() => {
     let active = true;
     const refresh = () => getMyIngredientProposals().then((items) => {
       if (!active) return;
-      setProposals(items);
+      if (!seenStatuses.current) seenStatuses.current = readSeenStatuses();
+      const seen = seenStatuses.current;
+      items.filter((item) => item.status !== 'pending').forEach((item) => {
+        const key = statusKey(item);
+        if (!seen.has(key)) {
+          seen.add(key);
+          shownStatusesThisPage.current.add(key);
+        }
+      });
+      try { sessionStorage.setItem(STATUS_SEEN_KEY, JSON.stringify([...seen])); } catch { /* keep status rendering available if storage is blocked */ }
+      setProposals(items.filter((item) => item.status === 'pending' || shownStatusesThisPage.current.has(statusKey(item))));
       const oldStatuses = previousStatuses.current;
       const newlyApproved = oldStatuses
         ? items.filter((item) => item.status === 'approved' && oldStatuses.get(item.id) === 'pending')
         : [];
       previousStatuses.current = new Map(items.map((item) => [item.id, item.status]));
+      const rejectedNames = items.filter((item) => item.status === 'rejected').map((item) => item.name);
+      if (rejectedNames.length) {
+        const { value: current, onChange: change } = latestSelection.current;
+        const next = current.filter((name) => !rejectedNames.some((rejected) => sameName(name, rejected)));
+        if (next.length !== current.length) change?.(next);
+      }
       if (newlyApproved.length) {
         const { value: current, onChange: change } = latestSelection.current;
         const next = [...current];
@@ -77,7 +104,15 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
     setFeedback(null);
     try {
       const result = await submitIngredientProposal(name);
-      setProposals(await getMyIngredientProposals());
+      // The proposal endpoint also saves this name to the profile immediately.
+      // Keep the form state in sync so its next full-profile save does not delete it.
+      const { value: current, onChange: change } = latestSelection.current;
+      if (!current.some((selected) => sameName(selected, name)) && current.length < max) {
+        change?.([...current, name]);
+      }
+      setProposals((current) => current.some((item) => sameName(item.name, name))
+        ? current
+        : [...current, { id: `pending-${name}`, name, status: 'pending' }]);
       setFeedback({ tone: 'success', text: result.message || 'Tên dị ứng đã được lưu vào hồ sơ sức khỏe và gửi Admin phân loại.' });
       setQuery('');
     } catch (error) {
@@ -104,7 +139,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
           aria-label="Tìm nguyên liệu dị ứng trong cơ sở dữ liệu"
           autoComplete="off"
           maxLength={120}
-          disabled={value.length >= max}
+          disabled={value.length >= max || submitBusy}
         />
       </div>
       {loading && <p className={styles.hint}>Đang tải nguyên liệu…</p>}
@@ -112,7 +147,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
       {visibleMatches.length > 0 && (
         <div className={styles.results} role="listbox" aria-label="Nguyên liệu tìm thấy">
           {visibleMatches.map((name) => (
-            <button key={name} type="button" role="option" aria-selected="false" onClick={() => selectIngredient(name)}>
+            <button key={name} type="button" role="option" aria-selected="false" disabled={submitBusy} onClick={() => selectIngredient(name)}>
               <i className="bi bi-plus-circle" aria-hidden="true" />{name}
             </button>
           ))}
@@ -127,7 +162,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
       {exactMatch && !value.some((name) => sameName(name, exactMatch)) && (
         <div className={styles.proposal}>
           <span>Đã có “{exactMatch}” trong kho.</span>
-          <Button type="button" size="sm" variant="outline" onClick={() => selectIngredient(exactMatch)}>Chọn nguyên liệu</Button>
+          <Button type="button" size="sm" variant="outline" disabled={submitBusy} onClick={() => selectIngredient(exactMatch)}>Chọn nguyên liệu</Button>
         </div>
       )}
       {feedback && <p className={feedback.tone === 'alert' ? styles.error : styles.success} role={feedback.tone === 'alert' ? 'alert' : 'status'}>{feedback.text}</p>}
@@ -139,13 +174,19 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
       )}
       {proposals.some((item) => item.status !== 'pending') && (
         <ul className={styles.proposalStatus} aria-label="Kết quả đề nghị nguyên liệu">
-          {proposals.filter((item) => item.status !== 'pending').slice(0, 3).map((item) => (
-            <li key={item.id}>
-              {item.name}: {item.status === 'approved'
-                ? 'đã được phân loại và thêm vào danh mục.'
-                : item.status === 'removed'
-                  ? 'đã được gỡ khỏi hàng đợi duyệt; tên dị ứng vẫn còn trong hồ sơ sức khỏe.'
-                  : `đã bị từ chối${item.reviewNote ? `: ${item.reviewNote}` : ''}. Bạn có thể kiểm tra lại tên nguyên liệu.`}
+          {proposals.filter((item) => item.status !== 'pending')
+            .sort((left, right) => Number(right.status === 'rejected') - Number(left.status === 'rejected'))
+            .slice(0, 3).map((item) => (
+            <li key={item.id} className={`${styles.statusItem} ${item.status === 'approved' ? styles.statusApproved : item.status === 'rejected' ? styles.statusRejected : styles.statusRemoved}`}>
+              <i className={`bi bi-${item.status === 'approved' ? 'check-circle-fill' : item.status === 'rejected' ? 'x-circle-fill' : 'info-circle-fill'}`} aria-hidden="true" />
+              <div>
+                <strong>{item.name}</strong>
+                <span>{item.status === 'approved'
+                  ? 'Đã được phân loại và thêm vào hồ sơ sức khỏe.'
+                  : item.status === 'removed'
+                    ? 'Đã được gỡ khỏi hàng đợi duyệt.'
+                    : `Đã bị từ chối${item.reviewNote ? `: ${item.reviewNote}` : ''}. Tên này đã được gỡ khỏi hồ sơ.`}</span>
+              </div>
             </li>
           ))}
         </ul>

@@ -216,7 +216,7 @@ export default function AdminIngredientVerifyPage() {
       <div className={styles.proposalActions}>
         {!ready && <span className={styles.actionHint}>Chọn phân loại đồ chay và ngũ vị tân để tiếp tục.</span>}
         {isAllergy ? <>
-          <Button variant="subtle" icon="trash" onClick={() => setDecision({ item, action: 'delete' })}>Ẩn yêu cầu duyệt</Button>
+          <Button variant="alert" icon="x-circle" onClick={() => setDecision({ item, action: 'reject' })}>Từ chối đề xuất</Button>
           <Button icon="check-circle" disabled={!ready} onClick={() => setDecision({ item, action: 'approve' })}>Xác nhận phân loại</Button>
         </> : <>
           <Button variant="alert" icon="x-circle" onClick={() => setDecision({ item, action: 'reject' })}>Từ chối đề xuất</Button>
@@ -281,7 +281,7 @@ export default function AdminIngredientVerifyPage() {
             : allergyItems.length
               ? <>
                 <Notice tone="alert" title="Ưu tiên xem xét">
-                  Những nguyên liệu này được thành viên khai báo trong hồ sơ dị ứng. Xác nhận phân loại sẽ thêm nguyên liệu vào kho; ẩn yêu cầu chỉ gỡ khỏi hàng đợi.
+                  Những nguyên liệu này được thành viên khai báo trong hồ sơ dị ứng. Xác nhận phân loại sẽ thêm nguyên liệu vào kho; từ chối sẽ gỡ tên khỏi hồ sơ và gửi thông báo kèm lý do cho thành viên.
                 </Notice>
                 <div className={styles.proposalList}>{allergyItems.map((item) => renderProposal(item, true))}</div>
               </>
@@ -363,14 +363,14 @@ export default function AdminIngredientVerifyPage() {
 
         <ConfirmDialog
           open={!!decision}
-          title={decision?.action === 'reject' ? 'Từ chối đề xuất?' : decision?.action === 'delete' ? 'Ẩn yêu cầu dị ứng?' : 'Thêm nguyên liệu vào kho?'}
-          message={decision?.action === 'delete'
-            ? `“${decision?.item?.name || ''}” sẽ được gỡ khỏi hàng đợi. Thông tin dị ứng vẫn được giữ trong hồ sơ thành viên.`
-            : decision?.action === 'reject'
-              ? `“${decision?.item?.name || ''}” sẽ bị từ chối khỏi kho nguyên liệu. Recipe liên quan vẫn giữ trạng thái chờ để Admin tự xem xét.`
-              : `“${decision?.item?.name || ''}” sẽ được thêm vào kho với phân loại đồ chay và ngũ vị tân đã chọn.`}
-          confirmLabel={decision?.action === 'reject' ? 'Từ chối' : decision?.action === 'delete' ? 'Ẩn yêu cầu' : 'Thêm vào kho'}
-          tone={decision?.action === 'reject' || decision?.action === 'delete' ? 'alert' : 'primary'}
+          title={decision?.action === 'reject' ? 'Từ chối đề xuất?' : 'Thêm nguyên liệu vào kho?'}
+          message={decision?.action === 'reject'
+            ? decision?.item?.sourceType === 'health_profile'
+              ? `“${decision?.item?.name || ''}” sẽ bị gỡ khỏi hồ sơ dị ứng của thành viên. Thông báo kèm lý do từ chối sẽ được gửi cho các thành viên đã khai báo tên này.`
+              : `“${decision?.item?.name || ''}” sẽ bị từ chối khỏi kho nguyên liệu. Recipe liên quan vẫn giữ trạng thái chờ để Admin tự xem xét.`
+            : `“${decision?.item?.name || ''}” sẽ được thêm vào kho với phân loại đồ chay và ngũ vị tân đã chọn.`}
+          confirmLabel={decision?.action === 'reject' ? 'Từ chối' : 'Thêm vào kho'}
+          tone={decision?.action === 'reject' ? 'alert' : 'primary'}
           reason={decision?.action === 'reject' ? { label: 'Lý do từ chối', required: true } : undefined}
           loading={saving}
           onConfirm={decide}
