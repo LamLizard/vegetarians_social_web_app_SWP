@@ -21,6 +21,25 @@ const toRecipeBody = ({ dish, ...rest }) => ({
 });
 
 const recipeService = {
+  /**
+   * Khoi's code: trang Công thức — mọi công thức đã duyệt (khách cũng gọi được)
+   * → { items: [{ id, title, description, dishId, dishName, thumbnailUrl, servings, prepTimeMinutes, cookTimeMinutes,
+   *      caloriesKcal, createdAt, moderatedAt, authorName, authorAvatarUrl, categoryIds: string[], ingredientNames: string[],
+   *      likeCount, likesThisWeek, likedByMe }],
+   *     categories: [{ id, name }] }
+   */
+  listRecipes() {
+    return apiFetch('/recipes');
+  },
+
+  /** Khoi's code: thích / bỏ thích công thức đã duyệt → { liked, likeCount } */
+  likeRecipe(id) {
+    return apiFetch(`/recipes/${encodeURIComponent(id)}/like`, { method: 'POST' });
+  },
+  unlikeRecipe(id) {
+    return apiFetch(`/recipes/${encodeURIComponent(id)}/like`, { method: 'DELETE' });
+  },
+
   /** Món đang hiện cho ô chọn món. Đổi sang dạng DishPicker cần: { dish_id, name, status } */
   async getActiveDishes() {
     const { items } = await apiFetch('/recipes/dishes');

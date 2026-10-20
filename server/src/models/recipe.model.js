@@ -171,11 +171,21 @@ async function findMineDetail(authorId, recipeId) {
 }
 
 /**
+ * Khoi's code (20/10/2026): lượt thích công thức (bảng recipe_like — database-seed/SWP_PostgreSQL_20_10_recipe_like_up.sql).
+ * Cần alias r = recipe và tham số $2 = account_id người xem (null = khách → likedByMe false).
+ */
+const LIKE_FIELDS = `
+      (SELECT count(*)::int FROM recipe_like l WHERE l.recipe_id = r.recipe_id) AS "likeCount",
+      (SELECT count(*)::int FROM recipe_like l
+        WHERE l.recipe_id = r.recipe_id AND l.created_at >= now() - interval '7 days') AS "likesThisWeek",
+      EXISTS (SELECT 1 FROM recipe_like l WHERE l.recipe_id = r.recipe_id AND l.account_id = $2::bigint) AS "likedByMe"`;
+
+/**
  * Khoi's code: trang xem công thức (/recipes/:id) — AI CŨNG XEM ĐƯỢC, kể cả khách.
  * Chỉ công thức 'approved' của món đang 'active'; còn lại → null (404) để không lộ bản nháp / bị từ chối.
  * Công thức đã duyệt không còn nguyên liệu đề xuất (Admin duyệt hết trước khi approve) → chỉ đọc recipe_ingredient.
  */
-async function findPublicDetail(recipeId) {
+async function findPublicDetail(recipeId, viewerId = null) {
   const { rows: [recipe] } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, r.description,
       r.dish_id::text AS "dishId", d.name AS "dishName",
@@ -185,6 +195,7 @@ async function findPublicDetail(recipeId) {
       r.protein_g AS "proteinG", r.carb_g AS "carbG", r.fat_g AS "fatG",
       r.fiber_g AS "fiberG", r.sugar_g AS "sugarG", r.sodium_mg AS "sodiumMg",
       a.full_name AS "authorName", a.avatar_url AS "authorAvatarUrl",
+      ${LIKE_FIELDS},
       COALESCE((SELECT json_agg(json_build_object('name', i.name, 'amount', ri.amount, 'unit', ri.unit) ORDER BY i.name)
         FROM recipe_ingredient ri JOIN ingredient i ON i.ingredient_id = ri.ingredient_id
         WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients
@@ -192,11 +203,76 @@ async function findPublicDetail(recipeId) {
     JOIN dish d ON d.dish_id = r.dish_id AND d.status = 'active'
     JOIN account a ON a.account_id = r.author_id
     WHERE r.recipe_id = $1 AND r.status = 'approved'
-  `, [recipeId]);
+  `, [recipeId, viewerId]);
   if (!recipe) return null;
   toNutritionNumbers(recipe);
   recipe.ingredients = recipe.ingredients.map((i) => ({ ...i, amount: i.amount === null ? null : Number(i.amount), unit: i.unit ?? '' }));
   return recipe;
+}
+
+/**
+ * Khoi's code (20/10/2026): trang Công thức (/recipes) — AI CŨNG XEM ĐƯỢC, kể cả khách.
+ * Mọi công thức 'approved' của món 'active', mới nhất trước. Trang tự tìm / lọc / gom theo danh mục ở client
+ * (dữ liệu nhỏ, tối đa LIST_LIMIT). Danh mục của công thức = danh mục của món (dish_category, chỉ danh mục đang bật).
+ * ingredientNames dùng để cảnh báo dị ứng của người xem.
+ * Lượt thích: bảng recipe_like. moderatedAt = lúc Admin duyệt (công thức cũ chưa có → lúc gửi).
+ * @param {string|null} [viewerId]  người xem (null = khách) → likedByMe
+ * @returns {{ items: object[], categories: {id: string, name: string}[] }}  categories = danh mục có ít nhất 1 công thức, theo tên
+ */
+const LIST_LIMIT = 500;
+async function findPublicList(viewerId = null) {
+  const { rows: items } = await pool.query(`
+    SELECT r.recipe_id::text AS id, r.title, r.description,
+      r.dish_id::text AS "dishId", d.name AS "dishName",
+      r.thumbnail_url AS "thumbnailUrl",
+      r.servings, r.prep_time_minutes AS "prepTimeMinutes", r.cook_time_minutes AS "cookTimeMinutes",
+      r.calories_kcal AS "caloriesKcal", r.created_at AS "createdAt",
+      COALESCE(r.moderated_at, r.created_at) AS "moderatedAt",
+      a.full_name AS "authorName", a.avatar_url AS "authorAvatarUrl",
+      ${LIKE_FIELDS},
+      COALESCE((SELECT json_agg(c.category_id::text ORDER BY c.name)
+        FROM dish_category dc JOIN category c ON c.category_id = dc.category_id AND c.is_active
+        WHERE dc.dish_id = d.dish_id), '[]'::json) AS "categoryIds",
+      COALESCE((SELECT json_agg(i.name ORDER BY i.name)
+        FROM recipe_ingredient ri JOIN ingredient i ON i.ingredient_id = ri.ingredient_id
+        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS "ingredientNames"
+    FROM recipe r
+    JOIN dish d ON d.dish_id = r.dish_id AND d.status = 'active'
+    JOIN account a ON a.account_id = r.author_id
+    WHERE r.status = 'approved'
+    ORDER BY "moderatedAt" DESC, r.recipe_id DESC
+    LIMIT $1
+  `, [LIST_LIMIT, viewerId]);
+  const used = new Set(items.flatMap((it) => it.categoryIds));
+  const { rows: categories } = await pool.query(
+    'SELECT category_id::text AS id, name FROM category WHERE is_active ORDER BY name',
+  );
+  return { items, categories: categories.filter((c) => used.has(c.id)) };
+}
+
+/**
+ * Khoi's code (20/10/2026): Thích / bỏ thích 1 công thức. Chỉ công thức 'approved' của món 'active'.
+ * Bấm lặp không sao: thích 2 lần vẫn 1 dòng (PK recipe_id + account_id), bỏ thích khi chưa thích cũng không lỗi.
+ * @returns {{ liked: boolean, likeCount: number }}
+ */
+async function setRecipeLike(recipeId, accountId, liked) {
+  const { rows: [ok] } = await pool.query(`
+    SELECT 1 FROM recipe r JOIN dish d ON d.dish_id = r.dish_id AND d.status = 'active'
+    WHERE r.recipe_id = $1 AND r.status = 'approved'
+  `, [recipeId]);
+  if (!ok) throw new RecipeError(404, 'Không tìm thấy công thức, hoặc công thức chưa được duyệt.');
+  if (liked) {
+    await pool.query(
+      'INSERT INTO recipe_like (recipe_id, account_id) VALUES ($1, $2) ON CONFLICT (recipe_id, account_id) DO NOTHING',
+      [recipeId, accountId],
+    );
+  } else {
+    await pool.query('DELETE FROM recipe_like WHERE recipe_id = $1 AND account_id = $2', [recipeId, accountId]);
+  }
+  const { rows: [{ likeCount }] } = await pool.query(
+    'SELECT count(*)::int AS "likeCount" FROM recipe_like WHERE recipe_id = $1', [recipeId],
+  );
+  return { liked, likeCount };
 }
 
 // Admin queue: include the complete recipe and both known and proposed ingredients.
@@ -357,7 +433,7 @@ async function decideRecipe(recipeId, action, note, admin) {
       }
     }
     const { rows: [updated] } = await client.query(`
-      UPDATE recipe SET status = $2, moderation_note = $3
+      UPDATE recipe SET status = $2, moderation_note = $3, moderated_at = NOW() -- Khoi's code 20/10: giờ duyệt (trang Công thức)
       WHERE recipe_id = $1
       RETURNING recipe_id::text AS id, status, moderation_note AS "moderationNote"
     `, [recipeId, status, action === 'reject' ? note : null]);
@@ -536,7 +612,7 @@ async function resubmitRecipe(authorId, recipeId, input) {
 module.exports = {
   findAnimalWords,
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
-  findMineDetail, resubmitRecipe, findPublicDetail,
+  findMineDetail, resubmitRecipe, findPublicDetail, findPublicList, setRecipeLike,
   listPendingForAdmin, listAllAdminRecipes, decideRecipe,
   searchAdminDishes, renameRecipeDish, linkRecipeDish,
 };

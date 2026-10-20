@@ -7,6 +7,7 @@ import NumberStepper from '../components/NumberStepper/NumberStepper';
 import PageHeader from '../components/PageHeader/PageHeader';
 import Photo from '../components/Photo/Photo';
 import Skeleton from '../components/Skeleton/Skeleton';
+import VoteButton from '../components/VoteButton/VoteButton';
 import YouTubeEmbed from '../components/YouTubeEmbed/YouTubeEmbed';
 import { IngredientList, RecipeFacts, RecipeSteps } from '../components/RecipeView/RecipeView';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
@@ -41,6 +42,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
   const [state, setState] = useState({ status: 'loading', recipe: null }); // loading | ready | notFound | error
   const [servings, setServings] = useState(null); // khẩu phần đang xem → số lượng nguyên liệu tự nhân
   const [searchText, setSearchText] = useState('');
+  const [like, setLike] = useState({ on: false, count: 0, busy: false }); // Khoi's code 20/10: nút Thích
 
   const load = async () => {
     setState({ status: 'loading', recipe: null });
@@ -48,6 +50,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
       const recipe = await recipeService.getRecipe(recipeId);
       setState({ status: 'ready', recipe });
       setServings(recipe.servings ?? null);
+      setLike({ on: !!recipe.likedByMe, count: recipe.likeCount ?? 0, busy: false });
     } catch (err) {
       setState({ status: err.status === 404 || err.status === 400 ? 'notFound' : 'error', recipe: null });
     }
@@ -72,6 +75,21 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
     />
   );
 
+  // Khoi's code 20/10: Thích — đổi trên màn hình ngay, lỗi thì trả lại như cũ. Khách → đăng nhập.
+  const toggleLike = async () => {
+    if (!user) { onLogin?.(); return; }
+    if (like.busy) return;
+    const before = like;
+    const on = !before.on;
+    setLike({ on, count: before.count + (on ? 1 : -1), busy: true });
+    try {
+      const res = on ? await recipeService.likeRecipe(recipeId) : await recipeService.unlikeRecipe(recipeId);
+      setLike({ on: res.liked, count: res.likeCount, busy: false });
+    } catch {
+      setLike({ ...before, busy: false });
+    }
+  };
+
   const totalTime = (r?.prepTimeMinutes ?? 0) + (r?.cookTimeMinutes ?? 0);
   const nutrition = r ? NUTRIENTS.filter((n) => r[n.api] != null) : [];
   const timeParts = [
@@ -81,6 +99,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
 
   return (
     <MemberLayout
+      activeKey="recipes"
       user={user}
       accountMenu={accountMenu}
       onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
@@ -115,7 +134,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
         {state.status === 'ready' && (
           <>
             <PageHeader
-              breadcrumb={[{ label: 'Bảng tin', href: '/' }, { label: 'Công thức' }]}
+              breadcrumb={[{ label: 'Công thức', href: '/recipes' }, { label: r.dishName }]}
               title={r.title}
               description={r.description || undefined}
             />
@@ -127,6 +146,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                 <span>{r.authorName}</span>
               </span>
               <span className={s.when}>· {timeAgo(r.createdAt)}</span>
+              <VoteButton className={s.like} noun="công thức" voted={like.on} count={like.count} onToggle={toggleLike} />
             </div>
 
             {r.thumbnailUrl && <Photo src={r.thumbnailUrl} alt={r.title} ratio="16/9" shape="rounded" />}
