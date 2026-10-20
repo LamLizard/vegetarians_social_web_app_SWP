@@ -7,6 +7,7 @@ const MAX_DISH_NAME = 200;        // dish.name VARCHAR(200) = recipe.proposed_di
 const MAX_URL = 500;              // recipe.thumbnail_url VARCHAR(500)
 const MAX_INGREDIENT_NAME = 120;  // ingredient.name VARCHAR(120)
 const MAX_UNIT = 30;              // recipe_ingredient.unit VARCHAR(30)
+const { NO_AMOUNT_UNITS, canonicalUnit } = require('./ingredientUnits');
 const MAX_AMOUNT = 999999.99;     // DECIMAL(8,2)
 const MAX_INGREDIENTS = 40;       // giống IngredientEditor (max=40)
 const MAX_INSTRUCTIONS = 10000;
@@ -25,8 +26,6 @@ const NUTRIENTS = {
   sugarG: ['Đường', MAX_GRAMS, 1],
   sodiumMg: ['Natri', MAX_SODIUM, 0],
 };
-/** Đơn vị không cần số lượng — giống INGREDIENT_UNIT (noAmount) ở client/src/constants/domain.js */
-const NO_AMOUNT_UNITS = ['ít', 'vừa đủ'];
 
 /** Lỗi dữ liệu đầu vào → controller đổi thành HTTP 400 */
 class RecipeInputError extends Error {
@@ -126,9 +125,10 @@ function parseAmount(value, name) {
  * [{ name, amount, unit }] → đã làm sạch. Luật:
  *  - 1..40 dòng, tên bắt buộc ≤ 120 ký tự, không trùng tên (không phân biệt hoa/thường)
  *  - đơn vị "ít" / "vừa đủ" → bỏ số lượng; đơn vị khác mà thiếu số lượng → lỗi
+ *  - strictUnits (Khoi's code): chỉ nhận đơn vị trong bộ chuẩn (ingredientUnits.js), lưu đúng tên chuẩn
  *  - ít nhất 1 nguyên liệu có số lượng
  */
-function parseIngredients(value) {
+function parseIngredients(value, { strictUnits = false } = {}) {
   if (!Array.isArray(value) || value.length === 0) fail('Cần ít nhất 1 nguyên liệu.');
   if (value.length > MAX_INGREDIENTS) fail(`Tối đa ${MAX_INGREDIENTS} nguyên liệu.`);
   const seen = new Set();
@@ -143,7 +143,12 @@ function parseIngredients(value) {
     seen.add(key);
 
     if (!isEmpty(row.unit) && typeof row.unit !== 'string') fail(`Đơn vị của “${name}” không hợp lệ.`);
-    const unit = isEmpty(row.unit) ? null : clean(row.unit) || null;
+    let unit = isEmpty(row.unit) ? null : clean(row.unit) || null;
+    if (unit && strictUnits) {
+      const std = canonicalUnit(unit);
+      if (!std) fail(`Đơn vị “${unit}” của “${name}” không có trong danh sách. Hãy chọn đơn vị trong danh sách.`);
+      unit = std;
+    }
     if (unit && charCount(unit) > MAX_UNIT) fail(`Đơn vị tối đa ${MAX_UNIT} ký tự.`);
     const noAmount = unit !== null && NO_AMOUNT_UNITS.includes(unit.toLowerCase());
     const amount = noAmount ? null : parseAmount(row.amount, name);
@@ -159,10 +164,11 @@ function parseIngredients(value) {
  * @param {{ cloudName?: string, requireMeta?: boolean }} options
  *        requireMeta (Khoi's code): form Tạo công thức BẮT BUỘC khẩu phần, thời gian chuẩn bị, thời gian nấu (cho phép 0 phút).
  *        Mặc định false để luồng Admin tạo món kèm công thức (dish.controller) không đổi.
+ *        strictUnits (Khoi's code): chỉ nhận đơn vị trong bộ chuẩn; chỉ form Tạo/Sửa công thức của người dùng bật.
  * @returns {{ dishId, proposedDishName, title, description, thumbnailUrl, youtubeUrl, servings, prepTimeMinutes,
  *             cookTimeMinutes, caloriesKcal, proteinG, carbG, fatG, fiberG, sugarG, sodiumMg, ingredients, instructions }}
  */
-function parseRecipeInput(body, { cloudName, requireMeta = false } = {}) {
+function parseRecipeInput(body, { cloudName, requireMeta = false, strictUnits = false } = {}) {
   const b = body ?? {};
   if (requireMeta) {
     if (isEmpty(b.servings)) fail('Nhập khẩu phần.');
@@ -191,7 +197,7 @@ function parseRecipeInput(body, { cloudName, requireMeta = false } = {}) {
     caloriesKcal: parseOptionalInt(b.caloriesKcal, 'Calo', 1, MAX_CALORIES),
     ...Object.fromEntries(Object.entries(NUTRIENTS)
       .map(([key, [label, max, digits]]) => [key, parseOptionalNumber(b[key], label, max, digits)])),
-    ingredients: parseIngredients(b.ingredients),
+    ingredients: parseIngredients(b.ingredients, { strictUnits }),
     instructions,
   };
 }

@@ -9,6 +9,9 @@ let seq = 0;
 /** Dòng trống mới cho IngredientEditor. `key` chỉ để React vẽ danh sách, KHÔNG gửi API. */
 export const newIngredientRow = (init = {}) => ({ key: `ing-${Date.now()}-${seq++}`, name: '', amount: null, unit: '', ...init });
 
+/** Đơn vị có trong bộ chuẩn (INGREDIENT_UNIT). Rỗng = chưa chọn, vẫn hợp lệ. */
+export const isKnownUnit = (unit) => !unit.trim() || INGREDIENT_UNIT.some((u) => plain(u.value) === plain(unit));
+
 /** Đơn vị không cần số lượng ("ít", "vừa đủ"). */
 export const isNoAmountUnit = (unit) => INGREDIENT_UNIT.some((u) => u.noAmount && plain(u.value) === plain(unit));
 
@@ -39,7 +42,7 @@ export const scaleAmount = (amount, fromServings, toServings) =>
 
 /**
  * Kiểm tra danh sách nguyên liệu trước khi gửi.
- * @returns {{error?: string, rowErrors: ({name?: string, amount?: string}|undefined)[], hasError: boolean}}
+ * @returns {{error?: string, rowErrors: ({name?: string, amount?: string, unit?: string}|undefined)[], hasError: boolean}}
  */
 export function validateIngredients(rows = [], { min = 1 } = {}) {
   const filled = rows.filter((r) => r.name.trim() || r.amount != null || r.unit.trim());
@@ -53,6 +56,8 @@ export function validateIngredients(rows = [], { min = 1 } = {}) {
     else seen.set(plain(r.name), true);
     if (r.amount != null && (Number.isNaN(r.amount) || r.amount <= 0)) e.amount = 'Số lượng phải lớn hơn 0';
     else if (r.amount == null && r.unit.trim() && !isNoAmountUnit(r.unit)) e.amount = 'Nhập số lượng';
+    // Khoi's code: đơn vị phải nằm trong bộ chuẩn (công thức cũ có đơn vị gõ tay → báo để chọn lại)
+    if (!isKnownUnit(r.unit)) e.unit = `Đơn vị “${r.unit.trim()}” không có trong danh sách, hãy chọn lại`;
     return Object.keys(e).length ? e : undefined;
   });
   const error = filled.length < min ? `Cần ít nhất ${min} nguyên liệu` : undefined;

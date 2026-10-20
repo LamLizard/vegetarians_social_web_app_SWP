@@ -129,3 +129,15 @@ test('dinh dưỡng: tuỳ chọn, không âm, làm tròn', () => {
   rejects(base({ fatG: -1 }), /Chất béo phải là số từ 0 đến 1000/);
   rejects(base({ sodiumMg: 'abc' }), /Natri/);
 });
+
+test('strictUnits: chỉ nhận đơn vị trong bộ chuẩn và lưu đúng tên chuẩn', () => {
+  const strict = { cloudName: CLOUD, strictUnits: true };
+  const ok = parseRecipeInput(base({ ingredients: [{ name: 'Đậu hũ', amount: 2, unit: 'Muỗng Canh' }, { name: 'Muối', unit: 'Vừa đủ' }] }), strict);
+  assert.deepEqual(ok.ingredients, [
+    { name: 'Đậu hũ', amount: 2, unit: 'muỗng canh' },
+    { name: 'Muối', amount: null, unit: 'vừa đủ' },
+  ]);
+  assert.throws(() => parseRecipeInput(base({ ingredients: [{ name: 'Sả', amount: 1, unit: 'cây' }] }), strict), /không có trong danh sách/);
+  // Không bật strictUnits (luồng Admin) → đơn vị tự do vẫn nhận như cũ
+  assert.equal(parseRecipeInput(base({ ingredients: [{ name: 'Sả', amount: 1, unit: 'cây' }] }), { cloudName: CLOUD }).ingredients[0].unit, 'cây');
+});

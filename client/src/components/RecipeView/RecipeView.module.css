@@ -29,7 +29,7 @@
 .ingredients > li:has(.check) { padding: 0; }
 .check { flex: 1; cursor: pointer; margin: 0; }
 .check input { flex: none; margin: 0; transform: translateY(2px); }
-.ingName { min-width: 0; }
+.ingName { min-width: 0; overflow-wrap: anywhere; }
 .dots { flex: 1; min-width: 1rem; border-bottom: 1px dotted var(--ac-border-strong); transform: translateY(-4px); }
 .qty { color: var(--ac-moss); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .done .ingName, .done .qty { color: var(--ac-muted); text-decoration: line-through; }
@@ -37,7 +37,7 @@
 /* ---------- Các bước ---------- */
 .steps { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }
 .steps li { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: 0.75rem; }
-.steps p { margin: 0.2rem 0 0; line-height: 1.65; }
+.steps p { margin: 0.2rem 0 0; line-height: 1.65; overflow-wrap: anywhere; }
 .stepNum {
   display: grid;
   place-items: center;
