@@ -553,7 +553,6 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 value={form.ingredients}
                 onChange={set('ingredients')}
                 catalog={ingredientNames}
-                unitSuggestions={false}
                 hint={<>Gõ để tìm trong kho nguyên liệu. Không thấy thì chọn “+ Đề xuất nguyên liệu mới” ở cuối danh sách.<br />Đơn vị “ít”, “vừa đủ” không cần số lượng.</>}
                 error={touched.ingredients && ingWithAmount < 1 ? 'Cần ít nhất 1 nguyên liệu có số lượng' : undefined}
                 rowErrors={touched.ingredients ? ing.rowErrors : []}

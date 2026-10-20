@@ -63,7 +63,7 @@ async function getMine(req, res) {
  * → 201 { message, recipe, ingredients }  (công thức 'pending')
  */
 async function createRecipe(req, res) {
-  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true });
   await assertPlayableVideo(input);
   const { recipe, ingredients } = await recipeModel.createRecipe(req.account.id, input);
   res.status(201).json({ message: 'Công thức đã được gửi và đang chờ duyệt.', recipe, ingredients });
@@ -96,7 +96,7 @@ async function getPublicDetail(req, res) {
  */
 async function resubmitRecipe(req, res) {
   const recipeId = parseRecipeId(req.params.recipeId);
-  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true });
   await assertPlayableVideo(input);
   const { recipe, ingredients } = await recipeModel.resubmitRecipe(req.account.id, recipeId, input);
   res.json({ message: 'Đã gửi lại công thức, đang chờ duyệt.', recipe, ingredients });
