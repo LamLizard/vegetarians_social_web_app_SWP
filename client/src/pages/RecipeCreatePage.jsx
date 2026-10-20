@@ -9,6 +9,7 @@ import IngredientEditor from '../components/IngredientEditor/IngredientEditor';
 import Notice from '../components/Notice/Notice';
 import NumberStepper from '../components/NumberStepper/NumberStepper';
 import PageHeader from '../components/PageHeader/PageHeader';
+import Pagination from '../components/Pagination/Pagination';
 import Photo from '../components/Photo/Photo';
 import StatusBadge from '../components/StatusBadge/StatusBadge';
 import StepEditor from '../components/StepEditor/StepEditor';
@@ -148,6 +149,9 @@ function Section({ id, title, hint, required, onLeave, children }) {
   );
 }
 
+// Khoi's code: số công thức mỗi trang ở tab "Công thức đã gửi"
+const SENT_PAGE_SIZE = 5;
+
 /**
  * @param {{id, fullName, role, avatarUrl?}} user   thành viên đang đăng nhập (useAuth ở App)
  * @param {{icon?, label, onClick, tone?}[]} [accountMenu]
@@ -161,7 +165,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [dishes, setDishes] = useState({ status: 'loading', items: [] }); // loading | ready | error
   const [ingredientNames, setIngredientNames] = useState([]);
   const [animalWords, setAnimalWords] = useState([]); // banned_keyword category 'animal'
-  const [searchText, setSearchText] = useState('');
+  const [sentPage, setSentPage] = useState(1); // Khoi's code: tab Công thức đã gửi, mỗi trang SENT_PAGE_SIZE công thức
   const [form, setForm] = useState(emptyForm);
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -380,15 +384,14 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
 
   const pendingCount = recipes.filter((r) => r.status === 'pending').length;
 
-  // Thanh trên: tìm kiếm bài viết → về Bảng tin kèm từ khoá
+  // Khoi's code: trang này không cần ô tìm kiếm → ẩn (điện thoại vẫn giữ nút ☰ mở menu)
   const topbar = ({ openMenu }) => (
-    <FeedTopbar
-      value={searchText}
-      onChange={setSearchText}
-      onSearch={(q) => { if (q) window.location.assign(`/?q=${encodeURIComponent(q)}`); }}
-      onOpenMenu={openMenu}
-    />
+    <FeedTopbar hideSearch value="" onChange={() => {}} onSearch={() => {}} onOpenMenu={openMenu} />
   );
+
+  const sentTotalPages = Math.max(1, Math.ceil(recipes.length / SENT_PAGE_SIZE));
+  const sentCurrent = Math.min(sentPage, sentTotalPages);
+  const sentShown = recipes.slice((sentCurrent - 1) * SENT_PAGE_SIZE, sentCurrent * SENT_PAGE_SIZE);
 
   return (
     <MemberLayout
@@ -662,7 +665,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
           </aside>
         </div>
       ) : (
-        <div role="tabpanel" aria-label="Công thức đã gửi" className={s.sentWrap}>
+        <div role="tabpanel" aria-label="Công thức đã gửi" className={`${s.sentWrap} ${s.anchor}`}>
           {pendingCount > 0 && (
             <p className={s.hint}>{pendingCount} công thức đang chờ Admin duyệt. Công thức chỉ hiện với mọi người sau khi được duyệt.</p>
           )}
@@ -680,7 +683,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
             </EmptyState>
           ) : (
             <ul className={s.sent}>
-              {recipes.map((r) => (
+              {sentShown.map((r) => (
                 <li key={r.id} className={s.sentItem}>
                   <Photo src={r.thumbnailUrl || undefined} ratio="4/3" shape="rounded" className={s.sentImg} />
                   <div className={s.sentBody}>
@@ -726,6 +729,16 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
               ))}
             </ul>
           ))}
+          {sentStatus === 'ready' && (
+            <Pagination
+              page={sentCurrent}
+              totalPages={sentTotalPages}
+              onChange={(p) => { setSentPage(p); document.querySelector(`.${s.sentWrap}`)?.scrollIntoView({ block: 'start' }); }}
+              totalItems={recipes.length}
+              pageSize={SENT_PAGE_SIZE}
+              itemLabel="công thức"
+            />
+          )}
         </div>
       )}
 

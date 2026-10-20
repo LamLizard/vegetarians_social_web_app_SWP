@@ -93,3 +93,8 @@
   .search { grid-column: 2; }
   .search { height: 40px; }
 }
+
+/* Khoi's code: hideSearch — máy tính không còn gì trên thanh → ẩn cả thanh; điện thoại giữ nút ☰ (mở menu) */
+@media (min-width: 768px) {
+  .noSearch { display: none; }
+}
