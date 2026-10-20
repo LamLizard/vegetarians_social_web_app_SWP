@@ -64,6 +64,7 @@ async function getShops(req, res) {
       imageUrl: r.avt_shop_url,
       dishCount: r.dish_count,
       schedule: r.schedule ?? [],
+      matchedDishes: r.matchedDishes ?? [],
     })),
     page,
     pageSize: PAGE_SIZE,

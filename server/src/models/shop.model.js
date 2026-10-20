@@ -81,10 +81,44 @@ async function findVerifiedShops({ q = null, page = 1, pageSize = 8 }) {
     );
   }
 
+  /* Lam's code: Chỉ lấy các món thực sự khớp từ khóa cho từng quán trong trang kết quả. */
+  let matchedByShop = new Map();
+  if (q && ids.length) {
+    const matchedRes = await pool.query(`
+      SELECT sd.shop_id,
+             sd.shop_dish_id,
+             COALESCE(sd.display_name, d.name) AS name,
+             sd.price,
+             sd.img_url
+      FROM shop_dish sd
+      JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
+      WHERE sd.shop_id = ANY($1::bigint[])
+        AND (d.name ILIKE $2 OR sd.display_name ILIKE $2 OR sd.dish_category ILIKE $2)
+      ORDER BY sd.shop_id, sd.is_available DESC, name
+    `, [ids, q]);
+
+    const grouped = new Map();
+    for (const row of matchedRes.rows) {
+      const shopId = Number(row.shop_id);
+      if (!grouped.has(shopId)) grouped.set(shopId, []);
+      grouped.get(shopId).push({
+        id: String(row.shop_dish_id),
+        name: row.name,
+        price: row.price,
+        imageUrl: row.img_url ?? null,
+      });
+    }
+
+    matchedByShop = new Map(
+      [...grouped.entries()].map(([shopId, dishes]) => [shopId, dishes.slice(0, 5)])
+    );
+  }
+
   return {
     items: itemsResult.rows.map((row) => ({
       ...row,
       schedule: scheduleByShop.get(Number(row.shop_id)) ?? [],
+      matchedDishes: matchedByShop.get(Number(row.shop_id)) ?? [],
     })),
     total: Number(totalResult.rows[0]?.total ?? 0),
   };
