@@ -39,7 +39,8 @@
   font-size: 15px;
   cursor: pointer;
 }
-.opt i { color: var(--v-muted); }
+.opt i { flex: none; color: var(--v-muted); }
+.opt > span:not(.same) { min-width: 0; overflow-wrap: anywhere; }
 .optOn { background: var(--v-surface-2); }
 .propose {
   margin-top: 4px;

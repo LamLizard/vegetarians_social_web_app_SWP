@@ -1,5 +1,6 @@
 .row,
 .card {
+  position: relative;
   min-width: 0;
   border: 1px solid var(--ac-border);
   border-radius: var(--ac-radius-lg);
@@ -8,6 +9,7 @@
 .row { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 1rem; align-items: start; padding: 0.75rem; }
 .card { display: flex; flex-direction: column; gap: 0.75rem; padding: 0.6rem 0.6rem 0.8rem; }
 
+.mediaCol { position: relative; display: grid; gap: 8px; min-width: 0; }
 .media { display: block; overflow: hidden; border-radius: var(--ac-radius-lg); }
 .img { transition: transform .3s var(--ac-ease-out); }
 .media:hover .img { transform: scale(1.03); }
@@ -16,11 +18,12 @@
 .card .body { padding-inline: 0.3rem; }
 .top { display: flex; align-items: flex-start; gap: 0.5rem; }
 .titles { display: grid; flex: 1; gap: 0.15rem; min-width: 0; }
-.dish { color: var(--ac-moss); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
-.title { margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.35; }
+.dish { overflow-wrap: anywhere; color: var(--ac-moss); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.title { overflow-wrap: anywhere; margin: 0; font-size: 1.02rem; font-weight: 700; line-height: 1.35; }
 .title a { color: var(--ac-ink); text-decoration: none; }
 .title a:hover { color: var(--ac-moss); text-decoration: underline; }
 .desc {
+  overflow-wrap: anywhere;
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
@@ -31,7 +34,7 @@
   -webkit-box-orient: vertical;
 }
 .by { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem; color: var(--ac-muted); font-size: 0.8rem; }
-.author { color: var(--ac-ink); font-weight: 600; }
+.author { min-width: 0; overflow-wrap: anywhere; color: var(--ac-ink); font-weight: 600; }
 .ing { margin-left: auto; white-space: nowrap; }
 
 @media (max-width: 479.98px) {
@@ -39,3 +42,32 @@
   .row .desc { display: none; }
   .ing { margin-left: 0; }
 }
+
+/* Chưa có ảnh: hình thay (vd bát minh hoạ) trên nền vàng mơ */
+.fallback {
+  display: grid;
+  place-items: center;
+  overflow: hidden; /* min-height: auto → 0, để hình thay không đẩy khung cao hơn tỉ lệ */
+  border-radius: var(--ac-radius-lg);
+  background: color-mix(in srgb, var(--ac-highlight) 18%, var(--ac-card));
+}
+.fallback { grid-template-rows: 100%; } /* hàng cao xác định → hình thay dùng được height: % */
+/* Nhãn cảnh báo dị ứng (trùng dị ứng của người xem): thẻ card → góc trên trái ảnh; thẻ row → dưới ảnh */
+.flag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--ac-radius-sm);
+  background: var(--ac-alert);
+  color: #FFFFFF;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.row .flag { justify-content: center; }
+/* Thẻ card: nhãn nhỏ góc trên trái ảnh → không làm dòng nội dung nhảy chiều cao */
+.card .flag { position: absolute; top: 8px; left: 8px; padding: 2px 6px; }
+
+:global([data-theme="dark"]) .flag { color: #1C1A16; }

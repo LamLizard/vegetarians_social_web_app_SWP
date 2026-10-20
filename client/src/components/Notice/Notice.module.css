@@ -8,8 +8,8 @@
 }
 .icon { font-size: 1.05rem; line-height: 1.4; }
 .body { flex: 1; min-width: 0; }
-.title { font-weight: 600; font-size: 0.92rem; margin-bottom: 0.15rem; }
-.text { font-size: 0.86rem; line-height: 1.5; color: var(--ac-ink); }
+.title { overflow-wrap: anywhere; font-weight: 600; font-size: 0.92rem; margin-bottom: 0.15rem; }
+.text { overflow-wrap: anywhere; font-size: 0.86rem; line-height: 1.5; color: var(--ac-ink); }
 
 .alert   { background: var(--ac-alert-soft); border-color: var(--ac-alert-line); border-left-color: var(--ac-alert); }
 .alert .icon, .alert .title { color: var(--ac-bad-fg); }

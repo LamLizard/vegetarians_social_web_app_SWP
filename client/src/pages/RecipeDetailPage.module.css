@@ -21,6 +21,7 @@
   background: var(--v-surface);
   box-shadow: var(--v-shadow);
 }
+.page :is(h1, h2, h3, p, li) { overflow-wrap: anywhere; }
 .factsCard { gap: 4px; padding-block: 16px; }
 
 .head { display: flex; flex-direction: column; gap: 4px; }
@@ -50,6 +51,7 @@
 .dish i { color: var(--v-muted); }
 .author { display: inline-flex; align-items: center; gap: 8px; }
 .when { margin-left: -8px; color: var(--v-muted); }
+.like { margin-left: auto; } /* Khoi's code 20/10: nút Thích cuối dòng tác giả */
 
 /* Nguyên liệu (hẹp) | Cách làm (rộng) */
 .grid {
