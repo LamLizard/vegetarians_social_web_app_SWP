@@ -1,0 +1,138 @@
+/* Khoi's code: theo prototype UI v2 (src/v2/components/Hero.module.css + TodayDish.module.css).
+   16/10/2026: thẻ "Hôm nay ăn gì?" phong cách Organic, bố cục A — câu hỏi 24px làm tiêu đề cạnh đĩa món,
+   tên món bên dưới cả bề ngang thẻ. Chỉ dùng biến màu, lưới 8pt, thang chữ 12/14/16/20/24/32.
+   Một trang trí duy nhất: nhành lá. */
+.hero { display: grid; gap: 16px; min-width: 0; }
+
+.title {
+  margin: 0;
+  color: var(--v-text);
+  font-size: 2rem;            /* 32px */
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.lead { margin: 0; color: var(--v-muted); font-size: 0.875rem; line-height: 1.6; }  /* 14px */
+
+/* ---------- Thẻ "Hôm nay ăn gì?" ---------- */
+.card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'ask plate' 'name name';
+  gap: 16px;
+  min-width: 0;
+  padding: 16px 16px 20px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--v-surface);
+  box-shadow: 0 1px 2px rgba(122, 82, 48, 0.06), 0 16px 32px -20px rgba(122, 82, 48, 0.28);
+  container: todaydish / inline-size;
+}
+:global([data-theme='dark']) .card { box-shadow: var(--v-shadow); }
+
+/* Nhành lá ló ra sau đĩa ở góc phải trên, không đè lên chữ */
+.leaf {
+  position: absolute;
+  top: -28px;
+  right: -28px;
+  width: 96px;
+  height: 96px;
+  stroke: var(--v-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.ask {
+  position: relative;
+  grid-area: ask;
+  align-self: center;
+  margin: 0;
+  color: var(--v-accent-text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* Đĩa món: vòng tròn vàng mơ + hình bát (luôn là hình minh hoạ, không dùng ảnh thật) */
+.plate {
+  position: relative;
+  display: grid;
+  grid-area: plate;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--v-marigold) 30%, var(--v-surface));
+  animation: spin-in .6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.bowl { width: 86%; height: 86%; }
+/* Màu "đồ ăn" là hình minh hoạ nội dung, giữ nguyên ở cả 2 chế độ (ngoại lệ như màu dinh dưỡng) */
+.dish { fill: #FFFDF8; }
+.tofu { fill: #F3E6C8; }
+.herb { fill: #5E8B4F; }
+.tone1 .sauce { fill: #D2553A; }
+.tone2 .sauce { fill: #E9B949; }
+.tone3 .sauce { fill: #E07B45; }
+
+/* Tên món: khung cao cố định 64px → đổi món thẻ không cao thấp.
+   Rất ngắn ≤ 10 ký tự: 32px · ≤ 18: 24px · ≤ 40: 20px · dài hơn: 16px, tối đa 3 dòng rồi "…" */
+.name {
+  position: relative;
+  display: flex;
+  grid-area: name;
+  align-items: flex-start;
+  min-width: 0;
+  height: 64px;
+  margin: 0;
+  color: var(--v-text);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.xl { font-size: 32px; line-height: 1.1; letter-spacing: -0.03em; }
+.lg { font-size: 24px; line-height: 1.2; }
+.md { font-size: 20px; line-height: 1.25; }
+.sm { font-size: 16px; line-height: 1.3; }
+.swap {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-wrap: balance;
+  animation: rise .5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.xl .swap, .lg .swap, .md .swap { -webkit-line-clamp: 2; }
+
+/* Cột trái hẹp (vd 200px khi màn 800–1175px): đĩa nhỏ lại, chữ giảm 1 bậc */
+@container todaydish (max-width: 239.98px) {
+  .ask { font-size: 20px; }
+  .plate { width: 64px; height: 64px; }
+  .xl { font-size: 24px; }
+  .lg { font-size: 20px; line-height: 1.25; }
+  .md { font-size: 16px; line-height: 1.3; }
+  .sm { font-size: 14px; line-height: 1.4; }
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes spin-in { from { opacity: 0.4; transform: rotate(-24deg) scale(0.92); } to { opacity: 1; transform: none; } }
+
+/* Đang tải */
+.sk { background: var(--v-surface-2); }
+.skLines { flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 8px; }
+.skLines .sk { height: 16px; border-radius: 8px; }
+.skLines .sk:last-child { width: 60%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .plate, .swap { animation: none; }
+}
+
+/* Màn hẹp: lời chào nằm trên bảng tin → nhỏ lại, bỏ câu phụ để bài viết lên sớm */
+@container feedmain (max-width: 799.98px) {
+  .title { font-size: 1.5rem; }   /* 24px */
+  .lead { display: none; }
+}

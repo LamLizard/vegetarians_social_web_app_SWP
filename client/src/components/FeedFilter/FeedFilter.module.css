@@ -1,0 +1,40 @@
+/* Khoi's code: theo prototype UI v2 (src/v2/App.module.css → .tabs / .tab / .tabOn). */
+.tabs {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid var(--v-line);
+  border-radius: 14px;
+  background: var(--v-surface);
+}
+.tab {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color .2s, background-color .2s;
+}
+.tab:hover { color: var(--v-text); background: var(--v-surface-2); }
+.on, .on:hover { background: var(--v-accent); color: var(--v-on-accent); }
+.moreWrap { display: flex; flex: 1 1 auto; min-width: 0; }
+.more { width: 100%; }
+.moreLabel { overflow: hidden; text-overflow: ellipsis; }
+
+/* Điện thoại: chia 3 cột đều, không cuộn ngang */
+@media (max-width: 767.98px) {
+  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tab { padding: 0 6px; }
+}

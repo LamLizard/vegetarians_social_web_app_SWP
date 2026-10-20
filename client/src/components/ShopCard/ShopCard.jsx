@@ -16,27 +16,38 @@ export const mapsSearchUrl = (address) => `https://www.google.com/maps/search/?a
  *
  * @param {'card'|'row'} [layout='card']
  * @param {string} name · [imageUrl] · [address] · [phone]
- * @param {string} [openTime] · [closeTime]   "HH:mm" → tự tính Đang mở / Sắp đóng / Đã đóng
+ * @param {string} [openTime] · [closeTime]   "HH:mm" → tự tính giờ và nhãn Mở cửa/Đóng cửa
  * @param {Date} [now]                        giờ để tính (mặc định bây giờ; truyền vào khi test)
+ * @param {string} [hoursText]                override giờ hiển thị; nếu không truyền thì dùng formatHours(openTime, closeTime)
+ * @param {'open'|'closingSoon'|'closed'|null} [openState]  open/closingSoon → "Mở cửa", closed → "Đóng cửa", null → không nhãn; không truyền = tự tính từ giờ (thiếu giờ → null)
  * @param {string} href · [linkAs]            link tới Chi tiết Shop (M-09)
  * @param {number} [dishCount]                số món trong menu
  * @param {{name: string, price?: number}} [matchedDish]  UC-08: món người dùng đang tìm mà quán có bán
  * @param {string} [status] · [showStatus] · [moderationNote]  shop.verification_status, cho chủ quán / admin
  * @param {boolean} [showDirections=true]     link "Chỉ đường" mở Google Maps theo địa chỉ
+ * @param {boolean} [showOpenState=true]      false = ẩn nhãn Mở cửa/Đóng cửa (vẫn giữ dòng giờ)
  */
 export default function ShopCard({
-  layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, href = '#', linkAs,
-  dishCount, matchedDish, status, showStatus = false, moderationNote, showDirections = true, className,
+  layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, hoursText, openState,
+  href = '#', linkAs, dishCount, matchedDish, status, showStatus = false, moderationNote,
+  showDirections = true, showOpenState = true, className,
 }) {
   const [Link, linkProps] = getLink(linkAs, href);
-  const openState = getOpenState(openTime, closeTime, now);
+  const computedState = getOpenState(openTime, closeTime, now);
+  const resolvedState = openState !== undefined ? openState : computedState;
+  const tagState = resolvedState === 'open' || resolvedState === 'closingSoon' ? 'open'
+    : resolvedState === 'closed' ? 'closed' : null;
 
   const hours = (
     <div className={styles.line}>
       <i className="bi bi-clock" aria-hidden="true" />
       <span className="visually-hidden">Giờ mở cửa: </span>
-      <span className={openTime && closeTime ? styles.hours : undefined}>{formatHours(openTime, closeTime)}</span>
-      {openState && <StatusBadge entity="shopOpen" status={openState} size="sm" />}
+      <span className={openTime && closeTime ? styles.hours : undefined}>{hoursText ?? formatHours(openTime, closeTime)}</span>
+      {tagState && showOpenState && (
+        <span className={cx(styles.openTag, tagState === 'open' ? styles.openTagOn : styles.openTagOff)}>
+          {tagState === 'open' ? 'Mở cửa' : 'Đóng cửa'}
+        </span>
+      )}
     </div>
   );
   const addr = address && (
@@ -56,7 +67,7 @@ export default function ShopCard({
   const extras = (dishCount != null || phone || (showDirections && address)) && (
     <div className={styles.foot}>
       {dishCount != null && <span><i className="bi bi-list-ul" aria-hidden="true" /> {formatNumber(dishCount)} món</span>}
-      {phone && <a href={`tel:${phone.replace(/\s/g, '')}`}><i className="bi bi-telephone" aria-hidden="true" /> {phone}</a>}
+      {phone && <span><i className="bi bi-telephone" aria-hidden="true" /> {phone}</span>}
       {showDirections && address && (
         <a href={mapsSearchUrl(address)} target="_blank" rel="noreferrer" className={styles.dir}>
           <i className="bi bi-sign-turn-right" aria-hidden="true" /> Chỉ đường<span className="visually-hidden"> (mở Google Maps)</span>

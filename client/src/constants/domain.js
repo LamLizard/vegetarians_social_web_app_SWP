@@ -9,7 +9,7 @@
 // =====================================================================
 
 /** Tên app và tên trợ lý AI. Đổi ở đây là đổi toàn bộ giao diện. */
-export const APP_NAME = 'Ăn Chay';
+export const APP_NAME = 'Green Bowl';
 export const APP_TAGLINE = 'Cộng đồng ăn chay, sống lành';
 export const AI_NAME = 'Mầm';
 
@@ -74,6 +74,8 @@ export const NOTIFICATION_TYPE = {
   post_rejected:             { label: 'Bài bị từ chối',       icon: 'x-circle',        tone: 'bad' },
   dish_approved:             { label: 'Món được duyệt',       icon: 'check-circle',    tone: 'ok' },
   dish_rejected:             { label: 'Món bị từ chối',       icon: 'x-circle',        tone: 'bad' },
+  ingredient_proposal_approved: { label: 'Nguyên liệu được duyệt', icon: 'check-circle', tone: 'ok' },
+  ingredient_proposal_rejected: { label: 'Nguyên liệu bị từ chối', icon: 'x-circle', tone: 'bad' },
 };
 
 /** Mục tiêu sức khoẻ. profile.health_goal / meal_plan.goal_snapshot */

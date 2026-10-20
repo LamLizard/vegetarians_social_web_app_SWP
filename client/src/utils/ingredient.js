@@ -12,9 +12,14 @@ export const newIngredientRow = (init = {}) => ({ key: `ing-${Date.now()}-${seq+
 /** Đơn vị không cần số lượng ("ít", "vừa đủ"). */
 export const isNoAmountUnit = (unit) => INGREDIENT_UNIT.some((u) => u.noAmount && plain(u.value) === plain(unit));
 
-/** Chuỗi người dùng gõ → số. Nhận cả dấu phẩy "0,5" và phân số "1/2". Rỗng → null. */
+/**
+ * Chuỗi người dùng gõ → số. Nhận cả dấu phẩy "0,5" và phân số "1/2". Rỗng → null.
+ * Khoi's code (15/10/2026): kiểu viết Việt Nam "10.000" / "1.250,5" = dấu chấm ngăn hàng nghìn → 10000 / 1250.5
+ * (trước đây "10.000" bị hiểu thành 10). Khớp với formatAmount (vi-VN) hiện lại "10.000". "1.5" vẫn là 1,5.
+ */
 export function parseAmount(text) {
-  const t = String(text ?? '').trim().replace(',', '.');
+  const raw = String(text ?? '').trim();
+  const t = /^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(raw) ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(',', '.');
   if (!t) return null;
   const frac = /^(\d+)\s*\/\s*(\d+)$/.exec(t);
   if (frac) return Number(frac[2]) ? Number(frac[1]) / Number(frac[2]) : NaN;
@@ -43,7 +48,7 @@ export function validateIngredients(rows = [], { min = 1 } = {}) {
     const empty = !r.name.trim() && r.amount == null && !r.unit.trim();
     if (empty) return undefined;
     const e = {};
-    if (!r.name.trim()) e.name = 'Nhập tên nguyên liệu';
+    if (!r.name.trim()) e.name = 'Chọn hoặc nhập tên nguyên liệu';
     else if (seen.has(plain(r.name))) e.name = 'Trùng với dòng phía trên';
     else seen.set(plain(r.name), true);
     if (r.amount != null && (Number.isNaN(r.amount) || r.amount <= 0)) e.amount = 'Số lượng phải lớn hơn 0';

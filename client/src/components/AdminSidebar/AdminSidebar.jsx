@@ -8,11 +8,18 @@ import styles from './AdminSidebar.module.css';
 const MENU = [
   { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
   { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
+  // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
+  { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
+  { key: 'dish-management', label: 'Quản lý món ăn', icon: 'egg-fried', href: '/admin/dishes' },
+  { key: 'recipe-verify', label: 'Duyệt công thức', icon: 'book-half', href: '/admin/recipes/verify' },
+  // Duy's Code : Mở trang Admin xử lý tên nguyên liệu do thành viên đề cử.
+  { key: 'ingredient-verify', label: 'Duyệt nguyên liệu', icon: 'basket', href: '/admin/ingredients/verify' },
+  // Tùng — Sprint 2: BRIDGE-02 thêm entry riêng, khớp activeKey của ShopVerifyPage.
+  { key: 'shops', label: 'Xác minh quán', icon: 'shop', href: '/admin/shops/verify' },
   { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
   { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
   { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
-  { divider: true },
-  { key: 'site', label: 'Xem trang người dùng', icon: 'box-arrow-up-right', href: '/' },
+  { divider: true }
 ];
 
 export default function AdminSidebar({ activeKey, user, onLogout, linkAs, onNavigate }) {

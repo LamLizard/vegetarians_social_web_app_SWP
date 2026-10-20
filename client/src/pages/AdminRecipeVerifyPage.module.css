@@ -1,0 +1,45 @@
+/* Duy's Code : Thu gọn thẻ công thức, mở rộng nội dung chi tiết theo yêu cầu Admin. */
+.page { display: grid; gap: 20px; width: 100%; padding: 26px 32px 48px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px; border: 1px solid var(--ac-border); border-radius: 16px; background: var(--ac-card); }
+.tabs button { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border: 0; border-radius: 11px; background: transparent; color: var(--ac-muted); font: inherit; font-weight: 650; }
+.tabs button:hover { background: var(--ac-bg-subtle, transparent); color: var(--ac-ink); }
+.tabs button span { display: grid; min-width: 23px; height: 23px; place-items: center; padding: 0 6px; border-radius: 999px; background: var(--ac-bg-subtle, var(--ac-tag-bg)); font-size: .78rem; }
+.tabs .activeTab { background: var(--ac-tag-bg); color: var(--ac-moss); }
+.list { display: grid; gap: 14px; }
+.card { overflow: hidden; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg, 1rem); }
+.summary { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 20px; padding: 18px; }
+.image { width: 100%; align-self: start; overflow: hidden; border-radius: 14px; }
+.main { display: grid; align-content: start; gap: 9px; min-width: 0; }
+.heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.heading h2 { flex: 1; min-width: 180px; margin: 0; font-size: 1.12rem; }
+.meta { margin: 0; color: var(--ac-muted); font-size: .88rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 3px; }
+.details { display: grid; gap: 18px; padding: 20px 22px; border-top: 1px solid var(--ac-border); background: var(--ac-bg-subtle, transparent); }
+.dishLink { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--ac-border); border-radius: 14px; background: var(--ac-card); }
+.dishLink h3, .detailColumns h3 { margin: 0; font-size: .94rem; font-weight: 750; }
+.searchRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.searchRow input { flex: 1; min-width: 200px; }
+.matchList { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+.matchList li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 11px; border-radius: 10px; background: var(--ac-bg-subtle, transparent); }
+.createPrompt { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--ac-muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 10px; }
+.facts span { display: grid; gap: 3px; min-width: 110px; padding: 10px 13px; border: 1px solid var(--ac-border); border-radius: 12px; color: var(--ac-muted); font-size: .84rem; }
+.facts b { color: var(--ac-ink); font-size: .75rem; }
+.detailColumns { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 24px; }
+.detailColumns ul, .instructions { margin: 8px 0 0; padding-left: 18px; color: var(--ac-muted); font-size: .9rem; }
+.instructions { padding: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Khoi's code: mô tả + video người dùng gửi kèm */
+.extra { display: grid; gap: 8px; }
+.extra h3 { margin: 0; font-size: .94rem; font-weight: 750; }
+.video { max-width: 560px; }
+.videoLink { display: inline-flex; gap: 6px; align-items: center; color: var(--ac-muted); font-size: .84rem; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .page { padding: 18px 12px 40px; }
+  .summary { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; padding: 13px; }
+  .heading { align-items: flex-start; }
+  .heading h2 { flex-basis: 100%; }
+  .details { padding: 15px; }
+  .detailColumns { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}

@@ -2,8 +2,9 @@
 // Gắn ở app.js:  app.use('/api/posts', require('./src/routes/post.routes'));
 //
 //  Khách gọi được:   GET  /preview · GET /:id/comments
-//  Cần đăng nhập:    GET  /  ·  POST /:id/vote  ·  POST /:id/comments
+//  Cần đăng nhập:    GET  /  ·  POST /  (đăng bài)  ·  POST /:id/vote  ·  POST /:id/comments
 //                    POST /:id/report  ·  POST /comments/:id/report
+//                    POST /youtube-check  (Khoi's code: video YouTube có phát được trên trang khác không)
 const express = require('express');
 const postController = require('../controllers/post.controller');
 const { requireAuth } = require('../middlewares/auth');
@@ -15,6 +16,10 @@ const optionalAuth = (req, res, next) => (req.headers.authorization ? requireAut
 
 router.get('/preview', postController.getPreview);
 router.get('/', requireAuth, postController.getFeed);
+// Khoi's code: Đăng bài mới → bài 'pending' chờ Admin duyệt (Sprint 2).
+router.post('/', requireAuth, postController.createPost);
+// Khoi's code: form Đăng bài + Tạo công thức kiểm tra link YouTube ngay khi dán
+router.post('/youtube-check', requireAuth, postController.checkYouTube);
 
 router.post('/:id/vote', requireAuth, postController.toggleVote);
 

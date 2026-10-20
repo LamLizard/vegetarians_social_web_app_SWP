@@ -46,3 +46,52 @@ export function formatDuration(minutes) {
   if (!h) return `${r} phút`;
   return r ? `${h} giờ ${r} phút` : `${h} giờ`;
 }
+
+/* Lam's code: Quy ước ngày đồng nhất với shop_schedule và SHOP_DAY_LABELS. */
+const WEEKDAY_LABELS = ['Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật'];
+
+/** Ngày hiện tại theo quy ước DB: 1 = Thứ hai … 7 = Chủ nhật. */
+export function todayDayOfWeek(now = new Date()) {
+  const day = now.getDay();
+  return day === 0 ? 7 : day;
+}
+
+/** Giờ mở cửa của một thứ bất kỳ (1 = Thứ hai … 7 = Chủ nhật). Nghỉ/thiếu → "--:--". */
+export function getHoursForDay(schedule = [], dayOfWeek) {
+  const day = schedule.find((item) => item.dayOfWeek === dayOfWeek) || null;
+  const slots = (!day || day.isClosed ? [] : (day.slots || []))
+    .filter((slot) => slot && slot.openTime && slot.closeTime)
+    .sort((a, b) => a.openTime.localeCompare(b.openTime));
+  const hoursText = slots.length
+    ? slots.map((slot) => `${slot.openTime.slice(0, 5)} - ${slot.closeTime.slice(0, 5)}`).join(', ')
+    : '--:--';
+  return {
+    dayOfWeek,
+    dayLabel: WEEKDAY_LABELS[dayOfWeek - 1],
+    hoursText,
+    isClosed: slots.length === 0,
+    slots,
+  };
+}
+
+/** Lấy các ca mở cửa hôm nay; nghỉ hoặc thiếu giờ trả về "--:--". */
+export function getTodayHours(schedule = [], now = new Date()) {
+  return getHoursForDay(schedule, todayDayOfWeek(now));
+}
+
+/**
+ * Trạng thái mở/đóng THEO THỜI GIAN THỰC từ các ca hôm nay.
+ * @param {Array<{openTime:string, closeTime:string}>} slots
+ * @returns {'open'|'closingSoon'|'closed'|null}  null = không có ca nào / thiếu giờ
+ */
+export function getOpenStateFromSlots(slots = [], now = new Date(), soonMinutes = 30) {
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const ranges = (slots || [])
+    .map((s) => [toMinutes(s?.openTime), toMinutes(s?.closeTime)])
+    .filter(([o, c]) => o != null && c != null);
+  if (!ranges.length) return null;
+  for (const [o, c] of ranges) {
+    if (cur >= o && cur < c) return (c - cur <= soonMinutes) ? 'closingSoon' : 'open';
+  }
+  return 'closed';
+}

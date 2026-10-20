@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, Notice, PageHeader, Pagination, Panel, SearchInput, StatusBadge } from '../components'; // Duy's code: bổ sung filter và phân trang tài khoản.
+import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, ErrorDialog, PageHeader, Pagination, Panel, SearchInput, StatusBadge } from '../components'; // Duy's code: bổ sung filter và phân trang tài khoản.
 import useAuth from '../hooks/useAuth';
 import { REPORT_REASON } from '../constants/domain'; // Duy's code: dịch reason_code theo enum hiện có trên DB.
 import { decideAccountReport, getAccountReports, getMembers, setMemberStatus } from '../services/admin-member.service';
@@ -247,11 +247,8 @@ export default function AdminMemberManagementPage() {
       onLogout={handleLogout}
     >
       <PageHeader title="Quản lý thành viên" />
-      {requestError && (
-        <Notice tone="alert" title="Không thể xử lý yêu cầu quản lý thành viên"> {/* Duy's code: áp dụng cho lỗi tải, khóa/mở khóa và xóa. */}
-          {requestError}
-        </Notice>
-      )}
+      {/* Duy's Code: Hiện lỗi tải và cập nhật thành viên trong hộp thoại nổi. */}
+      <ErrorDialog error={requestError} title="Không thể xử lý yêu cầu quản lý thành viên" />
       <section aria-labelledby="members-table-heading" className="mb-4">
         <h2 id="members-table-heading" className="h4">Tài khoản thành viên</h2>
         <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
