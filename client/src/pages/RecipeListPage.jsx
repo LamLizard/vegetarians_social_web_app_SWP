@@ -65,7 +65,6 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   const [hideAllergen, setHideAllergen] = useState(false);
   const [shown, setShown] = useState(PAGE);
   const [sort, setSort] = useState('new');
-  const [searchText, setSearchText] = useState('');
 
   // Đổi từ khoá / danh mục: ghi lên thanh địa chỉ (Back của trình duyệt quay lại được), không tải lại trang
   const go = (next) => {
@@ -150,14 +149,9 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
     ? <Button as="a" href="/recipes/new" icon="plus-lg">Tạo công thức đầu tiên</Button>
     : onLogin && <Button onClick={onLogin} icon="box-arrow-in-right">Đăng nhập để chia sẻ</Button>;
 
-  // Thanh trên: tìm kiếm bài viết → về Bảng tin kèm từ khoá (giống trang Tạo / Xem công thức)
+  // Khoi's code: trang đã có ô tìm công thức riêng → ẩn ô tìm bài viết trên thanh trên (điện thoại vẫn giữ nút ☰)
   const topbar = ({ openMenu }) => (
-    <FeedTopbar
-      value={searchText}
-      onChange={setSearchText}
-      onSearch={(v) => { if (v) window.location.assign(`/?q=${encodeURIComponent(v)}`); }}
-      onOpenMenu={openMenu}
-    />
+    <FeedTopbar hideSearch value="" onChange={() => {}} onSearch={() => {}} onOpenMenu={openMenu} />
   );
 
   return (
