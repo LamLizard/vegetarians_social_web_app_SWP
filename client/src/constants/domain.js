@@ -137,6 +137,7 @@ const AUDIT_TARGET_LABEL = {
   report: 'báo cáo',
   account: 'tài khoản',
   comment: 'bình luận',
+  category: 'danh mục',
   banned_keyword: 'từ khoá vi phạm',
 };
 
@@ -154,6 +155,10 @@ export function describeAuditAction(action, targetType) {
     account_locked: 'Đã khoá tài khoản',
     account_unlocked: 'Đã mở khoá tài khoản',
     account_deleted: 'Đã xoá tài khoản',
+    category_created: 'Đã tạo danh mục',
+    category_renamed: 'Đã đổi tên danh mục',
+    category_activated: 'Đã bật danh mục',
+    category_deactivated: 'Đã tắt danh mục',
   };
   const key = `${action}:${targetType}`;
   if (descriptions[key]) return descriptions[key];

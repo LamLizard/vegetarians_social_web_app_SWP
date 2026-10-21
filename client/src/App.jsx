@@ -6,6 +6,7 @@ import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
+import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
 import AdminDishCreatePage from './pages/AdminDishCreatePage';
 import AdminDishManagementPage from './pages/AdminDishManagementPage';
 import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
@@ -128,6 +129,7 @@ function AppContent() {
   // Duy's Code : Giới hạn route duyệt nguyên liệu cho tài khoản Admin.
   if (isAdmin && path === '/admin/ingredients/verify') return <AdminIngredientVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
+  if (isAdmin && path === '/admin/categories') return <AdminCategoryManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
   // Quản trị viên → khu quản trị
