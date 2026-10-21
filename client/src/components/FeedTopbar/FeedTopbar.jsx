@@ -10,6 +10,7 @@ import s from './FeedTopbar.module.css';
  * @param {string} [placeholder='Tìm bài viết theo tiêu đề…']
  * @param {string} [searchLabel='Tìm bài viết']
  * @param {() => void} [onLogin]   chỉ truyền khi là khách
+ * @param {boolean} [hideSearch]   Khoi's code: ẩn ô tìm kiếm (trang không cần). Máy tính: ẩn cả thanh; điện thoại: giữ nút ☰
  */
 export default function FeedTopbar({
   value,
@@ -19,14 +20,16 @@ export default function FeedTopbar({
   placeholder = 'Tìm bài viết theo tiêu đề…',
   searchLabel = 'Tìm bài viết',
   onLogin,
+  hideSearch = false,
 }) {
   return (
-    <header className={s.bar}>
+    <header className={`${s.bar} ${hideSearch ? s.noSearch : ''}`}>
       <div className={s.inner}>
         <button type="button" className={s.menuBtn} onClick={onOpenMenu} aria-label="Mở menu">
           <i className="bi bi-list" aria-hidden="true" />
         </button>
 
+        {!hideSearch && (
         <form
           role="search"
           className={s.search}
@@ -48,6 +51,7 @@ export default function FeedTopbar({
             </button>
           )}
         </form>
+        )}
 
         {onLogin && (
           <button type="button" className={s.login} onClick={onLogin}>Đăng nhập</button>

@@ -56,7 +56,18 @@ async function listMine(accountId) {
     WHERE p.account_id = $1
     ORDER BY a.allergy_id DESC LIMIT 100
   `, [accountId]);
-  return rows;
+  const { rows: rejectedRows } = await pool.query(`
+    SELECT ('rejected-' || n.notification_id::text) AS id, n.metadata->>'name' AS name,
+      'rejected'::text AS status, n.metadata->>'note' AS "reviewNote", n.created_at AS "createdAt"
+    FROM public.notification n
+    WHERE n.account_id = $1
+      AND n.type::text = 'post_rejected'
+      AND n.metadata->>'sourceType' = 'health_profile'
+      AND n.metadata->>'name' IS NOT NULL
+    ORDER BY n.notification_id DESC
+    LIMIT 100
+  `, [accountId]);
+  return [...rows, ...rejectedRows];
 }
 
 async function listPending() {
@@ -129,7 +140,7 @@ async function listHistory(page = 1, pageSize = 20) {
 async function decide(rawName, sourceType, adminId, action, note = '', classification = {}, ipAddress = null) {
   const name = cleanName(rawName);
   if (!['health_profile', 'recipe'].includes(sourceType)) throw new IngredientProposalError(400, 'Nguồn đề xuất không hợp lệ.');
-  const allowedActions = sourceType === 'health_profile' ? ['approve', 'delete'] : ['approve', 'reject'];
+  const allowedActions = ['approve', 'reject'];
   if (!allowedActions.includes(action)) throw new IngredientProposalError(400, 'Quyết định không hợp lệ cho nguồn này.');
   if (action === 'reject' && !note.trim()) throw new IngredientProposalError(400, 'Cần nhập lý do từ chối.');
   const client = await pool.connect();
@@ -168,12 +179,34 @@ async function decide(rawName, sourceType, adminId, action, note = '', classific
     }
     if (action === 'approve') await client.query(`DELETE FROM public.recipe_proposed_ingredient pi USING public.recipe r
       WHERE r.recipe_id = pi.recipe_id AND r.status = 'pending' AND lower(btrim(pi.name)) = lower($1::varchar(120))`, [name]);
-    const status = action === 'approve' ? 'approved' : action === 'delete' ? 'removed' : 'rejected';
-    const logAction = action === 'delete' ? 'ingredient_proposal_removed' : `ingredient_proposal_${status}`;
+    let rejectedAccounts = [];
+    if (action === 'reject' && sourceType === 'health_profile') {
+      const { rows } = await client.query(`
+        DELETE FROM public.allergy a USING public.profile p
+        WHERE a.profile_id = p.profile_id AND lower(btrim(a.name)) = lower($1::varchar(120))
+        RETURNING p.account_id::text AS "accountId"
+      `, [name]);
+      rejectedAccounts = [...new Set(rows.map((row) => row.accountId))];
+    }
+    const status = action === 'approve' ? 'approved' : 'rejected';
+    const logAction = `ingredient_proposal_${status}`;
     await client.query(`
       INSERT INTO public.admin_log (admin_id, action, target_type, reason, after_value, ip_address)
       VALUES ($1, $2, 'ingredient', $3, $4::jsonb, $5)
     `, [adminId, logAction, note || null, JSON.stringify({ name, status, sourceType }), ipAddress]);
+    if (action === 'reject' && sourceType === 'health_profile') {
+      for (const accountId of rejectedAccounts) {
+        await client.query(`
+          INSERT INTO public.notification (account_id, type, title, content, metadata)
+          VALUES ($1, 'post_rejected'::notification_type_enum, $2, $3, $4::jsonb)
+        `, [
+          accountId,
+          'Đề xuất nguyên liệu bị từ chối',
+          `Đề xuất “${name}” bị từ chối: ${note}. Nguyên liệu này đã được gỡ khỏi danh sách dị ứng/thực phẩm cần kiêng.`,
+          JSON.stringify({ href: '/profile', name, note, sourceType }),
+        ]);
+      }
+    }
     await client.query('COMMIT');
     return { name, status };
   } catch (error) {

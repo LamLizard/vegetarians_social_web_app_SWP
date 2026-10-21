@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Button, EmptyState, Notice, Pagination, SkeletonCard, ShopCard } from '../components';
+import { Button, EmptyState, Notice, Pagination, Photo, SkeletonCard, ShopCard } from '../components';
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import shopService from '../services/shop.service';
+import { formatPrice } from '../utils/format';
 import { getOpenStateFromSlots, getTodayHours } from '../utils/time';
 import '../styles/feed-theme.css';
 import styles from './ShopExplorePage.module.css';
@@ -61,6 +62,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   const [pageSize, setPageSize] = useState(8);
   const [reloadKey, setReloadKey] = useState(0);
   const [now, setNow] = useState(() => new Date());
+  const isSearching = Boolean(query.trim());
 
   useLayoutEffect(() => {
     document.documentElement.dataset.feedV2 = '';
@@ -154,11 +156,13 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
             )}
           </div>
 
-          <div className={styles.summary}>Tìm thấy {totalItems} quán</div>
+          <div className={styles.summary}>
+            Tìm thấy {totalItems} quán{query ? <> cho <span className={styles.summaryQuery}>“{query}”</span></> : null}
+          </div>
 
           {status === 'loading' && (
-            <div className={styles.list} aria-busy="true">
-              {Array.from({ length: 9 }).map((_, idx) => <SkeletonCard key={idx} />)}
+            <div className={isSearching ? styles.resultList : styles.list} aria-busy="true">
+              {Array.from({ length: isSearching ? 3 : 9 }).map((_, idx) => <SkeletonCard key={idx} />)}
             </div>
           )}
 
@@ -183,28 +187,34 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
           )}
 
           {status === 'ready' && items.length > 0 && (
-            <div className={styles.list}>
-              {items.map((shop) => {
-                const today = getTodayHours(shop.schedule ?? [], now);
-                const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
-                return (
-                  <div key={shop.id} className={styles.shopEntry}>
-                    {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
-                    <ShopCard
-                      name={shop.name}
-                      imageUrl={shop.imageUrl}
-                      address={shop.address}
-                      phone={shop.phone}
-                      hoursText={today.hoursText}
-                      openState={openState}
-                      showOpenState={shop.operatingStatus !== 'inactive'}
-                      dishCount={shop.dishCount}
-                      href={`/shops/${shop.id}`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            isSearching ? (
+              <div className={styles.resultList}>
+                {items.map((shop) => <ShopSearchResult key={shop.id} shop={shop} now={now} />)}
+              </div>
+            ) : (
+              <div className={styles.list}>
+                {items.map((shop) => {
+                  const today = getTodayHours(shop.schedule ?? [], now);
+                  const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
+                  return (
+                    <div key={shop.id} className={styles.shopEntry}>
+                      {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
+                      <ShopCard
+                        name={shop.name}
+                        imageUrl={shop.imageUrl}
+                        address={shop.address}
+                        phone={shop.phone}
+                        hoursText={today.hoursText}
+                        openState={openState}
+                        showOpenState={shop.operatingStatus !== 'inactive'}
+                        dishCount={shop.dishCount}
+                        href={`/shops/${shop.id}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )
           )}
 
           {status === 'ready' && totalPages > 1 && (
@@ -232,5 +242,61 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
         })}
       </nav>
     </div>
+  );
+}
+
+/* Lam's code: Kết quả tìm kiếm dạng hàng, chỉ nhận dữ liệu đã được page tải qua service. */
+function ShopSearchResult({ shop, now }) {
+  const today = getTodayHours(shop.schedule ?? [], now);
+  const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
+  const dishes = (shop.matchedDishes ?? []).slice(0, 5);
+
+  return (
+    <article className={styles.resultRow}>
+      <a className={styles.resultMedia} href={`/shops/${shop.id}`} tabIndex={-1} aria-hidden="true">
+        <Photo src={shop.imageUrl} ratio="1/1" shape="rounded" className={styles.resultImg} />
+      </a>
+
+      <div className={styles.resultBody}>
+        <div className={styles.resultHead}>
+          <h2 className={styles.resultName}><a href={`/shops/${shop.id}`}>{shop.name}</a></h2>
+          {shop.operatingStatus === 'inactive'
+            ? <span className={`${styles.stateTag} ${styles.stateOff}`}>Tạm ngưng</span>
+            : <span className={`${styles.stateTag} ${openState === 'closed' ? styles.stateOff : styles.stateOn}`}>
+                {openState === 'closed' ? 'Đóng cửa' : 'Mở cửa'}
+              </span>}
+        </div>
+
+        <div className={styles.resultMeta}>
+          <span className={styles.verified}><i className="bi bi-patch-check-fill" aria-hidden="true" /> Đã xác minh</span>
+          <span><i className="bi bi-clock" aria-hidden="true" /> Hôm nay: {today.hoursText}</span>
+          <span><i className="bi bi-list-ul" aria-hidden="true" /> {shop.dishCount} món</span>
+        </div>
+
+        <div className={styles.resultAddress}><i className="bi bi-geo-alt" aria-hidden="true" /><span>{shop.address}</span></div>
+
+        {dishes.length > 0 && (
+          <>
+            <div className={styles.dishHead}>
+              <span className={styles.dishLabel}>Món khớp</span>
+              <span className={styles.dishCount}>{dishes.length} món</span>
+            </div>
+            <div className={styles.dishScroller} tabIndex="0" aria-label={`Các món khớp của ${shop.name}`}>
+              {dishes.map((dish) => (
+                <a key={dish.id} className={styles.dishCard} href={`/shops/${shop.id}`}>
+                  <Photo src={dish.imageUrl} alt={dish.name} ratio="1/1" shape="rounded" className={styles.dishPhoto} />
+                  <span className={styles.dishPrice}>{formatPrice(dish.price)}</span>
+                  <span className={styles.dishName}>{dish.name}</span>
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+
+        <div className={styles.resultFoot}>
+          <a className={styles.resultCta} href={`/shops/${shop.id}`}>Xem quán <i className="bi bi-arrow-right" aria-hidden="true" /></a>
+        </div>
+      </div>
+    </article>
   );
 }

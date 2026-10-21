@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AdminLayout, Button, EmptyState, ErrorDialog, PageHeader, Panel, Photo, SearchInput, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import { getAdminDishes } from '../services/dish.service';
+import { RecipeSteps } from '../components/RecipeView/RecipeView';
 import styles from './AdminDishManagementPage.module.css';
 
 const formatDate = (value) => {
@@ -131,15 +132,15 @@ export default function AdminDishManagementPage() {
                                 >{recipeOpen ? 'Thu gọn' : 'Xem công thức'}</Button>
                               </div>
                               {recipeOpen && <div className={styles.recipeDetails}>
-                                <div>
-                                  <h4>Nguyên liệu</h4>
+                                <div className={styles.recipePanel}>
+                                  <h4><i className="bi bi-basket2" aria-hidden="true" />Nguyên liệu</h4>
                                   {(recipe.ingredients || []).length
-                                    ? <ul>{recipe.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>
+                                    ? <ul className={styles.ingredientList}>{recipe.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>
                                       {ingredient.name}{ingredient.amount ? ` · ${ingredient.amount}` : ''}{ingredient.unit ? ` ${ingredient.unit}` : ''}
                                     </li>)}</ul>
-                                    : <p>Chưa có nguyên liệu.</p>}
+                                    : <p className={styles.emptyDetail}>Chưa có nguyên liệu.</p>}
                                 </div>
-                                <div><h4>Cách làm</h4><p>{recipe.instructions || 'Chưa có hướng dẫn.'}</p></div>
+                                <div className={`${styles.recipePanel} ${styles.methodPanel}`}><h4><i className="bi bi-journal-text" aria-hidden="true" />Cách làm</h4>{recipe.instructions ? <RecipeSteps steps={recipe.instructions} className={styles.steps} /> : <p>Chưa có hướng dẫn.</p>}</div>
                               </div>}
                             </article>
                           );

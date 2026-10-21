@@ -60,6 +60,7 @@ export { default as DishCard } from './DishCard/DishCard';
 export { default as RecipeCard } from './RecipeCard/RecipeCard';
 export { RecipeFacts, IngredientList, RecipeSteps } from './RecipeView/RecipeView';
 export { default as IngredientEditor } from './IngredientEditor/IngredientEditor';
+export { default as UnitPicker } from './UnitPicker/UnitPicker'; // Khoi's code: ô chọn đơn vị nguyên liệu
 export { default as StepEditor } from './StepEditor/StepEditor';
 export { default as ShopCard, mapsSearchUrl } from './ShopCard/ShopCard';
 export { default as ShopMenuItem } from './ShopMenuItem/ShopMenuItem';

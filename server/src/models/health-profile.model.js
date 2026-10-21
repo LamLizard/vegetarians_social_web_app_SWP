@@ -90,7 +90,18 @@ async function saveHealthProfile(accountId, payload, calculated) {
     const profileId = rows[0].profile_id;
     await client.query('DELETE FROM public.allergy WHERE profile_id = $1', [profileId]);
     for (const name of payload.allergies) {
-      await client.query('INSERT INTO public.allergy (profile_id, name) VALUES ($1, $2)', [profileId, name]);
+      await client.query(`
+        INSERT INTO public.allergy (profile_id, name)
+        SELECT $1, $2
+        WHERE EXISTS (
+          SELECT 1 FROM public.ingredient i WHERE lower(btrim(i.name)) = lower(btrim($2::varchar(120)))
+        ) OR NOT EXISTS (
+          SELECT 1 FROM public.admin_log l
+          WHERE l.action = 'ingredient_proposal_rejected'
+            AND COALESCE(l.after_value->>'sourceType', 'all') IN ('health_profile', 'all')
+            AND lower(COALESCE(l.after_value->>'name', '')) = lower(btrim($2::varchar(120)))
+        )
+      `, [profileId, name]);
     }
 
     return { profile: await loadHealthProfile(client, accountId) };

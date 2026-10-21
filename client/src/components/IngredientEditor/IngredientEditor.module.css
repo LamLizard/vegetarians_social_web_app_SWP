@@ -2,7 +2,7 @@
 .head,
 .row {
   display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr) 8rem 8.5rem 2rem;
+  grid-template-columns: 1.6rem minmax(0, 1fr) 7rem 10.5rem 2rem; /* Khoi's code: cột đơn vị rộng hơn cho "muỗng cà phê" */
   align-items: center;
   gap: 0.5rem;
 }
@@ -35,6 +35,8 @@
   grid-column: 2 / -1;
   display: inline-flex;
   gap: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ac-bad-fg);
   font-size: 0.8rem;
   font-weight: 500;
@@ -45,6 +47,8 @@
   grid-column: 2 / -1;
   display: inline-flex;
   gap: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 0.8rem;
   font-weight: 500;
 }

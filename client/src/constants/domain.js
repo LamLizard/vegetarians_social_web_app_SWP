@@ -172,15 +172,39 @@ export const CHAT_SENDER = {
   system: 'Hệ thống',
 };
 
-/** Đơn vị nguyên liệu gợi ý. recipe_ingredient.unit là chữ tự do (VARCHAR),
- *  danh sách này chỉ để gợi ý cho thống nhất; người dùng vẫn gõ được đơn vị khác.
+/** BỘ ĐƠN VỊ NGUYÊN LIỆU CHUẨN (ô chọn UnitPicker — chỉ cho CHỌN, không gõ tự do; 20/10/2026).
+ *  Server kiểm lại bằng server/src/utils/ingredientUnits.js; hai danh sách phải khớp (có test ingredientUnits.test.js).
+ *  Cột recipe_ingredient.unit vẫn là chữ (VARCHAR 30) nên dữ liệu cũ có đơn vị lạ không bị mất.
+ *  group = nhóm hiển thị · hint = chú thích dùng cho gì (Khoi's code 20/10/2026: cô góp ý đơn vị phải rõ ràng, không chung chung)
  *  noAmount = đơn vị không cần số lượng ("ít muối", "tiêu vừa đủ"). */
+export const INGREDIENT_UNIT_GROUPS = [
+  { key: 'weight', label: 'Khối lượng' },
+  { key: 'volume', label: 'Thể tích' },
+  { key: 'count', label: 'Đếm theo đơn vị' },
+  { key: 'other', label: 'Khác' },
+];
 export const INGREDIENT_UNIT = [
-  { value: 'g' }, { value: 'kg' }, { value: 'ml' }, { value: 'lít' },
-  { value: 'muỗng canh' }, { value: 'muỗng cà phê' }, { value: 'chén' }, { value: 'cốc' },
-  { value: 'cái' }, { value: 'quả' }, { value: 'củ' }, { value: 'lát' }, { value: 'miếng' },
-  { value: 'bó' }, { value: 'nhánh' }, { value: 'gói' }, { value: 'hộp' },
-  { value: 'ít', noAmount: true }, { value: 'vừa đủ', noAmount: true },
+  { value: 'g', group: 'weight', hint: 'gam' },
+  { value: 'kg', group: 'weight', hint: 'ki-lô-gam (1 kg = 1000 g)' },
+  { value: 'ml', group: 'volume', hint: 'mi-li-lít' },
+  { value: 'lít', group: 'volume', hint: '1 lít = 1000 ml' },
+  { value: 'muỗng canh', group: 'volume', hint: '≈ 15 ml' },
+  { value: 'muỗng cà phê', group: 'volume', hint: '≈ 5 ml' },
+  { value: 'chén', group: 'volume', hint: 'chén ăn cơm, ≈ 200 ml' },
+  { value: 'cốc', group: 'volume', hint: '≈ 240 ml' },
+  { value: 'củ', group: 'count', hint: 'cà rốt, khoai, củ cải…' },
+  { value: 'quả', group: 'count', hint: 'cà chua, chanh, ớt…' },
+  { value: 'tép', group: 'count', hint: 'tỏi' },
+  { value: 'nhánh', group: 'count', hint: 'gừng, hành, rau thơm' },
+  { value: 'lá', group: 'count', hint: 'lá chuối, lá lốt, rau…' },
+  { value: 'lát', group: 'count', hint: 'cắt lát: gừng, bánh mì…' },
+  { value: 'miếng', group: 'count', hint: 'đậu hũ, nấm, bánh…' },
+  { value: 'bó', group: 'count', hint: 'rau cải, hành, ngò…' },
+  { value: 'gói', group: 'count', hint: 'đóng gói sẵn' },
+  { value: 'hộp', group: 'count', hint: 'đóng hộp sẵn' },
+  { value: 'cái', group: 'count', hint: 'vật đếm được: bánh bao, bánh tráng…' },
+  { value: 'ít', group: 'other', hint: 'nêm theo ý, không cần số lượng', noAmount: true },
+  { value: 'vừa đủ', group: 'other', hint: 'không cần số lượng', noAmount: true },
 ];
 
 /** Hạn mức cho khách (BR-04). */

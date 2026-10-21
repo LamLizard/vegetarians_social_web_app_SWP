@@ -102,7 +102,8 @@
   background: var(--v-surface-2);
 }
 .pBody { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
-.pChip { white-space: normal; }
+.pChip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.pDish { min-width: 0; overflow-wrap: anywhere; }
 .pDish, .pEmpty {
   display: inline-flex;
   align-items: center;
@@ -131,11 +132,12 @@
 .sentImg { flex: none; align-self: flex-start; width: 96px; }
 .sentBody { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
 .sentTop { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.sentTitle { margin: 0; color: var(--v-text); font-size: 16px; font-weight: 700; line-height: 1.25; }
-.sentDish { display: flex; align-items: center; gap: 4px; margin: 0; color: var(--v-text-2); font-size: 14px; }
-.sentDish i { color: var(--v-muted); }
+.sentTitle { flex: 1; min-width: 0; overflow-wrap: anywhere; margin: 0; color: var(--v-text); font-size: 16px; font-weight: 700; line-height: 1.25; }
+.sentDish { display: block; min-width: 0; overflow-wrap: anywhere; gap: 4px; margin: 0; color: var(--v-text-2); font-size: 14px; }
+.sentDish i { margin-right: 4px; color: var(--v-muted); }
 .sentMeta { display: flex; align-items: center; gap: 4px; margin: 0; color: var(--v-muted); font-size: 12px; }
-.reason { margin-top: 8px; }
+.reason { margin-top: 8px; overflow-wrap: anywhere; }
+.sentTop > :last-child { flex: none; }
 
 /* Responsive tạm (DECISIONS: responsive chưa chốt): < 1100px cột phụ xuống dưới form, hết cố định */
 @media (max-width: 1099.98px) {
