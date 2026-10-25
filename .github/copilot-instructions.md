@@ -1,6 +1,8 @@
-# Quy tắc gen code — Vegetarian Social (React Vite + Express + Postgres)
+# Quy ước code chung — Vegetarian Social
 
-Khi được yêu cầu viết code cho repo này, BẮT BUỘC tuân thủ:
+- Theo [development guide](../docs/development-guide.md) về naming, vị trí file, trách nhiệm từng tầng và checklist review.
+- Khi sửa UI, chọn component theo [UI Kit](../docs/skill-ui-kit.md); đọc chữ ký props/callback trong source.
+- Xác nhận implementation trong ứng dụng chính; template là nguồn tham khảo.
 
 ## 1. Tên file — in đường dẫn đầy đủ TRƯỚC khi viết code
 - Component/Page/Context: PascalCase → `PostCard.jsx`, `LoginPage.jsx`, `AuthContext.jsx`
@@ -20,15 +22,12 @@ Khi được yêu cầu viết code cho repo này, BẮT BUỘC tuân thủ:
 - 1 component = 1 việc, 1 file riêng, export trùng tên file
 - Component CHỈ nhận props — KHÔNG gọi API trong component (dữ liệu đi qua pages/ + services/)
 - Dùng ≥2 nơi → tách ra `components/`; chỉ 1 nơi dùng → để trong page
-- UI: LUÔN chọn component theo `docs/skill-ui-kit.md` — không tự chế component mới (thiếu → hỏi lại).
 
 ## 4. Format trả lời bắt buộc (thiếu mục = chưa đạt)
-- 📁 Vị trí file → 🧩 Cây component → 💻 Code → ✅ Checklist (tên file đúng? folder đúng? component tách? props rõ? không API call trong component?)
-- Format trả lời phải giống theo `docs/skill-answer-to-lam.md`
-- Khi người dùng nhờ 'tạo prompt', đọc `docs/skill-tao-prompt.md` và làm theo.
+📁 Vị trí file → 🧩 Cây component → 💻 Code → ✅ Checklist (tên file đúng? folder đúng? component tách? props rõ? không API call trong component?)
 
 ## 5. CẤM
 - Nhồi mọi thứ vào `App.jsx` • đặt sai folder • tên tự chế (`abc.js`,`NewFile2.jsx`) • component tự gọi fetch/axios • tạo folder mới không hỏi
 - Thiếu thông tin (props gì, dữ liệu từ đâu, style nào) → hỏi lại tối đa 2 câu NGẮN trước khi code
 
-> Chi tiết đầy đủ + ví dụ: `docs/skill-ai-gen-code.md`, `docs/quy-uoc-dat-ten.md`, `docs/huong-dan-folder.md`, `docs/skill-ui-kit.md`, `docs/skill-answer-to-lam.md`
+> Chi tiết đầy đủ + ví dụ: `docs/skill-ai-gen-code.md`, `docs/quy-uoc-dat-ten.md`, `docs/huong-dan-folder.md`

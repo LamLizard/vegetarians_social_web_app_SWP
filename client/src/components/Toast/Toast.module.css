@@ -1,7 +1,7 @@
 .stack {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  top: 72px; /* Khoi's code: góc trên bên phải, ngay dưới thanh trên (cao 64) */
+  right: 16px;
   z-index: 2000;
   display: grid;
   gap: 0.5rem;
@@ -24,7 +24,7 @@
   pointer-events: auto;
   animation: rise .18s ease-out;
 }
-@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes rise { from { opacity: 0; transform: translateY(-10px); } }
 
 .toast i { line-height: 1.45; }
 .msg { flex: 1; }
@@ -45,10 +45,6 @@
 }
 .action:focus-visible { outline: 2px solid var(--ac-toast-info); }
 
-/* Trên điện thoại chừa chỗ cho thanh tab dưới đáy */
-@media (max-width: 767.98px) {
-  .stack { bottom: 76px; }
-}
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }

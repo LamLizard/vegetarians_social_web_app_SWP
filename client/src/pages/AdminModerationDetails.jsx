@@ -4,6 +4,7 @@
 import {
   Avatar, Chip, DataTable, Notice, Panel, Photo, YouTubeEmbed,
 } from '../components';
+import AnimalWarnings from '../components/AnimalWarnings/AnimalWarnings'; // Khoi's code
 import { REPORT_REASON } from '../constants/domain';
 import { PostModerationStatus, ReportModerationStatus } from './postModerationPresentation';
 import styles from './AdminModerationPage.module.css';
@@ -94,6 +95,7 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
       {post && <>
       {reportCase?.targetType === 'comment' && <h2 className={styles.postTitle}>Bài viết chứa bình luận</h2>}
       <h3 className={styles.postTitle}>{post.title}</h3>
+      <AnimalWarnings warnings={post.animalWarnings} className="mb-3" />
       <div className={styles.metadata}>
         <Avatar name={post.authorName || post.authorEmail} src={post.authorAvatarUrl} size={32} />
         <span>{post.authorName || post.authorEmail}</span>

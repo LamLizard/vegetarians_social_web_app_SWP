@@ -34,6 +34,15 @@
 .auth-policies li { padding-left: 0.15rem; line-height: 1.45; }
 .auth-policies a { color: var(--ac-moss); font-weight: 600; }
 
+.auth-otp { display: grid; gap: 1rem; }
+.auth-otp-header { display: grid; gap: 0.35rem; }
+.auth-otp-kicker { margin: 0; color: var(--ac-moss); font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.auth-otp-copy { margin: 0; color: var(--ac-muted); line-height: 1.5; }
+.auth-otp-actions { display: grid; gap: 0.75rem; }
+.auth-otp-row { display: flex; align-items: center; gap: 0.75rem; }
+.auth-otp-resend { flex: 1; border: 0; background: transparent; color: var(--ac-moss); font-weight: 700; cursor: pointer; }
+.auth-otp-resend:disabled { color: var(--ac-muted); cursor: not-allowed; }
+
 .auth-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.1rem 0; color: var(--ac-muted); font-size: 0.8rem; }
 .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--ac-border); }
 

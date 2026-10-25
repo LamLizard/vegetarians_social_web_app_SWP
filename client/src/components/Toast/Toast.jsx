@@ -6,7 +6,7 @@ const ToastContext = createContext(null);
 const ICONS = { success: 'check-circle-fill', info: 'info-circle-fill', alert: 'exclamation-triangle-fill' };
 
 /**
- * Thông báo nhỏ góc dưới màn hình, tự ẩn ("Đã lưu", "Bài đang chờ duyệt"...).
+ * Thông báo nhỏ góc trên bên phải màn hình, tự ẩn ("Đã lưu", "Bài đang chờ duyệt"...).
  *
  * 1. Bọc app 1 lần trong main.jsx:  <ToastProvider><App /></ToastProvider>
  * 2. Ở bất kỳ component nào:

@@ -8,7 +8,7 @@
   border-radius: var(--ac-radius);
   background: var(--ac-card);
 }
-.stepper:focus-within { border-color: var(--ac-matcha); box-shadow: 0 0 0 0.25rem var(--ac-focus-ring); }
+.stepper:focus-within { border-color: var(--ac-matcha); }
 .invalid { border-color: var(--ac-alert); }
 .disabled { opacity: .55; }
 .btn {
@@ -37,5 +37,6 @@
   text-align: center;
   -moz-appearance: textfield;
 }
+.input:focus-visible { outline: 0 !important; } /* đè :focus-visible toàn cục (feed-theme.css); khung .stepper đã báo focus */
 .input::-webkit-inner-spin-button, .input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
 .unit { padding-right: 0.35rem; color: var(--ac-muted); font-size: 0.85rem; font-weight: 600; }

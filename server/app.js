@@ -3,7 +3,8 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());          // dev cho thoáng; sau siết origin từ client/.env (CLIENT_URL)
-app.use(express.json());
+// Khoi's code: nội dung bài viết không giới hạn độ dài (D-11) → nới mức nhận JSON từ 100 KB mặc định lên 1 MB.
+app.use(express.json({ limit: '1mb' }));
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
@@ -25,9 +26,33 @@ app.use('/api/admin/moderation', postModerationRoutes);
 // Duy's code: Kết nối API quản lý tài khoản thành viên cho trang Admin.
 app.use('/api/admin/members', require('./src/routes/admin-member.routes'));
 
+// Tùng — Sprint 2: BRIDGE-01 nối API Shop trước router Admin chung và /api catch-all.
+// Các router Shop kiểm tra quyền trên từng endpoint, giữ đường public Shop cho Lâm.
+const shopRegistrationRoutes = require('./src/routes/shopRegistration.routes');
+const shopManagementRoutes = require('./src/routes/shopManagement.routes');
+const shopVerificationRoutes = require('./src/routes/shopVerification.routes');
+app.use('/api/shops', shopRegistrationRoutes);
+app.use('/api/shops', shopManagementRoutes);
+app.use('/api/admin/shops', shopVerificationRoutes);
+// Tùng — Sprint 2: kết thúc điểm nối API Shop.
+
 app.use('/api/admin', require('./src/routes/admin.routes'));
 // Khoi's code: API trang Bảng tin (xem 3 bài khách, feed, vote, bình luận, báo cáo).
 app.use('/api/posts', require('./src/routes/post.routes'));
+// Duy's code: Gắn API tạo, đề xuất và kiểm duyệt Dish vào ứng dụng Express.
+app.use('/api/dishes', require('./src/routes/dish.routes'));
+// Lam's code: API khám phá quán chay (M-08) — chỉ thành viên đã đăng nhập mới xem.
+app.use('/api/shops', require('./src/routes/shop.routes'));
+
+// Khoi's code: Upload ảnh bìa bài viết lên Cloudinary (POST /api/uploads/image).
+app.use('/api/uploads', require('./src/routes/upload.routes'));
+// Khoi's code: Danh sách tag cho form Đăng bài.
+app.use('/api/categories', require('./src/routes/category.routes'));
+// Khoi's code: Tạo công thức (chọn món, nguyên liệu, gửi chờ duyệt, công thức đã gửi).
+app.use('/api/recipes', require('./src/routes/recipe.routes'));
+// Duy's Code : Gắn API đề cử nguyên liệu, lưu đề cử qua allergy và duyệt vào ingredient.
+app.use('/api/ingredient-proposals', require('./src/routes/ingredientProposal.routes'));
+app.use('/api/notifications', require('./src/routes/notification.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

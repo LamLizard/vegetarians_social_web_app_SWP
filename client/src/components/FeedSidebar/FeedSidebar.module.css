@@ -1,5 +1,5 @@
-/* Thanh bên trái của Bảng tin — chép từ prototype UI v2.1 (src/v2/components/Sidebar.module.css).
-   Bỏ: nút Đăng bài, mục "Của bạn", số đếm, icon AI (chức năng chưa có). Thêm: khối Đăng nhập cho khách. */
+/* Thanh bên trái của Bảng tin — theo prototype UI v2 (src/v2/components/Sidebar.module.css).
+   Thêm so với prototype: khối Đăng nhập / Đăng ký cho khách; lối tắt tài khoản là <button>. */
 .side {
   --w: 252px;
   position: sticky;
@@ -17,7 +17,7 @@
 .collapsed { --w: 76px; }
 
 /* ---------- Đầu: logo + nút thu gọn ---------- */
-.top { display: flex; align-items: center; gap: 6px; height: 40px; margin-bottom: 22px; }
+.top { display: flex; align-items: center; gap: 6px; height: 40px; margin-bottom: 16px; }
 .brand:hover { text-decoration: none; }
 .brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; min-width: 0; padding-left: 6px; color: var(--v-text); text-decoration: none; }
 .mark {
@@ -47,6 +47,27 @@
 .toggle:hover, .closeMobile:hover { border-color: var(--v-line); background: var(--v-surface-2); color: var(--v-text); }
 .closeMobile { display: none; }
 
+/* ---------- Nút Đăng bài ---------- */
+.create {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  margin-bottom: 14px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--v-accent);
+  color: var(--v-on-accent);
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color .15s, transform .15s;
+}
+.create i { width: 20px; flex: none; font-size: 1.1rem; text-align: center; }
+.create:hover { background: var(--v-accent-hover); }
+.create:active { transform: scale(.98); }
+
 /* ---------- Mục điều hướng ---------- */
 .nav { display: grid; gap: 2px; }
 .item {
@@ -64,8 +85,8 @@
   white-space: nowrap;
   transition: background-color .15s, color .15s;
 }
-.item:hover { background: var(--v-surface-2); color: var(--v-text); }
-.on, .on:hover { background: var(--v-surface-3); color: var(--v-text); }
+.item:hover { background: var(--v-surface-2); color: var(--v-text); text-decoration: none; }
+.on, .on:hover { background: var(--v-surface-3); color: var(--v-accent-text); }
 .on::before {
   content: "";
   position: absolute;
@@ -77,12 +98,11 @@
   background: var(--v-accent);
 }
 .icon { width: 20px; flex: none; font-size: 1.12rem; text-align: center; }
-.on .icon { color: var(--v-accent-text); }
 .label { overflow: hidden; text-overflow: ellipsis; transition: opacity .2s; }
-
 /* ---------- Đáy ---------- */
-.bottom { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--v-line); }
-/* Nút đổi nền: icon + chữ của chế độ SẼ chuyển sang; thu gọn thì chỉ còn icon tròn */
+.bottom { display: grid; gap: 10px; margin-top: auto; padding-top: 12px; }
+
+/* Nút Sáng / Tối — cùng kiểu với FeedSidebar của client */
 .theme {
   display: flex;
   align-items: center;
@@ -98,28 +118,106 @@
   white-space: nowrap;
   transition: color .15s, background-color .15s;
 }
-.collapsed .theme { justify-content: center; width: 40px; padding: 0; border-radius: 50%; }
 .theme:hover { background: var(--v-surface-2); color: var(--v-text); }
 .theme:active { transform: scale(0.94); }
 
-.accountWrap { display: flex; width: 100%; }
-.account {
+/* Hộp tài khoản: lối tắt + người dùng */
+.accountBox {
+  display: grid;
+  overflow: hidden; /* hover của hàng tên tràn sát viền, bo theo góc hộp */
+  border: 1px solid var(--v-line);
+  border-radius: 14px;
+  background: var(--v-surface);
+}
+.link {
+  display: flex;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  align-items: center;
+  gap: 12px;
+  height: 38px;
+  padding: 0 8px;
+  border-radius: 9px;
+  color: var(--v-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.link:hover { background: var(--v-surface-2); color: var(--v-text); text-decoration: none; }
+.linkActive, .linkActive:hover { background: var(--v-surface-3); color: var(--v-accent-text); }
+.link:disabled { opacity: .6; cursor: wait; }
+.link:disabled:hover { background: transparent; color: var(--v-muted); }
+.link .icon { font-size: 1rem; }
+.linkAlert, .linkAlert:hover { color: var(--ac-alert); }
+.drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows .25s var(--ac-ease-out, ease-out);
+}
+.drawerOpen { grid-template-rows: 1fr; }
+.drawerClip { min-height: 0; overflow: hidden; }
+.drawerInner { display: grid; gap: 2px; padding: 6px 6px 4px; border-bottom: 1px solid var(--v-line); }
+.userRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 6px;
+  padding: 8px 12px;
   border: 0;
-  border-radius: 12px;
+  border-radius: 0;
   background: transparent;
   color: var(--v-text);
   text-align: left;
 }
-.account:hover, .account[aria-expanded="true"] { background: var(--v-surface-2); }
+.userRow:hover { background: var(--v-surface-2); }
+.chev { color: var(--v-muted); transition: transform .25s var(--ac-ease-out, ease-out); }
+.userRow[aria-expanded="true"] .chev { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .drawer, .chev { transition: none; } }
 .accountText { display: grid; flex: 1; min-width: 0; line-height: 1.25; white-space: nowrap; }
 .accountText b { overflow: hidden; font-size: 0.88rem; text-overflow: ellipsis; }
 .accountText small { color: var(--v-muted); font-size: 0.74rem; }
-.more { color: var(--v-muted); }
+
+/* Avatar khi thu gọn: viền xanh rêu khi menu đang mở */
+.accountWrap { display: flex; justify-content: center; width: 100%; }
+.avatarBtn {
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  transition: border-color .15s;
+}
+.avatarBtn:hover { border-color: var(--v-line-2); }
+.avatarBtn[aria-expanded="true"] { border-color: var(--v-accent); }
+
+/* ---------- Thu gọn ---------- */
+.collapsed .name, .collapsed .label { display: none; }
+.collapsed .top { flex-direction: column; height: auto; gap: 10px; }
+.collapsed .brand { flex: none; padding: 0; }
+.collapsed .create, .collapsed .item { justify-content: center; padding: 0; }
+.collapsed .theme { justify-content: center; justify-self: center; width: 40px; padding: 0; border-radius: 50%; }
+.collapsed .item { height: 44px; }
+.collapsed .on::before { left: -12px; }
+.collapsed .item[title]:hover::after,
+.collapsed .create[title]:hover::after {
+  content: attr(title);
+  position: fixed;
+  left: 84px;
+  padding: 5px 10px;
+  border: 1px solid var(--v-line-2);
+  border-radius: 8px;
+  background: var(--v-surface-2);
+  color: var(--v-text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  box-shadow: var(--v-shadow-pop);
+  pointer-events: none;
+}
 
 /* ---------- Khách: Đăng nhập / Đăng ký ---------- */
 .guest { display: grid; gap: 6px; }
@@ -152,17 +250,8 @@
   white-space: nowrap;
 }
 .register:hover { background: var(--v-surface-2); }
-
-/* ---------- Thu gọn ---------- */
-.collapsed .name, .collapsed .label, .collapsed .accountText, .collapsed .more, .collapsed .register { display: none; }
-.collapsed .top { flex-direction: column; height: auto; gap: 10px; }
-.collapsed .brand { flex: none; padding: 0; }
-.collapsed .item, .collapsed .login { justify-content: center; padding: 0; }
-.collapsed .item { height: 44px; }
-.collapsed .on::before { left: -12px; }
-.collapsed .theme { justify-self: center; }
-.collapsed .account { justify-content: center; padding: 6px 0; }
-.collapsed .item[title]:hover::after,
+.collapsed .register { display: none; }
+.collapsed .login { justify-content: center; padding: 0; }
 .collapsed .login[title]:hover::after {
   content: attr(title);
   position: fixed;

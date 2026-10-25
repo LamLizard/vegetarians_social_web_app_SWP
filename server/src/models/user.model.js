@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 
+// Duy's code: Tìm hồ sơ tài khoản hiện hành, không trả tài khoản đã xóa.
 async function findProfileById(accountId) {
   const { rows } = await pool.query(
     `SELECT account_id AS id, email, full_name AS "fullName",
@@ -12,6 +13,7 @@ async function findProfileById(accountId) {
   return rows[0] ?? null;
 }
 
+// Duy's code: Đọc hash mật khẩu riêng để xác minh thao tác nhạy cảm.
 async function findPasswordHashById(accountId) {
   const { rows } = await pool.query(
     'SELECT password_hash FROM public.account WHERE account_id = $1 AND status = $2',
@@ -21,20 +23,34 @@ async function findPasswordHashById(accountId) {
   return rows[0]?.password_hash ?? null;
 }
 
-async function updateProfile(accountId, { fullName, email, passwordHash }) { /* Duy's code: Nhận email cùng tên và password hash khi cập nhật hồ sơ. */
+// Duy's code: Cập nhật tên và chỉ đổi hash khi mật khẩu mới được cung cấp; email được giữ nguyên.
+async function updateProfile(accountId, { fullName, passwordHash }) {
   const { rows } = await pool.query(
     `UPDATE public.account
      SET full_name = $2,
-       email = $3, /* Duy's code: Lưu email hồ sơ vào cột đăng nhập hiện có. */
-       password_hash = COALESCE($4, password_hash),
+         password_hash = COALESCE($3, password_hash),
          updated_at = NOW()
      WHERE account_id = $1 AND status = 'active'
     RETURNING account_id AS id, email, full_name AS "fullName",
       avatar_url AS avatar, status`,
-    [accountId, fullName, email, passwordHash], /* Duy's code: Truyền email đã chuẩn hoá theo đúng placeholder. */
+    [accountId, fullName, passwordHash],
   );
 
   return rows[0] ?? null;
 }
 
-module.exports = { findProfileById, findPasswordHashById, updateProfile };
+// Duy's code: Lưu hoặc gỡ URL avatar trên đúng bản ghi account.
+async function updateAvatar(accountId, avatarUrl) {
+  const { rows } = await pool.query(
+    `UPDATE public.account
+     SET avatar_url = $2, updated_at = NOW()
+     WHERE account_id = $1 AND status = 'active'
+     RETURNING account_id AS id, email, full_name AS "fullName",
+       avatar_url AS avatar, status`,
+    [accountId, avatarUrl],
+  );
+
+  return rows[0] ?? null;
+}
+
+module.exports = { findProfileById, findPasswordHashById, updateProfile, updateAvatar };

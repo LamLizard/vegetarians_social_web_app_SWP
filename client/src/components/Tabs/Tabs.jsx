@@ -38,9 +38,11 @@ export default function Tabs({ items, value, onChange, label = 'Chọn mục', c
           <button
             key={t.key}
             data-key={t.key}
+            id={t.id}
             type="button"
             role="tab"
             aria-selected={selected}
+            aria-controls={t.controls}
             tabIndex={selected ? 0 : -1}
             disabled={t.disabled}
             className={cx(styles.tab, selected && styles.selected)}

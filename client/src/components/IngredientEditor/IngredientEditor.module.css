@@ -2,7 +2,7 @@
 .head,
 .row {
   display: grid;
-  grid-template-columns: 1.6rem minmax(0, 1fr) 5.5rem 8.5rem 2rem;
+  grid-template-columns: 1.6rem minmax(0, 1fr) 7rem 10.5rem 2rem; /* Khoi's code: cột đơn vị rộng hơn cho "muỗng cà phê" */
   align-items: center;
   gap: 0.5rem;
 }
@@ -35,10 +35,28 @@
   grid-column: 2 / -1;
   display: inline-flex;
   gap: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--ac-bad-fg);
   font-size: 0.8rem;
   font-weight: 500;
 }
+
+/* Khoi's code: lưu ý từng dòng (rowNotes) — không phải lỗi, vẫn gửi được */
+.rowNote {
+  grid-column: 2 / -1;
+  display: inline-flex;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.rowNote_bad { color: var(--ac-bad-fg); }
+.rowNote_warn { color: var(--ac-muted); }
+.note_bad { border-color: var(--ac-bad-fg); background: var(--ac-bad-bg); }
+.note_bad:focus { border-color: var(--ac-bad-fg); box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--ac-bad-fg) 25%, transparent); }
+.note_warn { border-style: dashed; }
 
 .foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.15rem; }
 .count { color: var(--ac-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }

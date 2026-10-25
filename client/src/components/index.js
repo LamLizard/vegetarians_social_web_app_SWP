@@ -18,6 +18,8 @@ export { default as StatusBadge } from './StatusBadge/StatusBadge';
 export { default as Chip } from './Chip/Chip';
 export { default as HighlightChip } from './HighlightChip/HighlightChip';
 export { default as Notice } from './Notice/Notice';
+// Duy's Code: Dùng chung hộp thoại cho lỗi cần báo ngay ở cấp trang.
+export { default as ErrorDialog } from './ErrorDialog/ErrorDialog';
 export { ToastProvider, useToast } from './Toast/Toast';
 export { default as Modal } from './Modal/Modal';
 export { default as ConfirmDialog } from './ConfirmDialog/ConfirmDialog';
@@ -58,6 +60,7 @@ export { default as DishCard } from './DishCard/DishCard';
 export { default as RecipeCard } from './RecipeCard/RecipeCard';
 export { RecipeFacts, IngredientList, RecipeSteps } from './RecipeView/RecipeView';
 export { default as IngredientEditor } from './IngredientEditor/IngredientEditor';
+export { default as UnitPicker } from './UnitPicker/UnitPicker'; // Khoi's code: ô chọn đơn vị nguyên liệu
 export { default as StepEditor } from './StepEditor/StepEditor';
 export { default as ShopCard, mapsSearchUrl } from './ShopCard/ShopCard';
 export { default as ShopMenuItem } from './ShopMenuItem/ShopMenuItem';

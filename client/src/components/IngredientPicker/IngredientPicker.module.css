@@ -1,0 +1,109 @@
+/* Khoi's code: ô chọn nguyên liệu — cùng kiểu DishPicker, thu nhỏ cho vừa 1 dòng của IngredientEditor */
+.wrap { position: relative; min-width: 0; }
+
+.icon {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  transform: translateY(-50%);
+  color: var(--v-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+.input { padding-left: 32px; }
+
+.list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: max(100%, 280px);
+  max-height: 280px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--v-line-2);
+  border-radius: 14px;
+  background: var(--v-surface);
+  box-shadow: var(--v-shadow-pop);
+}
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--v-text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.opt i { flex: none; color: var(--v-muted); }
+.opt > span:not(.same) { min-width: 0; overflow-wrap: anywhere; }
+.optOn { background: var(--v-surface-2); }
+.propose {
+  margin-top: 4px;
+  border-top: 1px solid var(--v-line);
+  border-radius: 0 0 8px 8px;
+  color: var(--v-accent-text);
+  font-weight: 600;
+}
+.propose i { color: var(--v-accent-text); }
+.same {
+  margin-left: auto;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 22px;
+  white-space: nowrap;
+}
+.empty { padding: 8px 10px; color: var(--v-muted); font-size: 14px; }
+
+/* Đã chọn: thẻ tên + nút Đổi, cao bằng ô nhập */
+.chosen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-block: 3px;
+  padding-inline: 6px 3px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 10px;
+  border-radius: 6px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.chipText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chipProposed { background: transparent; color: var(--v-text-2); border: 1px dashed var(--v-line-2); }
+.change {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--v-text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.change:hover { background: var(--v-surface-2); color: var(--v-text); }
+
+/* Lưu ý của dòng (rowNotes): đỏ = nghi không chay · viền đứt = đề xuất mới */
+.tone_bad { border-color: var(--ac-bad-fg); background: var(--ac-bad-bg); }
+.tone_bad .chip { background: transparent; color: var(--ac-bad-fg); border-color: var(--ac-bad-fg); }
+.tone_warn { border-style: dashed; }

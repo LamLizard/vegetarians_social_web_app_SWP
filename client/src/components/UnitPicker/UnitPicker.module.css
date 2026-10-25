@@ -1,0 +1,63 @@
+/* Khoi's code: ô chọn đơn vị (chỉ chọn) — cùng kiểu IngredientPicker, danh sách mở sang trái vì cột đơn vị nằm sát mép phải */
+.wrap { position: relative; min-width: 0; }
+.input { padding-right: 30px; }
+.input:global(.is-invalid) { background-image: none; }
+
+.chevron {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 12px;
+}
+.chevron:hover:not(:disabled) { background: var(--v-surface-2); color: var(--v-text); }
+
+.list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  width: max(100%, 300px);
+  max-height: 320px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--v-line-2);
+  border-radius: 14px;
+  background: var(--v-surface);
+  box-shadow: var(--v-shadow-pop);
+}
+.items { margin: 0; padding: 0; list-style: none; }
+.groupHead {
+  padding: 8px 10px 4px;
+  color: var(--v-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.opt {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: var(--v-text);
+  font-size: 15px;
+  cursor: pointer;
+}
+.optName { flex: none; min-width: 6.5rem; font-weight: 600; }
+.optHint { min-width: 0; color: var(--v-muted); font-size: 13px; }
+.optOn { background: var(--v-surface-2); }
+.optPicked .optName { color: var(--v-accent-text); }
+.none { padding: 10px; color: var(--v-muted); font-size: 14px; }
