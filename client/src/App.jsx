@@ -31,6 +31,7 @@ import AdminModerationPage from './pages/AdminModerationPage';
 import PostFeedPage from './pages/PostFeedPage';
 // Khoi's code: Trang Tạo công thức (Sprint 2, dữ liệu giả tới khi nhóm sửa DB).
 import RecipeCreatePage from './pages/RecipeCreatePage';
+import RecipeListPage from './pages/RecipeListPage'; // Khoi's code: trang Công thức (/recipes)
 import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
 
 
@@ -69,6 +70,7 @@ function AppContent() {
   if (!isAuthenticated) {
     if (isFeedPath) return <PostFeedPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
     if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
+    if (path === '/recipes') return <RecipeListPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />; // Khoi's code
     const isAuthPath = path === '/login' || path === '/register';
     return (
       <AuthPage
@@ -99,6 +101,7 @@ function AppContent() {
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   // Khoi's code: xem công thức đã duyệt — thành viên và Admin
   if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
+  if (path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
     <ShopExplorePage

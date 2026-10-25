@@ -1,18 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Avatar from '../components/Avatar/Avatar';
 import Button from '../components/Button/Button';
+import DishBowl from '../components/DishBowl/DishBowl';
 import EmptyState from '../components/EmptyState/EmptyState';
 import Notice from '../components/Notice/Notice';
 import NumberStepper from '../components/NumberStepper/NumberStepper';
 import PageHeader from '../components/PageHeader/PageHeader';
 import Photo from '../components/Photo/Photo';
+import RecipeCard from '../components/RecipeCard/RecipeCard';
 import Skeleton from '../components/Skeleton/Skeleton';
+import VoteButton from '../components/VoteButton/VoteButton';
 import YouTubeEmbed from '../components/YouTubeEmbed/YouTubeEmbed';
 import { IngredientList, RecipeFacts, RecipeSteps } from '../components/RecipeView/RecipeView';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import MemberLayout from '../components/MemberLayout/MemberLayout';
 import { formatNumber, timeAgo } from '../utils/format';
 import recipeService from '../services/recipe.service';
+import { getHealthProfile } from '../services/user.service';
+import { plain } from '../utils/dishMatch';
 import s from './RecipeDetailPage.module.css';
 
 // Khoi's code: Trang xem công thức đã duyệt (/recipes/:id) — 15/10/2026.
@@ -29,6 +34,41 @@ const NUTRIENTS = [
   { api: 'sugarG', label: 'Đường', unit: 'g' },
   { api: 'sodiumMg', label: 'Natri', unit: 'mg' },
 ];
+/** Khoi's code 20/10: số công thức gợi ý ở cuối trang */
+const RELATED_MAX = 3;
+
+/**
+ * Khoi's code 20/10: chọn công thức gợi ý từ danh sách công khai (GET /api/recipes).
+ * Bỏ công thức đang xem · cùng món trước → cùng loại món → còn lại. Cùng hạng thì nhiều lượt thích, rồi mới duyệt.
+ */
+export function pickRelated(items, current, max = RELATED_MAX) {
+  const me = items.find((it) => it.id === current.id);
+  const cats = new Set(me?.categoryIds ?? []);
+  const score = (it) => (it.dishId === current.dishId ? 2 : it.categoryIds?.some((c) => cats.has(c)) ? 1 : 0);
+  return items
+    .filter((it) => it.id !== current.id)
+    .map((it) => ({ it, rank: score(it) }))
+    .sort((a, b) => b.rank - a.rank
+      || (b.it.likeCount ?? 0) - (a.it.likeCount ?? 0)
+      || String(b.it.moderatedAt).localeCompare(String(a.it.moderatedAt)))
+    .slice(0, max)
+    .map((x) => x.it);
+}
+
+/**
+ * Khoi's code 20/10: nút "Quay lại Công thức". Vừa đi từ trang Công thức sang → lùi lịch sử
+ * (giữ từ khoá, loại món, vị trí cuộn). Mở thẳng link / đi từ chỗ khác → mở /recipes.
+ */
+const backToList = (e) => {
+  try {
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    if (ref && ref.origin === window.location.origin && ref.pathname === '/recipes' && window.history.length > 1) {
+      e.preventDefault();
+      window.history.back();
+    }
+  } catch { /* referrer lạ → để link /recipes chạy bình thường */ }
+};
+
 const fmt = (n) => (Number.isInteger(n) ? formatNumber(n) : n.toLocaleString('vi-VN', { maximumFractionDigits: 1 }));
 
 /**
@@ -40,7 +80,9 @@ const fmt = (n) => (Number.isInteger(n) ? formatNumber(n) : n.toLocaleString('vi
 export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onLogin, onRegister }) {
   const [state, setState] = useState({ status: 'loading', recipe: null }); // loading | ready | notFound | error
   const [servings, setServings] = useState(null); // khẩu phần đang xem → số lượng nguyên liệu tự nhân
-  const [searchText, setSearchText] = useState('');
+  const [like, setLike] = useState({ on: false, count: 0, busy: false }); // Khoi's code 20/10: nút Thích
+  const [related, setRelated] = useState([]); // Khoi's code 20/10: công thức gợi ý cuối trang
+  const [allergies, setAllergies] = useState([]); // tên dị ứng của thành viên → nhãn đỏ trên thẻ gợi ý
 
   const load = async () => {
     setState({ status: 'loading', recipe: null });
@@ -48,6 +90,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
       const recipe = await recipeService.getRecipe(recipeId);
       setState({ status: 'ready', recipe });
       setServings(recipe.servings ?? null);
+      setLike({ on: !!recipe.likedByMe, count: recipe.likeCount ?? 0, busy: false });
     } catch (err) {
       setState({ status: err.status === 404 || err.status === 400 ? 'notFound' : 'error', recipe: null });
     }
@@ -62,15 +105,50 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
     if (r) document.title = `${r.title} · Công thức`;
   }, [r]);
 
-  // Thanh trên: tìm kiếm bài viết → về Bảng tin kèm từ khoá (giống trang Tạo công thức)
+  // Khoi's code 20/10: gợi ý công thức khác — tải sau khi có công thức; lỗi thì ẩn khối, trang vẫn chạy
+  useEffect(() => {
+    if (!r) return undefined;
+    let alive = true;
+    recipeService.listRecipes()
+      .then(({ items }) => { if (alive) setRelated(pickRelated(items, r)); })
+      .catch(() => { if (alive) setRelated([]); });
+    return () => { alive = false; };
+  }, [r]);
+
+  // Dị ứng trong hồ sơ sức khỏe (chỉ thành viên) — giống trang Công thức
+  useEffect(() => {
+    if (user?.role !== 'member') return undefined;
+    let alive = true;
+    getHealthProfile()
+      .then(({ profile }) => { if (alive) setAllergies((profile?.allergies ?? []).map((a) => a.name).filter(Boolean)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user?.role]);
+  const allergyKeys = useMemo(() => allergies.map((a) => [a, plain(a)]).filter(([, k]) => k), [allergies]);
+  const allergenOf = (it) => {
+    const hit = allergyKeys.find(([, k]) => (it.ingredientNames ?? []).some((n) => plain(n).includes(k)));
+    return hit ? `Có ${hit[0]}` : undefined;
+  };
+
+  // Khoi's code: ẩn ô tìm bài viết trên thanh trên (điện thoại vẫn giữ nút ☰)
   const topbar = ({ openMenu }) => (
-    <FeedTopbar
-      value={searchText}
-      onChange={setSearchText}
-      onSearch={(q) => { if (q) window.location.assign(`/?q=${encodeURIComponent(q)}`); }}
-      onOpenMenu={openMenu}
-    />
+    <FeedTopbar hideSearch value="" onChange={() => {}} onSearch={() => {}} onOpenMenu={openMenu} />
   );
+
+  // Khoi's code 20/10: Thích — đổi trên màn hình ngay, lỗi thì trả lại như cũ. Khách → đăng nhập.
+  const toggleLike = async () => {
+    if (!user) { onLogin?.(); return; }
+    if (like.busy) return;
+    const before = like;
+    const on = !before.on;
+    setLike({ on, count: before.count + (on ? 1 : -1), busy: true });
+    try {
+      const res = on ? await recipeService.likeRecipe(recipeId) : await recipeService.unlikeRecipe(recipeId);
+      setLike({ on: res.liked, count: res.likeCount, busy: false });
+    } catch {
+      setLike({ ...before, busy: false });
+    }
+  };
 
   const totalTime = (r?.prepTimeMinutes ?? 0) + (r?.cookTimeMinutes ?? 0);
   const nutrition = r ? NUTRIENTS.filter((n) => r[n.api] != null) : [];
@@ -81,6 +159,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
 
   return (
     <MemberLayout
+      activeKey="recipes"
       user={user}
       accountMenu={accountMenu}
       onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
@@ -89,6 +168,11 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
       renderTopbar={topbar}
     >
       <div className={s.page}>
+        {/* Khoi's code 20/10: lối thoát rõ ràng về danh sách (User control and freedom) */}
+        <a href="/recipes" className={s.back} onClick={backToList}>
+          <i className="bi bi-arrow-left" aria-hidden="true" />Quay lại Công thức
+        </a>
+
         {state.status === 'loading' && (
           <div className={s.card} role="status" aria-label="Đang tải công thức">
             <Skeleton shape="block" height={280} />
@@ -115,7 +199,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
         {state.status === 'ready' && (
           <>
             <PageHeader
-              breadcrumb={[{ label: 'Bảng tin', href: '/' }, { label: 'Công thức' }]}
+              breadcrumb={[{ label: 'Công thức', href: '/recipes' }, { label: r.dishName }]}
               title={r.title}
               description={r.description || undefined}
             />
@@ -127,6 +211,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                 <span>{r.authorName}</span>
               </span>
               <span className={s.when}>· {timeAgo(r.createdAt)}</span>
+              <VoteButton className={s.like} noun="công thức" voted={like.on} count={like.count} onToggle={toggleLike} />
             </div>
 
             {r.thumbnailUrl && <Photo src={r.thumbnailUrl} alt={r.title} ratio="16/9" shape="rounded" />}
@@ -174,6 +259,36 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                   <h2 id="rd-video" className={s.h2}>Video hướng dẫn</h2>
                 </div>
                 <YouTubeEmbed url={r.youtubeUrl} title={`Video: ${r.title}`} />
+              </section>
+            )}
+
+            {/* Khoi's code 20/10: xem hết công thức → gợi ý thêm (cùng món → cùng loại món → nhiều lượt thích) */}
+            {related.length > 0 && (
+              <section className={s.related} aria-labelledby="rd-related">
+                <div className={s.relatedHead}>
+                  <h2 id="rd-related" className={s.h2}>Có thể bạn cũng thích</h2>
+                  <a href="/recipes" className={s.more}>Xem tất cả công thức</a>
+                </div>
+                <div className={s.relatedGrid}>
+                  {related.map((it) => (
+                    <RecipeCard
+                      key={it.id}
+                      layout="card"
+                      href={`/recipes/${encodeURIComponent(it.id)}`}
+                      title={it.title}
+                      dishName={it.dishName}
+                      imageUrl={it.thumbnailUrl ?? undefined}
+                      fallback={<div className={s.plate}><DishBowl name={it.dishName} /></div>}
+                      author={{ name: it.authorName, avatarUrl: it.authorAvatarUrl ?? undefined }}
+                      createdAt={it.moderatedAt}
+                      cookTimeMinutes={(it.prepTimeMinutes ?? 0) + (it.cookTimeMinutes ?? 0) || undefined}
+                      servings={it.servings ?? undefined}
+                      calories={it.caloriesKcal ?? undefined}
+                      likeCount={it.likeCount}
+                      flag={allergenOf(it)}
+                    />
+                  ))}
+                </div>
               </section>
             )}
           </>

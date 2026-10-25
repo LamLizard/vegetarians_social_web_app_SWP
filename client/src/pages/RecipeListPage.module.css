@@ -1,0 +1,86 @@
+/* =====================================================================
+   Khoi's code: Trang Công thức (/recipes) — port từ prototype, bố cục C (chốt 18/10/2026)
+   Khung 1200 (20/10: nới từ 976 cho nổi bật) · đầu trang → ô tìm 24 · → khối đầu 32 · giữa các khối 48 · tiêu đề khối → nội dung 16
+   Nổi bật: khung chiếu kiểu Epic (FeaturedCarousel, 20/10) · hàng danh mục: lưới 3 cột co giãn (≈ 378 ở khung 1200), gap 32
+   Chỉ dùng biến màu.
+   ===================================================================== */
+.page {
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, 100% - 48px);
+  margin-inline: auto;
+  padding: 32px 0 96px;
+}
+
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.headText { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.title { margin: 0; color: var(--v-text); font-size: 32px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+.desc { margin: 0; color: var(--v-text-2); font-size: 16px; line-height: 1.6; }
+
+.tools { display: flex; align-items: center; gap: 24px; margin-top: 24px; }
+.search { flex: 1; min-width: 0; }
+.tools > :last-child:not(:first-child) { flex: none; } /* công tắc dị ứng; khách không có công tắc → ô tìm vẫn giãn hết */
+
+.section { display: flex; flex-direction: column; gap: 16px; margin-top: 48px; }
+.section:first-of-type { margin-top: 32px; }
+/* Khối đầu khi đang tải / lỗi / rỗng (không phải <section>) */
+.firstBlock { margin-top: 32px; }
+.secHead { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.secTitle { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.h2 { margin: 0; color: var(--v-text); font-size: 20px; font-weight: 700; line-height: 1.25; }
+.secHint { color: var(--v-muted); font-size: 14px; }
+.more { flex: none; color: var(--v-accent-text); font-size: 14px; font-weight: 600; text-underline-offset: 3px; }
+.more:hover { color: var(--v-text); }
+
+
+/* Lưới thẻ */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.skCard { display: flex; flex-direction: column; gap: 12px; }
+
+/* Hình bát khi công thức chưa có ảnh bìa */
+.plate {
+  display: grid;
+  place-items: center;
+  height: 70%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
+}
+
+/* Chế độ kết quả */
+.crumbs { display: flex; align-items: center; gap: 8px; color: var(--v-muted); font-size: 14px; }
+.crumbs a { color: var(--v-muted); text-decoration: none; }
+.crumbs a:hover { color: var(--v-text); text-decoration: underline; }
+.crumbs i { font-size: 12px; }
+.crumbs [aria-current] { color: var(--v-text); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--v-line-2);
+  border-radius: 999px;
+  background: var(--v-surface);
+  color: var(--v-text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.chip:hover { border-color: var(--v-accent-line); color: var(--v-text); }
+.chipOn, .chipOn:hover { border-color: var(--v-accent); background: var(--v-accent); color: var(--v-on-accent); }
+.resultBar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.count { margin: 0; color: var(--v-text-2); font-size: 14px; font-weight: 400; }
+.count b { color: var(--v-text); }
+.sort { width: 200px; }
+.loadMore { align-self: center; margin-top: 16px; }
+
+@media (max-width: 1099.98px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+}
+@media (max-width: 767.98px) {
+  .page { width: calc(100% - 24px); padding: 16px 0 120px; }
+  .head { flex-wrap: wrap; align-items: flex-start; }
+  .title { font-size: 24px; }
+  .tools { flex-direction: column; align-items: stretch; gap: 12px; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .section { margin-top: 32px; }
+  .secHead { flex-wrap: wrap; row-gap: 4px; }
+}

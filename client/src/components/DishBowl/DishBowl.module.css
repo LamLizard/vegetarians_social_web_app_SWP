@@ -1,0 +1,8 @@
+/* Khoi's code: bát món minh hoạ — màu giống FeedGreeting ("Hôm nay ăn gì?") */
+.bowl { width: 86%; height: 86%; }
+.dish { fill: #FFFDF8; }
+.tofu { fill: #F3E6C8; }
+.herb { fill: #5E8B4F; }
+.tone1 .sauce { fill: #D2553A; }
+.tone2 .sauce { fill: #E9B949; }
+.tone3 .sauce { fill: #E07B45; }

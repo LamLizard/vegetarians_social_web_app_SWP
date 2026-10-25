@@ -84,8 +84,18 @@ async function getMineDetail(req, res) {
 }
 
 /** GET /api/recipes/:recipeId — Khoi's code: xem công thức đã duyệt, ai cũng gọi được (kể cả khách) */
+/** GET /api/recipes — Khoi's code: trang Công thức, ai cũng xem được → { items, categories } (có token → likedByMe) */
+async function getPublicList(req, res) {
+  res.json(await recipeModel.findPublicList(req.account?.id ?? null));
+}
+
+/** POST / DELETE /api/recipes/:recipeId/like — Khoi's code: thích / bỏ thích → { liked, likeCount } */
+const setLike = (liked) => async (req, res) => {
+  res.json(await recipeModel.setRecipeLike(parseRecipeId(req.params.recipeId), req.account.id, liked));
+};
+
 async function getPublicDetail(req, res) {
-  const recipe = await recipeModel.findPublicDetail(parseRecipeId(req.params.recipeId));
+  const recipe = await recipeModel.findPublicDetail(parseRecipeId(req.params.recipeId), req.account?.id ?? null);
   if (!recipe) throw new RecipeError(404, 'Không tìm thấy công thức, hoặc công thức chưa được duyệt.');
   res.json(recipe);
 }
@@ -152,6 +162,9 @@ module.exports = {
   createRecipe: handle(createRecipe),
   getMineDetail: handle(getMineDetail),
   getPublicDetail: handle(getPublicDetail),
+  getPublicList: handle(getPublicList),
+  likeRecipe: handle(setLike(true)),
+  unlikeRecipe: handle(setLike(false)),
   resubmitRecipe: handle(resubmitRecipe),
   getPendingAdmin: handle(getPendingAdmin),
   getAllAdmin: handle(getAllAdmin),
