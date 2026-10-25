@@ -1,0 +1,29 @@
+/* Duy's Code: Bố cục danh sách cá nhân theo token và khoảng cách của UI hiện hành. */
+.page { display: grid; gap: 1.25rem; width: min(100%, 1120px); margin: 0 auto; padding: 1.5rem clamp(1rem, 3vw, 2rem) 3rem; }
+.filters { display: flex; align-items: end; gap: 1rem; flex-wrap: wrap; padding: 1rem; border: 1px solid var(--v-line, #dce6df); border-radius: 1rem; background: var(--v-surface, #fff); }
+.filter { display: grid; gap: .35rem; min-width: 190px; color: var(--v-muted, #66736b); font-size: .82rem; font-weight: 650; }
+.filter select { color: var(--v-text, #24342a); }
+.count { margin-left: auto; color: var(--v-muted, #66736b); font-size: .9rem; }
+.list { display: grid; gap: .9rem; }
+.item { display: grid; gap: .7rem; padding: 1rem; border: 1px solid var(--v-line, #dce6df); border-radius: 1rem; background: var(--v-surface, #fff); }
+/* Duy's Code: Chỉ làm nổi bài được mở từ notification trong thời gian ngắn. */
+.targetPost { outline: 3px solid var(--v-accent, #54966b); outline-offset: 3px; }
+.itemHead { display: grid; gap: .5rem; }
+.labels { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; color: var(--v-muted, #66736b); font-size: .82rem; }
+.type { font-weight: 700; color: var(--v-text, #24342a); }
+.note, .policy { margin: 0; color: var(--v-muted, #66736b); font-size: .88rem; }
+.note { padding: .65rem .8rem; border-left: 3px solid var(--v-accent, #54966b); border-radius: .25rem .6rem .6rem .25rem; background: var(--v-surface-2, #f2f7f3); }
+/* Duy's Code: Từ chối/gỡ/xóa dùng chung token đỏ; giới hạn ở Bài của tôi. */
+.removedNote { margin: 0; padding: .65rem .8rem; border-left: 3px solid var(--ac-bad-fg); border-radius: .25rem .6rem .6rem .25rem; background: var(--ac-bad-bg); color: var(--ac-bad-fg); font-size: .88rem; overflow-wrap: anywhere; }
+.removedNote b { color: var(--ac-bad-fg); }
+.titleLink { cursor: pointer; }
+.titleLink:hover { color: var(--ac-moss); text-decoration: underline; }
+.titleLink:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 3px; border-radius: 2px; }
+.policy { padding-left: .2rem; }
+.skeletons { display: grid; gap: .9rem; }
+@media (max-width: 767.98px) {
+  .page { padding: 1.1rem .85rem 5rem; }
+  .filters { align-items: stretch; }
+  .filter { min-width: min(100%, 150px); flex: 1; }
+  .count { width: 100%; margin-left: 0; }
+}

@@ -41,3 +41,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+**/test-results/
+**/playwright-report/
+client/tests/artifacts/

@@ -20,18 +20,18 @@
 //   └── LoginPrompt
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Avatar, Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
-  ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
+  Button, EmptyState, LoginPrompt, Notice,
+  ReportDialog, SkeletonCard, Spinner, getYouTubeId, useToast,
 } from '../components';
 // Khoi's code: Đăng bài (Sprint 2) + hiện **đậm** *nghiêng* trong nội dung bài
 import CreatePostModal from '../components/CreatePostModal/CreatePostModal';
-import PostRichText, { stripMarks } from '../components/PostRichText/PostRichText';
+import { stripMarks } from '../components/PostRichText/PostRichText';
 import FeedComposer from '../components/FeedComposer/FeedComposer';
 import FeedFilter from '../components/FeedFilter/FeedFilter';
 import FeedGreeting from '../components/FeedGreeting/FeedGreeting';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
-import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout';
+import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
@@ -367,91 +367,5 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onClose={() => setLoginOpen(false)}
       />
     </MemberLayout>
-  );
-}
-
-// =====================================================================
-//  Chi tiết bài (mở tại chỗ như Facebook) — chỉ trang này dùng nên để chung file
-// =====================================================================
-function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onReport, onRequireLogin, onCommentAdded }) {
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const postId = post?.id;
-  const sectionId = `binh-luan-${postId}`;
-
-  // Mở bài nào thì tải bình luận của bài đó
-  useEffect(() => {
-    if (!postId) return undefined;
-    let ignore = false;
-    setComments([]);
-    setLoading(true);
-    postService.getComments(postId)
-      .then((res) => { if (!ignore) setComments(res.items); })
-      .catch(() => { if (!ignore) setComments([]); })
-      .finally(() => { if (!ignore) setLoading(false); });
-    return () => { ignore = true; };
-  }, [postId]);
-
-  // Bấm nút bình luận ở thẻ → cuộn thẳng xuống khu bình luận
-  useEffect(() => {
-    if (postId && toComments && !loading) document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
-  }, [postId, toComments, loading, sectionId]);
-
-  if (!post) return null;
-
-  const addComment = async (content) => {
-    const created = await postService.addComment(post.id, content); // lỗi → CommentComposer tự hiện câu lỗi
-    setComments((list) => [created, ...list]);
-    onCommentAdded(post.id);
-  };
-
-  return (
-    <Modal open onClose={onClose} title={post.title} size="lg">
-      <article className={styles.detail}>
-        <header className={styles.detailHead}>
-          <Avatar src={post.author.avatarUrl} name={post.author.fullName} size={40} />
-          <div>
-            <b>{post.author.fullName}</b>
-            <span className={styles.muted}> · <time dateTime={post.publishedAt ?? post.createdAt}>{timeAgo(post.publishedAt ?? post.createdAt)}</time></span>
-          </div>
-        </header>
-
-        {/* Chữ → thẻ chủ đề → hình, giống thẻ bài ngoài Bảng tin */}
-        {post.content && <div className={styles.content}><PostRichText text={post.content} /></div>}
-
-        {post.categories?.length > 0 && (
-          <div className={cardStyles.tags}>{post.categories.map((c) => <span key={c.id} className={cardStyles.tag}>#{c.name}</span>)}</div>
-        )}
-
-        {post.type === 'video'
-          ? <YouTubeEmbed url={post.youtubeUrl} title={post.title} />
-          : post.thumbnailUrl && <Photo src={post.thumbnailUrl} ratio="16/9" shape="rounded" />}
-
-        <div className={styles.detailActions}>
-          <VoteButton voted={post.isVoted} count={post.voteCount} onToggle={() => onVote(post)} />
-          {!isMine && (post.hasReported
-            ? <Button size="sm" variant="subtle" icon="flag-fill" disabled>Đã báo cáo</Button>
-            : (
-              <Button size="sm" variant="subtle" icon="flag" onClick={() => onReport({ type: 'post', id: post.id, title: post.title })}>
-                Báo cáo
-              </Button>
-            ))}
-        </div>
-
-        <CommentSection
-          id={sectionId}
-          comments={comments.map((c) => ({ ...c, author: toPerson(c.author) }))}
-          total={post.commentCount}
-          currentUser={toPerson(user)}
-          loading={loading}
-          onCreate={addComment}
-          onReport={(commentId) => {
-            const c = comments.find((x) => x.id === commentId);
-            onReport({ type: 'comment', id: commentId, title: c?.content.slice(0, 60) });
-          }}
-          onRequireLogin={onRequireLogin}
-        />
-      </article>
-    </Modal>
   );
 }

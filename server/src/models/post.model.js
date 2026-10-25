@@ -308,7 +308,95 @@ async function createPost({ authorId, postType, title, content, thumbnailUrl, yo
   });
 }
 
+// Duy's Code: Member xem danh sách bài của chính mình; trạng thái deleted vẫn hiện để giữ lịch sử.
+async function findMyPosts({ accountId, status = 'all', postType = 'all', page = 1, limit = 20, postId = null }) {
+  const values = [accountId];
+  const filters = ['p.account_id = $1'];
+  if (status !== 'all') { values.push(status); filters.push(`p.status = $${values.length}`); }
+  if (postType !== 'all') { values.push(postType); filters.push(`p.post_type = $${values.length}`); }
+  // Duy's Code: ID chỉ là filter bổ sung; ownership vẫn luôn khóa theo account_id.
+  if (postId) { values.push(postId); filters.push(`p.post_id = $${values.length}`); }
+  const where = filters.join(' AND ');
+  const countResult = await pool.query(`SELECT count(*)::int AS total FROM post p WHERE ${where}`, values);
+  const totalItems = countResult.rows[0].total;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * limit;
+  const { rows } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
+      p.moderation_note AS "moderationNote", p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt", p.published_at AS "publishedAt", p.deleted_at AS "deletedAt",
+      p.vote_count AS "voteCount", p.comment_count AS "commentCount", p.view_count AS "viewCount",
+      json_build_object('id', a.account_id::text, 'fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author,
+      EXISTS (SELECT 1 FROM post_vote v WHERE v.post_id = p.post_id AND v.account_id = $1::bigint) AS "isVoted",
+      (SELECT al.action FROM admin_log al WHERE al.target_type = 'post' AND al.target_id = p.post_id
+        ORDER BY al.created_at DESC, al.admin_log_id DESC LIMIT 1) AS "moderationAction",
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
+        FROM post_category pc JOIN category c ON c.category_id = pc.category_id WHERE pc.post_id = p.post_id), '[]'::json) AS categories
+    FROM post p JOIN account a ON a.account_id = p.account_id WHERE ${where}
+    ORDER BY p.created_at DESC, p.post_id DESC
+    LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+  `, [...values, limit, offset]);
+  return { items: rows, page: currentPage, pageSize: limit, totalItems, totalPages };
+}
+
+// Duy's Code: Bảo đảm đọc bài sửa theo accountId; bài đang kiểm duyệt báo cáo không cho thay đổi.
+async function findMyPost(accountId, postId) {
+  const { rows } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
+      p.moderation_note AS "moderationNote",
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
+        FROM post_category pc JOIN category c ON c.category_id = pc.category_id WHERE pc.post_id = p.post_id), '[]'::json) AS categories
+    FROM post p WHERE p.account_id = $1 AND p.post_id = $2
+  `, [accountId, postId]);
+  if (!rows[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
+  if (rows[0].status !== 'pending') throw new PostError(409, 'Chỉ có thể sửa bài đang chờ duyệt.');
+  return rows[0];
+}
+
+// Duy's Code: Cập nhật nội dung và tag trong một transaction; quyền sở hữu/trạng thái được khóa lại trước khi ghi.
+async function updateMyPost({ accountId, postId, postType, title, content, thumbnailUrl, youtubeUrl, categoryIds }) {
+  return transaction(async (client) => {
+    const { rows: owned } = await client.query(
+      'SELECT post_id FROM post WHERE post_id = $1 AND account_id = $2 AND status = \'pending\' FOR UPDATE',
+      [postId, accountId],
+    );
+    if (!owned[0]) {
+      const exists = await client.query('SELECT 1 FROM post WHERE post_id = $1 AND account_id = $2', [postId, accountId]);
+      if (!exists.rows[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
+      throw new PostError(409, 'Chỉ có thể sửa bài đang chờ duyệt.');
+    }
+    const { rows: categories } = await client.query(
+      'SELECT category_id FROM category WHERE category_id = ANY($1::bigint[]) AND is_active', [categoryIds],
+    );
+    if (categories.length !== categoryIds.length) throw new PostError(400, 'Có tag không tồn tại hoặc đã bị tắt, vui lòng chọn lại.');
+    const { rows: [post] } = await client.query(`
+      UPDATE post SET post_type = $1, title = $2, content = $3, thumbnail_url = $4, youtube_url = $5,
+        moderation_note = NULL, updated_at = now()
+      WHERE post_id = $6 RETURNING post_id::text AS id, status, updated_at AS "updatedAt"
+    `, [postType, title, content, thumbnailUrl, youtubeUrl, postId]);
+    await client.query('DELETE FROM post_category WHERE post_id = $1', [postId]);
+    await client.query('INSERT INTO post_category (post_id, category_id) SELECT $1, unnest($2::bigint[])', [postId, categoryIds]);
+    return post;
+  });
+}
+
+// Duy's Code: Xóa mềm bài do chủ bài yêu cầu; không can thiệp bài đang có report hoặc đã được gỡ.
+async function deleteMyPost(accountId, postId) {
+  const { rows } = await pool.query(`
+    UPDATE post SET status = 'deleted', deleted_at = now(), updated_at = now()
+    WHERE post_id = $1 AND account_id = $2 AND status IN ('pending', 'public')
+    RETURNING post_id::text AS id, status
+  `, [postId, accountId]);
+  if (rows[0]) return rows[0];
+  const { rows: owned } = await pool.query('SELECT status FROM post WHERE post_id = $1 AND account_id = $2', [postId, accountId]);
+  if (!owned[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
+  throw new PostError(409, 'Bài đang bị báo cáo hoặc đã được gỡ nên không thể xóa từ trang này.');
+}
+
 module.exports = {
   PostError, findPreview, findFeed, findComments, findBlockedKeyword, toggleVote, createComment, createReport,
-  createPost,
+  createPost, findMyPosts, findMyPost, updateMyPost, deleteMyPost,
 };

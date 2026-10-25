@@ -46,11 +46,12 @@ export default function PostCard({
   layout = 'card', postType = 'blog', title, excerpt, href = '#', linkAs,
   thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, viewCount, voted = false, onVote,
-  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, reported = false, onOpen, onComment, className,
+  isOwner = false, status, moderationNote, onEdit, onDelete, onReport, reported = false, onOpen, onComment,
+  titleOnlyOpen = false, titleLinkClassName, className,
 }) {
   const Link = linkAs || 'a';
-  // onOpen có → vẫn giữ thẻ <a> (Ctrl+click, đọc màn hình vẫn đúng) nhưng chặn chuyển trang để mở tại chỗ
-  const open = onOpen && ((e) => { e.preventDefault(); onOpen(); });
+  // Duy's Code: Chỉ tiêu đề mở popup ở trang quản lý; menu và media không truyền sự kiện mở.
+  const open = onOpen && ((e) => { e.preventDefault(); e.stopPropagation(); onOpen(); });
   const linkProps = { ...(linkAs ? { to: href } : { href }), onClick: open };
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
   const cover = postType === 'video' && youtubeVideoId
@@ -76,11 +77,13 @@ export default function PostCard({
     />
   );
 
+  const MediaTag = titleOnlyOpen ? 'span' : Link;
+  const mediaLinkProps = titleOnlyOpen ? { className: styles.media } : { ...linkProps, className: styles.media };
   const media = (cover || postType === 'video') && (
-    <Link {...linkProps} className={styles.media} tabIndex={-1} aria-hidden="true">
+    <MediaTag {...mediaLinkProps} tabIndex={-1} aria-hidden="true">
       <Photo src={cover} ratio={layout === 'row' ? '4/3' : '16/9'} className={styles.img} />
       {postType === 'video' && <span className={styles.playBadge}><i className="bi bi-play-fill" /></span>}
-    </Link>
+    </MediaTag>
   );
 
   const stats = (
@@ -97,7 +100,7 @@ export default function PostCard({
         {media || <span className={styles.rowNoMedia} aria-hidden="true"><i className={`bi bi-${type.icon}`} /></span>}
         <div className={styles.rowBody}>
           <div className={styles.rowTop}>
-            <h3 className={styles.rowTitle}><Link {...linkProps}>{title}</Link></h3>
+            <h3 className={styles.rowTitle}><Link {...linkProps} className={titleLinkClassName}>{title}</Link></h3>
             {menu}
           </div>
           <div className={styles.meta}>

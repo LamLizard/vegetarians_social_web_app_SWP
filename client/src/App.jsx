@@ -25,6 +25,9 @@ import MemberNavigationLayout from './components/MemberNavigationLayout';
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
+// Duy's Code: Trang thành viên quản lý bài của mình và form sửa bài riêng.
+import UserPostManagementPage from './pages/UserPostManagementPage';
+import UserPostEditPage from './pages/UserPostEditPage';
 
 // Khoi's code: Trang Bảng tin (ID01) — trang chủ của khách và thành viên.
 import PostFeedPage from './pages/PostFeedPage';
@@ -40,7 +43,8 @@ export default function App() {
 
 // Tùng — Sprint 2: giữ điều hướng/session hiện có bên trong provider navigation.
 function AppContent() {
-  const { user, logout, isAuthenticated, isCheckingSession } = useAuth();
+  // Duy's Code: Logout được cung cấp từ menu tài khoản dùng chung, App chỉ cần trạng thái phiên.
+  const { user, isAuthenticated, isCheckingSession } = useAuth();
   const { shopAction, accountMenu } = useShopNavigation();
 
   // 'admin' là key trong ROLE (constants/domain.js) — DB: role 2 = admin
@@ -94,21 +98,27 @@ function AppContent() {
   );
   // Tùng — Sprint 2: đồng bộ sidebar cho Profile, không sửa form hoặc API hồ sơ của Duy.
   if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  // Duy's Code: Chỉ Member đã đăng nhập được vào danh sách/sửa bài của chính mình.
+  if (!isAdmin && path === '/me/posts') return <UserPostManagementPage user={user} accountMenu={accountMenu} shopAction={shopAction} />;
+  const editPostId = /^\/posts\/(\d+)\/edit$/.exec(path)?.[1];
+  if (!isAdmin && editPostId) return <UserPostEditPage postId={editPostId} user={user} accountMenu={accountMenu} shopAction={shopAction} />;
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   // Khoi's code: xem công thức đã duyệt — thành viên và Admin
   if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
+    // Duy's Code: Truyền cùng menu quán của App vào sidebar dùng chung.
     <ShopExplorePage
       user={user}
       accountMenu={accountMenu}
+      shopAction={shopAction}
     />
   );
   /* Lam's code: Trang Chi tiết quán (M-09) — thành viên đã đăng nhập. */
   if (!isAdmin && path.startsWith('/shops/')) {
     const shopId = path.split('/')[2];
-    return <ShopDetailPage shopId={shopId} user={user} accountMenu={accountMenu} />;
+    return <ShopDetailPage shopId={shopId} user={user} accountMenu={accountMenu} shopAction={shopAction} />;
   }
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
