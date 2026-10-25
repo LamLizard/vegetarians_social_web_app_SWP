@@ -1,5 +1,5 @@
 // Tùng — Sprint 2: quản lý quán đã xác minh, giữ bản công khai trong lúc chờ identity.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useAuth from '../hooks/useAuth';
 // Tùng — Sprint 2: BRIDGE-02A trạng thái Shop owner dùng chung với navigation/Register.
 import { useShopNavigation } from '../context/ShopNavigationContext';
