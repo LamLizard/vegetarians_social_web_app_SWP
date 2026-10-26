@@ -1,4 +1,6 @@
-import { useId, useState } from 'react';
+// Tùng: I-AI-01 — callback vẫn tương thích, bổ sung ID theo nháp và khóa gửi đồng thời.
+import { useId, useRef, useState } from 'react';
+import { createPostContentRequestId } from '../../utils/postContentRequest';
 import Avatar from '../Avatar/Avatar';
 import Button from '../Button/Button';
 import cx from '../cx';
@@ -8,7 +10,7 @@ import styles from './Comment.module.css';
  * Ô viết bình luận. Gửi xong tự xoá trắng. Ctrl + Enter để gửi nhanh.
  *
  * @param {{name: string, avatarUrl?: string}} [currentUser]  không có → coi là khách
- * @param {(content: string) => Promise<void>} onSubmit
+ * @param {(content: string, options?: {requestId: string}) => Promise<void>} onSubmit
  *        Ném lỗi (throw new Error('Bình luận chứa từ ngữ không phù hợp')) → hiện câu lỗi, giữ nguyên nội dung
  * @param {() => void} [onRequireLogin]   khách bấm vào ô → mở LoginPrompt
  * @param {number} [maxLength=1000]
@@ -21,6 +23,8 @@ export default function CommentComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const id = useId();
+  const submissionRef = useRef(null);
+  const busyRef = useRef(false);
 
   if (!currentUser) {
     return (
@@ -34,15 +38,23 @@ export default function CommentComposer({
   const send = async (e) => {
     e?.preventDefault();
     const content = text.trim();
-    if (!content || sending) return;
+    // Tùng: cũ dùng `if (!content || sending) return`; ref chặn cả hai click cùng tick.
+    if (!content || busyRef.current) return;
+    busyRef.current = true;
     setSending(true);
     setError('');
     try {
-      await onSubmit?.(content);
+      // Tùng: cũ `await onSubmit?.(content)`; caller cũ bỏ qua arg thứ hai vẫn dùng được.
+      if (submissionRef.current?.content !== content) {
+        submissionRef.current = { content, requestId: createPostContentRequestId() };
+      }
+      await onSubmit?.(content, { requestId: submissionRef.current.requestId });
+      submissionRef.current = null;
       setText('');
     } catch (err) {
       setError(err?.message || 'Chưa gửi được bình luận, thử lại sau');
     } finally {
+      busyRef.current = false;
       setSending(false);
     }
   };

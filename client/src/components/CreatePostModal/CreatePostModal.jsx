@@ -18,6 +18,8 @@ import TextField from '../TextField/TextField';
 import YouTubeEmbed from '../YouTubeEmbed/YouTubeEmbed';
 import { rules, validate, hasErrors, getYouTubeId } from '../../utils/validate';
 import useYouTubeCheck, { youTubeCheckText } from '../../hooks/useYouTubeCheck'; // Khoi's code: video có phát được không
+// Tùng: I-AI-01 — ID ổn định theo nháp để retry không tạo bài lần hai.
+import { createPostContentRequestId } from '../../utils/postContentRequest';
 import styles from './CreatePostModal.module.css';
 
 const MAX_TITLE = 255; // = VARCHAR(255) của post.title
@@ -45,6 +47,8 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
   const formId = useId();
   const contentId = useId();
   const pendingCaret = useRef(null);
+  const submissionRef = useRef(null);
+  const busyRef = useRef(false);
 
   const isVideo = form.postType === 'video';
   const videoId = isVideo ? getYouTubeId(form.youtubeUrl) : null;
@@ -95,6 +99,7 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busyRef.current || uploading > 0) return;
     const errs = validate(form, {
       title: [rules.required('Vui lòng nhập tiêu đề'), rules.maxLength(MAX_TITLE)],
       content: [rules.required(isVideo ? 'Vui lòng nhập mô tả cho video' : 'Vui lòng nhập nội dung bài viết')],
@@ -105,17 +110,28 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
     setErrors(errs);
     if (hasErrors(errs)) return;
 
+    busyRef.current = true;
     setSending(true);
     setServerError('');
     try {
-      await onSubmit({
+      // Tùng: dữ liệu cũ được giữ nguyên, thêm requestId ngoài business fields.
+      // Luồng cũ: await onSubmit({ postType: form.postType, title: form.title.trim(),
+      // content: form.content.trim(), youtubeUrl: isVideo ? form.youtubeUrl.trim() : undefined,
+      // thumbnailUrl: form.thumbnailUrl || undefined, categoryIds: form.categoryIds });
+      const data = {
         postType: form.postType,
         title: form.title.trim(),
         content: form.content.trim(),
         youtubeUrl: isVideo ? form.youtubeUrl.trim() : undefined,
         thumbnailUrl: form.thumbnailUrl || undefined,
         categoryIds: form.categoryIds,
-      });
+      };
+      const signature = JSON.stringify({ ...data, categoryIds: [...data.categoryIds].sort() });
+      if (submissionRef.current?.signature !== signature) {
+        submissionRef.current = { signature, requestId: createPostContentRequestId() };
+      }
+      await onSubmit({ ...data, requestId: submissionRef.current.requestId });
+      submissionRef.current = null;
       setForm(EMPTY);
       setErrors({});
       setPreview(false);
@@ -123,6 +139,7 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
     } catch (err) {
       setServerError(err?.message || 'Chưa đăng được bài, vui lòng thử lại.');
     } finally {
+      busyRef.current = false;
       setSending(false);
     }
   };
@@ -130,12 +147,13 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
   const busy = sending || uploading > 0;
   const options = (categories?.items ?? []).map((c) => ({ value: c.id, label: c.name }));
 
+  // Tùng: mô tả cũ: "Bài sẽ hiện trên Bảng tin sau khi Admin duyệt."
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Đăng bài mới"
-      description="Bài sẽ hiện trên Bảng tin sau khi Admin duyệt."
+      description="Bài viết được kiểm duyệt tự động; khi chưa kiểm tra được sẽ chờ Admin duyệt."
       size="lg"
       dismissible={!sending}
       footer={(

@@ -48,3 +48,16 @@
   font-size: 0.88rem;
 }
 .guest i { color: var(--ac-moss); }
+
+/* Tùng: I-AI-01 — refusal riêng tác giả; giữ toàn bộ styles/placeholder cũ. */
+.rejected { color: var(--ac-muted); }
+.rejectedBubble {
+  max-width: 100%;
+  padding: 0.55rem 0.85rem 0.65rem;
+  border: 1px solid var(--ac-border-strong);
+  border-radius: 4px 16px 16px 16px;
+  background: var(--ac-tip-bg);
+  filter: grayscale(1);
+}
+.moderationReason { margin: 0.45rem 0 0; font-size: 0.82rem; font-weight: 600; overflow-wrap: anywhere; }
+.animalWarning { margin: 0; color: var(--ac-muted); font-size: 0.8rem; overflow-wrap: anywhere; }

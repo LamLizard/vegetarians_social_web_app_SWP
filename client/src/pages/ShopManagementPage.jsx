@@ -78,6 +78,8 @@ function ManagementContent({ initial, refreshing, onConflict, onAdopt, onMessage
   const [uploading, setUploading] = useState(false);
   const [identityLocalErrors, setIdentityLocalErrors] = useState({});
   const [scheduleLocalErrors, setScheduleLocalErrors] = useState({});
+  // Tùng — Sprint 3: mỗi lần kiểm tra lịch đều dẫn focus tới ngày/ca lỗi.
+  const [scheduleValidationAttempt, setScheduleValidationAttempt] = useState(0);
   const [failure, setFailure] = useState(null);
   const [menuDialog, setMenuDialog] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
@@ -149,6 +151,8 @@ function ManagementContent({ initial, refreshing, onConflict, onAdopt, onMessage
   const submitSchedule = event => {
     event.preventDefault();
     if (readOnly || inFlight.current || refreshing || !scheduleChanged) return;
+    // Tùng — Sprint 3: chỉ bổ sung điều hướng lỗi, giữ validator và version lưu lịch.
+    setScheduleValidationAttempt(current => current + 1);
     const errors = validateShopSchedule(schedule);
     setScheduleLocalErrors(errors);
     if (Object.keys(errors).length) return;
@@ -200,10 +204,15 @@ function ManagementContent({ initial, refreshing, onConflict, onAdopt, onMessage
     </section>
     <section className={styles.tabSection} hidden={tab !== 'schedule'} role="tabpanel" aria-label="Lịch mở cửa">
       <Panel title="Lịch mở cửa">{shop.scheduleIncomplete && <Notice>Lịch mở cửa hiện tại chưa đầy đủ.</Notice>}{readOnly ? <ShopSnapshot value={{ schedule: shop.schedule }} /> : <form className={styles.form} onSubmit={submitSchedule}>
-        <ShopScheduleFields value={schedule} onChange={next => { setSchedule(next); setScheduleLocalErrors({}); }}
+        {/* Tùng — Sprint 3: xóa lỗi lịch đã cũ, giữ lỗi identity/menu và guard hiện tại. */}
+        <ShopScheduleFields value={schedule} onChange={next => {
+          if (readOnly || inFlight.current || refreshing) return;
+          setSchedule(next); setScheduleLocalErrors({}); setFailure(current => current?.area === 'schedule' ? null : current);
+        }} validationAttempt={scheduleValidationAttempt}
           errors={scheduleErrors} disabled={busy} savedSchedule={shop.schedule} allowCopy showHeading={false} />
         <div className={styles.actions}><Button variant="subtle" disabled={busy || !scheduleChanged} onClick={() => {
-          setSchedule(shop.schedule.length ? cloneShopSchedule(shop.schedule) : emptyShopForm().schedule); setScheduleLocalErrors({}); setFailure(null);
+          // Tùng — Sprint 3: Hủy lịch chỉ xóa failure thuộc lịch, giữ các khu vực khác.
+          setSchedule(shop.schedule.length ? cloneShopSchedule(shop.schedule) : emptyShopForm().schedule); setScheduleLocalErrors({}); setFailure(current => current?.area === 'schedule' ? null : current);
         }}>Hủy</Button><Button type="submit" loading={busyArea === 'schedule'} disabled={busy || !scheduleChanged}>Lưu lịch mở cửa</Button></div>
       </form>}</Panel>
     </section>

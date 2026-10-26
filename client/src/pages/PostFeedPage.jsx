@@ -35,6 +35,8 @@ import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout'
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
+// Tùng: I-AI-01 — chỉ create/comment dùng contract Moderation; feed/vote/report giữ service cũ.
+import postContentService from '../services/postContent.service';
 import styles from './PostFeedPage.module.css';
 
 // Khoi's code: menu, thu gọn thanh bên, ngăn kéo điện thoại đã chuyển sang components/MemberLayout (11/10/2026)
@@ -54,6 +56,11 @@ const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)')
 export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = [], shopAction }) {
   const toast = useToast();
   const isGuest = !user;
+  const viewerId = String(user?.id ?? 'guest');
+  const viewerRef = useRef({ id: viewerId });
+  if (viewerRef.current.id !== viewerId) viewerRef.current = { id: viewerId };
+  const viewerContext = viewerRef.current;
+  const isViewerCurrent = useCallback((context) => viewerRef.current === context, []);
 
   const [items, setItems] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
@@ -108,9 +115,28 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   /** D-10: đăng xong ở lại trang, báo "đang chờ duyệt". Bài pending chưa hiện trên Bảng tin nên không cần tải lại. */
   const submitPost = async (data) => {
-    await postService.createPost(data); // lỗi → CreatePostModal tự hiện câu lỗi, giữ nháp
-    toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
+    // Tùng: giữ flow cũ để đối chiếu:
+    // await postService.createPost(data); // lỗi → CreatePostModal tự hiện câu lỗi, giữ nháp
+    // toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
+    const context = viewerRef.current;
+    const result = await postContentService.createPost(data);
+    if (!isViewerCurrent(context)) throw new Error('Tài khoản đã thay đổi. Vui lòng mở lại bản nháp.');
+    if (result.outcome === 'approved') {
+      toast('Bài viết đã được duyệt và công khai.');
+      setReloadKey((key) => key + 1);
+    } else if (result.outcome === 'rejected') {
+      toast(result.post.moderationNote || 'Bài viết đã bị từ chối.', { tone: 'alert', duration: 6000 });
+    } else {
+      toast('Bài viết đã được gửi và đang chờ Admin duyệt.', { tone: 'info' });
+    }
+    result.warnings.forEach((warning) => toast(warning.message, { tone: 'info' }));
   };
+
+  // Tùng: server trả public count; không cộng cho refusal/replay.
+  // Cũ: onCommentAdded={(id) => setItems((list) => list.map((p) => (p.id === id ? { ...p, commentCount: p.commentCount + 1 } : p)))}
+  const updatePublicCommentCount = useCallback((id, count) => {
+    setItems((list) => list.map((post) => (post.id === id ? { ...post, commentCount: count } : post)));
+  }, []);
 
   // ---------- Tải trang đầu (đổi khách/thành viên, đổi từ khoá, bấm Thử lại) ----------
   useEffect(() => {
@@ -330,6 +356,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         </div>
 
       <PostDetailModal
+        key={`${viewerId}:${openedPost?.id ?? ''}`}
         post={openedPost}
         toComments={opened?.toComments}
         user={user}
@@ -338,7 +365,9 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onReport={askReport}
         isMine={openedPost ? isMine(openedPost) : false}
         onRequireLogin={requireLogin}
-        onCommentAdded={(id) => setItems((list) => list.map((p) => (p.id === id ? { ...p, commentCount: p.commentCount + 1 } : p)))}
+        viewerContext={viewerContext}
+        isViewerCurrent={isViewerCurrent}
+        onCommentCountChange={updatePublicCommentCount}
       />
 
       <ReportDialog
@@ -351,6 +380,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
       {/* Khoi's code: hộp Đăng bài (Sprint 2) */}
       <CreatePostModal
+        key={viewerId}
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         categories={categories}
@@ -373,24 +403,39 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 // =====================================================================
 //  Chi tiết bài (mở tại chỗ như Facebook) — chỉ trang này dùng nên để chung file
 // =====================================================================
-function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onReport, onRequireLogin, onCommentAdded }) {
+// Tùng: cũ nhận onCommentAdded và cộng 1; contract mới nhận count công khai từ server.
+function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onReport, onRequireLogin,
+  viewerContext, isViewerCurrent, onCommentCountChange }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(false);
   const postId = post?.id;
   const sectionId = `binh-luan-${postId}`;
+  const activeContextRef = useRef(null);
+  const loadingRequestRef = useRef(null);
 
   // Mở bài nào thì tải bình luận của bài đó
   useEffect(() => {
     if (!postId) return undefined;
-    let ignore = false;
+    // Tùng: cũ chỉ guard postId bằng `let ignore = false` và cleanup `ignore = true`.
+    // postService.getComments(postId)
+    //   .then((res) => { if (!ignore) setComments(res.items); })
+    //   .catch(() => { if (!ignore) setComments([]); })
+    //   .finally(() => { if (!ignore) setLoading(false); });
+    const context = { postId, viewerContext };
+    activeContextRef.current = context;
+    const isCurrent = () => activeContextRef.current === context && isViewerCurrent(viewerContext);
     setComments([]);
     setLoading(true);
-    postService.getComments(postId)
-      .then((res) => { if (!ignore) setComments(res.items); })
-      .catch(() => { if (!ignore) setComments([]); })
-      .finally(() => { if (!ignore) setLoading(false); });
-    return () => { ignore = true; };
-  }, [postId]);
+    loadingRequestRef.current = postContentService.getComments(postId)
+      .then((res) => {
+        if (!isCurrent()) return;
+        setComments(res.items);
+        onCommentCountChange(postId, res.publicCommentCount);
+      })
+      .catch(() => { if (isCurrent()) setComments([]); })
+      .finally(() => { if (isCurrent()) setLoading(false); });
+    return () => { if (activeContextRef.current === context) activeContextRef.current = null; };
+  }, [postId, viewerContext, isViewerCurrent, onCommentCountChange]);
 
   // Bấm nút bình luận ở thẻ → cuộn thẳng xuống khu bình luận
   useEffect(() => {
@@ -399,10 +444,22 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
 
   if (!post) return null;
 
-  const addComment = async (content) => {
-    const created = await postService.addComment(post.id, content); // lỗi → CommentComposer tự hiện câu lỗi
-    setComments((list) => [created, ...list]);
-    onCommentAdded(post.id);
+  const addComment = async (content, options) => {
+    // Tùng: cũ await postService.addComment(post.id, content), append mọi result rồi onCommentAdded(post.id).
+    const context = activeContextRef.current;
+    const isCurrent = () => context && activeContextRef.current === context && isViewerCurrent(viewerContext);
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    // Đợi GET đầu kết thúc để response cũ không ghi đè comment vừa gửi.
+    await loadingRequestRef.current;
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    const created = await postContentService.addComment(post.id, content, options);
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    if (created.displayable) {
+      setComments((list) => [created, ...list.filter((comment) => comment.id !== created.id)]);
+    } else {
+      setComments((list) => list.filter((comment) => comment.id !== created.id));
+    }
+    onCommentCountChange(post.id, created.publicCommentCount);
   };
 
   return (
@@ -439,6 +496,7 @@ function PostDetailModal({ post, toComments, user, isMine, onClose, onVote, onRe
         </div>
 
         <CommentSection
+          key={`${postId}:${viewerContext.id}`}
           id={sectionId}
           comments={comments.map((c) => ({ ...c, author: toPerson(c.author) }))}
           total={post.commentCount}

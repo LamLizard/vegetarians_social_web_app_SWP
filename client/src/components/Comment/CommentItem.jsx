@@ -25,11 +25,35 @@ import styles from './Comment.module.css';
 export default function CommentItem({
   author = {}, content, createdAt, edited = false, status = 'public', isOwner = false,
   onSave, onDelete, onReport, maxLength = 1000, className,
+  moderation, // Tùng: I-AI-01 — chỉ nhánh refusal của chính tác giả nhận reason/warnings từ server.
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(content);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // Tùng: nhánh mới trước placeholder cũ; không có menu sửa/xóa/report cho refusal.
+  if (status === 'hidden' && isOwner && moderation?.outcome === 'rejected') {
+    return (
+      <div className={cx(styles.item, styles.rejected, className)}>
+        <Avatar src={author.avatarUrl} name={author.name} size={34} />
+        <div className={styles.main}>
+          <div className={styles.rejectedBubble}>
+            <div className={styles.head}>
+              <b>{author.name}</b>
+              <span>Đã từ chối · Chỉ bạn nhìn thấy</span>
+              <time dateTime={createdAt}>{timeAgo(createdAt)}</time>
+            </div>
+            <p className={styles.text}>{content}</p>
+            <p className={styles.moderationReason}>{moderation.reason}</p>
+          </div>
+          {moderation.warnings?.map((warning) => (
+            <p key={warning.code} className={styles.animalWarning}>{warning.message}</p>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   if (status !== 'public') {
     return (
@@ -95,6 +119,10 @@ export default function CommentItem({
             <p className={styles.text}>{content}</p>
           )}
         </div>
+        {/* Tùng: cảnh báo động vật chỉ cho tác giả, không thay hành vi comment hợp lệ. */}
+        {isOwner && moderation?.warnings?.map((warning) => (
+          <p key={warning.code} className={styles.animalWarning}>{warning.message}</p>
+        ))}
       </div>
       {!editing && items.length > 0 && (
         <Menu
