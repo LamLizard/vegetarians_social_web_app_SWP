@@ -15,6 +15,11 @@ export function getMyPostModerationMessage(post) {
   return post?.moderationNote || '';
 }
 
+// Duy's Code: Chỉ bài đang công khai được gửi sửa để kiểm duyệt lại.
+export function canEdit(post) {
+  return post?.status === 'public';
+}
+
 // Duy's Code: Chỉ bài công khai/bị báo cáo mới cho phép tương tác theo chính sách API.
 export function canInteractWithManagedPost(post) {
   return ['public', 'reported'].includes(post?.status);

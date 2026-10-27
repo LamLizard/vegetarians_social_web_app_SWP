@@ -351,7 +351,7 @@ async function findMyPosts({ accountId, status = 'all', postType = 'all', page =
   return { items: rows, page: currentPage, pageSize: limit, totalItems, totalPages };
 }
 
-// Duy's Code: Bảo đảm đọc bài sửa theo accountId; bài đang kiểm duyệt báo cáo không cho thay đổi.
+// Duy's Code: Bảo đảm đọc bài sửa theo accountId; chỉ bài public mới cho phép thay đổi.
 async function findMyPost(accountId, postId) {
   const { rows } = await pool.query(`
     SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
@@ -362,31 +362,35 @@ async function findMyPost(accountId, postId) {
     FROM post p WHERE p.account_id = $1 AND p.post_id = $2
   `, [accountId, postId]);
   if (!rows[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
-  if (rows[0].status !== 'pending') throw new PostError(409, 'Chỉ có thể sửa bài đang chờ duyệt.');
   return rows[0];
 }
 
-// Duy's Code: Cập nhật nội dung và tag trong một transaction; quyền sở hữu/trạng thái được khóa lại trước khi ghi.
+// Duy's Code: Cập nhật nội dung và tag trong một transaction; bài public được chuyển về pending để duyệt lại.
 async function updateMyPost({ accountId, postId, postType, title, content, thumbnailUrl, youtubeUrl, categoryIds }) {
   return transaction(async (client) => {
     const { rows: owned } = await client.query(
-      'SELECT post_id FROM post WHERE post_id = $1 AND account_id = $2 AND status = \'pending\' FOR UPDATE',
+      'SELECT post_id FROM post WHERE post_id = $1 AND account_id = $2 AND status = \'public\' FOR UPDATE',
       [postId, accountId],
     );
     if (!owned[0]) {
       const exists = await client.query('SELECT 1 FROM post WHERE post_id = $1 AND account_id = $2', [postId, accountId]);
       if (!exists.rows[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
-      throw new PostError(409, 'Chỉ có thể sửa bài đang chờ duyệt.');
+      throw new PostError(409, 'Bài viết này hiện không thể sửa.');
     }
     const { rows: categories } = await client.query(
       'SELECT category_id FROM category WHERE category_id = ANY($1::bigint[]) AND is_active', [categoryIds],
     );
     if (categories.length !== categoryIds.length) throw new PostError(400, 'Có tag không tồn tại hoặc đã bị tắt, vui lòng chọn lại.');
-    const { rows: [post] } = await client.query(`
+    const updated = await client.query(`
       UPDATE post SET post_type = $1, title = $2, content = $3, thumbnail_url = $4, youtube_url = $5,
-        moderation_note = NULL, updated_at = now()
-      WHERE post_id = $6 RETURNING post_id::text AS id, status, updated_at AS "updatedAt"
-    `, [postType, title, content, thumbnailUrl, youtubeUrl, postId]);
+        status = 'pending', moderation_note = NULL, updated_at = now()
+      WHERE post_id = $6 AND account_id = $7 AND status = 'public'
+      RETURNING post_id::text AS id, status, updated_at AS "updatedAt"
+    `, [postType, title, content, thumbnailUrl, youtubeUrl, postId, accountId]);
+    if (updated.rowCount === 0 || !updated.rows[0]) {
+      throw new PostError(409, 'Bài viết đã thay đổi trạng thái, không thể sửa. Vui lòng tải lại.');
+    }
+    const post = updated.rows[0];
     await client.query('DELETE FROM post_category WHERE post_id = $1', [postId]);
     await client.query('INSERT INTO post_category (post_id, category_id) SELECT $1, unnest($2::bigint[])', [postId, categoryIds]);
     return post;

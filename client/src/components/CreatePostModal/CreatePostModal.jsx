@@ -145,11 +145,12 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
   const options = (categories?.items ?? []).map((c) => ({ value: c.id, label: c.name }));
 
   return (
+    // Tùng: mô tả cũ cho luồng tạo bài mới.
     <Modal
       open={open}
       onClose={onClose}
       title={initialPost ? 'Sửa bài viết' : 'Đăng bài mới'}
-      description={initialPost ? 'Lưu thay đổi để cập nhật bài đang chờ duyệt.' : 'Bài sẽ hiện trên Bảng tin sau khi Admin duyệt.'}
+      description={initialPost ? 'Sau khi lưu, bài sẽ được gửi lại để kiểm duyệt và tạm ẩn khỏi Bảng tin cho đến khi được duyệt.' : 'Bài viết được kiểm duyệt tự động; khi chưa kiểm tra được sẽ chờ Admin duyệt.'}
       size="lg"
       dismissible={!sending}
       footer={(

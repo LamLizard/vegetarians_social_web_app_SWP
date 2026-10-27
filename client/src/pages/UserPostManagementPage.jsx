@@ -13,7 +13,7 @@ import StatusBadge from '../components/StatusBadge/StatusBadge';
 import { useToast } from '../components/Toast/Toast';
 import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import postService from '../services/post.service';
-import { canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
+import { canEdit, canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
 import {
   findNotificationPost, getMyPostListOptions, getNotificationPostId, removeNotificationPostId,
   resolveNotificationPost, shouldLoadNotificationPost,
@@ -84,6 +84,18 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     return () => { active = false; };
   }, [status, type, page, reloadKey]);
 
+  // Duy's Code: Hiện toast sau khi chuyển trang trở lại từ form sửa.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const editResult = params.get('editResult');
+    if (!editResult) return;
+    if (editResult === 'success') toast('Đã gửi bài chỉnh sửa, đang chờ duyệt', { tone: 'info' });
+    if (editResult === 'conflict') toast('Bài viết đã thay đổi trạng thái, không thể sửa', { tone: 'alert' });
+    params.delete('editResult');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, [toast]);
+
   // A notification target is loaded separately so it can open even when outside the visible page/filter.
   useEffect(() => {
     if (!shouldLoadNotificationPost(postId, handledTarget.current)) {
@@ -137,8 +149,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [postId, result]);
 
-  // Duy's Code: Server chỉ cho sửa pending và xóa pending/public; UI đồng bộ để tránh thao tác không hợp lệ.
-  const canEdit = (post) => post.status === 'pending';
+  // Duy's Code: Server chỉ cho sửa public và xóa pending/public; UI đồng bộ để tránh thao tác không hợp lệ.
   const canDelete = (post) => ['pending', 'public'].includes(post.status);
 
   // Duy's Code: Cập nhật số liệu ở card và popup cùng lúc sau like/bình luận.
