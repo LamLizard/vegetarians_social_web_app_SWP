@@ -1,4 +1,5 @@
 .wrap { position: relative; display: inline-flex; }
+.backdrop { display: none; }
 
 .menu {
   position: absolute;
@@ -12,6 +13,8 @@
   box-shadow: var(--ac-shadow-md);
   animation: drop .12s ease-out;
 }
+/* Duy's Code: Popover được portal hóa để không chiếm chỗ trong rail/sidebar. */
+.portalMenu { position: fixed; z-index: 1200; top: auto; }
 @keyframes drop { from { opacity: 0; transform: translateY(-4px); } }
 .end { right: 0; }
 .start { left: 0; }
@@ -45,3 +48,7 @@
 /* Bật sang phải nút, canh theo đáy – dùng cho nút ở cuối dock trái */
 .right { top: auto; bottom: 0; left: calc(100% + 12px); animation-name: slideIn; }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-6px); } }
+
+@media (max-width: 767.98px) {
+  .backdrop { position: fixed; inset: 0; z-index: 1100; display: block; border: 0; background: rgb(20 28 22 / 42%); }
+}

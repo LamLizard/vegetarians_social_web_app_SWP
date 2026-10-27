@@ -2,55 +2,19 @@ import { useEffect, useLayoutEffect, useState } from 'react';
 import { Button, EmptyState, Notice, Pagination, Photo, SkeletonCard, ShopCard } from '../components';
 import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
+import MemberNotificationBell from '../components/MemberNotificationBell/MemberNotificationBell';
+import useMemberSidebar, { MEMBER_NAV } from '../hooks/useMemberSidebar';
+import { ROLE } from '../constants/domain';
 import shopService from '../services/shop.service';
 import { formatPrice } from '../utils/format';
 import { getOpenStateFromSlots, getTodayHours } from '../utils/time';
 import '../styles/feed-theme.css';
 import styles from './ShopExplorePage.module.css';
 
-const NAV = [
-  { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'dishes', label: 'Món chay', icon: 'egg-fried', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', iconActive: 'shop-window', href: '/shops' },
-];
-
-const COLLAPSE_KEY = 'anchay-shop-sidebar-collapsed';
-const readCollapsed = () => {
-  try {
-    const value = localStorage.getItem(COLLAPSE_KEY);
-    if (value !== null) return value === '1';
-  } catch {
-    // trình duyệt chặn localStorage → dùng mặc định
-  }
-  return window.innerWidth < 1200;
-};
-
-const MOBILE_QUERY = '(max-width: 767.98px)';
-const useIsMobile = () => {
-  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => setMobile(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return mobile;
-};
-
-function toUserShape(user) {
-  if (!user) return null;
-  return {
-    name: user.fullName || user.name || 'Tài khoản',
-    avatarUrl: user.avatarUrl || null,
-    roleLabel: user.role === 'admin' ? 'Quản trị viên' : undefined,
-  };
-}
-
-export default function ShopExplorePage({ user, accountMenu = [] }) {
-  const isMobile = useIsMobile();
-  const [collapsed, setCollapsed] = useState(readCollapsed);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+export default function ShopExplorePage({ user, accountMenu = [], shopAction }) {
+  // Duy's Code: Trang quán dùng cùng NAV và trạng thái rail với Bảng tin/Post Management.
+  const sidebar = useMemberSidebar();
+  const { isMobile, collapsed, drawerOpen, setDrawerOpen, toggleCollapsed } = sidebar;
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -98,15 +62,6 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
     return () => { ignore = true; };
   }, [page, query, reloadKey]);
 
-  const toggleCollapsed = () => setCollapsed((value) => {
-    try {
-      localStorage.setItem(COLLAPSE_KEY, String(value ? 0 : 1));
-    } catch {
-      // bỏ qua nếu trình duyệt chặn localStorage
-    }
-    return !value;
-  });
-
   const clearFilters = () => {
     setSearchText('');
     setQuery('');
@@ -118,10 +73,13 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
   return (
     <div className={`feed-v2-page ${styles.shell}`}>
       <FeedSidebar
-        nav={NAV}
+        nav={MEMBER_NAV}
         activeKey="shops"
-        user={user ? toUserShape(user) : null}
+        user={user ? { name: user.fullName || user.name || 'Tài khoản', avatarUrl: user.avatarUrl || null, roleLabel: ROLE[user.role] } : null}
         accountMenu={accountMenu}
+        shopAction={shopAction}
+        notificationSlot={<MemberNotificationBell role={user?.role} />}
+        onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
         collapsed={!isMobile && collapsed}
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}
@@ -231,7 +189,7 @@ export default function ShopExplorePage({ user, accountMenu = [] }) {
       </div>
 
       <nav className={styles.mobileNav} aria-label="Điều hướng nhanh">
-        {NAV.map((item) => {
+        {MEMBER_NAV.map((item) => {
           const isActive = item.key === 'shops';
           return (
             <a key={item.key} href={item.href} className={`${styles.mItem} ${isActive ? styles.mOn : ''}`} aria-current={isActive ? 'page' : undefined}>

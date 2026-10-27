@@ -7,7 +7,7 @@
 //                    POST /youtube-check  (Khoi's code: video YouTube có phát được trên trang khác không)
 const express = require('express');
 const postController = require('../controllers/post.controller');
-const { requireAuth } = require('../middlewares/auth');
+const { requireAuth, requireMember } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -15,6 +15,11 @@ const router = express.Router();
 const optionalAuth = (req, res, next) => (req.headers.authorization ? requireAuth(req, res, next) : next());
 
 router.get('/preview', postController.getPreview);
+// Duy's Code: Các route quản lý bài cá nhân đặt trước các route thao tác bài công khai.
+router.get('/mine', requireAuth, requireMember, postController.getMyPosts);
+router.get('/mine/:id', requireAuth, requireMember, postController.getMyPost);
+router.put('/mine/:id', requireAuth, requireMember, postController.updateMyPost);
+router.delete('/mine/:id', requireAuth, requireMember, postController.deleteMyPost);
 router.get('/', requireAuth, postController.getFeed);
 // Khoi's code: Đăng bài mới → bài 'pending' chờ Admin duyệt (Sprint 2).
 router.post('/', requireAuth, postController.createPost);

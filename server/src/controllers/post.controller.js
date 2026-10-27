@@ -115,6 +115,49 @@ async function createPost(req, res) {
   res.status(201).json({ message: 'Bài viết đã được gửi và đang chờ duyệt.', post });
 }
 
+// Duy's Code: Bộ lọc danh sách cá nhân dùng đúng enum post hiện có, không nhận accountId từ client.
+async function getMyPosts(req, res) {
+  const allowedStatuses = ['all', 'pending', 'public', 'reported', 'deleted'];
+  const allowedTypes = ['all', 'blog', 'video'];
+  const status = req.query.status ?? 'all';
+  const postType = req.query.type ?? 'all';
+  const page = Number(req.query.page ?? 1);
+  // Duy's Code: Nhận ID bài từ deep link thông báo để lọc đúng bài thuộc phiên hiện tại.
+  const postId = req.query.postId ? parseId(req.query.postId, 'Mã bài viết') : null;
+  if (!allowedStatuses.includes(status)) throw new PostError(400, 'Trạng thái bài viết không hợp lệ.');
+  if (!allowedTypes.includes(postType)) throw new PostError(400, 'Loại bài viết không hợp lệ.');
+  if (!Number.isInteger(page) || page < 1 || page > 1000000) throw new PostError(400, 'Số trang không hợp lệ.');
+  res.json(await postModel.findMyPosts({ accountId: req.account.id, status, postType, page, limit: 20, postId }));
+}
+
+// Duy's Code: Form sửa chỉ nhận bài đang chờ duyệt và thuộc tài khoản đã xác thực.
+async function getMyPost(req, res) {
+  const postId = parseId(req.params.id, 'Mã bài viết');
+  res.json({ post: await postModel.findMyPost(req.account.id, postId) });
+}
+
+// Duy's Code: Endpoint sửa chỉ nhận dữ liệu bài; danh tính luôn lấy từ phiên đăng nhập.
+async function updateMyPost(req, res) {
+  const postId = parseId(req.params.id, 'Mã bài viết');
+  let input;
+  try { input = parsePostInput(req.body, { cloudName: POST_CLOUD_NAME }); }
+  catch (error) {
+    if (error instanceof PostInputError) throw new PostError(400, error.message);
+    throw error;
+  }
+  if (input.youtubeUrl) {
+    const rejected = await youTubeRejectMessage(input.youtubeUrl);
+    if (rejected) throw new PostError(400, rejected);
+  }
+  res.json({ post: await postModel.updateMyPost({ ...input, accountId: req.account.id, postId }) });
+}
+
+// Duy's Code: Xóa mềm, model kiểm tra lại chủ sở hữu và trạng thái trước khi cập nhật.
+async function deleteMyPost(req, res) {
+  const postId = parseId(req.params.id, 'Mã bài viết');
+  res.json(await postModel.deleteMyPost(req.account.id, postId));
+}
+
 /**
  * Khoi's code: POST /api/posts/youtube-check { url } → { status, videoId?, title?, author?, message? }
  * Form Đăng bài + Tạo công thức gọi khi người dùng dán link, để báo trước video có phát được không.
@@ -144,6 +187,10 @@ module.exports = {
   createPost: handle(createPost),
   checkYouTube: handle(checkYouTube),
   getFeed: handle(getFeed),
+  getMyPosts: handle(getMyPosts),
+  getMyPost: handle(getMyPost),
+  updateMyPost: handle(updateMyPost),
+  deleteMyPost: handle(deleteMyPost),
   toggleVote: handle(toggleVote),
   getComments: handle(getComments),
   addComment: handle(addComment),
