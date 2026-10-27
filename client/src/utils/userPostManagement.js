@@ -6,6 +6,15 @@ export function getMyPostDisplayStatus(post) {
   return 'deleted';
 }
 
+// Deleted posts only show a moderation reason while REJECT/REMOVE was still the latest action at deletion time.
+export function getMyPostModerationMessage(post) {
+  if (post?.status === 'deleted') {
+    if (['REJECT', 'REMOVE'].includes(post.moderationAction)) return post.moderationNote || '';
+    return 'Bạn đã xóa bài viết này.';
+  }
+  return post?.moderationNote || '';
+}
+
 // Duy's Code: Chỉ bài công khai/bị báo cáo mới cho phép tương tác theo chính sách API.
 export function canInteractWithManagedPost(post) {
   return ['public', 'reported'].includes(post?.status);

@@ -13,7 +13,7 @@ import StatusBadge from '../components/StatusBadge/StatusBadge';
 import { useToast } from '../components/Toast/Toast';
 import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import postService from '../services/post.service';
-import { canInteractWithManagedPost, getMyPostDisplayStatus } from '../utils/userPostManagement';
+import { canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
 import { getYouTubeId } from '../utils/validate';
 import styles from './UserPostManagementPage.module.css';
 
@@ -196,7 +196,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                   const label = displayStatus === 'rejected' ? 'Bài viết bị từ chối'
                     : displayStatus === 'removed' ? 'Bài viết đã bị gỡ'
                       : displayStatus === 'deleted' ? 'Bài viết đã bị xóa' : 'Ghi chú kiểm duyệt';
-                  const message = post.moderationNote || (displayStatus === 'deleted' ? 'Bạn đã xóa bài viết này.' : '');
+                  const message = getMyPostModerationMessage(post);
                   return <p className={redStatus ? styles.removedNote : styles.note}><b>{label}</b>{message && `: ${message}`}</p>;
                 })()}
               </div>
@@ -228,7 +228,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         statusBanner={details?.post && ['rejected', 'removed', 'deleted'].includes(getMyPostDisplayStatus(details.post)) ? {
           label: getMyPostDisplayStatus(details.post) === 'rejected' ? 'Bài viết bị từ chối'
             : getMyPostDisplayStatus(details.post) === 'removed' ? 'Bài viết đã bị gỡ' : 'Bài viết đã bị xóa',
-          reason: details.post.moderationNote || (getMyPostDisplayStatus(details.post) === 'deleted' ? 'Bạn đã xóa bài viết này.' : ''),
+          reason: getMyPostModerationMessage(details.post),
         } : null}
         onClose={closeDetails}
         onVote={toggleManagedVote}

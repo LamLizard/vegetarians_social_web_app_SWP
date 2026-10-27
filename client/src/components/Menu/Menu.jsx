@@ -16,7 +16,7 @@ import styles from './Menu.module.css';
  */
 export default function Menu({ renderTrigger, items, align = 'end', side = 'bottom', width = 240, className, panelClassName, role, ariaLabel, mobileSheet = false, portal = false, children }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 0, bottom: 12, arrowTop: 40 });
+  const [position, setPosition] = useState({ left: 0, bottom: 12 });
   const wrapRef = useRef(null);
   const panelRef = useRef(null);
   const menuId = useId();
@@ -35,9 +35,7 @@ export default function Menu({ renderTrigger, items, align = 'end', side = 'bott
     const alignedBottom = window.innerHeight - anchor.bottom;
     const maxBottom = Math.max(12, window.innerHeight - panelHeight - 12);
     const bottom = Math.max(12, Math.min(alignedBottom, maxBottom));
-    const panelTop = window.innerHeight - bottom - panelHeight;
-    const arrowTop = Math.max(14, Math.min(anchor.top + anchor.height / 2 - panelTop, panelHeight - 14));
-    setPosition({ left, bottom, arrowTop });
+    setPosition({ left, bottom });
   }, [portal, width]);
 
   useEffect(() => {
@@ -100,7 +98,6 @@ export default function Menu({ renderTrigger, items, align = 'end', side = 'bott
           style={{ width, ...(portal && window.innerWidth >= 768 ? {
             left: position.left,
             bottom: position.bottom,
-            '--portal-arrow-top': `${position.arrowTop}px`,
           } : {}) }}
           role={role || (items ? 'menu' : undefined)} aria-label={ariaLabel} aria-modal={role === 'dialog' && mobileSheet ? true : undefined}
           tabIndex={role === 'dialog' ? -1 : undefined}>

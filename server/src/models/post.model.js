@@ -325,16 +325,26 @@ async function findMyPosts({ accountId, status = 'all', postType = 'all', page =
   const { rows } = await pool.query(`
     SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
       p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
-      p.moderation_note AS "moderationNote", p.created_at AS "createdAt",
+      CASE WHEN p.status = 'deleted' THEN
+        CASE WHEN latest_admin_log.action IN ('REJECT', 'REMOVE') THEN latest_admin_log.reason ELSE NULL END
+        ELSE p.moderation_note END AS "moderationNote", p.created_at AS "createdAt",
       p.updated_at AS "updatedAt", p.published_at AS "publishedAt", p.deleted_at AS "deletedAt",
       p.vote_count AS "voteCount", p.comment_count AS "commentCount", p.view_count AS "viewCount",
       json_build_object('id', a.account_id::text, 'fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author,
       EXISTS (SELECT 1 FROM post_vote v WHERE v.post_id = p.post_id AND v.account_id = $1::bigint) AS "isVoted",
-      (SELECT al.action FROM admin_log al WHERE al.target_type = 'post' AND al.target_id = p.post_id
-        ORDER BY al.created_at DESC, al.admin_log_id DESC LIMIT 1) AS "moderationAction",
+      latest_admin_log.action AS "moderationAction",
       COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
         FROM post_category pc JOIN category c ON c.category_id = pc.category_id WHERE pc.post_id = p.post_id), '[]'::json) AS categories
-    FROM post p JOIN account a ON a.account_id = p.account_id WHERE ${where}
+    FROM post p JOIN account a ON a.account_id = p.account_id
+    LEFT JOIN LATERAL (
+      SELECT al.action, al.reason
+      FROM admin_log al
+      WHERE al.target_type = 'post' AND al.target_id = p.post_id
+        AND (p.deleted_at IS NULL OR al.created_at <= p.deleted_at)
+      ORDER BY al.created_at DESC, al.admin_log_id DESC
+      LIMIT 1
+    ) latest_admin_log ON true
+    WHERE ${where}
     ORDER BY p.created_at DESC, p.post_id DESC
     LIMIT $${values.length + 1} OFFSET $${values.length + 2}
   `, [...values, limit, offset]);

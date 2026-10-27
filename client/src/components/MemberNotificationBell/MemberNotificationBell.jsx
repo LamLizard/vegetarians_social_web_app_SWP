@@ -79,16 +79,17 @@ export default function MemberNotificationBell({ side = 'right', role = 'member'
         </button>
       )}
     >
-      <div className={styles.list}>
+      {(close) => <div className={styles.list}>
         <NotificationList
           items={items}
           loading={loading}
+          onClose={close}
           onItemClick={async (item) => {
             await markRead(item);
           }}
           onMarkAllRead={markAllRead}
         />
-      </div>
+      </div>}
     </Menu>
   );
 }

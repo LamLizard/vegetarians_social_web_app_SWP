@@ -19,7 +19,7 @@ const FALLBACK = { label: 'Thông báo', icon: 'bell', tone: 'neutral' };
  * @param {string} [title='Thông báo']
  */
 export default function NotificationList({
-  items = [], onItemClick, onMarkAllRead, loading = false, linkAs, title = 'Thông báo', className,
+  items = [], onItemClick, onMarkAllRead, onClose, loading = false, linkAs, title = 'Thông báo', className,
 }) {
   const unread = items.filter((n) => !n.isRead).length;
 
@@ -27,8 +27,10 @@ export default function NotificationList({
     <div className={cx(styles.box, className)}>
       <div className={styles.head}>
         <h2>{title}</h2>
-        {/* Duy's Code: Luôn giữ hành động trong header, vô hiệu hóa khi API báo không còn mục chưa đọc. */}
-        {onMarkAllRead && <button type="button" className={styles.link} disabled={unread === 0} onClick={onMarkAllRead}>Đánh dấu tất cả đã đọc</button>}
+        <div className={styles.actions}>
+          {onMarkAllRead && <button type="button" className={styles.link} disabled={unread === 0} onClick={onMarkAllRead}>Đánh dấu tất cả đã đọc</button>}
+          {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="Đóng thông báo"><i className="bi bi-x-lg" aria-hidden="true" /></button>}
+        </div>
       </div>
       {loading && [0, 1, 2].map((i) => (
         <div key={i} className={styles.item}><Skeleton shape="circle" width={38} /><div className={styles.text}><Skeleton lines={2} /></div></div>
