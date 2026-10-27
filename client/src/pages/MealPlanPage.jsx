@@ -321,7 +321,6 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const toast = useToast();
 
   const allergies = useMemo(() => healthProfile?.allergies ?? [], [healthProfile]);
-  const targetCalories = Number(healthProfile?.targetCalories ?? healthProfile?.targetCaloriesKcal ?? 0) || null;
 
   const selectedDay = useMemo(
     () => days.find((day) => day.date === selectedDate) ?? { date: selectedDate, plan: null },
@@ -330,8 +329,29 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
 
   const selectedPlan = selectedDay.plan;
   const totalCalories = (selectedPlan?.items ?? []).reduce((sum, item) => sum + (Number(item.caloriesKcal) || 0), 0);
+  const rawTargetCalories = selectedPlan?.targetCaloriesKcal
+    ?? healthProfile?.targetCalories
+    ?? healthProfile?.targetCaloriesKcal;
+  const targetCaloriesValue = Number(rawTargetCalories);
+  const targetCalories = Number.isFinite(targetCaloriesValue) && targetCaloriesValue > 0
+    ? targetCaloriesValue
+    : null;
   const canEditSelectedDate = !isPastDate(selectedDate);
   const emptySlots = getEmptySlots(selectedPlan);
+  const caloriePercentage = targetCalories && totalCalories > 0 && selectedPlan?.items?.length
+    ? (totalCalories / targetCalories) * 100
+    : null;
+  const calorieWarning = caloriePercentage > 110
+    ? {
+      title: 'Tổng calo hôm nay đang vượt 110% mục tiêu',
+      message: `Hiện tại ${totalCalories} / ${targetCalories} kcal (${caloriePercentage.toFixed(2)}%). Nên giảm bớt món hoặc đổi sang món nhẹ hơn.`,
+    }
+    : caloriePercentage < 80 && caloriePercentage !== null
+      ? {
+        title: 'Tổng calo hôm nay mới đạt dưới 80% mục tiêu',
+        message: `Hiện tại ${totalCalories} / ${targetCalories} kcal (${caloriePercentage.toFixed(2)}%). Có thể thêm bữa phụ hoặc chọn món giàu năng lượng hơn.`,
+      }
+      : null;
 
   const loadWeek = useCallback(async (nextWeekStart, signal) => {
     setIsLoading(true);
@@ -483,7 +503,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   };
 
   const handleRandomize = async () => {
-    if (!canEditSelectedDate || isSaving || !selectedPlan) return;
+    if (!canEditSelectedDate || isSaving) return;
     if (!targetCalories || emptySlots.length === 0) {
       setNotice({ tone: 'alert', message: 'Không thể random bữa trống cho ngày này.' });
       return;
@@ -493,14 +513,21 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     setNotice({ tone: 'info', message: 'Đang chọn món…' });
 
     try {
-      const response = await mealPlanService.randomize(selectedPlan.id);
+      const planToUse = selectedPlan ?? await ensurePlanForSelectedDate();
+      const response = await mealPlanService.randomize(planToUse.id);
       const newItems = (response.items ?? []).map(normalizeItem).filter(Boolean);
-      updateSelectedDayPlan((currentPlan) => ({
-        ...(currentPlan ?? { id: selectedPlan.id, planDate: selectedDate, items: [] }),
-        id: selectedPlan.id,
-        planDate: selectedDate,
-        items: [...(currentPlan?.items ?? []), ...newItems],
-      }));
+      updateSelectedDayPlan((currentPlan) => {
+        const itemsBySlot = new Map((currentPlan?.items ?? []).map((item) => [item.mealSlot, item]));
+        newItems.forEach((item) => {
+          if (SLOT_ORDER.includes(item.mealSlot)) itemsBySlot.set(item.mealSlot, item);
+        });
+        return {
+          ...(currentPlan ?? { id: planToUse.id, planDate: selectedDate, items: [] }),
+          id: planToUse.id,
+          planDate: selectedDate,
+          items: SLOT_ORDER.map((slot) => itemsBySlot.get(slot)).filter(Boolean),
+        };
+      });
       setNotice({ tone: 'success', message: response.message || `Đã thêm ${newItems.length} món.` });
       toast(response.message || `Đã thêm ${newItems.length} món.`);
     } catch (error) {
@@ -551,6 +578,12 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
           onWeekChange={setWeekStart}
           onSelectDate={setSelectedDate}
         />
+
+        {calorieWarning ? (
+          <Notice tone="alert" title={calorieWarning.title}>
+            {calorieWarning.message}
+          </Notice>
+        ) : null}
 
         {notice.message ? (
           <Notice tone={notice.tone === 'alert' ? 'alert' : notice.tone === 'success' ? 'success' : 'info'}>

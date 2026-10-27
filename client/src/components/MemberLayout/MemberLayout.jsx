@@ -15,7 +15,7 @@ import s from './MemberLayout.module.css';
 export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
   { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '/recipes' }, // Khoi's code 20/10: trang Công thức
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
+  { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
   { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
 
