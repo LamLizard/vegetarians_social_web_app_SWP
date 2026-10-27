@@ -1,5 +1,5 @@
 // Duy's Code: M-07 Bài của tôi, dùng chung layout thành viên và PostCard đang có.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Button from '../components/Button/Button';
 import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
 import EmptyState from '../components/EmptyState/EmptyState';
@@ -14,6 +14,10 @@ import { useToast } from '../components/Toast/Toast';
 import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import postService from '../services/post.service';
 import { canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
+import {
+  findNotificationPost, getMyPostListOptions, getNotificationPostId, removeNotificationPostId,
+  resolveNotificationPost, shouldLoadNotificationPost,
+} from '../utils/userPostManagementNavigation';
 import { getYouTubeId } from '../utils/validate';
 import styles from './UserPostManagementPage.module.css';
 
@@ -27,7 +31,7 @@ const STATUS_OPTIONS = [
 export default function UserPostManagementPage({ user, accountMenu = [], shopAction }) {
   const toast = useToast();
   const detailRequest = useRef(0);
-  const postId = new URLSearchParams(window.location.search).get('postId');
+  const [postId, setPostId] = useState(() => getNotificationPostId(window.location.search));
   const handledTarget = useRef(null);
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');
@@ -40,23 +44,92 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
   const [reloadKey, setReloadKey] = useState(0);
   const [details, setDetails] = useState(null);
 
-  // Duy's Code: Tải lại danh sách khi đổi bộ lọc/trang hoặc sau thao tác xóa.
+  const clearNotificationTarget = useCallback(() => {
+    detailRequest.current += 1;
+    const nextUrl = removeNotificationPostId(window.location);
+    if (nextUrl !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, '', nextUrl);
+    }
+    handledTarget.current = null;
+    setPostId(null);
+  }, []);
+
+  // Keep notification targets in sync with browser back/forward navigation without remounting the page.
+  useEffect(() => {
+    const syncNotificationTarget = () => {
+      const nextPostId = getNotificationPostId(window.location.search);
+      if (nextPostId === postId) return;
+      detailRequest.current += 1;
+      handledTarget.current = null;
+      setDetails(null);
+      setPostId(nextPostId);
+    };
+    window.addEventListener('popstate', syncNotificationTarget);
+    window.addEventListener('pageshow', syncNotificationTarget);
+    return () => {
+      window.removeEventListener('popstate', syncNotificationTarget);
+      window.removeEventListener('pageshow', syncNotificationTarget);
+    };
+  }, [postId]);
+
+  // The visible list is always fetched using only its active filters and page.
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
-    postService.getMyPosts({ status, type, page, postId })
-      .then((data) => { if (active) { setResult(data); setPage(data.page);
-        if (postId && handledTarget.current !== postId) {
-          handledTarget.current = postId;
-          const target = data.items.find((post) => String(post.id) === postId);
-          if (!target) toast('Nội dung không còn tồn tại', { tone: 'info' });
-        }
-      } })
+    postService.getMyPosts(getMyPostListOptions({ status, type, page }))
+      .then((data) => { if (active) { setResult(data); setPage(data.page); } })
       .catch((err) => { if (active) setError(err.message || 'Không tải được bài viết.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [status, type, page, reloadKey, postId, toast]);
+  }, [status, type, page, reloadKey]);
+
+  // A notification target is loaded separately so it can open even when outside the visible page/filter.
+  useEffect(() => {
+    if (!shouldLoadNotificationPost(postId, handledTarget.current)) {
+      if (!postId) handledTarget.current = null;
+      return undefined;
+    }
+
+    handledTarget.current = postId;
+    const requestId = detailRequest.current + 1;
+    detailRequest.current = requestId;
+    let active = true;
+    setDetails({ status: 'loading', summary: { id: postId, title: '' }, post: null });
+    postService.getMyPosts({ status: 'all', type: 'all', page: 1, postId })
+      .then((data) => {
+        if (!active || detailRequest.current !== requestId) return;
+        const { post: item, missing } = resolveNotificationPost(data.items, postId);
+        if (missing) {
+          setDetails(null);
+          toast('Nội dung không còn tồn tại', { tone: 'info' });
+          clearNotificationTarget();
+          return;
+        }
+        setDetails({
+          status: 'ready',
+          summary: item,
+          post: {
+            ...item,
+            type: item.postType,
+            author: item.author || { id: String(user?.id ?? ''), fullName: user?.fullName || user?.email, avatarUrl: user?.avatarUrl },
+          },
+        });
+      })
+      .catch(() => {
+        if (!active || detailRequest.current !== requestId) return;
+        setDetails(null);
+        toast('Nội dung không còn tồn tại', { tone: 'info' });
+        clearNotificationTarget();
+      });
+    return () => {
+      active = false;
+      if (detailRequest.current === requestId) {
+        detailRequest.current += 1;
+        if (handledTarget.current === postId) handledTarget.current = null;
+      }
+    };
+  }, [clearNotificationTarget, postId, toast, user?.avatarUrl, user?.email, user?.fullName, user?.id]);
 
   // Duy's Code: Cuộn và làm nổi bật bài đích sau khi danh sách đã tải xong.
   useEffect(() => {
@@ -86,7 +159,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     setDetails({ status: 'loading', summary, post: null });
     try {
       const data = await postService.getMyPosts({ status: 'all', type: 'all', page: 1, postId: summary.id });
-      const item = data.items.find((post) => String(post.id) === String(summary.id));
+      const item = findNotificationPost(data.items, summary.id);
       if (!item || typeof item.content !== 'string') throw new Error('missing-post-content');
       if (detailRequest.current !== requestId) return;
       const post = {
@@ -106,6 +179,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
   const closeDetails = () => {
     detailRequest.current += 1;
     setDetails(null);
+    clearNotificationTarget();
   };
 
   // Duy's Code: Like chỉ bật cho bài public/reported và cập nhật lạc quan, có rollback khi API lỗi.
@@ -153,13 +227,13 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         <section className={styles.filters} aria-label="Lọc bài viết">
           <label className={styles.filter}>
             <span>Trạng thái</span>
-            <select className="form-select" value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+            <select className="form-select" value={status} onChange={(event) => { clearNotificationTarget(); setStatus(event.target.value); setPage(1); }}>
               {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
           <label className={styles.filter}>
             <span>Loại bài</span>
-            <select className="form-select" value={type} onChange={(event) => { setType(event.target.value); setPage(1); }}>
+            <select className="form-select" value={type} onChange={(event) => { clearNotificationTarget(); setType(event.target.value); setPage(1); }}>
               <option value="all">Blog và Video</option><option value="blog">Blog</option><option value="video">Video</option>
             </select>
           </label>
