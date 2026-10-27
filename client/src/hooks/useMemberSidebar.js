@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 // Duy's Code: Dùng một bộ mục sidebar chuẩn cho Bảng tin, quản lý bài và khu vực quán.
 export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
+  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '/recipes' },
+  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
   { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
 const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';

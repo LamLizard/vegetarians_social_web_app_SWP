@@ -55,6 +55,7 @@ app.use('/api/recipes', require('./src/routes/recipe.routes'));
 // Duy's Code : Gắn API đề cử nguyên liệu, lưu đề cử qua allergy và duyệt vào ingredient.
 app.use('/api/ingredient-proposals', require('./src/routes/ingredientProposal.routes'));
 app.use('/api/notifications', require('./src/routes/notification.routes'));
+app.use('/api/meal-plans', require('./src/routes/meal-plan.routes'));
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

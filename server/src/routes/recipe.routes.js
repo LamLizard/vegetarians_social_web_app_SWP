@@ -17,6 +17,7 @@ const optionalAuth = (req, res, next) => (req.headers.authorization ? requireAut
 router.get('/dishes', recipeController.getDishes);
 router.get('/ingredients', recipeController.getIngredients);
 router.get('/animal-words', recipeController.getAnimalWords); // Khoi's code: banned_keyword category 'animal'
+router.get('/available', optionalAuth, recipeController.getAvailable);
 router.post('/ingredients/check', requireAuth, recipeController.checkIngredients);
 router.get('/mine', requireAuth, recipeController.getMine);
 router.get('/', optionalAuth, recipeController.getPublicList); // Khoi's code: trang Công thức (/recipes), khách cũng xem

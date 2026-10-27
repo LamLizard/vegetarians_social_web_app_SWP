@@ -1,33 +1,24 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Chip,
   EmptyState,
-  IconButton,
   Notice,
   Photo,
   StatusBadge,
   SkeletonCard,
   mapsSearchUrl,
 } from '../components';
-import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
-// Duy's Code: Dùng đúng notification popup chung của sidebar Member trên chi tiết quán.
-import MemberNotificationBell from '../components/MemberNotificationBell/MemberNotificationBell';
-import useMemberSidebar, { MEMBER_NAV } from '../hooks/useMemberSidebar';
-import { ROLE } from '../constants/domain';
+import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
+import MemberLayout from '../components/MemberLayout/MemberLayout';
 import shopService from '../services/shop.service';
 import { formatPrice } from '../utils/format';
 import { getHoursForDay, getTodayHours, todayDayOfWeek } from '../utils/time';
-import '../styles/feed-theme.css';
-import pageStyles from './ShopExplorePage.module.css';
 import styles from './ShopDetailPage.module.css';
 
 const WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAction }) {
-  // Duy's Code: Trang chi tiết quán dùng cùng NAV và trạng thái rail với Bảng tin/Post Management.
-  const sidebar = useMemberSidebar();
-  const { isMobile, collapsed, drawerOpen, setDrawerOpen, toggleCollapsed } = sidebar;
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
   const [shop, setShop] = useState(null);
@@ -36,11 +27,6 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAct
   const [scheduleDay, setScheduleDay] = useState(null);
   const [activeCategory, setActiveCategory] = useState('*');
   const [reloadKey, setReloadKey] = useState(0);
-
-  useLayoutEffect(() => {
-    document.documentElement.dataset.feedV2 = '';
-    return () => { delete document.documentElement.dataset.feedV2; };
-  }, []);
 
   useEffect(() => {
     if (!shopId) {
@@ -106,30 +92,16 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAct
   const goTo = (url) => window.location.assign(url);
 
   return (
-    <div className={`${pageStyles.shell} ${styles.shell}`}>
-      <FeedSidebar
-        nav={MEMBER_NAV}
-        activeKey="shops"
-        user={user ? { name: user.fullName || user.name || 'Tài khoản', avatarUrl: user.avatarUrl || null, roleLabel: ROLE[user.role] } : null}
-        accountMenu={accountMenu}
-        shopAction={shopAction}
-        onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
-        notificationSlot={<MemberNotificationBell role={user?.role} />}
-        collapsed={!isMobile && collapsed}
-        onToggle={toggleCollapsed}
-        mobileOpen={isMobile && drawerOpen}
-        onCloseMobile={() => setDrawerOpen(false)}
-      />
-
-      <div className={styles.main}>
-        <main className={styles.content} aria-labelledby="shop-detail-title">
+    <MemberLayout
+      activeKey="shops"
+      user={user}
+      accountMenu={accountMenu}
+      shopAction={shopAction}
+      onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
+      renderTopbar={({ openMenu }) => <FeedTopbar hideSearch onOpenMenu={openMenu} />}
+    >
+      <main className={styles.content} aria-labelledby="shop-detail-title">
           <div className={styles.headerRow}>
-            <IconButton
-              icon="list"
-              label="Mở menu quán chay"
-              className={styles.mobileMenuButton}
-              onClick={() => setDrawerOpen(true)}
-            />
             <a href="/shops" className={styles.backLink}>← Quán chay</a>
             <span className={styles.breadcrumbSlash} aria-hidden="true">/</span>
             <span className={styles.breadcrumbName}>{shop?.name || 'Chi tiết quán'}</span>
@@ -292,20 +264,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAct
               </div>
             </>
           )}
-        </main>
-      </div>
-
-      <nav className={pageStyles.mobileNav} aria-label="Điều hướng nhanh">
-        {MEMBER_NAV.map((item) => {
-          const isActive = item.key === 'shops';
-          return (
-            <a key={item.key} href={item.href} className={`${pageStyles.mItem} ${isActive ? pageStyles.mOn : ''}`} aria-current={isActive ? 'page' : undefined}>
-              <i className={`bi bi-${isActive && item.iconActive ? item.iconActive : item.icon}`} aria-hidden="true" />
-              <span>{item.label}</span>
-            </a>
-          );
-        })}
-      </nav>
-    </div>
+      </main>
+    </MemberLayout>
   );
 }

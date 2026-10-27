@@ -1,20 +1,13 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, EmptyState, Notice, Pagination, Photo, SkeletonCard, ShopCard } from '../components';
-import FeedSidebar from '../components/FeedSidebar/FeedSidebar';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
-import MemberNotificationBell from '../components/MemberNotificationBell/MemberNotificationBell';
-import useMemberSidebar, { MEMBER_NAV } from '../hooks/useMemberSidebar';
-import { ROLE } from '../constants/domain';
+import MemberLayout from '../components/MemberLayout/MemberLayout';
 import shopService from '../services/shop.service';
 import { formatPrice } from '../utils/format';
 import { getOpenStateFromSlots, getTodayHours } from '../utils/time';
-import '../styles/feed-theme.css';
 import styles from './ShopExplorePage.module.css';
 
 export default function ShopExplorePage({ user, accountMenu = [], shopAction }) {
-  // Duy's Code: Trang quán dùng cùng NAV và trạng thái rail với Bảng tin/Post Management.
-  const sidebar = useMemberSidebar();
-  const { isMobile, collapsed, drawerOpen, setDrawerOpen, toggleCollapsed } = sidebar;
   const [searchText, setSearchText] = useState('');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -27,11 +20,6 @@ export default function ShopExplorePage({ user, accountMenu = [], shopAction }) 
   const [reloadKey, setReloadKey] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const isSearching = Boolean(query.trim());
-
-  useLayoutEffect(() => {
-    document.documentElement.dataset.feedV2 = '';
-    return () => { delete document.documentElement.dataset.feedV2; };
-  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
@@ -71,22 +59,13 @@ export default function ShopExplorePage({ user, accountMenu = [], shopAction }) 
   const hasFilters = Boolean(query);
 
   return (
-    <div className={`feed-v2-page ${styles.shell}`}>
-      <FeedSidebar
-        nav={MEMBER_NAV}
-        activeKey="shops"
-        user={user ? { name: user.fullName || user.name || 'Tài khoản', avatarUrl: user.avatarUrl || null, roleLabel: ROLE[user.role] } : null}
-        accountMenu={accountMenu}
-        shopAction={shopAction}
-        notificationSlot={<MemberNotificationBell role={user?.role} />}
-        onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
-        collapsed={!isMobile && collapsed}
-        onToggle={toggleCollapsed}
-        mobileOpen={isMobile && drawerOpen}
-        onCloseMobile={() => setDrawerOpen(false)}
-      />
-
-      <div className={styles.main}>
+    <MemberLayout
+      activeKey="shops"
+      user={user}
+      accountMenu={accountMenu}
+      shopAction={shopAction}
+      onCreate={user ? () => window.location.assign('/?compose=1') : undefined}
+      renderTopbar={({ openMenu }) => (
         <FeedTopbar
           value={searchText}
           onChange={setSearchText}
@@ -96,110 +75,98 @@ export default function ShopExplorePage({ user, accountMenu = [], shopAction }) 
             setQuery(nextValue);
             setPage(1);
           }}
-          onOpenMenu={() => setDrawerOpen(true)}
+          onOpenMenu={openMenu}
           placeholder="Tìm quán, món ăn, danh mục…"
           searchLabel="Tìm quán chay"
         />
+      )}
+    >
+      <main className={styles.content} aria-labelledby="shop-explore-title">
+        <div className={styles.header}>
+          <h1 id="shop-explore-title" className={styles.title}>Khám phá quán chay</h1>
+        </div>
 
-        <main className={styles.content} aria-labelledby="shop-explore-title">
-          <div className={styles.header}>
-            <h1 id="shop-explore-title" className={styles.title}>Khám phá quán chay</h1>
-          </div>
-
-          <div className={styles.filterBar}>
-            {hasFilters && (
-              <Button type="button" variant="subtle" icon="x-lg" size="sm" onClick={clearFilters}>
-                Xoá lọc
-              </Button>
-            )}
-          </div>
-
-          <div className={styles.summary}>
-            Tìm thấy {totalItems} quán{query ? <> cho <span className={styles.summaryQuery}>“{query}”</span></> : null}
-          </div>
-
-          {status === 'loading' && (
-            <div className={isSearching ? styles.resultList : styles.list} aria-busy="true">
-              {Array.from({ length: isSearching ? 3 : 9 }).map((_, idx) => <SkeletonCard key={idx} />)}
-            </div>
+        <div className={styles.filterBar}>
+          {hasFilters && (
+            <Button type="button" variant="subtle" icon="x-lg" size="sm" onClick={clearFilters}>
+              Xoá lọc
+            </Button>
           )}
+        </div>
 
-          {status === 'error' && (
-            <Notice tone="alert" title="Không tải được danh sách quán" action={{ label: 'Thử lại', onClick: () => setReloadKey((value) => value + 1) }}>
-              {error}
-            </Notice>
-          )}
+        <div className={styles.summary}>
+          Tìm thấy {totalItems} quán{query ? <> cho <span className={styles.summaryQuery}>“{query}”</span></> : null}
+        </div>
 
-          {status === 'ready' && items.length === 0 && (
-            query
-              ? (
-                <EmptyState icon="search" title="Không tìm thấy quán nào">
-                  Thử từ khoá khác để xem thêm kết quả.
-                </EmptyState>
-              )
-              : (
-                <EmptyState icon="shop" title="Chưa có quán chay nào">
-                  Quán mới sẽ xuất hiện tại đây khi được xác minh.
-                </EmptyState>
-              )
-          )}
+        {status === 'loading' && (
+          <div className={isSearching ? styles.resultList : styles.list} aria-busy="true">
+            {Array.from({ length: isSearching ? 3 : 9 }).map((_, idx) => <SkeletonCard key={idx} />)}
+          </div>
+        )}
 
-          {status === 'ready' && items.length > 0 && (
-            isSearching ? (
-              <div className={styles.resultList}>
-                {items.map((shop) => <ShopSearchResult key={shop.id} shop={shop} now={now} />)}
-              </div>
-            ) : (
-              <div className={styles.list}>
-                {items.map((shop) => {
-                  const today = getTodayHours(shop.schedule ?? [], now);
-                  const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
-                  return (
-                    <div key={shop.id} className={styles.shopEntry}>
-                      {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
-                      <ShopCard
-                        name={shop.name}
-                        imageUrl={shop.imageUrl}
-                        address={shop.address}
-                        phone={shop.phone}
-                        hoursText={today.hoursText}
-                        openState={openState}
-                        showOpenState={shop.operatingStatus !== 'inactive'}
-                        dishCount={shop.dishCount}
-                        href={`/shops/${shop.id}`}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+        {status === 'error' && (
+          <Notice tone="alert" title="Không tải được danh sách quán" action={{ label: 'Thử lại', onClick: () => setReloadKey((value) => value + 1) }}>
+            {error}
+          </Notice>
+        )}
+
+        {status === 'ready' && items.length === 0 && (
+          query
+            ? (
+              <EmptyState icon="search" title="Không tìm thấy quán nào">
+                Thử từ khoá khác để xem thêm kết quả.
+              </EmptyState>
             )
-          )}
+            : (
+              <EmptyState icon="shop" title="Chưa có quán chay nào">
+                Quán mới sẽ xuất hiện tại đây khi được xác minh.
+              </EmptyState>
+            )
+        )}
 
-          {status === 'ready' && totalPages > 1 && (
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pageSize}
-              itemLabel="quán"
-              onChange={(nextPage) => setPage(nextPage)}
-            />
-          )}
-        </main>
-      </div>
+        {status === 'ready' && items.length > 0 && (
+          isSearching ? (
+            <div className={styles.resultList}>
+              {items.map((shop) => <ShopSearchResult key={shop.id} shop={shop} now={now} />)}
+            </div>
+          ) : (
+            <div className={styles.list}>
+              {items.map((shop) => {
+                const today = getTodayHours(shop.schedule ?? [], now);
+                const openState = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
+                return (
+                  <div key={shop.id} className={styles.shopEntry}>
+                    {shop.operatingStatus === 'inactive' && <span className={styles.operatingLabel}>Tạm ngưng hoạt động</span>}
+                    <ShopCard
+                      name={shop.name}
+                      imageUrl={shop.imageUrl}
+                      address={shop.address}
+                      phone={shop.phone}
+                      hoursText={today.hoursText}
+                      openState={openState}
+                      showOpenState={shop.operatingStatus !== 'inactive'}
+                      dishCount={shop.dishCount}
+                      href={`/shops/${shop.id}`}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )
+        )}
 
-      <nav className={styles.mobileNav} aria-label="Điều hướng nhanh">
-        {MEMBER_NAV.map((item) => {
-          const isActive = item.key === 'shops';
-          return (
-            <a key={item.key} href={item.href} className={`${styles.mItem} ${isActive ? styles.mOn : ''}`} aria-current={isActive ? 'page' : undefined}>
-              <i className={`bi bi-${isActive && item.iconActive ? item.iconActive : item.icon}`} aria-hidden="true" />
-              <span>{item.label}</span>
-            </a>
-          );
-        })}
-      </nav>
-    </div>
+        {status === 'ready' && totalPages > 1 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            itemLabel="quán"
+            onChange={(nextPage) => setPage(nextPage)}
+          />
+        )}
+      </main>
+    </MemberLayout>
   );
 }
 
