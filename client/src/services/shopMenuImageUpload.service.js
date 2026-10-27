@@ -45,8 +45,8 @@ async function upload(file, { signal, onProgress } = {}) {
     return url.href;
   } catch (error) {
     if (signal?.aborted) throw error;
-    if (error.name === 'AbortError') throw new Error('Tải ảnh quá lâu. Vui lòng thử lại.');
-    if (error instanceof TypeError) throw new Error('Chưa kết nối được dịch vụ tải ảnh. Vui lòng thử lại.');
+    if (error.name === 'AbortError') throw new Error('Tải ảnh quá lâu. Vui lòng thử lại.', { cause: error });
+    if (error instanceof TypeError) throw new Error('Chưa kết nối được dịch vụ tải ảnh. Vui lòng thử lại.', { cause: error });
     throw error;
   } finally { window.clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
 }

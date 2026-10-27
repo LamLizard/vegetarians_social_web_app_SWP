@@ -5,6 +5,8 @@ import useMemberSidebar, { MEMBER_NAV } from '../hooks/useMemberSidebar';
 import { useShopNavigation } from '../context/ShopNavigationContext';
 import { ROLE } from '../constants/domain';
 import FeedSidebar from './FeedSidebar/FeedSidebar';
+// Duy's Code: Dùng cùng popup trên các trang thành viên ngoài Bảng tin.
+import MemberNotificationBell from './MemberNotificationBell/MemberNotificationBell';
 import IconButton from './IconButton/IconButton';
 import '../styles/feed-theme.css';
 import styles from './MemberNavigationLayout.module.css';
@@ -26,6 +28,10 @@ export default function MemberNavigationLayout({ children, activeKey }) {
   const { user } = useAuth();
   const { shopAction, accountMenu } = useShopNavigation();
   const sidebar = useMemberSidebar();
+  // Duy's Code: Tránh nhân đôi liên kết nếu consumer đã truyền mục này.
+  const memberAccountMenu = !accountMenu.some((item) => item.href === '/me/posts')
+    ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }, ...accountMenu]
+    : accountMenu;
   useLayoutEffect(() => {
     document.documentElement.dataset.feedV2 = '';
     return () => { delete document.documentElement.dataset.feedV2; };
@@ -34,7 +40,7 @@ export default function MemberNavigationLayout({ children, activeKey }) {
   return <div className={`feed-v2-page ${styles.shell}`}>
     <FeedSidebar nav={MEMBER_NAV} activeKey={activeKey}
       user={user ? { name: user.fullName || user.email, avatarUrl: user.avatarUrl, roleLabel: ROLE[user.role] } : null}
-      accountMenu={accountMenu} shopAction={shopAction}
+      accountMenu={memberAccountMenu} shopAction={shopAction} notificationSlot={<MemberNotificationBell role={user?.role} />}
       collapsed={!sidebar.isMobile && sidebar.collapsed} onToggle={sidebar.toggleCollapsed}
       mobileOpen={sidebar.isMobile && sidebar.drawerOpen} onCloseMobile={() => sidebar.setDrawerOpen(false)}
       onLogin={() => window.location.assign('/login')} onRegister={() => window.location.assign('/register')} />

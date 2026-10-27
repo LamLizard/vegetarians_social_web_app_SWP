@@ -63,10 +63,12 @@ function createPostModerationModel(database) {
   }
 
   async function notify(client, accountId, type, title, content, refType, refId) {
+    // Duy's Code: Kết quả tác động trực tiếp đến bài của Member dẫn về danh sách bài cá nhân.
+    const metadata = refType === 'post' ? JSON.stringify({ href: '/me/posts' }) : null;
     await client.query(`
-      INSERT INTO notification (account_id, type, title, content, ref_type, ref_id)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [accountId, type, title, content, refType, refId]);
+      INSERT INTO notification (account_id, type, title, content, ref_type, ref_id, metadata)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    `, [accountId, type, title, content, refType, refId, metadata]);
   }
 
   async function lockPost(client, id, allowMissing = false) {

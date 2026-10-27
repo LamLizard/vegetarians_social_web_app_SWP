@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { cloneElement, isValidElement, useState } from 'react';
 import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import cx from '../cx';
@@ -48,6 +48,9 @@ export default function FeedSidebar({
   const links = [
     ...(shopAction && !accountMenu.some(entry => entry.label === shopAction.label)
       ? [{ ...shopAction, onClick: shopAction.href ? () => window.location.assign(shopAction.href) : shopAction.onClick }] : []),
+    // Duy's Code: Mục Post Management dùng chung trên mọi sidebar Member, gồm cả khám phá/chi tiết quán.
+    ...(user && user.roleLabel !== 'Quản trị viên' && !accountMenu.some(entry => entry.href === '/me/posts')
+      ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }] : []),
     ...accountMenu.filter((m) => m.tone !== 'alert'),
   ];
   const danger = accountMenu.filter((m) => m.tone === 'alert');
@@ -102,7 +105,11 @@ export default function FeedSidebar({
         <nav className={s.nav}>{nav.map(item)}</nav>
 
         <div className={s.bottom}>
-          {user && notificationSlot}
+          {/* Duy's Code: Chuông Sprint 3 hiển thị trên navbar dùng chung của thành viên. */}
+          {/* Duy's Code: Chuông nhận cùng trạng thái thu gọn của rail dùng chung. */}
+          {user && notificationSlot && (isValidElement(notificationSlot)
+            ? cloneElement(notificationSlot, { collapsed })
+            : notificationSlot)}
           {/* Một nút: icon + chữ là chế độ SẼ chuyển sang (chốt 08/10/2026) */}
           <button
             type="button"
@@ -117,10 +124,12 @@ export default function FeedSidebar({
 
           {/* Tùng — BRIDGE-16: Shop dùng cùng hộp tài khoản ở mọi consumer của navbar. */}
           {user && collapsed && (
+            // Duy's Code: Portal menu neo theo avatar để không bị rail/sidebar cắt.
             <Menu
               side="right"
               width={240}
               className={s.accountWrap}
+              portal
               items={collapsedMenu}
               renderTrigger={(p) => (
                 <button type="button" className={s.avatarBtn} aria-label={`Tài khoản: ${user.name}`} {...p}>

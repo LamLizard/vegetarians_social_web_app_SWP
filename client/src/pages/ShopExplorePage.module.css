@@ -1,10 +1,7 @@
-.shell { --feed-w: 1160px; display: flex; align-items: flex-start; }
-.main { flex: 1; min-width: 0; }
-
 .content {
   display: grid;
   gap: 18px;
-  width: min(var(--feed-w), 100% - 48px);
+  width: min(1160px, 100% - 48px);
   margin-inline: auto;
   padding: 12px 0 96px;
 }
@@ -95,8 +92,6 @@
 .resultCta { display: inline-flex; align-items: center; gap: 6px; color: var(--ac-moss); font-size: .82rem; font-weight: 800; text-decoration: none; }
 .resultCta:hover { text-decoration: underline; }
 
-.mobileNav { display: none; }
-
 @media (max-width: 1023.98px) {
   .list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -118,35 +113,6 @@
   .dishPrice { font-size: .76rem; }
   .dishName { font-size: .73rem; }
   .resultFoot { justify-content: flex-end; }
-  .mobileNav {
-    position: fixed;
-    right: 12px;
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    left: 12px;
-    z-index: 1040;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    align-items: center;
-    height: 64px;
-    border: 1px solid var(--v-line-2);
-    border-radius: 22px;
-    background: var(--v-header-bg);
-    -webkit-backdrop-filter: blur(20px) saturate(150%);
-    backdrop-filter: blur(20px) saturate(150%);
-    box-shadow: var(--v-shadow-pop);
-  }
-  .mItem {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    color: var(--v-muted);
-    font-size: 0.66rem;
-    font-weight: 600;
-    text-decoration: none;
-  }
-  .mItem i { font-size: 1.2rem; }
-  .mOn { color: var(--v-accent-text); }
 }
 .shopEntry { display: grid; gap: 8px; align-content: start; min-width: 0; }
 .operatingLabel { display: inline-block; justify-self: start; padding: 5px 10px; border-radius: 6px; background: var(--ac-warn-bg); color: var(--ac-warn-fg); font-size: .85rem; font-weight: 600; }

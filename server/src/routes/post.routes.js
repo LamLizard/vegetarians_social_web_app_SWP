@@ -9,7 +9,7 @@ const express = require('express');
 const postController = require('../controllers/post.controller');
 // Tùng: I-AI-01 — chỉ ba binding tạo post/đọc-gửi comment chuyển sang luồng Moderation.
 const postContentController = require('../controllers/postContent.controller');
-const { requireAuth } = require('../middlewares/auth');
+const { requireAuth, requireMember } = require('../middlewares/auth');
 
 const router = express.Router();
 
@@ -17,6 +17,11 @@ const router = express.Router();
 const optionalAuth = (req, res, next) => (req.headers.authorization ? requireAuth(req, res, next) : next());
 
 router.get('/preview', postController.getPreview);
+// Duy's Code: Các route quản lý bài cá nhân đặt trước các route thao tác bài công khai.
+router.get('/mine', requireAuth, requireMember, postController.getMyPosts);
+router.get('/mine/:id', requireAuth, requireMember, postController.getMyPost);
+router.put('/mine/:id', requireAuth, requireMember, postController.updateMyPost);
+router.delete('/mine/:id', requireAuth, requireMember, postController.deleteMyPost);
 router.get('/', requireAuth, postController.getFeed);
 // Khoi's code: Đăng bài mới → bài 'pending' chờ Admin duyệt (Sprint 2).
 // Tùng: giữ binding cũ để đối chiếu; route mới hỗ trợ auto-public/reject/pending.

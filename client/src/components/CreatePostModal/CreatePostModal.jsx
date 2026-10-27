@@ -4,7 +4,7 @@
 //   D-13 ảnh bìa không bắt buộc · D-14 video bắt buộc mô tả · D-10 đăng xong ở lại trang, báo "đang chờ duyệt".
 // Component KHÔNG gọi API: trang truyền categories, onSubmit, onUpload (giống các component khác trong kit).
 // Nháp được giữ khi đóng hộp (state nằm ngoài Modal); đăng thành công mới xoá.
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Button from '../Button/Button';
 import CategoryPicker from '../CategoryPicker/CategoryPicker';
 import ImageUpload from '../ImageUpload/ImageUpload';
@@ -37,7 +37,8 @@ const TYPES = [
  *        Ném lỗi → hiện câu lỗi trong hộp, giữ nguyên nháp
  * @param {(file: File, opts) => Promise<string>} onUpload  tải ảnh bìa, trả về link
  */
-export default function CreatePostModal({ open, onClose, categories, onRetryCategories, onSubmit, onUpload }) {
+// Duy's Code: initialPost mở rộng form hiện có để tái sử dụng validation cho trang sửa bài.
+export default function CreatePostModal({ open, onClose, categories, onRetryCategories, onSubmit, onUpload, initialPost = null }) {
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
@@ -49,6 +50,19 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
   const pendingCaret = useRef(null);
   const submissionRef = useRef(null);
   const busyRef = useRef(false);
+
+  // Duy's Code: Nạp dữ liệu chủ bài một lần khi form sửa sẵn sàng mở.
+  useEffect(() => {
+    if (!open || !initialPost) return;
+    setForm({
+      postType: initialPost.postType,
+      title: initialPost.title ?? '',
+      content: initialPost.content ?? '',
+      youtubeUrl: initialPost.youtubeUrl ?? '',
+      thumbnailUrl: initialPost.thumbnailUrl ?? '',
+      categoryIds: (initialPost.categories ?? []).map((category) => String(category.id)),
+    });
+  }, [open, initialPost]);
 
   const isVideo = form.postType === 'video';
   const videoId = isVideo ? getYouTubeId(form.youtubeUrl) : null;
@@ -153,14 +167,14 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
       open={open}
       onClose={onClose}
       title="Đăng bài mới"
-      description="Bài viết được kiểm duyệt tự động; khi chưa kiểm tra được sẽ chờ Admin duyệt."
+      description="Bài viết được kiểm duyệt tự động."
       size="lg"
       dismissible={!sending}
       footer={(
         <>
           <Button variant="subtle" onClick={onClose} disabled={sending}>Để sau</Button>
           <Button type="submit" form={formId} icon="send" loading={sending} disabled={uploading > 0 || (isVideo && ytCheck.rejected)}>
-            {uploading > 0 ? 'Đang tải ảnh…' : 'Đăng bài'}
+            {uploading > 0 ? 'Đang tải ảnh…' : initialPost ? 'Lưu thay đổi' : 'Đăng bài'}
           </Button>
         </>
       )}

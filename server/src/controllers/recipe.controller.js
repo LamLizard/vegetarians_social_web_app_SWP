@@ -100,6 +100,12 @@ async function getPublicDetail(req, res) {
   res.json(recipe);
 }
 
+async function getAvailable(req, res) {
+  const query = String(req.query.q ?? '').normalize('NFC').trim();
+  if ([...query].length > 200) throw new RecipeInputError('Từ khóa tìm kiếm không được vượt quá 200 ký tự.');
+  res.json({ items: await recipeModel.findAvailableRecipes(query) });
+}
+
 /**
  * PUT /api/recipes/:recipeId — Khoi's code: "Sửa và gửi lại" công thức bị từ chối.
  * Body giống POST /api/recipes. → 200 { message, recipe, ingredients } (công thức quay về 'pending')
@@ -163,6 +169,7 @@ module.exports = {
   getMineDetail: handle(getMineDetail),
   getPublicDetail: handle(getPublicDetail),
   getPublicList: handle(getPublicList),
+  getAvailable: handle(getAvailable),
   likeRecipe: handle(setLike(true)),
   unlikeRecipe: handle(setLike(false)),
   resubmitRecipe: handle(resubmitRecipe),

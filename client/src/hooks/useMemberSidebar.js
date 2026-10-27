@@ -1,10 +1,11 @@
 // Tùng — Sprint 2: BRIDGE-02A dùng chung NAV và lựa chọn thu gọn hiện có của Bảng tin.
 import { useEffect, useState } from 'react';
 
+// Duy's Code: Dùng một bộ mục sidebar chuẩn cho Bảng tin, quản lý bài và khu vực quán.
 export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'dishes', label: 'Món chay', icon: 'egg-fried', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn', icon: 'calendar-week', href: '#' },
+  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '/recipes' },
+  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
   { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
 const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';

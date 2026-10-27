@@ -20,18 +20,18 @@
 //   └── LoginPrompt
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Avatar, Button, CommentSection, EmptyState, LoginPrompt, Modal, Notice, Photo,
-  ReportDialog, SkeletonCard, Spinner, VoteButton, YouTubeEmbed, getYouTubeId, timeAgo, useToast,
+  Button, EmptyState, LoginPrompt, Notice,
+  ReportDialog, SkeletonCard, Spinner, getYouTubeId, useToast,
 } from '../components';
 // Khoi's code: Đăng bài (Sprint 2) + hiện **đậm** *nghiêng* trong nội dung bài
 import CreatePostModal from '../components/CreatePostModal/CreatePostModal';
-import PostRichText, { stripMarks } from '../components/PostRichText/PostRichText';
+import { stripMarks } from '../components/PostRichText/PostRichText';
 import FeedComposer from '../components/FeedComposer/FeedComposer';
 import FeedFilter from '../components/FeedFilter/FeedFilter';
 import FeedGreeting from '../components/FeedGreeting/FeedGreeting';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
-import cardStyles from '../components/FeedPostCard/FeedPostCard.module.css'; // dùng chung kiểu thẻ #chủ đề với thẻ bài
 import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout';
+import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';

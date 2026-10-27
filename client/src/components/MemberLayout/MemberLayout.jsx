@@ -6,19 +6,14 @@
 // Trang nào dùng khung này cũng có nền chấm + biến bố cục của styles/feed-theme.css (<html data-feed-v2>).
 import { useEffect, useLayoutEffect, useState } from 'react';
 import FeedSidebar from '../FeedSidebar/FeedSidebar';
+// Duy's Code: Chuông thông báo được gắn vào sidebar chung của thành viên.
+import MemberNotificationBell from '../MemberNotificationBell/MemberNotificationBell';
 import { ROLE } from '../../constants/domain';
+import { MEMBER_NAV } from '../../hooks/useMemberSidebar';
 import '../../styles/feed-theme.css';
 import s from './MemberLayout.module.css';
 
 // TODO: chuyển lên App khi nhóm có react-router
-// Theo wireframe Figma (prototype UI v2): 4 mục
-export const MEMBER_NAV = [
-  { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '/recipes' }, // Khoi's code 20/10: trang Công thức
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
-];
-
 /** user của BE ({ fullName }) → dạng component cần ({ name }) */
 export const toPerson = (u) => (u ? { name: u.fullName, avatarUrl: u.avatarUrl ?? null } : null);
 
@@ -72,6 +67,10 @@ export default function MemberLayout({
   }, []);
 
   const create = onCreate && !isGuest ? () => { setDrawerOpen(false); onCreate(); } : undefined;
+  // Duy's Code: Giữ liên kết Bài của tôi trong menu tài khoản mà không lặp mục đã được truyền vào.
+  const memberAccountMenu = user && !accountMenu.some((item) => item.href === '/me/posts')
+    ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }, ...accountMenu]
+    : accountMenu;
 
   return (
     <div className={`feed-v2-page ${s.shell}`}>
@@ -79,8 +78,9 @@ export default function MemberLayout({
         nav={MEMBER_NAV}
         activeKey={activeKey}
         user={user && { ...toPerson(user), roleLabel: ROLE[user.role] }}
-        accountMenu={accountMenu}
+        accountMenu={memberAccountMenu}
         shopAction={shopAction}
+        notificationSlot={user ? <MemberNotificationBell role={user.role} /> : null}
         collapsed={!isMobile && collapsed}
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}

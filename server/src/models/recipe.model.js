@@ -210,6 +210,20 @@ async function findPublicDetail(recipeId, viewerId = null) {
   return recipe;
 }
 
+async function findAvailableRecipes(query = '') {
+  const { rows } = await pool.query(`
+    SELECT r.recipe_id::text AS id, r.title, r.description,
+      r.calories_kcal AS "caloriesKcal", r.thumbnail_url AS "thumbnailUrl"
+    FROM recipe r
+    JOIN dish d ON d.dish_id = r.dish_id AND d.status = 'active'
+    WHERE r.status = 'approved'
+      AND ($1 = '' OR r.title ILIKE '%' || $1 || '%' OR r.description ILIKE '%' || $1 || '%')
+    ORDER BY COALESCE(r.moderated_at, r.created_at) DESC, r.recipe_id DESC
+    LIMIT 200
+  `, [query]);
+  return rows;
+}
+
 /**
  * Khoi's code (20/10/2026): trang Công thức (/recipes) — AI CŨNG XEM ĐƯỢC, kể cả khách.
  * Mọi công thức 'approved' của món 'active', mới nhất trước. Trang tự tìm / lọc / gom theo danh mục ở client
@@ -612,7 +626,7 @@ async function resubmitRecipe(authorId, recipeId, input) {
 module.exports = {
   findAnimalWords,
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
-  findMineDetail, resubmitRecipe, findPublicDetail, findPublicList, setRecipeLike,
+  findMineDetail, resubmitRecipe, findPublicDetail, findAvailableRecipes, findPublicList, setRecipeLike,
   listPendingForAdmin, listAllAdminRecipes, decideRecipe,
   searchAdminDishes, renameRecipeDish, linkRecipeDish,
 };
