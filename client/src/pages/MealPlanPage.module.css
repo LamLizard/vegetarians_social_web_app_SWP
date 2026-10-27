@@ -1,0 +1,374 @@
+﻿.page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 1rem 1.15rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.headerEyebrow {
+  margin: 0 0 0.2rem;
+  color: var(--v-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pageHeader h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 2vw, 2rem);
+  line-height: 1.2;
+}
+
+.summaryStrip {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: var(--v-muted);
+  font-size: 0.8rem;
+}
+
+.weekPicker {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--v-line);
+  border-radius: 16px;
+  background: var(--v-surface);
+}
+
+.weekControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+
+.weekArrow {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--v-line);
+  border-radius: 9px;
+  background: var(--v-surface-2);
+  color: var(--v-text);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.weekArrow:disabled {
+  opacity: 0.44;
+  cursor: not-allowed;
+}
+
+.weekLabel {
+  color: var(--v-text);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.weekDays {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.weekDay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 0.72rem;
+}
+
+.weekDay strong {
+  color: var(--v-text);
+  font-size: 0.84rem;
+}
+
+.weekDaySelected {
+  border-color: var(--v-accent);
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+}
+
+.weekDaySelected strong {
+  color: var(--v-accent-text);
+}
+
+.calorieSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--v-line);
+  border-radius: 999px;
+  background: var(--v-surface);
+  font-size: 0.8rem;
+  color: var(--v-muted);
+}
+
+.calorieSummary strong {
+  font-size: 1.2rem;
+  color: var(--v-text);
+}
+
+.mealRows {
+  display: grid;
+  flex: 1;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mealRow {
+  display: grid;
+  grid-template-columns: 104px 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--v-line);
+  border-radius: 14px;
+  background: var(--v-surface);
+}
+
+.mealRowEmpty {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--v-surface) 85%, transparent);
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  color: var(--v-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.slot i {
+  color: var(--v-accent-text);
+  font-size: 1rem;
+}
+
+.thumbnail,
+.recipeThumb {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 62px;
+  overflow: hidden;
+  border-radius: 11px;
+  background: var(--v-surface-3);
+  color: var(--v-muted);
+}
+
+.thumbnail img,
+.recipeThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbnailEmpty i,
+.recipeThumb i {
+  font-size: 1.35rem;
+}
+
+.mealInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.recipeName {
+  overflow: hidden;
+  color: var(--v-text);
+  font-size: 0.91rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.description {
+  overflow: hidden;
+  color: var(--v-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mealFacts {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--v-muted);
+  font-size: 0.72rem;
+}
+
+.nutritionTag {
+  max-width: 110px;
+  overflow: hidden;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.allergyWarning {
+  overflow: hidden;
+  color: var(--ac-bad-fg);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.removeButton {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--v-surface-3);
+  color: var(--v-text);
+}
+
+.removeButton:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.loading {
+  color: var(--v-muted);
+  font-size: 0.9rem;
+}
+
+.pickerPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.recipeResults {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.pickerMessage {
+  margin: 0;
+  color: var(--v-muted);
+  font-size: 0.9rem;
+}
+
+.recipeItem {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.35rem;
+  border: 1px solid var(--v-line);
+  border-radius: 12px;
+  background: var(--v-surface);
+}
+
+.recipeText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.15rem;
+  overflow: hidden;
+}
+
+.recipeText strong {
+  overflow: hidden;
+  color: var(--v-text);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipeText small {
+  overflow: hidden;
+  color: var(--v-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipeText span {
+  color: var(--v-muted);
+  font-size: 0.74rem;
+}
+
+@media (max-width: 767.98px) {
+  .page {
+    padding: 0.8rem 0.7rem 0.7rem;
+  }
+
+  .headerRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .mealRow {
+    grid-template-columns: 86px 56px minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .rowActions {
+    grid-column: 2 / -1;
+    justify-content: flex-end;
+  }
+
+  .thumbnail,
+  .recipeThumb {
+    width: 56px;
+    height: 52px;
+  }
+}

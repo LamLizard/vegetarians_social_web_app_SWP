@@ -33,7 +33,7 @@ import PostFeedPage from './pages/PostFeedPage';
 import RecipeCreatePage from './pages/RecipeCreatePage';
 import RecipeListPage from './pages/RecipeListPage'; // Khoi's code: trang Công thức (/recipes)
 import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
-
+import MealPlanPage from './pages/MealPlanPage';
 
 // Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
 export default function App() {
@@ -102,6 +102,7 @@ function AppContent() {
   // Khoi's code: xem công thức đã duyệt — thành viên và Admin
   if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
   if (path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
+  if (!isAdmin && path === '/meal-plan') return <MealPlanPage user={user} accountMenu={accountMenu} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
     <ShopExplorePage
