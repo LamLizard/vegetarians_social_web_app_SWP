@@ -21,6 +21,8 @@ app.use('/api/users', require('./src/routes/user.routes'));
 // trước các endpoint danh sách, chi tiết và quyết định tại /posts và /reports.
 const postModerationRoutes = require('./src/routes/postModeration.routes');
 app.use('/api/admin/moderation', postModerationRoutes);
+// Tùng: cấu hình AI dùng middleware xác thực và quyền Admin riêng.
+app.use('/api/admin/ai-config', require('./src/routes/aiConfig.routes'));
 // Tung's code: Kết thúc điểm nối API kiểm duyệt; giữ nguyên các route hiện có.
 
 // Duy's code: Kết nối API quản lý tài khoản thành viên cho trang Admin.
@@ -56,6 +58,10 @@ app.use('/api/recipes', require('./src/routes/recipe.routes'));
 app.use('/api/ingredient-proposals', require('./src/routes/ingredientProposal.routes'));
 app.use('/api/notifications', require('./src/routes/notification.routes'));
 app.use('/api/meal-plans', require('./src/routes/meal-plan.routes'));
+// Tùng: preview thực đơn AI dùng cùng xác thực và quota của chatbot.
+app.use('/api/ai-meal-planner', require('./src/routes/aiMealPlanner.routes'));
+app.use('/api/chatbot', require('./src/routes/chatbot.routes'));
+require('./src/controllers/chatbot.controller').startRequestCleanup();
 
 app.use('/api', (req, res) => {
 	const path = `${req.baseUrl}${req.path}`;

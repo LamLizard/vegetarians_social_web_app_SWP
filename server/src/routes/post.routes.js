@@ -9,6 +9,7 @@ const express = require('express');
 const postController = require('../controllers/post.controller');
 // Tùng: I-AI-01 — chỉ ba binding tạo post/đọc-gửi comment chuyển sang luồng Moderation.
 const postContentController = require('../controllers/postContent.controller');
+const commentDeletionController = require('../controllers/commentDeletion.controller');
 const { requireAuth, requireMember } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -37,6 +38,8 @@ router.post('/:id/vote', requireAuth, postController.toggleVote);
 // router.post('/:id/comments', requireAuth, postController.addComment);
 router.get('/:id/comments', optionalAuth, postContentController.getComments);
 router.post('/:id/comments', requireAuth, postContentController.addComment);
+// Tùng: xóa bình luận xác thực actor và xử lý báo cáo trong cùng giao dịch.
+router.delete('/comments/:commentId', requireAuth, commentDeletionController.remove);
 
 router.post('/:id/report', requireAuth, postController.reportPost);
 router.post('/comments/:id/report', requireAuth, postController.reportComment);

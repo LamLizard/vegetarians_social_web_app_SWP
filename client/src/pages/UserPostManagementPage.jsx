@@ -30,6 +30,12 @@ const STATUS_OPTIONS = [
 // Duy's Code: Trang cá nhân chỉ gọi API; quyền sở hữu luôn được xác thực lại ở server.
 export default function UserPostManagementPage({ user, accountMenu = [], shopAction }) {
   const toast = useToast();
+  // Tùng: vô hiệu hóa phản hồi của tài khoản cũ kể cả khi modal đã được thay thế.
+  const viewerId = String(user?.id ?? 'guest');
+  const viewerRef = useRef({ id: viewerId });
+  if (viewerRef.current.id !== viewerId) viewerRef.current = { id: viewerId };
+  const viewerContext = viewerRef.current;
+  const isViewerCurrent = useCallback((context) => viewerRef.current === context, []);
   const detailRequest = useRef(0);
   const [postId, setPostId] = useState(() => getNotificationPostId(window.location.search));
   const handledTarget = useRef(null);
@@ -142,7 +148,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
   const canDelete = (post) => ['pending', 'public'].includes(post.status);
 
   // Duy's Code: Cập nhật số liệu ở card và popup cùng lúc sau like/bình luận.
-  const patchPost = (id, patch) => {
+  const patchPost = useCallback((id, patch) => {
     setResult((current) => current && ({
       ...current,
       items: current.items.map((post) => (String(post.id) === String(id) ? { ...post, ...patch } : post)),
@@ -150,7 +156,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     setDetails((current) => current?.post && String(current.post.id) === String(id)
       ? { ...current, post: { ...current.post, ...patch } }
       : current);
-  };
+  }, []);
 
   // Duy's Code: Chi tiết được lấy lại theo postId từ API chủ bài để có đủ nội dung và vẫn kiểm tra ownership.
   const openPost = async (summary) => {
@@ -196,12 +202,10 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     }
   };
 
-  // Duy's Code: Bình luận chỉ được tải/ghi ở public hoặc reported theo chính sách API hiện có.
-  const onCommentAdded = (id) => {
-    const current = details?.post;
-    const count = Number(current?.commentCount ?? posts.find((post) => String(post.id) === String(id))?.commentCount ?? 0);
-    patchPost(id, { commentCount: count + 1 });
-  };
+  // Tùng: dùng số công khai từ server; refusal và replay không tự cộng vào số đếm.
+  const onCommentCountChange = useCallback((id, count) => {
+    patchPost(id, { commentCount: count });
+  }, [patchPost]);
 
   const confirmDelete = async () => {
     if (!deleting || saving) return;
@@ -292,6 +296,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         message="Bài sẽ không còn xuất hiện trên Bảng tin. Bản ghi vẫn được giữ để bảo toàn lịch sử."
         confirmLabel="Xóa bài viết" loading={saving} onConfirm={confirmDelete} onCancel={() => setDeleting(null)} />
       <PostDetailModal
+        key={`${user?.id ?? 'guest'}:${details?.post?.id ?? details?.summary?.id ?? ''}`}
         post={details?.post}
         loading={details?.status === 'loading'}
         loadingTitle={details?.summary?.title}
@@ -306,7 +311,9 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         } : null}
         onClose={closeDetails}
         onVote={toggleManagedVote}
-        onCommentAdded={onCommentAdded}
+        viewerContext={viewerContext}
+        isViewerCurrent={isViewerCurrent}
+        onCommentCountChange={onCommentCountChange}
       />
     </MemberLayout>
   );

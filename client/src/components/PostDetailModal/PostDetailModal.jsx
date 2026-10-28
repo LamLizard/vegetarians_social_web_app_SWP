@@ -1,5 +1,5 @@
 // Duy's Code: Chi tiết bài dùng chung cho Bảng tin và Bài của tôi.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Avatar from '../Avatar/Avatar';
 import Button from '../Button/Button';
 import CommentSection from '../Comment/CommentSection';
@@ -12,20 +12,30 @@ import YouTubeEmbed from '../YouTubeEmbed/YouTubeEmbed';
 import feedCardStyles from '../FeedPostCard/FeedPostCard.module.css';
 import { POST_TYPE } from '../../constants/domain';
 import { timeAgo } from '../../utils/format';
-import postService from '../../services/post.service';
+// Tùng: cả hai trang dùng cùng contract kiểm duyệt và số bình luận công khai.
+import postContentService from '../../services/postContent.service';
 import { toPerson } from '../MemberLayout/MemberLayout';
 import styles from './PostDetailModal.module.css';
 
 export default function PostDetailModal({
   post, loading = false, loadingTitle = 'Đang tải bài viết', toComments, user, isMine,
-  onClose, onVote, onReport, onRequireLogin, onCommentAdded, readOnly = false,
-  showComments = true, statusBanner,
+  onClose, onVote, onReport, onRequireLogin, onCommentCountChange, readOnly = false,
+  showComments = true, statusBanner, viewerContext, isViewerCurrent,
 }) {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const postId = post?.id;
   const sectionId = `binh-luan-${postId}`;
   const opened = Boolean(post || loading);
+  const viewerId = String(user?.id ?? 'guest');
+  const contextRef = useRef(null);
+  const activeContextRef = useRef(null);
+  const loadingRequestRef = useRef(null);
+  if (!contextRef.current || contextRef.current.postId !== postId || contextRef.current.viewerId !== viewerId
+      || contextRef.current.showComments !== showComments || contextRef.current.loading !== loading) {
+    contextRef.current = { postId, viewerId, showComments, loading };
+  }
+  const context = contextRef.current;
 
   // Duy's Code: GET bình luận chỉ gọi cho bài public/reported như chính sách API hiện tại.
   useEffect(() => {
@@ -34,25 +44,43 @@ export default function PostDetailModal({
       setCommentsLoading(false);
       return undefined;
     }
-    let ignore = false;
+    // Tùng: đổi bài/tài khoản phải vô hiệu hóa cả GET lẫn POST cũ trước khi nhận dữ liệu riêng.
+    const active = { context };
+    activeContextRef.current = active;
+    const isCurrent = () => activeContextRef.current === active && contextRef.current === context
+      && isViewerCurrent(viewerContext);
     setComments([]);
     setCommentsLoading(true);
-    postService.getComments(postId)
-      .then((result) => { if (!ignore) setComments(result.items); })
-      .catch(() => { if (!ignore) setComments([]); })
-      .finally(() => { if (!ignore) setCommentsLoading(false); });
-    return () => { ignore = true; };
-  }, [postId, showComments, loading]);
+    loadingRequestRef.current = postContentService.getComments(postId)
+      .then((result) => {
+        if (!isCurrent()) return;
+        setComments(result.items);
+        onCommentCountChange?.(postId, result.publicCommentCount);
+      })
+      .catch(() => { if (isCurrent()) setComments([]); })
+      .finally(() => { if (isCurrent()) setCommentsLoading(false); });
+    return () => { if (activeContextRef.current === active) activeContextRef.current = null; };
+  }, [postId, showComments, loading, context, onCommentCountChange, isViewerCurrent, viewerContext]);
 
   // Duy's Code: Giữ nguyên hành vi Bảng tin khi mở từ nút bình luận.
   useEffect(() => {
     if (postId && toComments && !commentsLoading) document.getElementById(sectionId)?.scrollIntoView({ block: 'start' });
   }, [postId, toComments, commentsLoading, sectionId]);
 
-  const addComment = async (content) => {
-    const created = await postService.addComment(post.id, content);
-    setComments((current) => [created, ...current]);
-    onCommentAdded?.(post.id);
+  const addComment = async (content, options) => {
+    const active = activeContextRef.current;
+    const isCurrent = () => active && activeContextRef.current === active && contextRef.current === active.context
+      && isViewerCurrent(viewerContext);
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    // Tùng: chờ GET đầu tiên để response cũ không ghi đè bình luận vừa gửi.
+    await loadingRequestRef.current;
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    const created = await postContentService.addComment(post.id, content, options);
+    if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    setComments((current) => (created.displayable
+      ? [created, ...current.filter((comment) => comment.id !== created.id)]
+      : current.filter((comment) => comment.id !== created.id)));
+    onCommentCountChange?.(post.id, created.publicCommentCount);
   };
 
   const type = POST_TYPE[post?.type] ?? POST_TYPE.blog;
@@ -117,6 +145,7 @@ export default function PostDetailModal({
 
           {showComments && (
             <CommentSection
+              key={`${postId}:${viewerId}`}
               id={sectionId}
               comments={comments.map((comment) => ({ ...comment, author: toPerson(comment.author) }))}
               total={post.commentCount}

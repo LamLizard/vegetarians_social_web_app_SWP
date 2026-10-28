@@ -26,6 +26,7 @@ import MemberNavigationLayout from './components/MemberNavigationLayout';
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
+import AdminAIConfigurationPage from './pages/AdminAIConfigurationPage';
 // Duy's Code: Trang thành viên quản lý bài của mình và form sửa bài riêng.
 import UserPostManagementPage from './pages/UserPostManagementPage';
 import UserPostEditPage from './pages/UserPostEditPage';
@@ -37,6 +38,7 @@ import RecipeCreatePage from './pages/RecipeCreatePage';
 import RecipeListPage from './pages/RecipeListPage'; // Khoi's code: trang Công thức (/recipes)
 import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
 import MealPlanPage from './pages/MealPlanPage';
+import ChatbotPage from './pages/ChatbotPage';
 
 // Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
 export default function App() {
@@ -71,6 +73,7 @@ function AppContent() {
   const recipeViewId = /^\/recipes\/(\d+)$/.exec(path)?.[1];
 
   if (!isAuthenticated) {
+    if (path === '/chatbot') return <ChatbotPage key="guest" user={null} />;
     if (isFeedPath) return <PostFeedPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
     if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
     if (path === '/recipes') return <RecipeListPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />; // Khoi's code
@@ -110,6 +113,7 @@ function AppContent() {
   if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
   if (path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
   if (!isAdmin && path === '/meal-plan') return <MealPlanPage user={user} accountMenu={accountMenu} />;
+  if (!isAdmin && path === '/chatbot') return <ChatbotPage key={user.id} user={user} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
     // Duy's Code: Truyền cùng menu quán của App vào sidebar dùng chung.
@@ -135,6 +139,8 @@ function AppContent() {
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
   }
+  // Tùng: thêm trang cấu hình AI sau khi đã xác định đúng vai trò Admin.
+  if (isAdmin && path === '/admin/ai-configuration') return <AdminAIConfigurationPage />;
   // Duy's code: Nối hai trang quản lý Dish tới các URL Admin tương ứng.
   if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
   if (isAdmin && path === '/admin/dishes') return <AdminDishManagementPage />;

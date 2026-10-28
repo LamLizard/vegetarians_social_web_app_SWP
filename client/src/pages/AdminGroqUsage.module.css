@@ -1,0 +1,38 @@
+/* Hallmark · v2.0.0 · redesign: full · shape: app screen · theme: project brand · signature: usage ledger */
+/* Critique: keep the app's moss palette and make provider snapshots legible without invented figures. */
+.usage { display: grid; gap: 1rem; min-width: 0; }
+.heading, .detailHeader { display: flex; align-items: end; justify-content: space-between; gap: 1rem; min-width: 0; }
+.heading h2, .detailHeader h3 { margin: 0; color: var(--ac-ink); overflow-wrap: break-word; min-width: 0; }
+.heading h2 { font-size: 1.35rem; }
+.heading p, .detailHeader p { margin: .3rem 0 0; color: var(--ac-muted); font-size: .9rem; }
+.detailHeader { margin-top: .5rem; }
+.detailHeader h3 { font-size: 1.08rem; }
+.controls { display: flex; align-items: end; gap: .65rem; flex-wrap: wrap; }
+.dateField { display: grid; gap: .3rem; }
+.dateField label { color: var(--ac-muted); font-size: .82rem; }
+.dateField input { min-height: 2.5rem; padding: .4rem .6rem; border: 1px solid var(--ac-border-strong); border-radius: var(--ac-radius-sm); color: var(--ac-ink); background: var(--ac-field-bg); }
+.dateField input:focus-visible, .tableWrap:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 2px; }
+.context { display: flex; justify-content: space-between; gap: .5rem 1.5rem; flex-wrap: wrap; color: var(--ac-muted); font-size: .8rem; }
+.context p { margin: 0; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.limits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.limit { min-width: 0; padding: 1rem; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg); background: var(--ac-card); }
+.limitHeading { display: flex; justify-content: space-between; align-items: baseline; gap: .75rem; }
+.limitHeading h4 { margin: 0; font-size: 1rem; color: var(--ac-ink); overflow-wrap: break-word; min-width: 0; }
+.snapshotLabel { color: var(--ac-muted); font-size: .78rem; white-space: nowrap; }
+.limitRows { margin: .85rem 0; display: grid; gap: .65rem; }
+.limitRows div { display: flex; justify-content: space-between; gap: 1rem; }
+.limitRows dt { color: var(--ac-muted); font-size: .85rem; font-weight: 400; }
+.limitRows dd { margin: 0; color: var(--ac-ink); text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.limitMeta, .note, .loading, .empty { margin: 0; color: var(--ac-muted); font-size: .82rem; }
+.limitMeta + .limitMeta { margin-top: .2rem; }
+.expired { margin: .5rem 0 0; color: var(--ac-warn-fg); font-size: .82rem; }
+.tableWrap { min-width: 0; overflow-x: auto; border-top: 1px solid var(--ac-border); border-bottom: 1px solid var(--ac-border); }
+.table { width: 100%; border-collapse: collapse; font-size: .87rem; text-align: left; font-variant-numeric: tabular-nums; }
+.table th, .table td { padding: .75rem .65rem; border-bottom: 1px solid var(--ac-border); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.table th { color: var(--ac-muted); font-weight: 600; }
+.table tr:last-child td { border-bottom: 0; }
+.table td:nth-child(n+3), .table th:nth-child(n+3) { text-align: right; }
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .heading { align-items: stretch; flex-direction: column; } .limits { grid-template-columns: 1fr; } .controls { justify-content: space-between; } }
+@media (max-width: 380px) { .stats { grid-template-columns: 1fr; } }

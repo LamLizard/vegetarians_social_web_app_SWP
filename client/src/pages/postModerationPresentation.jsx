@@ -5,6 +5,7 @@ const REPORT_STATUSES = {
   pending: { label: 'Chờ xử lý', className: 'text-warning', icon: 'hourglass-split' },
   accepted: { label: 'Đã chấp nhận gỡ bài', className: 'text-success', icon: 'check-circle' },
   rejected: { label: 'Đã từ chối gỡ bài', className: 'text-secondary', icon: 'x-circle' },
+  auto_closed_deleted: { label: 'Báo cáo tự đóng do bình luận đã bị xóa', className: 'text-secondary', icon: 'check-circle' },
 };
 
 export function PostModerationStatus({ status }) {

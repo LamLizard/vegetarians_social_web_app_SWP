@@ -8,6 +8,8 @@ import styles from './AdminSidebar.module.css';
 const MENU = [
   { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
   { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
+  // Tùng: AI Configuration là trang quản trị riêng, giữ các mục hiện có.
+  { key: 'ai-config', label: 'Cấu hình AI', icon: 'cpu', href: '/admin/ai-configuration' },
   // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
   { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
   { key: 'dish-management', label: 'Quản lý món ăn', icon: 'egg-fried', href: '/admin/dishes' },
