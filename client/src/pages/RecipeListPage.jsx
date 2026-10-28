@@ -69,7 +69,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   const [shown, setShown] = useState(PAGE);
   const [sort, setSort] = useState('new');
   const isGuest = !user; // Khách: chỉ 3 công thức nhiều tim nhất (server giới hạn), không tìm/lọc, bấm vào thẻ → mời đăng nhập
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginHref, setLoginHref] = useState(null); // khách bấm công thức nào → mở hộp mời đăng nhập; Đăng nhập xong vào thẳng công thức đó
 
   // Đổi từ khoá / danh mục: ghi lên thanh địa chỉ (Back của trình duyệt quay lại được), không tải lại trang
   const go = (next) => {
@@ -111,7 +111,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   };
 
   const all = state.items.filter((it) => !(hideAllergen && allergenOf(it)));
-  const browsing = !q && !dm;
+  const browsing = isGuest || (!q && !dm); // khách không tìm/lọc được → bỏ qua ?q= / ?dm= gõ tay trên URL
   const categories = state.categories;
 
   const card = (it) => (
@@ -171,9 +171,10 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
     >
       <div
         className={s.page}
-        // Khách bấm vào thẻ công thức → mời đăng nhập (xem chi tiết cần tài khoản), không mở trang chi tiết
+        // Khách bấm vào thẻ công thức (link, hoặc cả khung băng chuyền nổi bật) → mời đăng nhập, không mở trang chi tiết
         onClickCapture={isGuest ? (e) => {
-          if (e.target.closest('a[href^="/recipes/"]')) { e.preventDefault(); e.stopPropagation(); setLoginOpen(true); }
+          const hit = e.target.closest('a[href^="/recipes/"], [data-href^="/recipes/"]');
+          if (hit) { e.preventDefault(); e.stopPropagation(); setLoginHref(hit.getAttribute('href') ?? hit.dataset.href); }
         } : undefined}
       >
         <header className={s.head}>
@@ -314,11 +315,12 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
       </div>
 
       <LoginPrompt
-        open={loginOpen}
+        open={Boolean(loginHref)}
         reason="recipe"
-        onLogin={() => { setLoginOpen(false); onLogin?.(); }}
-        onRegister={() => { setLoginOpen(false); onRegister?.(); }}
-        onClose={() => setLoginOpen(false)}
+        // /recipes/:id khi chưa đăng nhập = form Đăng nhập → đăng nhập xong thấy ngay công thức vừa bấm
+        onLogin={() => window.location.assign(loginHref)}
+        onRegister={() => { setLoginHref(null); onRegister?.(); }}
+        onClose={() => setLoginHref(null)}
       />
     </MemberLayout>
   );
