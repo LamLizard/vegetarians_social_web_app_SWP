@@ -5,7 +5,8 @@ const { parsePostInput, PostInputError } = require('../utils/postInput');
 const { parseId, parseRequestId, parseCommentInput, submissionFingerprint } = require('../utils/postContentInput');
 const { POST_CLOUD_NAME } = require('../config/cloudinary');
 const { youTubeRejectMessage } = require('../utils/youtubeCheck');
-const { moderateText } = require('../utils/openaiModeration');
+const { moderate } = require('../utils/aiModeration');
+const { getConfig } = require('../models/aiConfig.model');
 const { evaluateRules } = require('../utils/postContentRules');
 
 function actorId(req) {
@@ -45,7 +46,11 @@ async function createPost(req, res) {
     if (rejected) throw new PostError(400, rejected);
   }
   const text = `${input.title}\n\n${input.content}`;
-  const providerResult = await moderateText(text);
+  let config;
+  try { config = await getConfig(); } catch {
+    throw Object.assign(new PostError(503, 'Không thể đọc cấu hình AI.'), { code: 'CONFIG_UNAVAILABLE' });
+  }
+  const providerResult = await moderate({ kind: 'post', text, settings: config.post });
   const result = await evaluateRules({ kind: 'post', text, providerResult });
   const created = await model.createModeratedPost({ ...submission, result });
   return res.status(created.replayed ? 200 : 201).json(created);
@@ -59,8 +64,15 @@ async function addComment(req, res) {
   await model.precheck(submission);
   const previous = await model.findSubmission(submission);
   if (previous) return res.status(200).json(previous);
-  const providerResult = await moderateText(input.content);
+  let config;
+  try { config = await getConfig(); } catch {
+    throw Object.assign(new PostError(503, 'Không thể đọc cấu hình AI.'), { code: 'CONFIG_UNAVAILABLE' });
+  }
+  const providerResult = await moderate({ kind: 'comment', text: input.content, settings: config.comment });
   const result = await evaluateRules({ kind: 'comment', text: input.content, providerResult });
+  if (result.decision === 'reject') {
+    return res.status(422).json({ code: 'COMMENT_REJECTED', message: result.reason });
+  }
   const created = await model.createModeratedComment({ ...submission, result });
   return res.status(created.replayed ? 200 : 201).json(created);
 }

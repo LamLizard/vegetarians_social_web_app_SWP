@@ -100,6 +100,12 @@ const postContentService = {
       replayed: result.replayed,
     };
   },
+
+  async deleteComment(commentId, { signal } = {}) {
+    const result = await apiFetch(`/posts/comments/${encodeURIComponent(commentId)}`, { method: 'DELETE', signal });
+    if (result?.deleted !== true) throw invalidResponse();
+    return { publicCommentCount: publicCount(result.publicCommentCount) };
+  },
 };
 
 export default postContentService;

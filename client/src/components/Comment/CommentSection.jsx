@@ -31,12 +31,16 @@ export default function CommentSection({
 }) {
   const [deleting, setDeleting] = useState(null); // id
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const confirmDelete = async () => {
     setBusy(true);
+    setDeleteError('');
     try {
       await onDelete?.(deleting);
       setDeleting(null);
+    } catch (error) {
+      setDeleteError(error.message || 'Không thể xóa bình luận lúc này.');
     } finally {
       setBusy(false);
     }
@@ -85,11 +89,11 @@ export default function CommentSection({
       <ConfirmDialog
         open={deleting != null}
         title="Xoá bình luận này?"
-        message="Bình luận sẽ bị gỡ khỏi bài viết."
+        message={<>{'Bình luận sẽ bị gỡ khỏi bài viết.'}{deleteError && <span role="alert"> {deleteError}</span>}</>}
         confirmLabel="Xoá bình luận"
         loading={busy}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => { setDeleting(null); setDeleteError(''); }}
       />
     </section>
   );

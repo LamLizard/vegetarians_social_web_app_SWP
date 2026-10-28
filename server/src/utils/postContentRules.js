@@ -68,50 +68,65 @@ async function evaluateRules({ kind, text, providerResult }) {
   if (typeof text !== 'string' || !text.trim()) throw new TypeError('Rules require text.');
   const evaluatedAt = new Date().toISOString();
 
-  // Quan trọng: trả trước mọi query/matching nội dung, kể cả keyword cũ.
-  if (providerResult?.status === 'unavailable') {
+  // OFF và provider lỗi không gọi thêm bộ lọc từ khóa.
+  if (providerResult?.status === 'disabled' || providerResult?.status === 'unavailable') {
+    const disabled = providerResult.status === 'disabled';
     const outcome = kind === 'post' ? 'manual_pending' : 'accepted_unfiltered';
     return {
       decision: kind === 'post' ? 'pending' : 'approve',
       reason: null,
       warnings: [],
       receipt: {
-        version: 1, origin: 'provider_unavailable', outcome, evaluatedAt,
-        failureCode: providerResult.code,
+        version: 1, origin: disabled ? 'ai_disabled' : 'provider_unavailable', outcome, evaluatedAt,
+        ...(!disabled ? { failureCode: providerResult.code } : {}),
       },
     };
   }
-  if (providerResult?.status !== 'checked' || typeof providerResult.flagged !== 'boolean'
+  if (providerResult?.status !== 'checked') throw new TypeError('Rules require a validated provider result.');
+  let groups;
+  if (providerResult.provider === 'openai') {
+    if (typeof providerResult.flagged !== 'boolean'
       || MODERATION_CATEGORIES.some((group) => typeof providerResult.categories?.[group] !== 'boolean')) {
-    throw new TypeError('Rules require a validated provider result.');
+      throw new TypeError('Invalid OpenAI moderation result.');
+    }
+    // OpenAI has no dedicated spam/advertising category; do not infer a match
+    // from its aggregate flag or turn unrelated categories into post rejection.
+    groups = MODERATION_CATEGORIES.filter((group) => providerResult.categories[group]
+      && COMMENT_CATEGORIES.has(group));
+  } else if (providerResult.provider === 'groq') {
+    const allowed = kind === 'comment'
+      ? new Set(['spam', ...COMMENT_CATEGORIES])
+      : new Set(['spam', 'harassment', 'harassment/threatening', 'hate', 'hate/threatening', 'flagged']);
+    if (!['allow', 'reject', 'uncertain'].includes(providerResult.decision)
+      || !Array.isArray(providerResult.categories)
+      || !providerResult.categories.every((group) => allowed.has(group))
+      || (providerResult.decision === 'reject' && !providerResult.categories.length)) {
+      throw new TypeError('Invalid Groq moderation result.');
+    }
+    groups = providerResult.decision === 'reject' ? providerResult.categories : [];
+  } else {
+    throw new TypeError('Unknown moderation provider.');
   }
 
-  // Dictionary errors propagate as send failures; they are never provider outages.
-  const [spamKeywords, animalKeywords] = await Promise.all([getKeywords('spam'), getKeywords('animal')]);
-  const normalized = normalize(text);
-  const spam = spamKeywords.some((keyword) => normalize(keyword).trim()
-    && normalized.includes(normalize(keyword)));
-  const categories = MODERATION_CATEGORIES.filter((group) => providerResult.categories[group]
-    && (kind === 'post' || COMMENT_CATEGORIES.has(group)));
-  const groups = spam ? ['spam', ...categories] : [...categories];
-  if (kind === 'post' && providerResult.flagged && categories.length === 0) groups.push('flagged');
+  // Animal words remain warnings only when AI is enabled; never auto-reject by keyword.
+  const animalKeywords = await getKeywords('animal');
   const rejected = groups.length > 0;
   const warnings = hasAnimalMention(text, animalKeywords)
     ? [{ code: 'animal', message: 'Nội dung có nhắc đến món từ động vật.' }]
     : [];
-  const outcome = rejected ? 'rejected' : kind === 'post' ? 'approved' : 'accepted';
+  const outcome = rejected ? 'rejected' : kind === 'post' ? 'manual_pending' : 'accepted';
   return {
-    decision: rejected ? 'reject' : 'approve',
+    decision: rejected ? 'reject' : kind === 'post' ? 'pending' : 'approve',
     reason: rejected ? rejectionReason(groups) : null,
     warnings,
     receipt: {
       version: 1,
-      origin: categories.length || (kind === 'post' && providerResult.flagged) ? 'ai' : 'rules',
+      origin: 'ai',
       outcome,
       evaluatedAt,
       model: providerResult.model,
-      categories,
-      rules: spam ? ['spam'] : [],
+      categories: groups,
+      rules: [],
       warnings: warnings.map((warning) => warning.code),
     },
   };

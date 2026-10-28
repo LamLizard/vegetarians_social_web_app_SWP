@@ -3,6 +3,7 @@ import { useId, useRef, useState } from 'react';
 import { createPostContentRequestId } from '../../utils/postContentRequest';
 import Avatar from '../Avatar/Avatar';
 import Button from '../Button/Button';
+import Modal from '../Modal/Modal';
 import cx from '../cx';
 import styles from './Comment.module.css';
 
@@ -22,6 +23,7 @@ export default function CommentComposer({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [blockedMessage, setBlockedMessage] = useState('');
   const id = useId();
   const submissionRef = useRef(null);
   const busyRef = useRef(false);
@@ -52,7 +54,11 @@ export default function CommentComposer({
       submissionRef.current = null;
       setText('');
     } catch (err) {
-      setError(err?.message || 'Chưa gửi được bình luận, thử lại sau');
+      if (err?.details?.code === 'COMMENT_REJECTED') {
+        setBlockedMessage(err.message || 'Bình luận chưa phù hợp.');
+      } else {
+        setError(err?.message || 'Chưa gửi được bình luận, thử lại sau');
+      }
     } finally {
       busyRef.current = false;
       setSending(false);
@@ -84,6 +90,11 @@ export default function CommentComposer({
             <Button size="sm" type="submit" icon="send" loading={sending} disabled={!text.trim()}>Gửi</Button>
           </div>
         )}
+        <Modal open={Boolean(blockedMessage)} title="Bình luận chưa phù hợp"
+          onClose={() => setBlockedMessage('')} size="sm">
+          <p>{blockedMessage}</p>
+          <Button onClick={() => setBlockedMessage('')}>Sửa bình luận</Button>
+        </Modal>
       </div>
     </form>
   );

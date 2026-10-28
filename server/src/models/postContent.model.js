@@ -179,13 +179,12 @@ const COMMENT_FIELDS = `c.comment_id::text AS id, c.author_id::text AS "authorId
 
 function commentDto(row, viewerId) {
   const isOwner = viewerId != null && row.authorId === String(viewerId);
-  const ownRejection = isOwner && row.status === 'hidden' && row.receipt?.outcome === 'rejected';
-  const displayable = row.status === 'public' || ownRejection;
-  const outcome = ownRejection ? 'rejected' : row.status === 'public'
+  const displayable = row.status === 'public';
+  const outcome = row.status === 'public'
     ? (isOwner && row.receipt?.outcome === 'accepted_unfiltered' ? 'accepted_unfiltered' : 'accepted')
     : 'not_visible';
   const result = { id: row.id, status: row.status, isOwner, displayable,
-    moderation: { outcome, reason: ownRejection ? row.moderationNote : null,
+    moderation: { outcome, reason: null,
       warnings: isOwner && displayable ? warningsFor(row.receipt) : [] } };
   if (displayable) Object.assign(result, { content: row.content, createdAt: row.createdAt, author: row.author });
   return result;
@@ -280,9 +279,8 @@ async function findVisibleComments(postId, viewerId) {
     const parent = await visibleParent(db, postId, 'FOR SHARE');
     const { rows } = await db.query(`SELECT ${COMMENT_FIELDS}
       FROM public.comment c JOIN public.account a ON a.account_id = c.author_id
-      WHERE c.post_id = $1 AND (c.status = 'public' OR
-        (c.status = 'hidden' AND c.author_id = $2::bigint AND c.creation_moderation->>'outcome' = 'rejected'))
-      ORDER BY c.created_at DESC,c.comment_id DESC LIMIT 200`, [postId, viewerId]);
+      WHERE c.post_id = $1 AND c.status = 'public'
+      ORDER BY c.created_at DESC,c.comment_id DESC LIMIT 200`, [postId]);
     return { items: rows.map((row) => commentDto(row, viewerId)), publicCommentCount: parent.publicCommentCount };
   });
 }

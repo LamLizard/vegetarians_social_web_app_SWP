@@ -14,7 +14,8 @@ const POST_FIELDS = `
   p.status, p.moderation_note AS "moderationNote", p.moderated_by AS "moderatedBy",
   p.moderated_at AS "moderatedAt", p.published_at AS "publishedAt",
   p.deleted_at AS "deletedAt", p.created_at AS "createdAt", p.updated_at AS "updatedAt",
-  p.view_count AS "viewCount", p.vote_count AS "voteCount", p.comment_count AS "commentCount"
+  p.view_count AS "viewCount", p.vote_count AS "voteCount", p.comment_count AS "commentCount",
+  COALESCE(to_jsonb(p)->'creation_moderation'->>'origin' = 'provider_unavailable', false) AS "aiUnavailable"
 `;
 const REPORT_FIELDS = `
   r.report_id AS id, r.reporter_id AS "reporterId", r.target_type AS "targetType",
@@ -113,6 +114,10 @@ function createPostModerationModel(database) {
       if (!isComment && locatedCase.targetType !== 'post') {
         throw new ModerationError(400, 'Loại đối tượng báo cáo không hợp lệ.');
       }
+      // Tùng: không xóa qua xử lý báo cáo khi nhật ký tổng chưa được che nội dung.
+      if (isComment && decision.action === 'accept') {
+        throw new ModerationError(503, 'Tính năng xóa bình luận tạm thời chưa khả dụng.');
+      }
 
       let beforePost = null;
       let beforeComment = null;
@@ -154,11 +159,14 @@ function createPostModerationModel(database) {
         throw new ModerationError(409, 'Dữ liệu báo cáo không đồng nhất với nhóm. Cần kiểm tra lại dữ liệu.');
       }
 
-      const status = decision.action === 'accept' ? 'accepted' : 'rejected';
+      // Tùng: comment bị xóa thì báo cáo tự đóng; không giả quyết định xử lý báo cáo.
+      const autoClosed = isComment && decision.action === 'accept';
+      const status = autoClosed ? 'auto_closed_deleted' : decision.action === 'accept' ? 'accepted' : 'rejected';
       // Tung's code: Lấy một timestamp từ DB cho cả case và mọi report.
       // Trả text để không mất phần microsecond khi đi qua JavaScript Date.
       const stamp = await client.query('SELECT now()::text AS "handledAt"');
-      const values = [status, admin.id, stamp.rows[0].handledAt, decision.note, id];
+      const values = [status, autoClosed ? null : admin.id, stamp.rows[0].handledAt,
+        autoClosed ? 'Báo cáo tự đóng do bình luận đã bị xóa' : decision.note, id];
       const updatedCase = await client.query(`
         UPDATE report_case rc SET status = $1::report_status_enum, handled_by = $2,
           handled_at = $3, resolution_note = $4
@@ -183,8 +191,12 @@ function createPostModerationModel(database) {
         if (beforeComment.status === 'public') {
           await client.query('UPDATE post SET comment_count = GREATEST(comment_count - 1, 0) WHERE post_id = $1', [beforeComment.postId]);
         }
-        await audit(client, admin, 'REMOVE', 'comment', beforeComment.id, beforeComment, afterComment, decision.note);
-        await notify(client, beforeComment.authorId, 'comment_removed', 'Bình luận đã bị xóa', decision.note, 'comment', beforeComment.id);
+        await client.query(`
+          INSERT INTO public.comment_delete_audit (comment_id, actor_id, actor_role)
+          VALUES ($1, $2, 'admin')
+        `, [beforeComment.id, admin.id]);
+        await notify(client, beforeComment.authorId, 'comment_removed', 'Bình luận đã bị xóa',
+          'Bình luận của bạn đã bị xóa.', 'comment', beforeComment.id);
       } else if (decision.action === 'accept' && !isComment && beforePost.status !== 'deleted') {
         afterPost = await updatePost(client, beforePost.id, 'deleted', decision.note, admin);
         await audit(client, admin, 'REMOVE', 'post', beforePost.id, beforePost, afterPost, decision.note);
@@ -214,7 +226,7 @@ function createPostModerationModel(database) {
       // Mỗi reporter nhận một kết quả; lỗi log/notification rollback cả quyết định.
       const previousReports = new Map(reports.rows.map(report => [String(report.id), report]));
       const actionLabel = isComment ? 'xóa bình luận' : 'gỡ bài';
-      for (const after of updatedReports.rows) {
+      for (const after of autoClosed ? [] : updatedReports.rows) {
         await audit(client, admin, decision.action === 'accept' ? 'ACCEPT' : 'REJECT', 'report', after.id,
           previousReports.get(String(after.id)), after, decision.note);
         await notify(client, after.reporterId, 'report_result', 'Kết quả xử lý báo cáo',
@@ -317,7 +329,7 @@ function createPostModerationModel(database) {
         AND ($2::text = 'all' OR rc.status::text = $2)
         AND ($3::boolean = false OR (rc.status = 'pending' AND rc.created_at < now() - interval '48 hours'))
         AND ($4::text = 'all' OR rc.target_type = 'comment' OR p.post_type::text = $4)
-        AND ($5::text = '' OR p.title ILIKE $5 OR cm.content ILIKE $5 OR parent.title ILIKE $5
+        AND ($5::text = '' OR p.title ILIKE $5 OR (cm.status <> 'deleted' AND cm.content ILIKE $5) OR parent.title ILIKE $5
           OR EXISTS (
             SELECT 1 FROM report rr JOIN account reporter ON reporter.account_id = rr.reporter_id
             WHERE rr.case_id = rc.case_id AND (reporter.full_name ILIKE $5 OR reporter.email ILIKE $5)
@@ -337,7 +349,8 @@ function createPostModerationModel(database) {
       const { rows } = await client.query(`
         SELECT ${CASE_FIELDS}, latest.created_at AS "latestReportAt", counts.report_count AS "reportCount",
           CASE WHEN rc.target_type = 'post' THEN COALESCE(p.title, 'Bài viết không còn tồn tại')
-            ELSE COALESCE(LEFT(cm.content, 160), 'Bình luận không còn tồn tại') END AS "targetLabel",
+            ELSE CASE WHEN cm.status = 'deleted' THEN 'Bình luận đã bị xóa'
+              ELSE COALESCE(LEFT(cm.content, 160), 'Bình luận không còn tồn tại') END END AS "targetLabel",
           parent.title AS "postTitle",
           COALESCE(post_author.full_name, post_author.email, comment_author.full_name, comment_author.email) AS "authorName"
         ${from} ${where}
@@ -375,7 +388,26 @@ function createPostModerationModel(database) {
         `, [reportCase.targetId]);
         comment = comments.rows[0] || null;
         postId = comment?.postId;
-        if (comment) comment.history = await history('comment', comment.id, client);
+        if (comment) {
+          comment.history = await history('comment', comment.id, client);
+          if (comment.status === 'deleted') {
+            // Tùng: dữ liệu cũ vẫn giữ trong DB, nhưng không trả nội dung qua API.
+            comment.content = null;
+            comment.history = comment.history.map((entry) => ({ id: entry.id, action: entry.action,
+              createdAt: entry.createdAt, adminName: entry.adminName, adminEmail: entry.adminEmail }));
+            const auditTable = await client.query("SELECT to_regclass('public.comment_delete_audit') AS name");
+            if (auditTable.rows[0]?.name) {
+              const deletion = await client.query(`
+                SELECT 'DELETE' AS action, d.actor_id::text AS "actorId",
+                  COALESCE(a.full_name, a.email, 'Tài khoản #' || d.actor_id::text) AS "adminName",
+                  d.deleted_at AS "createdAt"
+                FROM public.comment_delete_audit d LEFT JOIN public.account a ON a.account_id = d.actor_id
+                WHERE d.comment_id = $1
+              `, [comment.id]);
+              comment.history = [...deletion.rows, ...comment.history];
+            }
+          }
+        }
       }
       let post = null;
       if (postId) {
@@ -391,6 +423,11 @@ function createPostModerationModel(database) {
         LEFT JOIN account a ON a.account_id = l.admin_id
         WHERE r.case_id = $1 ORDER BY l.created_at DESC, l.admin_log_id DESC LIMIT 100
       `, [id]);
+      if (comment?.status === 'deleted') {
+        for (const report of reports.rows) report.reasonText = null;
+        for (const event of events.rows) event.reason = null;
+        if (reportCase.status !== 'auto_closed_deleted') reportCase.resolutionNote = null;
+      }
       return { case: { ...reportCase, reportCount: reports.rows.length, history: events.rows }, reports: reports.rows, post, comment };
     });
   }

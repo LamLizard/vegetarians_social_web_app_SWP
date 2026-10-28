@@ -34,7 +34,7 @@ async function moderateText(text) {
     } catch {
       return unavailable(controller.signal.aborted ? 'TIMEOUT' : 'NETWORK_ERROR');
     }
-    if (!response.ok) return unavailable('HTTP_ERROR');
+    if (!response.ok) return unavailable(response.status === 429 ? 'RATE_LIMITED' : 'HTTP_ERROR');
 
     let payload;
     try {
