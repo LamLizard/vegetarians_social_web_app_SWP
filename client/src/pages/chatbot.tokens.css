@@ -1,0 +1,19 @@
+:root {
+  --mam-paper: var(--v-surface);
+  --mam-canvas: var(--v-bg);
+  --mam-well: var(--v-surface-2);
+  --mam-ink: var(--v-text);
+  --mam-muted: var(--v-muted);
+  --mam-accent: var(--v-accent);
+  --mam-accent-text: var(--v-accent-text);
+  --mam-accent-soft: var(--v-accent-soft);
+  --mam-line: var(--v-line);
+  --mam-strong-line: var(--v-line-2);
+  --mam-focus: var(--ac-focus-ring);
+  --mam-space-xs: 8px;
+  --mam-space-sm: 12px;
+  --mam-space-md: 16px;
+  --mam-space-lg: 24px;
+  --mam-space-xl: 40px;
+  --mam-radius-control: 12px;
+}
