@@ -75,14 +75,24 @@ function currentWeekStart() {
   return date.toISOString().slice(0, 10);
 }
 
-function WeeklyPreview({ preview }) {
-  const [selectedDay, setSelectedDay] = useState(0);
+function MamAvatar({ className = '' }) {
+  return (
+    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <circle cx="32" cy="32" r="31" fill="var(--v-accent-soft)" />
+      <path d="M15 33c0-9.4 7.6-17 17-17s17 7.6 17 17v4c0 9.4-7.6 17-17 17s-17-7.6-17-17z" fill="var(--v-accent)" />
+      <path d="M32 17c-1-8-7-10-12-9 0 7 4 11 12 11m0-2c1-7 6-10 12-9 0 6-4 10-12 11" fill="var(--v-accent)" />
+      <circle cx="25.5" cy="34" r="1.8" fill="var(--ac-on-accent)" />
+      <circle cx="38.5" cy="34" r="1.8" fill="var(--ac-on-accent)" />
+      <path d="M27.5 41c2.7 2.4 6.3 2.4 9 0" fill="none" stroke="var(--ac-on-accent)" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function WeeklyPreview({ preview, selectedDay, setSelectedDay }) {
   const labels = { breakfast: 'Sáng', lunch: 'Trưa', dinner: 'Tối' };
   const days = Array.isArray(preview.days) ? preview.days : [];
   const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
   const day = days[selectedDay] || days[0];
-
-  useEffect(() => { setSelectedDay(0); }, [preview]);
 
   return (
     <section className={styles.plan} aria-label="Thực đơn tuần đề xuất">
@@ -139,10 +149,34 @@ export default function ChatbotPage({ user }) {
   const [loginReason, setLoginReason] = useState('quota');
   const [profilePrompt, setProfilePrompt] = useState(false);
   const [plan, setPlan] = useState(null);
+  const [selectedPlanDay, setSelectedPlanDay] = useState(0);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [planViewOpen, setPlanViewOpen] = useState(false);
   const [planBusy, setPlanBusy] = useState(false);
   const pending = useRef(null);
   const planPending = useRef(null);
   const textareaRef = useRef(null);
+  const toolsRef = useRef(null);
+  const toolsButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!toolsOpen) return undefined;
+    const dismissOutside = (event) => {
+      if (!toolsRef.current?.contains(event.target)) setToolsOpen(false);
+    };
+    const dismissOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        setToolsOpen(false);
+        toolsButtonRef.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', dismissOutside);
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside);
+      document.removeEventListener('keydown', dismissOnEscape);
+    };
+  }, [toolsOpen]);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -419,6 +453,8 @@ export default function ChatbotPage({ user }) {
       }, { signal: controller.signal });
       if (controller.signal.aborted) return;
       setPlan(result.preview);
+      setSelectedPlanDay(0);
+      setPlanViewOpen(true);
       setQuota(result.quota);
     } catch (requestError) {
       if (!controller.signal.aborted) {
@@ -431,8 +467,6 @@ export default function ChatbotPage({ user }) {
     }
   };
 
-  const mentionsPlan = completedPairs(messages, true)
-    .some((message) => /thực đơn|thuc don|meal\s*plan(?:ner)?/iu.test(message.content));
   const suggestionsDisabled = !enabled || !sessionReady || busy || !quota?.remaining || text.length > 0;
   const textValid = isValidMessage(text);
 
@@ -447,9 +481,9 @@ export default function ChatbotPage({ user }) {
       <section className={styles.page} aria-labelledby="chatbot-title">
         <header className={styles.header}>
           <div className={styles.identity}>
-            <span className={styles.identityMark} aria-hidden="true"><i className="bi bi-flower1" /></span>
+            <MamAvatar className={styles.identityMark} />
             <div>
-              <h1 id="chatbot-title">Trò chuyện cùng {AI_NAME}</h1>
+              <h1 id="chatbot-title">{AI_NAME}</h1>
               <p>Trợ lý cho những bữa ăn chay của bạn</p>
             </div>
           </div>
@@ -470,14 +504,7 @@ export default function ChatbotPage({ user }) {
             </p>
               : messages.length === 0 ? (
                 <div className={styles.empty}>
-                  <svg className={styles.illustration} viewBox="0 0 144 144" aria-hidden="true" focusable="false">
-                    <circle cx="72" cy="72" r="65" fill="var(--v-accent-soft)" />
-                    <path d="M32 81h80c-2 23-18 38-40 38S34 104 32 81Z" fill="var(--v-accent)" />
-                    <path d="M45 91c7 8 16 12 27 12s20-4 27-12" fill="none" stroke="var(--ac-on-accent)" strokeWidth="3" strokeLinecap="round" />
-                    <path d="M72 79V46m0 14C57 60 48 53 47 40c14-1 23 5 25 20Zm0 8c14 0 23-8 24-21-13 0-22 7-24 21Z" fill="none" stroke="var(--v-accent)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="44" cy="67" r="3" fill="var(--v-accent)" />
-                    <circle cx="101" cy="30" r="3" fill="var(--v-accent)" />
-                  </svg>
+                  <MamAvatar className={styles.illustration} />
                   <h2>Chào bạn, hôm nay mình ăn gì nhỉ?</h2>
                   <p>Hỏi {AI_NAME} về món chay, nguyên liệu hoặc dinh dưỡng. Bạn cũng có thể bắt đầu từ một gợi ý:</p>
                   <div className={styles.suggestions} role="group" aria-label="Gợi ý câu hỏi">
@@ -491,8 +518,12 @@ export default function ChatbotPage({ user }) {
               ) : (
                 <ChatThread className={styles.thread}>
                   {messages.map((message, index) => (
-                    <div key={`${message.turnId || index}-${message.sender}`} aria-live="off">
+                    <div key={`${message.turnId || index}-${message.sender}`} aria-live="off"
+                      className={message.sender === 'bot' ? styles.messageBot : styles.messageUser}>
+                      {message.sender === 'bot' && <MamAvatar className={styles.messageAvatar} />}
+                      <div className={styles.messageBody}>
                       <ChatBubble sender={message.sender} content={message.content}
+                        className={message.sender === 'bot' ? styles.botBubble : undefined}
                         typing={message.sender === 'bot' && message.status === 'waiting' && !message.content} />
                       {message.sender === 'bot' && message.limited && (
                         <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>
@@ -505,6 +536,7 @@ export default function ChatbotPage({ user }) {
                             onClick={() => void runTurn(message.question, message.turnId, message)}>Gửi lại</button>}
                         </div>
                       )}
+                      </div>
                     </div>
                   ))}
                 </ChatThread>
@@ -513,16 +545,32 @@ export default function ChatbotPage({ user }) {
           <p className={styles.waiting} role="status" aria-live="polite">
             {announcement}
           </p>
-          {sessionReady && mentionsPlan && (
-            <div className={styles.planAction}>
-              <Button variant="outline" loading={planBusy} disabled={!enabled || (Boolean(user) && !quota?.remaining)}
-                onClick={() => createPreview(false)}>Lên thực đơn tuần</Button>
-            </div>
-          )}
-          {plan && <WeeklyPreview preview={plan} />}
           <form className={styles.composer} onSubmit={send}>
             <label className="visually-hidden" htmlFor="chatbot-question">Câu hỏi của bạn</label>
             <div className={styles.composerBox}>
+              <div className={styles.tools} ref={toolsRef}>
+                <button ref={toolsButtonRef} type="button" className={styles.toolsButton}
+                  aria-label="Công cụ" aria-expanded={toolsOpen} aria-controls="chatbot-tools"
+                  disabled={!sessionReady} onClick={() => setToolsOpen((open) => !open)}>
+                  <i className="bi bi-plus-lg" aria-hidden="true" />
+                </button>
+                {toolsOpen && (
+                  <div id="chatbot-tools" className={styles.toolsMenu} aria-label="Công cụ trò chuyện">
+                    <button type="button" className={styles.toolItem}
+                      disabled={planBusy || !enabled || (Boolean(user) && !quota?.remaining)}
+                      onClick={() => { setToolsOpen(false); void createPreview(false); }}>
+                      <span className={styles.toolIcon} aria-hidden="true"><i className="bi bi-calendar2-week" /></span>
+                      <span><strong>{planBusy ? 'Đang lên thực đơn...' : 'Lên thực đơn tuần'}</strong>
+                        <small>Gợi ý bữa ăn cho cả tuần</small></span>
+                    </button>
+                    {plan && <button type="button" className={styles.toolItem}
+                      onClick={() => { setToolsOpen(false); setPlanViewOpen(true); }}>
+                      <span className={styles.toolIcon} aria-hidden="true"><i className="bi bi-journal-text" /></span>
+                      <span><strong>Xem thực đơn đã tạo</strong><small>Mở lại bản xem trước</small></span>
+                    </button>}
+                  </div>
+                )}
+              </div>
               <textarea ref={textareaRef} id="chatbot-question" rows={1} value={text}
                 onChange={(event) => setText(event.target.value)} disabled={!enabled || !sessionReady || busy}
                 onKeyDown={(event) => {
@@ -530,12 +578,12 @@ export default function ChatbotPage({ user }) {
                     && event.nativeEvent.keyCode !== 229) send(event);
                 }}
                 aria-describedby="chatbot-hint chatbot-disclaimer"
-                placeholder="Hỏi Mầm về món chay, nguyên liệu hoặc dinh dưỡng..." />
+                placeholder="Hỏi Mầm về món chay..." />
               <Button type="submit" icon="arrow-up" loading={busy}
                 disabled={!enabled || !sessionReady || !text.trim() || !textValid || !quota?.remaining}>Gửi</Button>
             </div>
             <div className={styles.composerFoot}>
-              <small id="chatbot-hint">Enter để gửi · Shift + Enter để xuống dòng · {Array.from(text).length}/10.000 ký tự
+              <small id="chatbot-hint">Enter để gửi, Shift + Enter để xuống dòng. {Array.from(text).length}/10.000 ký tự
                 {!textValid && ' — Câu hỏi vượt giới hạn hoặc có ký tự không hợp lệ.'}</small>
               <small id="chatbot-disclaimer">{AI_DISCLAIMER}</small>
             </div>
@@ -549,6 +597,9 @@ export default function ChatbotPage({ user }) {
           <p>Bạn có thể tạo hồ sơ hoặc tiếp tục khi chưa kiểm tra dị ứng.</p>
           <Button variant="outline" onClick={() => window.location.assign('/profile')}>Đến hồ sơ</Button>{' '}
           <Button onClick={() => createPreview(true)}>Tiếp tục</Button>
+        </Modal>
+        <Modal open={planViewOpen} onClose={() => setPlanViewOpen(false)} title="Thực đơn tuần" size="lg">
+          {plan && <WeeklyPreview preview={plan} selectedDay={selectedPlanDay} setSelectedDay={setSelectedPlanDay} />}
         </Modal>
       </section>
     </MemberNavigationLayout>
