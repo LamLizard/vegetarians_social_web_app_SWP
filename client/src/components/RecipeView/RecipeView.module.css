@@ -33,6 +33,19 @@
 .dots { flex: 1; min-width: 1rem; border-bottom: 1px dotted var(--ac-border-strong); transform: translateY(-4px); }
 .qty { color: var(--ac-moss); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .done .ingName, .done .qty { color: var(--ac-muted); text-decoration: line-through; }
+/* Dòng trùng dị ứng của người xem: chữ đỏ đất + nhãn chữ (không chỉ dựa vào màu) */
+.flagged .ingName { color: var(--ac-alert); font-weight: 600; }
+.flag {
+  flex: none;
+  padding: 0 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ac-alert) 14%, transparent);
+  color: var(--ac-alert);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
 
 /* ---------- Các bước ---------- */
 .steps { display: grid; gap: 1rem; margin: 0; padding: 0; list-style: none; }

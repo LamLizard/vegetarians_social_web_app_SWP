@@ -13,6 +13,7 @@ import SearchInput from '../components/SearchInput/SearchInput';
 import Skeleton from '../components/Skeleton/Skeleton';
 import recipeService from '../services/recipe.service';
 import { getHealthProfile } from '../services/user.service';
+import useHideAllergen from '../hooks/useHideAllergen';
 import { plain } from '../utils/dishMatch';
 import s from './RecipeListPage.module.css';
 
@@ -62,7 +63,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   const [state, setState] = useState({ status: 'loading', items: [], categories: [] });
   const [text, setText] = useState(q);
   const [allergies, setAllergies] = useState([]);
-  const [hideAllergen, setHideAllergen] = useState(false);
+  const [hideAllergen, setHideAllergen] = useHideAllergen(user?.id); // 27/10: nhớ qua các lần mở trang
   const [shown, setShown] = useState(PAGE);
   const [sort, setSort] = useState('new');
 
