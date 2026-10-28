@@ -14,6 +14,11 @@ const COPY = {
     title: 'Bạn đã dùng hết lượt hỏi thử',
     text: `Khách được hỏi trợ lý ${GUEST_LIMIT.chatTurnsPerDay} lần mỗi ngày. Tạo tài khoản miễn phí để hỏi tiếp và lưu lịch sử trò chuyện.`,
   },
+  recipe: {
+    icon: 'journal-richtext',
+    title: 'Đăng nhập để xem công thức',
+    text: `Khách chỉ xem được ${GUEST_LIMIT.recipes} công thức nổi bật. Đăng nhập để xem chi tiết, nguyên liệu, cách làm và thích công thức.`,
+  },
   action: {
     icon: 'person-check',
     title: 'Đăng nhập để tiếp tục',
@@ -25,10 +30,11 @@ const COPY = {
  * Mời khách đăng nhập (chặn mềm, BR-04): đóng được, không khoá cứng trang.
  *  - reason="posts": khách mở bài thứ 4 trong ngày (UC-02)
  *  - reason="chat" : khách hết 3 lượt chatbot (UC-10)
+ *  - reason="recipe": khách bấm vào thẻ công thức ở /recipes
  *  - reason="action": khách bấm Thích / Bình luận / Báo cáo / Viết bài
  *
  * @param {boolean} open
- * @param {'posts'|'chat'|'action'} [reason='action']
+ * @param {'posts'|'chat'|'recipe'|'action'} [reason='action']
  * @param {() => void} onLogin · onRegister · onClose
  */
 export default function LoginPrompt({ open, reason = 'action', onLogin, onRegister, onClose }) {

@@ -1,8 +1,8 @@
 // Khoi's code: Bảng chỉ đường trang Tạo công thức — KHÔNG viết logic ở đây.
 // Gắn ở app.js:  app.use('/api/recipes', require('./src/routes/recipe.routes'));
 //
-//  Ai cũng gọi được:  GET  /  (trang Công thức: mọi công thức đã duyệt)  ·  GET  /dishes  ·  GET /ingredients  ·  GET /animal-words  ·  GET /:recipeId (công thức đã duyệt)        (tên món/nguyên liệu không phải dữ liệu riêng tư)
-//  Cần đăng nhập:     POST / DELETE /:recipeId/like (thích / bỏ thích)  ·  POST /ingredients/check  ·  GET /mine  ·  POST /  (gửi công thức → 'pending')
+//  Ai cũng gọi được:  GET  /  (trang Công thức: khách chỉ nhận 3 công thức nhiều tim nhất, thành viên nhận tất cả đã duyệt)  ·  GET  /dishes  ·  GET /ingredients  ·  GET /animal-words        (tên món/nguyên liệu không phải dữ liệu riêng tư)
+//  Cần đăng nhập:     GET /:recipeId (xem chi tiết công thức đã duyệt)  ·  POST / DELETE /:recipeId/like (thích / bỏ thích)  ·  POST /ingredients/check  ·  GET /mine  ·  POST /  (gửi công thức → 'pending')
 //                     GET /mine/:recipeId  ·  PUT /:recipeId  (Sửa và gửi lại công thức bị từ chối → 'pending')
 // Phần Admin duyệt công thức (Duy) đặt ở route admin riêng, không nằm ở đây.
 const express = require('express');
@@ -36,6 +36,6 @@ router.put('/admin/:recipeId/dish', requireAuth, requireAdmin, recipeController.
 // Khoi's code 20/10: thích / bỏ thích công thức đã duyệt
 router.post('/:recipeId/like', requireAuth, recipeController.likeRecipe);
 router.delete('/:recipeId/like', requireAuth, recipeController.unlikeRecipe);
-router.get('/:recipeId', optionalAuth, recipeController.getPublicDetail);
+router.get('/:recipeId', requireAuth, recipeController.getPublicDetail); // Khách chỉ xem danh sách rút gọn (3 công thức) — xem chi tiết cần đăng nhập
 
 module.exports = router;

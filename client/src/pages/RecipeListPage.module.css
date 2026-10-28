@@ -17,9 +17,10 @@
 .title { margin: 0; color: var(--v-text); font-size: 32px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
 .desc { margin: 0; color: var(--v-text-2); font-size: 16px; line-height: 1.6; }
 
-.tools { display: flex; align-items: center; gap: 24px; margin-top: 24px; }
-.search { flex: 1; min-width: 0; }
-.tools > :last-child:not(:first-child) { flex: none; } /* công tắc dị ứng; khách không có công tắc → ô tìm vẫn giãn hết */
+/* Ô tìm luôn full-width; công tắc "Ẩn món tôi dị ứng" (chỉ khi có dị ứng) nằm hàng riêng bên dưới, căn phải → bề rộng ô tìm không đổi giữa các tài khoản */
+.tools { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 24px; }
+.search { min-width: 0; }
+.tools > :last-child:not(:first-child) { align-self: flex-end; } /* công tắc dị ứng */
 
 .section { display: flex; flex-direction: column; gap: 16px; margin-top: 48px; }
 .section:first-of-type { margin-top: 32px; }
@@ -79,8 +80,10 @@
   .page { width: calc(100% - 24px); padding: 16px 0 120px; }
   .head { flex-wrap: wrap; align-items: flex-start; }
   .title { font-size: 24px; }
-  .tools { flex-direction: column; align-items: stretch; gap: 12px; }
   .grid { grid-template-columns: minmax(0, 1fr); }
   .section { margin-top: 32px; }
   .secHead { flex-wrap: wrap; row-gap: 4px; }
 }
+
+/* Khách: nút mời đăng nhập cuối danh sách */
+.guestActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }

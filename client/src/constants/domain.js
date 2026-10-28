@@ -216,6 +216,7 @@ export const INGREDIENT_UNIT = [
 export const GUEST_LIMIT = {
   postsPerDay: 3,
   chatTurnsPerDay: 3,
+  recipes: 3, // Khoi's code: /recipes — khách chỉ thấy 3 công thức nhiều tim nhất (server: GUEST_LIST_LIMIT)
 };
 
 /** Tiện ích: biến object hằng số thành mảng { value, label } cho Select / Radio. */
