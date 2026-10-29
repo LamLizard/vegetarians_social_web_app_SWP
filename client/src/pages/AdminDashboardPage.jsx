@@ -1,348 +1,287 @@
-// Trang chủ khu quản trị (M-14) — route dự kiến /admin
-// Thứ tự ưu tiên: việc cần xử lý → cảnh báo → hàng đợi → cộng đồng → nhật ký.
-// Page giữ UI + config, còn dữ liệu lấy qua services/admin.service.js (component kit KHÔNG gọi API).
+// Trang chủ khu quản trị (M-14) — /admin
+// Khoi's code 30/10/2026: thiết kế lại theo phương án B "Tổng quan có biểu đồ":
+//   kỳ (Hôm nay · 7 ngày · 30 ngày) → 4 chỉ số cộng đồng + 1 ô việc kiểm duyệt đang chờ
+//   → biểu đồ bài viết / báo cáo theo ngày + hàng đợi theo thời gian chờ → bài bị báo cáo nhiều nhất + hoạt động quản trị.
+// Duyệt / từ chối làm ở trang Kiểm duyệt (dashboard chỉ tóm tắt và dẫn đường). Page giữ UI, dữ liệu qua services/admin.service.js.
 import { useEffect, useState } from 'react';
 import {
-  AdminLayout, Avatar, Button, ConfirmDialog, DataTable, EmptyState, ENTITY_LABEL, Notice,
-  PageHeader, Pagination, Panel, Skeleton, StatCard, formatDateTime, useToast,
+  AdminLayout, Button, EmptyState, Notice, Panel, Skeleton, StatCard, formatDateTime, formatNumber,
 } from '../components';
 import { describeAuditAction } from '../constants/domain';
 import useAuth from '../hooks/useAuth';
 import adminService from '../services/admin.service';
-import postModerationService from '../services/postModeration.service';
+import s from './AdminDashboardPage.module.css';
 
-// ---------------------------------------------------------------------
-// CONFIG UI — số liệu/cảnh báo/hàng đợi lấy từ admin.service.js
-// ---------------------------------------------------------------------
-
-// 1 · Việc cần xử lý — mỗi ô bấm được; `key` khớp field trong pendingStats
-const PENDING_CARDS = [
-  { key: 'post', label: 'Post chờ duyệt', icon: 'journal-text', hint: 'Bài đăng mới gửi lên', href: '/admin/moderation?type=post' },
-  { key: 'report', label: 'Report chưa xử lý', icon: 'flag', hint: 'Báo cáo vi phạm đang mở', href: '/admin/moderation?type=report' },
-  { key: 'appeals', label: 'Khiếu nại đang chờ', icon: 'envelope-paper', hint: 'Thành viên phản hồi quyết định', href: '/admin/appeals' },
-  { key: 'stale', label: 'Tồn đọng lâu (> 48h)', icon: 'hourglass-split', hint: 'Mục chờ quá 48 giờ', href: '/admin/moderation?stale=1' },
+const RANGES = [
+  { value: 'today', label: 'Hôm nay', previous: 'hôm qua' },
+  { value: '7d', label: '7 ngày', previous: '7 ngày trước đó' },
+  { value: '30d', label: '30 ngày', previous: '30 ngày trước đó' },
 ];
 
-// 4 · Báo cáo tăng là XẤU, các chỉ số còn lại tăng là tốt → quyết định màu mũi tên
+// 4 chỉ số cộng đồng ở hàng đầu (key khớp community[] của API). "Báo cáo" xem ở biểu đồ.
+const KPIS = ['newPosts', 'comments', 'activeUsers', 'newMembers'];
+// Báo cáo tăng là XẤU, các chỉ số còn lại tăng là tốt → màu mũi tên
 const GOOD_WHEN_UP = { newMembers: true, activeUsers: true, newPosts: true, comments: true, reports: false };
 
-const EMPTY_PAGE = { items: [], page: 1, pageSize: 5, totalPages: 1, totalItems: 0, loading: true, error: null };
+// Việc chờ theo trang duyệt (key khớp pendingStats). Khiếu nại chưa có API → không hiện.
+const PENDING_TYPES = [
+  { key: 'post', label: 'Bài viết chờ duyệt', icon: 'journal-text', href: '/admin/moderation?type=post' },
+  { key: 'report', label: 'Báo cáo chưa xử lý', icon: 'flag', href: '/admin/moderation?type=report' },
+  { key: 'recipe', label: 'Công thức chờ duyệt', icon: 'book-half', href: '/admin/recipes/verify' },
+  { key: 'ingredient', label: 'Nguyên liệu đề xuất', icon: 'basket', href: '/admin/ingredients/verify' },
+  { key: 'shop', label: 'Quán chờ xác minh', icon: 'shop', href: '/admin/shops/verify' },
+];
 
-const truncated = (value) => (
-  <span title={value || ''} style={{ display: 'block', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-    {value || '—'}
-  </span>
-);
+// Hàng đợi bài + báo cáo theo thời gian chờ (vòng tròn)
+const AGE = [
+  { key: 'over48', label: 'Quá 48 giờ', color: 'var(--ac-alert)' },
+  { key: 'from24to48', label: '24 – 48 giờ', color: 'var(--ac-warn-fg)' },
+  { key: 'under24', label: 'Dưới 24 giờ', color: 'var(--ac-moss)' },
+];
+
+const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const dayLabel = (iso, many) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return many ? `${d}/${m}` : WEEKDAY[new Date(y, m - 1, d).getDay()];
+};
+
+/** Hành động trong nhật ký → nhãn màu (Duyệt xanh · Từ chối đỏ · còn lại xám) */
+function actionTone(action) {
+  const a = String(action || '').toLowerCase();
+  if (a.includes('reject') || a.includes('lock') || a.includes('delete') || a.includes('remove') || a.includes('deactivat')) return 'bad';
+  if (a.includes('approve') || a.includes('accept') || a.includes('verif') || a.includes('activat') || a.includes('unlock') || a.includes('restore') || a.includes('created')) return 'ok';
+  return 'neutral';
+}
+
+/** Mức thay đổi so với kỳ trước: "▲ 7" / "▼ 3" / "không đổi" — màu theo tốt/xấu */
+function Delta({ metric }) {
+  const diff = (metric.value ?? 0) - (metric.previous ?? 0);
+  if (!diff) return <span className={s.flat}>không đổi</span>;
+  const good = (GOOD_WHEN_UP[metric.key] ?? true) === diff > 0;
+  return (
+    <span className={good ? s.up : s.down}>
+      <i className={`bi bi-caret-${diff > 0 ? 'up' : 'down'}-fill`} aria-hidden="true" />
+      {formatNumber(Math.abs(diff))}
+    </span>
+  );
+}
+
+/** Biểu đồ cột: bài viết mới và báo cáo theo ngày (CSS thuần, không thêm thư viện) */
+function DailyChart({ series }) {
+  const max = Math.max(1, ...series.flatMap((d) => [d.posts, d.reports]));
+  const many = series.length > 10;
+  const total = series.reduce((t, d) => ({ posts: t.posts + d.posts, reports: t.reports + d.reports }), { posts: 0, reports: 0 });
+  return (
+    <figure className={s.chart} aria-label={`Bài viết và báo cáo theo ngày: tổng ${total.posts} bài viết, ${total.reports} báo cáo`}>
+      <div className={s.bars}>
+        {series.map((d) => (
+          <div key={d.date} className={s.day} title={`${dayLabel(d.date, true)}: ${d.posts} bài viết · ${d.reports} báo cáo`}>
+            <span className={s.barPost} style={{ height: `${(d.posts / max) * 100}%` }} />
+            <span className={s.barReport} style={{ height: `${(d.reports / max) * 100}%` }} />
+          </div>
+        ))}
+      </div>
+      <div className={s.axis} aria-hidden="true">
+        {series.map((d, i) => (
+          <span key={d.date}>{!many || i % 5 === 0 || i === series.length - 1 ? dayLabel(d.date, many) : ''}</span>
+        ))}
+      </div>
+      <figcaption className={s.legend}>
+        <span><i className={s.dotPost} />Bài viết mới <b>{formatNumber(total.posts)}</b></span>
+        <span><i className={s.dotReport} />Báo cáo <b>{formatNumber(total.reports)}</b></span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Vòng tròn hàng đợi theo thời gian chờ */
+function AgeDonut({ age }) {
+  const values = AGE.map((a) => age?.[a.key] ?? 0);
+  const total = values.reduce((t, v) => t + v, 0);
+  const stops = AGE.map((a, i) => {
+    const from = values.slice(0, i).reduce((t, v) => t + v, 0) / (total || 1) * 100;
+    const to = from + values[i] / (total || 1) * 100;
+    return `${a.color} ${from}% ${to}%`;
+  }).join(', ');
+  return (
+    <div className={s.ageWrap}>
+      <div className={s.donut} style={{ background: total ? `conic-gradient(${stops})` : 'var(--ac-track)' }}
+        role="img" aria-label={AGE.map((a, i) => `${a.label}: ${values[i]}`).join(', ')}>
+        <div className={s.donutHole}><b>{formatNumber(total)}</b><span>việc</span></div>
+      </div>
+      <ul className={s.ageList}>
+        {AGE.map((a, i) => (
+          <li key={a.key}><i style={{ background: a.color }} />{a.label}<b>{formatNumber(values[i])}</b></li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export default function AdminDashboardPage() {
-  const toast = useToast();
   const { user, logout } = useAuth();
-
-  const [board, setBoard] = useState(null);
-  const [alerts, setAlerts] = useState(EMPTY_PAGE);
-  const [queue, setQueue] = useState(EMPTY_PAGE);
-  const [audit, setAudit] = useState(EMPTY_PAGE);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [range, setRange] = useState('7d');
+  const [board, setBoard] = useState({ status: 'loading', data: null, error: null });
+  const [audit, setAudit] = useState({ status: 'loading', items: [], error: null });
   const [reloadKey, setReloadKey] = useState(0);
-  const [alertsReloadKey, setAlertsReloadKey] = useState(0);
-  const [queueReloadKey, setQueueReloadKey] = useState(0);
-  const [auditReloadKey, setAuditReloadKey] = useState(0);
-  const [decision, setDecision] = useState(null);
-  const [actionError, setActionError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [auditKey, setAuditKey] = useState(0);
 
   const handleLogout = () => { logout(); window.location.assign('/'); };
 
-  // Page cầm dữ liệu. "Thử lại" → tăng reloadKey → effect chạy lại.
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
-
-    adminService.getDashboard()
-      .then((data) => {
-        if (!alive) return;
-        setBoard(data);
-      })
-      .catch((err) => { if (alive) setError(err); })
-      .finally(() => { if (alive) setLoading(false); });
-
+    setBoard((b) => ({ ...b, status: 'loading', error: null }));
+    adminService.getDashboard(range)
+      .then((data) => { if (alive) setBoard({ status: 'ready', data, error: null }); })
+      .catch((error) => { if (alive) setBoard({ status: 'error', data: null, error }); });
     return () => { alive = false; };
-  }, [reloadKey]);
+  }, [range, reloadKey]);
 
   useEffect(() => {
     let alive = true;
-    setAlerts((current) => ({ ...current, loading: true, error: null }));
-    adminService.getAlerts(alerts.page)
-      .then((data) => { if (alive) setAlerts({ ...data, loading: false, error: null }); })
-      .catch((err) => { if (alive) setAlerts((current) => ({ ...current, loading: false, error: err })); });
+    adminService.getAudit(1)
+      .then((data) => { if (alive) setAudit({ status: 'ready', items: data.items ?? [], error: null }); })
+      .catch((error) => { if (alive) setAudit({ status: 'error', items: [], error }); });
     return () => { alive = false; };
-  }, [alerts.page, alertsReloadKey]);
+  }, [auditKey]);
 
-  useEffect(() => {
-    let alive = true;
-    setQueue((current) => ({ ...current, loading: true, error: null }));
-    adminService.getQueue(queue.page)
-      .then((data) => { if (alive) setQueue({ ...data, loading: false, error: null }); })
-      .catch((err) => { if (alive) setQueue((current) => ({ ...current, loading: false, error: err })); });
-    return () => { alive = false; };
-  }, [queue.page, queueReloadKey]);
-
-  useEffect(() => {
-    let alive = true;
-    setAudit((current) => ({ ...current, loading: true, error: null }));
-    adminService.getAudit(audit.page)
-      .then((data) => { if (alive) setAudit({ ...data, loading: false, error: null }); })
-      .catch((err) => { if (alive) setAudit((current) => ({ ...current, loading: false, error: err })); });
-    return () => { alive = false; };
-  }, [audit.page, auditReloadKey]);
-
-  const retry = () => setReloadKey((k) => k + 1);
-  const pending = board?.pendingStats ?? {};
-  const community = board?.community ?? [];
-
-  const openDecision = (row, action) => {
-    setActionError('');
-    setDecision({ row, action });
-  };
-
-  const confirmDecision = async (note) => {
-    if (!decision || saving) return;
-    const { row, action } = decision;
-    setSaving(true);
-    setActionError('');
-    try {
-      await postModerationService.decidePost(row.id, action, note);
-      toast(action === 'approve' ? 'Đã duyệt bài viết.' : 'Đã từ chối bài viết; bài chuyển sang Đã xóa.');
-      setDecision(null);
-      retry();
-      setQueueReloadKey((key) => key + 1);
-      setAuditReloadKey((key) => key + 1);
-    } catch (err) {
-      setActionError(err.message || 'Không thể lưu quyết định. Vui lòng thử lại.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // 3 · Cột hàng đợi — render gọi handler của page, kit vẫn không gọi API
-  const queueColumns = [
-    { key: 'excerpt', header: 'Nội dung', primary: true, width: 250, render: (row) => truncated(row.excerpt) },
-    { key: 'entity', header: 'Loại', width: 95, render: (row) => ENTITY_LABEL[row.entity] ?? row.entity },
-    {
-      key: 'author',
-      header: 'Tác giả',
-      width: 150,
-      render: (row) => (
-        <span className="d-inline-flex align-items-center gap-2">
-          <Avatar name={row.author} size={26} />
-          {truncated(row.author)}
-        </span>
-      ),
-    },
-    { key: 'reason', header: 'Lý do vào hàng đợi', width: 155, render: (row) => truncated(row.reason) },
-    { key: 'createdAt', header: 'Ngày được gửi', width: 145, render: (row) => formatDateTime(row.createdAt) },
-    {
-      key: 'actions',
-      header: '',
-      width: 190,
-      align: 'right',
-      render: (row) => row.entity === 'post' ? (
-        <>
-          <Button size="sm" icon="check-lg" disabled={saving} onClick={() => openDecision(row, 'approve')}>Duyệt</Button>
-          <Button size="sm" variant="alert" icon="x-lg" disabled={saving} onClick={() => openDecision(row, 'reject')}>Từ chối</Button>
-        </>
-      ) : null,
-    },
-  ];
-
-  const auditColumns = [
-    { key: 'admin', header: 'Admin', width: 145, render: (row) => truncated(row.admin) },
-    { key: 'action', header: 'Hành động', width: 190, render: (row) => truncated(describeAuditAction(row.action, row.targetType)) },
-    { key: 'targetEmail', header: 'Đối tượng', width: 190, render: (row) => truncated(row.targetEmail) },
-    { key: 'targetType', header: 'Loại', width: 130 },
-    { key: 'at', header: 'Thời gian', width: 145, render: (row) => formatDateTime(row.at) },
-    { key: 'reason', header: 'Lý do', width: 210, render: (row) => truncated(row.reason) },
-  ];
-
-  // 4 · Xu hướng: ↑↓ % so kỳ trước, màu theo việc tăng đó là tốt hay xấu
-  const trendHint = (metric) => {
-    const up = metric.trend >= 0;
-    const good = (GOOD_WHEN_UP[metric.key] ?? true) === up;
-    return (
-      <span className={good ? 'text-success' : 'text-danger'}>
-        <i className={`bi bi-arrow-${up ? 'up' : 'down'}-short`} aria-hidden="true" />
-        {`${Math.abs(metric.trend)}% so kỳ trước`}
-      </span>
-    );
-  };
+  const loading = board.status === 'loading';
+  const data = board.data;
+  const pending = data?.pendingStats ?? {};
+  const community = data?.community ?? [];
+  const rangeInfo = RANGES.find((r) => r.value === range);
+  const metric = (key) => community.find((c) => c.key === key);
 
   return (
-    <AdminLayout
-      activeKey="dashboard"
-      title="Bảng điều khiển"
-      user={user}
-      onLogout={handleLogout}
-    >
-      <PageHeader
-        title="Bảng điều khiển"
-        description="Việc cần xử lý trước, cảnh báo ngay sau — số liệu cộng đồng ở dưới cùng."
-      />
-
-      {error && (
-        <Notice tone="alert" title="Không tải được số liệu quản trị" action={{ label: 'Thử lại', onClick: retry }}>
-          {error.message || 'Vui lòng kiểm tra kết nối rồi thử lại.'}
-        </Notice>
-      )}
-      {!error && <>
-          {/* 1 · VIỆC CẦN XỬ LÝ — 4 ô, bấm là mở đúng danh sách */}
-          <div className="row g-3 mb-4" aria-busy={loading || undefined}>
-            {PENDING_CARDS.map((card) => {
-              const value = pending[card.key] ?? 0;
-              return (
-                <div key={card.key} className="col-12 col-md-6 col-xl-3">
-                  <StatCard
-                    label={card.label}
-                    value={value}
-                    unit="mục"
-                    icon={card.icon}
-                    tone={value > 0 ? 'warn' : 'ok'}
-                    hint={card.key === 'stale' ? `lâu nhất: ${pending.staleOldestDays ?? 0} ngày` : card.hint}
-                    href={card.href}
-                    loading={loading}
-                  />
-                </div>
-              );
-            })}
+    <AdminLayout activeKey="dashboard" title="Tổng quan" user={user} onLogout={handleLogout}>
+      <div className={s.page}>
+        <header className={s.head}>
+          <div>
+            <h1 className={s.title}>Tổng quan</h1>
+            <p className={s.desc}>Tình hình cộng đồng và hàng đợi kiểm duyệt.</p>
           </div>
-          </>}
+          <div className={s.range} role="group" aria-label="Khoảng thời gian">
+            {RANGES.map((r) => (
+              <button key={r.value} type="button" className={r.value === range ? s.rangeOn : undefined}
+                aria-pressed={r.value === range} onClick={() => setRange(r.value)}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </header>
 
-          {/* 2 · CẢNH BÁO — nổi bật, nằm trên mọi số liệu cộng đồng */}
-          <Panel className="mb-4" title="Cảnh báo" icon="bell-fill" action={(
-            <Button as="a" href="/admin/moderation?type=report" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">
-              Xem tất cả
-            </Button>
-          )}>
-            {alerts.error ? (
-              <Notice tone="alert" title="Không tải được cảnh báo" action={{ label: 'Thử lại', onClick: () => setAlertsReloadKey((key) => key + 1) }}>
-                {alerts.error.message || 'Vui lòng thử lại sau.'}
-              </Notice>
-            ) : alerts.loading ? (
-              <Skeleton lines={4} />
-            ) : alerts.items.length === 0 ? (
-              <EmptyState icon="check2-circle" title="Không có cảnh báo nào">
-                Không có mục nào vượt ngưỡng báo cáo hay tăng bất thường.
-              </EmptyState>
-            ) : (
-              <div className="d-flex flex-column gap-3">
-                {alerts.items.map((alert) => (
-                  <Notice
-                    key={alert.id}
-                    tone={alert.tone}
-                    title={alert.title}
-                  />
-                ))}
-              </div>
-            )}
-            {!alerts.loading && !alerts.error && <Pagination page={alerts.page} totalPages={alerts.totalPages}
-              totalItems={alerts.totalItems} pageSize={alerts.pageSize} onChange={(page) => setAlerts((current) => ({ ...current, page }))} />}
-          </Panel>
-
-          {/* 3 · HÀNG ĐỢI KIỂM DUYỆT */}
-          <Panel
-            className="mb-4"
-            flush
-            title="Hàng đợi kiểm duyệt"
-            icon="clipboard2-check"
-            action={(
-              <Button as="a" href="/admin/moderation" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">
-                Xem tất cả
-              </Button>
-            )}
-          >
-            {queue.error ? (
-              <div className="p-3"><Notice tone="alert" title="Không tải được hàng đợi" action={{ label: 'Thử lại', onClick: () => setQueueReloadKey((key) => key + 1) }}>
-                {queue.error.message || 'Vui lòng thử lại sau.'}
-              </Notice></div>
-            ) : (
-              <DataTable
-                caption="Hàng đợi kiểm duyệt: nội dung, loại, tác giả, lý do, ngày được gửi"
-                columns={queueColumns}
-                rows={queue.items}
-                rowKey={(row) => `${row.entity}-${row.id}`}
-                loading={queue.loading}
-                empty={{ icon: 'check2-circle', title: 'Đã xử lý hết', children: 'Không còn mục nào trong hàng đợi.' }}
-                footer={!queue.loading && <Pagination page={queue.page} totalPages={queue.totalPages} totalItems={queue.totalItems}
-                  pageSize={queue.pageSize} onChange={(page) => setQueue((current) => ({ ...current, page }))} />}
+        {board.status === 'error' ? (
+          <Notice tone="alert" title="Không tải được số liệu quản trị" action={{ label: 'Thử lại', onClick: () => setReloadKey((k) => k + 1) }}>
+            {board.error?.message || 'Vui lòng kiểm tra kết nối rồi thử lại.'}
+          </Notice>
+        ) : (
+          <>
+            {/* 1 · Chỉ số cộng đồng của kỳ đang chọn + ô việc đang chờ (bấm → việc quá hạn) */}
+            <div className={s.kpis} aria-busy={loading || undefined}>
+              {KPIS.map((key) => {
+                const m = metric(key);
+                return (
+                  <StatCard key={key} loading={loading} label={m?.label ?? ''} value={m?.value ?? 0} unit={m?.unit}
+                    hint={m && <><Delta metric={m} /> <span className={s.vs}>so với {rangeInfo.previous}</span></>} />
+                );
+              })}
+              <StatCard
+                className={s.pendingCard}
+                loading={loading}
+                label="Việc kiểm duyệt đang chờ"
+                value={pending.total ?? 0}
+                unit="việc"
+                icon="hourglass-split"
+                tone={pending.stale > 0 ? 'bad' : pending.total > 0 ? 'warn' : 'ok'}
+                hint={pending.stale > 0 ? `${formatNumber(pending.stale)} việc quá 48 giờ, lâu nhất ${pending.staleOldestDays} ngày` : 'Không có việc quá 48 giờ'}
+                href={pending.stale > 0 ? '/admin/moderation?stale=1' : '/admin/moderation'}
               />
+            </div>
+
+            {/* 2 · Biểu đồ theo ngày + hàng đợi theo thời gian chờ */}
+            <div className={s.row}>
+              <Panel className={s.fill} title="Bài viết và báo cáo theo ngày" icon="bar-chart">
+                {loading ? <Skeleton shape="block" height={190} /> : <DailyChart series={data.series ?? []} />}
+              </Panel>
+              <Panel title="Việc đang chờ" icon="hourglass-split">
+                {loading ? <Skeleton lines={6} /> : (
+                  <>
+                    <p className={s.note}>Bài viết và báo cáo, chia theo thời gian đã chờ</p>
+                    <AgeDonut age={pending.age} />
+                    <ul className={s.types}>
+                      {PENDING_TYPES.map((t) => (
+                        <li key={t.key}>
+                          <a href={t.href}>
+                            <i className={`bi bi-${t.icon}`} aria-hidden="true" />
+                            <span>{t.label}</span>
+                            <b className={pending[t.key] ? s.countOn : s.countOff}>{formatNumber(pending[t.key] ?? 0)}</b>
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                    {pending.stale > 0 && (
+                      <Button as="a" href="/admin/moderation?stale=1" size="sm" icon="lightning-charge" block>
+                        Xử lý {formatNumber(pending.stale)} việc quá hạn
+                      </Button>
+                    )}
+                  </>
+                )}
+              </Panel>
+            </div>
+          </>
+        )}
+
+        {/* 3 · Bài bị báo cáo nhiều nhất + hoạt động quản trị */}
+        <div className={s.row2}>
+          {board.status !== 'error' && (
+            <Panel flush title="Bài bị báo cáo nhiều nhất" icon="flag" action={(
+              <Button as="a" href="/admin/moderation?type=report" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">Xem tất cả</Button>
+            )}>
+              {loading ? <div className={s.pad}><Skeleton lines={5} /></div> : (data.topReported ?? []).length === 0 ? (
+                <EmptyState icon="check2-circle" title="Không có bài nào bị báo cáo">Mọi báo cáo đã được xử lý.</EmptyState>
+              ) : (
+                <ul className={s.list}>
+                  {data.topReported.map((p, i) => (
+                    <li key={p.postId}>
+                      <span className={s.ellipsis} title={p.title}>{p.title}</span>
+                      <span className={i === 0 ? s.tagBad : s.tagWarn}>{p.reports} báo cáo</span>
+                      <Button as="a" href="/admin/moderation?type=report" size="sm" variant="outline">Xem</Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          )}
+
+          <Panel flush title="Hoạt động quản trị gần đây" icon="clock-history">
+            {audit.status === 'error' ? (
+              <div className={s.pad}>
+                <Notice tone="alert" title="Không tải được nhật ký" action={{ label: 'Thử lại', onClick: () => setAuditKey((k) => k + 1) }}>
+                  {audit.error?.message || 'Vui lòng thử lại sau.'}
+                </Notice>
+              </div>
+            ) : audit.status === 'loading' ? <div className={s.pad}><Skeleton lines={5} /></div> : audit.items.length === 0 ? (
+              <EmptyState icon="inbox" title="Chưa có thao tác nào" />
+            ) : (
+              <ul className={s.list}>
+                {audit.items.map((a) => (
+                  <li key={a.id}>
+                    <span className={s.ellipsis}>
+                      <b>{a.admin}</b>{' '}
+                      <span className={s[`tag${actionTone(a.action) === 'ok' ? 'Ok' : actionTone(a.action) === 'bad' ? 'Bad' : 'Neutral'}`]}>
+                        {describeAuditAction(a.action, a.targetType)}
+                      </span>
+                      {a.targetEmail && <span className={s.muted}> · {a.targetEmail}</span>}
+                      {a.reason && <span className={s.muted} title={a.reason}> · “{a.reason}”</span>}
+                    </span>
+                    <time className={s.time} dateTime={a.at}>{formatDateTime(a.at)}</time>
+                  </li>
+                ))}
+              </ul>
             )}
           </Panel>
-
-          {/* 4 · TÌNH HÌNH CỘNG ĐỒNG — chỉ số gọn, KHÔNG biểu đồ */}
-          {!error && <Panel className="mb-4" title="Hôm nay" icon="graph-up-arrow">
-            {loading ? (
-              <div className="row g-3">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <div key={`sk-${i}`} className="col-6 col-lg-4 col-xl">
-                    <Skeleton shape="block" height={104} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="row g-3">
-                {community.map((metric) => (
-                  <div key={metric.key} className="col-6 col-lg-4 col-xl">
-                    <StatCard label={metric.label} value={metric.value} unit={metric.unit} hint={trendHint(metric)} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>}
-
-          {/* 5 · HOẠT ĐỘNG QUẢN TRỊ GẦN ĐÂY */}
-          <Panel
-            flush
-            title="Hoạt động quản trị gần đây"
-            icon="clock-history"
-            action={(
-              <Button as="a" href="/admin/audit" variant="subtle" size="sm" icon="arrow-right" iconPosition="end">
-                Xem tất cả
-              </Button>
-            )}
-          >
-            {audit.error ? (
-              <div className="p-3"><Notice tone="alert" title="Không tải được nhật ký" action={{ label: 'Thử lại', onClick: () => setAuditReloadKey((key) => key + 1) }}>
-                {audit.error.message || 'Vui lòng thử lại sau.'}
-              </Notice></div>
-            ) : (
-              <DataTable
-                caption="Nhật ký thao tác quản trị gần đây"
-                columns={auditColumns}
-                rows={audit.items}
-                rowKey="id"
-                loading={audit.loading}
-                empty={{ icon: 'inbox', title: 'Chưa có thao tác nào' }}
-                footer={!audit.loading && <Pagination page={audit.page} totalPages={audit.totalPages} totalItems={audit.totalItems}
-                  pageSize={audit.pageSize} onChange={(page) => setAudit((current) => ({ ...current, page }))} />}
-              />
-            )}
-          </Panel>
-      <ConfirmDialog
-        open={!!decision}
-        title={decision?.action === 'approve' ? 'Duyệt bài viết?' : 'Từ chối bài viết?'}
-        message={<>Quyết định sẽ được lưu vào hệ thống và ghi vào nhật ký quản trị.{actionError && <><br /><strong role="alert" className="text-danger">Chưa lưu được quyết định: {actionError}</strong></>}</>}
-        confirmLabel={decision?.action === 'approve' ? 'Duyệt bài' : 'Từ chối'}
-        tone={decision?.action === 'approve' ? 'primary' : 'alert'}
-        reason={decision?.action === 'approve' ? false : {
-          label: 'Lý do từ chối',
-          placeholder: 'Nhập lý do xử lý',
-          required: true,
-        }}
-        loading={saving}
-        onConfirm={confirmDecision}
-        onCancel={() => { if (!saving) setDecision(null); }}
-      />
+        </div>
+      </div>
     </AdminLayout>
   );
 }

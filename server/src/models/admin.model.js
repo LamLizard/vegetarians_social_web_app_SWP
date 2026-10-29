@@ -1,13 +1,32 @@
 const pool = require('../config/db');
+const ingredientProposalModel = require('./ingredientProposal.model');
 const PAGE_SIZE = 5;
+
+// Khoi's code 30/10: khoảng thời gian của trang Tổng quan (Hôm nay · 7 ngày · 30 ngày)
+//   days = độ dài kỳ để so với kỳ ngay trước đó · chartDays = số cột của biểu đồ theo ngày
+const RANGES = {
+  today: { days: 1, chartDays: 7 },
+  '7d': { days: 7, chartDays: 7 },
+  '30d': { days: 30, chartDays: 30 },
+};
+const TZ = 'Asia/Ho_Chi_Minh';
 
 function trendPercent(current, previous) {
   if (previous === 0) return current === 0 ? 0 : 100;
   return Math.round(((current - previous) / previous) * 100);
 }
 
-async function getDashboard() {
-  const [statsResult, communityResult] = await Promise.all([
+/**
+ * @param {'today'|'7d'|'30d'} [range='7d']  Khoi's code 30/10: kỳ của chỉ số cộng đồng (so với kỳ trước cùng độ dài)
+ * @returns {{ range, pendingStats, community, series, topReported }}
+ *   pendingStats thêm recipe · ingredient · shop · total · age{under24, from24to48, over48} (age chỉ tính bài + báo cáo)
+ *   series = [{ date: 'YYYY-MM-DD', posts, reports }] theo ngày giờ VN · topReported = 5 bài có nhiều báo cáo chờ nhất
+ */
+async function getDashboard(range = '7d') {
+  const { days, chartDays } = RANGES[range] ?? RANGES['7d'];
+  const span = `${days} days`;
+  const twice = `${days * 2} days`;
+  const [statsResult, communityResult, extraResult, seriesResult, topResult, ingredientPending] = await Promise.all([
     pool.query(`
       WITH pending_items AS (
         SELECT created_at FROM post WHERE status = 'pending'
@@ -28,26 +47,62 @@ async function getDashboard() {
     `),
     pool.query(`
       SELECT
-        (SELECT count(*)::int FROM account WHERE created_at >= NOW() - INTERVAL '7 days') AS "newMembers",
-        (SELECT count(*)::int FROM account WHERE created_at >= NOW() - INTERVAL '14 days'
-          AND created_at < NOW() - INTERVAL '7 days') AS "newMembersPrevious",
-        (SELECT count(*)::int FROM account WHERE last_login_at >= NOW() - INTERVAL '7 days') AS "activeUsers",
-        (SELECT count(*)::int FROM account WHERE last_login_at >= NOW() - INTERVAL '14 days'
-          AND last_login_at < NOW() - INTERVAL '7 days') AS "activeUsersPrevious",
-        (SELECT count(*)::int FROM post WHERE created_at >= NOW() - INTERVAL '7 days') AS "newPosts",
-        (SELECT count(*)::int FROM post WHERE created_at >= NOW() - INTERVAL '14 days'
-          AND created_at < NOW() - INTERVAL '7 days') AS "newPostsPrevious",
-        (SELECT count(*)::int FROM comment WHERE created_at >= NOW() - INTERVAL '7 days') AS comments,
-        (SELECT count(*)::int FROM comment WHERE created_at >= NOW() - INTERVAL '14 days'
-          AND created_at < NOW() - INTERVAL '7 days') AS "commentsPrevious",
-        (SELECT count(*)::int FROM report WHERE created_at >= NOW() - INTERVAL '7 days') AS reports,
-        (SELECT count(*)::int FROM report WHERE created_at >= NOW() - INTERVAL '14 days'
-          AND created_at < NOW() - INTERVAL '7 days') AS "reportsPrevious"
+        (SELECT count(*)::int FROM account WHERE created_at >= NOW() - $1::interval) AS "newMembers",
+        (SELECT count(*)::int FROM account WHERE created_at >= NOW() - $2::interval
+          AND created_at < NOW() - $1::interval) AS "newMembersPrevious",
+        (SELECT count(*)::int FROM account WHERE last_login_at >= NOW() - $1::interval) AS "activeUsers",
+        (SELECT count(*)::int FROM account WHERE last_login_at >= NOW() - $2::interval
+          AND last_login_at < NOW() - $1::interval) AS "activeUsersPrevious",
+        (SELECT count(*)::int FROM post WHERE created_at >= NOW() - $1::interval) AS "newPosts",
+        (SELECT count(*)::int FROM post WHERE created_at >= NOW() - $2::interval
+          AND created_at < NOW() - $1::interval) AS "newPostsPrevious",
+        (SELECT count(*)::int FROM comment WHERE created_at >= NOW() - $1::interval) AS comments,
+        (SELECT count(*)::int FROM comment WHERE created_at >= NOW() - $2::interval
+          AND created_at < NOW() - $1::interval) AS "commentsPrevious",
+        (SELECT count(*)::int FROM report WHERE created_at >= NOW() - $1::interval) AS reports,
+        (SELECT count(*)::int FROM report WHERE created_at >= NOW() - $2::interval
+          AND created_at < NOW() - $1::interval) AS "reportsPrevious"
+    `, [span, twice]),
+    // Khoi's code 30/10: việc chờ ở các trang duyệt khác + chia hàng đợi (bài + báo cáo) theo thời gian chờ
+    pool.query(`
+      WITH pending_items AS (
+        SELECT created_at FROM post WHERE status = 'pending'
+        UNION ALL
+        SELECT created_at FROM report WHERE status = 'pending'
+      )
+      SELECT
+        (SELECT count(*)::int FROM recipe WHERE status = 'pending') AS recipe,
+        (SELECT count(*)::int FROM shop WHERE verification_status::text = 'pending') AS shop,
+        (SELECT count(*)::int FROM pending_items WHERE created_at >= NOW() - INTERVAL '24 hours') AS under24,
+        (SELECT count(*)::int FROM pending_items WHERE created_at < NOW() - INTERVAL '24 hours'
+          AND created_at >= NOW() - INTERVAL '48 hours') AS "from24to48"
     `),
+    // Khoi's code 30/10: bài viết mới và báo cáo mới theo từng ngày (giờ Việt Nam), đủ ngày kể cả ngày bằng 0
+    pool.query(`
+      WITH d AS (
+        SELECT generate_series((NOW() AT TIME ZONE '${TZ}')::date - ($1::int - 1), (NOW() AT TIME ZONE '${TZ}')::date, '1 day')::date AS day
+      )
+      SELECT to_char(d.day, 'YYYY-MM-DD') AS date,
+        (SELECT count(*)::int FROM post p WHERE (p.created_at AT TIME ZONE '${TZ}')::date = d.day) AS posts,
+        (SELECT count(*)::int FROM report r WHERE (r.created_at AT TIME ZONE '${TZ}')::date = d.day) AS reports
+      FROM d ORDER BY d.day
+    `, [chartDays]),
+    // Khoi's code 30/10: 5 bài có nhiều báo cáo đang chờ nhất (thay khối 5 cảnh báo đỏ)
+    pool.query(`
+      SELECT r.target_id::text AS "postId", COALESCE(p.title, 'Bài #' || r.target_id::text || ' không còn tồn tại') AS title,
+        count(*)::int AS reports, max(r.created_at) AS "lastReportAt"
+      FROM report r LEFT JOIN post p ON p.post_id = r.target_id
+      WHERE r.target_type = 'post' AND r.status = 'pending'
+      GROUP BY r.target_id, p.title
+      ORDER BY reports DESC, "lastReportAt" DESC
+      LIMIT 5
+    `),
+    ingredientProposalModel.listPending().then((rows) => rows.length),
   ]);
 
   const stats = statsResult.rows[0];
   const current = communityResult.rows[0];
+  const extra = extraResult.rows[0];
   const community = [
     ['newMembers', 'Thành viên mới', 'người'],
     ['activeUsers', 'Đang hoạt động', 'người'],
@@ -59,18 +114,28 @@ async function getDashboard() {
     label,
     value: current[key],
     unit,
+    previous: current[`${key}Previous`],
     trend: trendPercent(current[key], current[`${key}Previous`]),
   }));
 
   return {
+    range: RANGES[range] ? range : '7d',
     pendingStats: {
       post: stats.post,
       report: stats.report,
       appeals: 0,
       stale: stats.stale,
       staleOldestDays: stats.staleOldestDays,
+      // Khoi's code 30/10
+      recipe: extra.recipe,
+      ingredient: ingredientPending,
+      shop: extra.shop,
+      total: stats.post + stats.report + extra.recipe + ingredientPending + extra.shop,
+      age: { under24: extra.under24, from24to48: extra.from24to48, over48: stats.stale },
     },
     community,
+    series: seriesResult.rows,
+    topReported: topResult.rows,
   };
 }
 
@@ -169,4 +234,4 @@ async function getAudit(requestedPage) {
   return { items: rows, ...page };
 }
 
-module.exports = { getDashboard, getAlerts, getQueue, getAudit };
+module.exports = { RANGES, getDashboard, getAlerts, getQueue, getAudit };
