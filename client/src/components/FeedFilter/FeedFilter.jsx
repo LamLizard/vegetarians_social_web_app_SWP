@@ -24,7 +24,7 @@ export default function FeedFilter({ options = [], value = null, onChange }) {
   );
 
   return (
-    <div className={s.tabs} role="group" aria-label="Lọc theo danh mục">
+    <div className={s.tabs} role="group" aria-label="Lọc theo chủ đề">
       {tab(null, 'Tất cả')}
       {inline.map((o) => tab(o.id, o.name))}
       {rest.length > 0 && (

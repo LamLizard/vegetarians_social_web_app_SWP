@@ -1,6 +1,7 @@
 // Trang Bảng tin: đọc request → KIỂM TRA dữ liệu → gọi post.model → trả JSON.
 // Controller không viết SQL. Câu lỗi trả về là tiếng Việt vì FE hiện nguyên văn lên UI.
 const postModel = require('../models/post.model');
+const { SEARCH_SCOPES } = require('../utils/postSearch'); // Khoi's code 28/10
 // Khoi's code: Kiểm tra dữ liệu form Đăng bài (Sprint 2).
 const { parsePostInput, PostInputError } = require('../utils/postInput');
 // Khoi's code: kiểm tra video YouTube có phát được trên trang khác không (15/10/2026)
@@ -58,15 +59,18 @@ async function getPreview(req, res) {
   res.json({ items });
 }
 
-/** GET /api/posts?cursor=&limit=&q=&categoryId= — thành viên */
+/** GET /api/posts?cursor=&limit=&q=&in=&categoryId= — thành viên. in = all · title · author · topic (Khoi's code 28/10; topic = chủ đề/danh mục) */
 async function getFeed(req, res) {
   const cursor = req.query.cursor ? parseCursor(req.query.cursor) : null;
   const limit = parseLimit(req.query.limit);
   const q = String(req.query.q ?? '').trim();
   if (q.length > 100) throw new PostError(400, 'Từ khoá tối đa 100 ký tự.');
+  // Khoi's code 28/10: phạm vi tìm — bỏ trống = Tất cả
+  const scope = String(req.query.in ?? 'all');
+  if (!SEARCH_SCOPES.includes(scope)) throw new PostError(400, 'Phạm vi tìm kiếm không hợp lệ.');
   // Khoi's code: lọc theo danh mục (Sprint 2) — bỏ trống = tất cả
   const categoryId = req.query.categoryId ? parseId(req.query.categoryId, 'Mã danh mục') : null;
-  res.json(await postModel.findFeed({ viewerId: viewerId(req), cursor, q, categoryId, limit }));
+  res.json(await postModel.findFeed({ viewerId: viewerId(req), cursor, q, scope, categoryId, limit }));
 }
 
 /** POST /api/posts/:id/vote — toggle */

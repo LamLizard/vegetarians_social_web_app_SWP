@@ -42,6 +42,16 @@ import styles from './PostFeedPage.module.css';
 /** Đọc 1 tham số trên URL lúc mở trang (?q=…, ?compose=1) */
 const initialParam = (key) => new URLSearchParams(window.location.search).get(key)?.slice(0, 100) ?? '';
 
+// Khoi's code 28/10: phạm vi tìm trên thanh trên (server: ?in=, xem server/src/utils/postSearch.js). Tìm không phân biệt dấu.
+const SEARCH_SCOPES = [
+  { value: 'all', label: 'Tất cả', icon: 'grid', placeholder: 'Tìm bài viết, tác giả hoặc chủ đề…', result: 'Bài có tiêu đề, tác giả hoặc chủ đề khớp' },
+  { value: 'title', label: 'Tiêu đề', icon: 'card-heading', hint: 'Tiêu đề bài viết', placeholder: 'Tìm theo tiêu đề bài viết…', result: 'Bài có tiêu đề chứa' },
+  { value: 'author', label: 'Tác giả', icon: 'person', hint: 'Tên người đăng', placeholder: 'Tìm theo tên tác giả…', result: 'Bài của tác giả có tên chứa' },
+  // 29/10: bỏ Hashtag (DB chưa có) → Chủ đề = danh mục gắn cho bài
+  { value: 'topic', label: 'Chủ đề', icon: 'bookmark', hint: 'Ví dụ: Kinh nghiệm, Món chính', placeholder: 'Tìm theo chủ đề, ví dụ: kinh nghiệm', result: 'Bài thuộc chủ đề có tên chứa' },
+];
+const scopeOf = (v) => SEARCH_SCOPES.find((o) => o.value === v) ?? SEARCH_SCOPES[0];
+
 // Người dùng tắt hiệu ứng trong hệ điều hành → thẻ bài hiện ngay, không mờ dần
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -65,6 +75,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   // Khoi's code: trang khác (vd Tạo công thức) chuyển về Bảng tin kèm ?q=… để tìm luôn
   const [searchText, setSearchText] = useState(() => (isGuest ? '' : initialParam('q'))); // đang gõ
   const [query, setQuery] = useState(() => (isGuest ? '' : initialParam('q')));           // đã bấm Enter
+  const [scope, setScope] = useState(() => scopeOf(initialParam('in')).value); // Khoi's code 28/10: phạm vi tìm (?in=)
+  const searchScope = query ? scope : 'all'; // chưa tìm thì đổi phạm vi không cần tải lại bảng tin
   const [categoryId, setCategoryId] = useState(null); // Khoi's code: lọc theo danh mục (null = Tất cả)
 
   const [opened, setOpened] = useState(null);       // { id, toComments }
@@ -101,7 +113,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   // Khoi's code: bấm "+ Đăng bài" ở trang khác → về Bảng tin với ?compose=1 → mở hộp Đăng bài, rồi xoá tham số khỏi URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (!params.has('compose') && !params.has('q')) return;
+    if (!params.has('compose') && !params.has('q') && !params.has('in')) return;
     if (params.get('compose') === '1' && !isGuest) setCreateOpen(true);
     window.history.replaceState(null, '', window.location.pathname);
   }, [isGuest]);
@@ -118,7 +130,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     setStatus('loading');
     (async () => {
       try {
-        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query, categoryId });
+        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query, scope: searchScope, categoryId });
         if (ignore) return;
         setItems(res.items);
         setNextCursor(isGuest ? null : res.nextCursor ?? null);
@@ -130,14 +142,14 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       }
     })();
     return () => { ignore = true; };
-  }, [isGuest, query, categoryId, reloadKey]);
+  }, [isGuest, query, searchScope, categoryId, reloadKey]);
 
   // ---------- Lướt vô hạn ----------
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const res = await postService.getFeed({ cursor: nextCursor, q: query, categoryId });
+      const res = await postService.getFeed({ cursor: nextCursor, q: query, scope: searchScope, categoryId });
       setItems((list) => [...list, ...res.items]);
       setNextCursor(res.nextCursor ?? null);
     } catch (err) {
@@ -145,7 +157,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     } finally {
       setLoadingMore(false);
     }
-  }, [nextCursor, loadingMore, query, categoryId, toast]);
+  }, [nextCursor, loadingMore, query, searchScope, categoryId, toast]);
 
   const sentinelRef = useRef(null);
   useEffect(() => {
@@ -197,6 +209,12 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     if (isGuest) { requireLogin(); return; }
     setQuery(value);
   };
+  // Khoi's code 28/10: đổi phạm vi khi đang có kết quả → tìm lại ngay theo phạm vi mới
+  const changeScope = setScope;
+  // Thẻ bài hiện chủ đề dạng "#Món chính" → gõ "#…" ở Tất cả cũng là tìm chủ đề (giống server)
+  const topicQuery = searchScope === 'topic' || (searchScope === 'all' && query.startsWith('#'));
+  const scopeInfo = scopeOf(topicQuery ? 'topic' : searchScope);
+  const shownQuery = topicQuery ? query.replace(/^#+/, '').trim() : query;
 
   const openedPost = opened && items.find((p) => p.id === opened.id);
 
@@ -218,6 +236,10 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
           onSearch={(value) => (value ? search(value) : clearSearch())}
           onOpenMenu={openMenu}
           onLogin={isGuest ? onLogin : undefined}
+          scopes={SEARCH_SCOPES}
+          scope={scope}
+          onScopeChange={changeScope}
+          placeholder={scopeOf(scope).placeholder}
         />
       )}
     >
@@ -247,7 +269,9 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
           {query && status !== 'error' && (
             <div className={styles.searchBar}>
-              <span>Bài có tiêu đề chứa <b>“{query}”</b></span>
+              <span>
+                {scopeInfo.result} <b>“{shownQuery}”</b>
+              </span>
               <Button size="sm" variant="subtle" icon="x-lg" onClick={clearSearch}>Xoá tìm kiếm</Button>
             </div>
           )}
@@ -267,7 +291,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
           {status === 'ready' && items.length === 0 && (
             query || categoryId
-              ? <EmptyState icon="search" title="Không tìm thấy bài viết nào">{query ? 'Thử từ khoá khác, ví dụ “canh” hoặc “chè”.' : 'Danh mục này chưa có bài nào. Chọn “Tất cả” để xem mọi bài.'}</EmptyState>
+              ? <EmptyState icon="search" title="Không tìm thấy bài viết nào">{query ? (topicQuery ? 'Không có chủ đề nào khớp. Thử “kinh nghiệm”, “món chính” hoặc chọn “Tất cả”.' : 'Thử từ khoá khác, ví dụ “canh” hoặc “chè”, hoặc đổi phạm vi tìm.') : 'Chủ đề này chưa có bài nào. Chọn “Tất cả” để xem mọi bài.'}</EmptyState>
               : <EmptyState icon="flower3" title="Chưa có bài viết nào">Bài mới sẽ hiện ở đây sau khi được Admin duyệt.</EmptyState>
           )}
 

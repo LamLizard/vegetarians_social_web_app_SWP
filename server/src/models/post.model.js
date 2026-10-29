@@ -7,6 +7,7 @@
 //  - Feed thành viên: bài mới ĐĂNG nhất trước = published_at (lúc Admin duyệt), không phải created_at.
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
+const { buildSearch, searchWhere } = require('../utils/postSearch'); // Khoi's code 28/10: tìm theo phạm vi, không dấu
 // Tung's code: Điểm nối Bảng tin của Khôi với module gom báo cáo theo case.
 const { getOrCreatePendingCase } = require('./reportCase.model');
 
@@ -115,20 +116,21 @@ const SORT_KEY = `(extract(epoch FROM ${PUBLISHED}) * 1000000)::bigint`;
  * @param {{ time: string, id: string } | null} cursor
  */
 // Khoi's code: categoryId (Sprint 2) — lọc bài có gắn danh mục đó (hàng nút lọc trên Bảng tin)
-async function findFeed({ viewerId, cursor = null, q = '', categoryId = null, limit = 10 }) {
-  const keyword = q ? `%${q.replace(/[\\%_]/g, '\\$&')}%` : null; // gõ "%" hay "_" không bị hiểu là ký tự đại diện
+// Khoi's code 28/10: scope = phạm vi tìm (all · title · author · topic), không phân biệt dấu — xem utils/postSearch.js
+async function findFeed({ viewerId, cursor = null, q = '', scope = 'all', categoryId = null, limit = 10 }) {
+  const { titleLike, authorLike, topicLike } = buildSearch(q, scope);
   const { rows } = await pool.query(`
     SELECT ${POST_FIELDS}, ${SORT_KEY}::text AS "sortKey"
     ${FROM_POST}
     WHERE ${VISIBLE}
       AND ($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))
-      AND ($4::text IS NULL OR p.title ILIKE $4::text)
+      AND ${searchWhere(4, 7, 8)}
       AND ($6::bigint IS NULL OR EXISTS (
         SELECT 1 FROM post_category pc WHERE pc.post_id = p.post_id AND pc.category_id = $6::bigint
       ))
     ORDER BY ${PUBLISHED} DESC, p.post_id DESC
     LIMIT $5
-  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, keyword, limit + 1, categoryId]);
+  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, titleLike, limit + 1, categoryId, authorLike, topicLike]);
   const items = rows.slice(0, limit).map(({ sortKey, ...post }) => post); // sortKey chỉ dùng làm cursor
   const last = rows[limit - 1];
   return { items, nextCursor: rows.length > limit ? `${last.sortKey}_${last.id}` : null };

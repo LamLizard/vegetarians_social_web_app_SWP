@@ -1,6 +1,6 @@
 // Khoi's code: Hộp thoại Đăng bài đầy đủ (Sprint 2 · UC-03 Blog, UC-04 Video).
 // Theo "Quyết định Sprint 2 – Đăng bài":
-//   D-05 Blog + Video · D-11 tiêu đề ≤ 255, nội dung bắt buộc, có **đậm** *nghiêng* · D-12 ít nhất 1 tag
+//   D-05 Blog + Video · D-11 tiêu đề ≤ 255, nội dung bắt buộc, có **đậm** *nghiêng* · D-12 ít nhất 1 chủ đề (29/10: trước gọi là tag)
 //   D-13 ảnh bìa không bắt buộc · D-14 video bắt buộc mô tả · D-10 đăng xong ở lại trang, báo "đang chờ duyệt".
 // Component KHÔNG gọi API: trang truyền categories, onSubmit, onUpload (giống các component khác trong kit).
 // Nháp được giữ khi đóng hộp (state nằm ngoài Modal); đăng thành công mới xoá.
@@ -113,7 +113,7 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
       title: [rules.required('Vui lòng nhập tiêu đề'), rules.maxLength(MAX_TITLE)],
       content: [rules.required(isVideo ? 'Vui lòng nhập mô tả cho video' : 'Vui lòng nhập nội dung bài viết')],
       youtubeUrl: isVideo ? [rules.required('Dán link video YouTube'), rules.youtubeUrl()] : [],
-      categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 tag để mọi người dễ tìm')],
+      categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 chủ đề để mọi người dễ tìm')],
     });
     if (!errs.youtubeUrl && isVideo && ytCheck.rejected) errs.youtubeUrl = ytCheck.message;
     setErrors(errs);
@@ -247,20 +247,21 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
           disabled={sending}
         />
 
-        {categories?.status === 'loading' && <Spinner size="sm" label="Đang tải danh sách tag…" showLabel />}
+        {categories?.status === 'loading' && <Spinner size="sm" label="Đang tải danh sách chủ đề…" showLabel />}
         {categories?.status === 'error' && (
-          <Notice tone="alert" title="Không tải được danh sách tag" action={{ label: 'Thử lại', onClick: onRetryCategories }}>
+          <Notice tone="alert" title="Không tải được danh sách chủ đề" action={{ label: 'Thử lại', onClick: onRetryCategories }}>
             {categories.error}
           </Notice>
         )}
         {categories?.status === 'ready' && (
           <CategoryPicker
-            label="Tag"
+            label="Chủ đề" // Khoi's code 29/10: đổi "Tag" → "Chủ đề" (tránh nhầm với danh mục món ở trang Công thức). DB vẫn là bảng category.
+            noun="chủ đề"
             options={options}
             value={form.categoryIds}
             onChange={set('categoryIds')}
             error={errors.categoryIds}
-            hint="Chọn ít nhất 1 tag."
+            hint="Chọn ít nhất 1 chủ đề."
             required
             disabled={sending}
           />

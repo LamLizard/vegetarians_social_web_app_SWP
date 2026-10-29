@@ -19,9 +19,10 @@ const plain = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, '
  * @param {string} [label] · [hint] · [error] · [required] · [disabled]
  *
  * "Ít nhất 1 danh mục" (UC-03) kiểm tra ở trang, dùng validate.minItems().
+ * @param {string} [noun='danh mục']  Khoi's code 29/10: tên gọi trong ô lọc nhanh, vd "chủ đề" ở form Đăng bài
  */
 export default function CategoryPicker({
-  label, options = [], value = [], onChange, max, searchFrom = 12, hint, error, required, disabled, className,
+  label, options = [], value = [], onChange, max, searchFrom = 12, hint, error, required, disabled, className, noun = 'danh mục',
 }) {
   const id = useId();
   const [q, setQ] = useState('');
@@ -47,8 +48,8 @@ export default function CategoryPicker({
           <input
             type="search"
             className="form-control form-control-sm"
-            placeholder="Lọc nhanh danh mục..."
-            aria-label="Lọc nhanh danh mục"
+            placeholder={`Lọc nhanh ${noun}...`}
+            aria-label={`Lọc nhanh ${noun}`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -69,7 +70,7 @@ export default function CategoryPicker({
             </Chip>
           );
         })}
-        {shown.length === 0 && <span className={styles.none}>Không có danh mục nào khớp "{q}"</span>}
+        {shown.length === 0 && <span className={styles.none}>Không có {noun} nào khớp "{q}"</span>}
       </div>
     </Field>
   );
