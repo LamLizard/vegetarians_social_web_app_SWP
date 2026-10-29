@@ -62,12 +62,12 @@ const toNutrient = (v, max, digits) => {
   if (!Number.isFinite(n) || n < 0 || n > max) return NaN;
   return Math.round(n * 10 ** digits) / 10 ** digits;
 };
-/** Khoi's code: 6 chỉ số dinh dưỡng tuỳ chọn (1 người) — cùng giới hạn với server/src/utils/recipeInput.js */
+/** Khoi's code: 6 chỉ số dinh dưỡng (1 người) — cùng giới hạn với server/src/utils/recipeInput.js. 28/10: `required` = bắt buộc (cùng Calo) */
 const NUTRIENTS = [
-  { key: 'protein', api: 'proteinG', label: 'Đạm', unit: 'g', max: 1000, digits: 1, placeholder: '12' },
-  { key: 'carb', api: 'carbG', label: 'Tinh bột', unit: 'g', max: 1000, digits: 1, placeholder: '45' },
-  { key: 'fat', api: 'fatG', label: 'Chất béo', unit: 'g', max: 1000, digits: 1, placeholder: '10' },
-  { key: 'fiber', api: 'fiberG', label: 'Chất xơ', unit: 'g', max: 1000, digits: 1, placeholder: '6' },
+  { key: 'protein', required: true, api: 'proteinG', label: 'Đạm', unit: 'g', max: 1000, digits: 1, placeholder: '12' },
+  { key: 'carb', required: true, api: 'carbG', label: 'Tinh bột', unit: 'g', max: 1000, digits: 1, placeholder: '45' },
+  { key: 'fat', required: true, api: 'fatG', label: 'Chất béo', unit: 'g', max: 1000, digits: 1, placeholder: '10' },
+  { key: 'fiber', required: true, api: 'fiberG', label: 'Chất xơ', unit: 'g', max: 1000, digits: 1, placeholder: '6' },
   { key: 'sugar', api: 'sugarG', label: 'Đường', unit: 'g', max: 1000, digits: 1, placeholder: '5' },
   { key: 'sodium', api: 'sodiumMg', label: 'Natri', unit: 'mg', max: 20000, digits: 0, placeholder: '400' },
 ];
@@ -176,7 +176,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [draft, setDraft] = useState(null); // form Tạo công thức đang gõ dở, trả lại khi thoát chế độ sửa
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [opening, setOpening] = useState(null); // id công thức đang tải để mở form sửa
-  const [nutritionOpen, setNutritionOpen] = useState(false); // khối Dinh dưỡng gập/mở
+  const [nutritionOpen, setNutritionOpen] = useState(true); // khối Dinh dưỡng gập/mở — 28/10: bắt buộc nên mở sẵn
   const dirty = !!editing && JSON.stringify(form) !== snapshot;
 
   const loadDishes = async () => {
@@ -252,11 +252,19 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const youtubeBad = youtubeFormatBad || ytCheck.rejected;
   const calories = toCalories(form.calories);
   const caloriesBad = Number.isNaN(calories);
-  // Khoi's code: dinh dưỡng tuỳ chọn — bỏ trống được, gõ sai (âm, chữ, quá lớn) thì chặn gửi
+  // Khoi's code: dinh dưỡng — gõ sai (âm, chữ, quá lớn) thì chặn gửi. 28/10: 5 ô BẮT BUỘC (Calo + required), cho phép 0 (trừ Calo ≥ 1)
   const nutrients = Object.fromEntries(NUTRIENTS.map((n) => [n.key, toNutrient(form[n.key], n.max, n.digits)]));
   const badNutrients = NUTRIENTS.filter((n) => Number.isNaN(nutrients[n.key]));
   const nutritionBad = caloriesBad || badNutrients.length > 0;
-  const nutritionCount = [form.calories, ...NUTRIENTS.map((n) => form[n.key])].filter((v) => String(v).trim() !== '').length;
+  const requiredNutri = NUTRIENTS.filter((n) => n.required);
+  const NUTRITION_TOTAL = requiredNutri.length + 1; // + Calo
+  const nutritionCount = [form.calories, ...requiredNutri.map((n) => form[n.key])].filter((v) => String(v).trim() !== '').length;
+  const nutritionMissing = NUTRITION_TOTAL - nutritionCount;
+  const emptyNote = (v) => (touched.nutrition && String(v).trim() === '' ? 'Bắt buộc' : undefined);
+  // Gợi ý (không chặn): calo lệch > 30% so với ước tính từ đạm·4 + tinh bột·4 + béo·9
+  const macroKcal = [nutrients.protein, nutrients.carb, nutrients.fat].every((v) => v != null && !Number.isNaN(v))
+    ? Math.round(nutrients.protein * 4 + nutrients.carb * 4 + nutrients.fat * 9) : null;
+  const kcalOff = calories > 0 && macroKcal > 0 && Math.abs(calories - macroKcal) / macroKcal > 0.3;
   // Khoi's code: khẩu phần + 2 ô thời gian BẮT BUỘC (cho phép 0 phút), số âm / số lẻ → lỗi
   const prep = toMinutes(form.prep);
   const cook = toMinutes(form.cook);
@@ -278,15 +286,17 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     !metaOk && 'khẩu phần và thời gian',
     youtubeBad && 'sửa link YouTube',
     nutritionBad && 'sửa chỉ số dinh dưỡng',
+    !nutritionBad && nutritionMissing > 0 && 'đủ 5 chỉ số dinh dưỡng bắt buộc',
   ].filter(Boolean);
   const ready = missing.length === 0;
   const canSend = ready && (!editing || dirty);
 
-  // Thanh tiến trình: 4 mục bắt buộc, bấm mục chưa xong → cuộn tới đúng khối
+  // Thanh tiến trình: 6 mục bắt buộc, bấm mục chưa xong → cuộn tới đúng khối
   const progress = [
     { key: 'dish', label: 'Chọn món ăn', done: !!form.dish, target: 'rc-dish' },
     { key: 'title', label: 'Đặt tên công thức', done: !!form.title.trim(), target: 'rc-info' },
     { key: 'meta', label: 'Khẩu phần, thời gian chuẩn bị và nấu', done: metaOk, target: 'rc-meta' },
+    { key: 'nutri', label: 'Calo, đạm, tinh bột, chất béo, chất xơ', done: nutritionMissing === 0 && !nutritionBad, target: 'rc-nutri' },
     { key: 'ing', label: 'Ít nhất 1 nguyên liệu có số lượng', done: ingWithAmount >= 1 && !ing.hasError, target: 'rc-ing' },
     { key: 'steps', label: 'Ít nhất 1 bước nấu', done: stepCount >= 1, target: 'rc-steps' },
   ];
@@ -294,6 +304,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const goTo = (target) => {
     const el = document.getElementById(target);
     if (!el) return;
+    if (target === 'rc-nutri') setNutritionOpen(true); // khối đang gập thì các ô bị inert → mở ra mới focus được
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     el.querySelector('input, textarea, button')?.focus({ preventScroll: true });
   };
@@ -313,7 +324,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
       setSnapshot(JSON.stringify(f));
       setEditing(detail);
       setTouched({});
-      setNutritionOpen([detail.caloriesKcal, ...NUTRIENTS.map((n) => detail[n.api])].some((v) => v != null));
+      setNutritionOpen(true); // 28/10: dinh dưỡng bắt buộc → luôn mở (công thức cũ chưa có thì phải nhập đủ mới gửi lại được)
       window.scrollTo({ top: 0 });
       if (dishLost) toast(`Món “${detail.dishName ?? ''}” không còn hoạt động, bạn chọn lại món nhé.`, { tone: 'alert' });
     } catch (err) {
@@ -512,8 +523,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 />
               </div>
 
-              {/* Khoi's code: Dinh dưỡng tuỳ chọn — bấm để mở/gập theo chiều dọc */}
-              <div className={`${s.nutri} ${nutritionOpen ? s.nutriOpen : ''}`}>
+              {/* Khoi's code: Dinh dưỡng — bấm để mở/gập theo chiều dọc. 28/10: bắt buộc 5 ô (Đường, Natri tuỳ chọn) */}
+              <div id="rc-nutri" className={`${s.nutri} ${nutritionOpen ? s.nutriOpen : ''}`} onBlur={leave('nutrition')}>
                 <button
                   type="button"
                   className={s.nutriToggle}
@@ -522,29 +533,35 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   onClick={() => setNutritionOpen((o) => !o)}
                 >
                   <i className="bi bi-heart-pulse" aria-hidden="true" />
-                  <span className={s.nutriTitle}>Dinh dưỡng <span className={s.nutriOptional}>(không bắt buộc)</span></span>
+                  <span className={s.nutriTitle}>Dinh dưỡng <span className={s.nutriRequired} aria-label="bắt buộc">*</span></span>
                   {nutritionBad
                     ? <span className={s.nutriBad}>Có ô nhập sai</span>
-                    : nutritionCount > 0 && <span className={s.nutriCount}>Đã nhập {nutritionCount}</span>}
+                    : <span className={nutritionMissing && touched.nutrition ? s.nutriBad : s.nutriCount}>Đã nhập {nutritionCount}/{NUTRITION_TOTAL}</span>}
                   <i className={`bi bi-chevron-down ${s.nutriChevron}`} aria-hidden="true" />
                 </button>
                 <div id="rc-nutrition" className={s.nutriPanel} inert={!nutritionOpen}>
                   <div className={s.nutriInner}>
-                    <p className={s.hint}>Ước tính cho 1 người. Không chắc thì để trống, có thể tra trên bao bì hoặc ứng dụng tính calo.</p>
+                    <p className={s.hint}>Ước tính cho 1 người. Ô có dấu * bắt buộc (không có thì ghi 0, Calo từ 1), Đường và Natri không bắt buộc. Có thể tra trên bao bì hoặc ứng dụng tính calo.</p>
                     <div className={s.nutriGrid}>
                       <TextField
-                        label="Calo" type="number" inputMode="numeric" min={1} max={5000} suffix="kcal"
+                        label="Calo" required type="number" inputMode="numeric" min={1} max={5000} suffix="kcal"
                         value={form.calories} onChange={set('calories')} placeholder="350"
-                        error={caloriesBad ? 'Số nguyên từ 1 đến 5000' : undefined}
+                        error={caloriesBad ? 'Số nguyên từ 1 đến 5000' : emptyNote(form.calories)}
                       />
                       {NUTRIENTS.map((n) => (
                         <TextField
-                          key={n.key} label={n.label} inputMode="decimal" suffix={n.unit}
+                          key={n.key} label={n.label} required={n.required} inputMode="decimal" suffix={n.unit}
                           value={form[n.key]} onChange={set(n.key)} placeholder={n.placeholder}
-                          error={Number.isNaN(nutrients[n.key]) ? `Số từ 0 đến ${n.max.toLocaleString('vi-VN')}` : undefined}
+                          error={Number.isNaN(nutrients[n.key]) ? `Số từ 0 đến ${n.max.toLocaleString('vi-VN')}` : n.required ? emptyNote(form[n.key]) : undefined}
                         />
                       ))}
                     </div>
+                    {kcalOff && (
+                      <p className={s.nutriWarn} role="status">
+                        <i className="bi bi-lightbulb" aria-hidden="true" />
+                        <span>Calo ({calories} kcal) lệch nhiều so với ước tính từ đạm, tinh bột, chất béo (khoảng {macroKcal} kcal). Kiểm tra lại nếu nhập nhầm, vẫn gửi được.</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
