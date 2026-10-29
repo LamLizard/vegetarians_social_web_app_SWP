@@ -218,6 +218,16 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   const openedPost = opened && items.find((p) => p.id === opened.id);
 
+  // Khoi's code 29/10: hàng lọc xếp chủ đề theo số bài đang hiện (nhiều nhất trước) → 4 nút đầu là chủ đề hay dùng nhất
+  const topicsByUse = [...categories.items].sort((a, b) => (b.postCount ?? 0) - (a.postCount ?? 0) || a.name.localeCompare(b.name, 'vi'));
+  // Bấm chip chủ đề trên thẻ bài / trong bài → lọc Bảng tin theo chủ đề đó, cuộn lên đầu
+  const filterByTopic = (topic) => {
+    if (isGuest) { requireLogin(); return; }
+    setOpened(null);
+    setCategoryId(topic.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const clearSearch = () => { setSearchText(''); setQuery(''); };
 
   return (
@@ -257,7 +267,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             <h1 id="feed-title" className={styles.feedTitle}>{query ? 'Kết quả tìm kiếm' : 'Bảng tin'}</h1>
             {/* Khách chỉ xem 3 bài cố định → không có lọc */}
             {!isGuest && categories.status === 'ready' && categories.items.length > 0 && (
-              <FeedFilter options={categories.items} value={categoryId} onChange={setCategoryId} />
+              <FeedFilter options={topicsByUse} value={categoryId} onChange={setCategoryId} />
             )}
           </div>
 
@@ -315,6 +325,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
                 onComment={() => setOpened({ id: post.id, toComments: true })}
                 onReport={isMine(post) ? undefined : () => askReport({ type: 'post', id: post.id, title: post.title })}
                 reported={post.hasReported}
+                onTopicClick={filterByTopic}
               />
             );
             // Hiện dần khi cuộn tới (React Bits · FadeContent); 2 bài đầu so le cho mượt
@@ -362,6 +373,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onReport={askReport}
         isMine={openedPost ? isMine(openedPost) : false}
         onRequireLogin={requireLogin}
+        onTopicClick={filterByTopic}
         onCommentAdded={(id) => setItems((list) => list.map((p) => (p.id === id ? { ...p, commentCount: p.commentCount + 1 } : p)))}
       />
 

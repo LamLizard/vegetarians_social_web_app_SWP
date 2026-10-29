@@ -19,7 +19,7 @@ import styles from './PostDetailModal.module.css';
 export default function PostDetailModal({
   post, loading = false, loadingTitle = 'Đang tải bài viết', toComments, user, isMine,
   onClose, onVote, onReport, onRequireLogin, onCommentAdded, readOnly = false,
-  showComments = true, statusBanner,
+  showComments = true, statusBanner, onTopicClick,
 }) {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -96,7 +96,14 @@ export default function PostDetailModal({
 
           {post.categories?.length > 0 && (
             <div className={feedCardStyles.tags}>
-              {post.categories.map((category) => <span key={category.id} className={feedCardStyles.tag}>#{category.name}</span>)}
+              {/* Khoi's code 29/10: chip chủ đề giống thẻ bài (bỏ "#"); có onTopicClick → bấm để lọc Bảng tin */}
+              {post.categories.map((category) => (onTopicClick ? (
+                <button key={category.id} type="button" className={`${feedCardStyles.tag} ${feedCardStyles.tagBtn}`} onClick={() => onTopicClick(category)}>
+                  <i className="bi bi-bookmark" aria-hidden="true" />{category.name}
+                </button>
+              ) : (
+                <span key={category.id} className={feedCardStyles.tag}><i className="bi bi-bookmark" aria-hidden="true" />{category.name}</span>
+              )))}
             </div>
           )}
 

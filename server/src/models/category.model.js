@@ -1,13 +1,19 @@
 // Khoi's code: Truy vấn category cho form Post/Dish và khu quản trị.
 const pool = require('../config/db');
 
-/** Các tag đang bật, sắp theo tên — cho ô chọn tag ở form Đăng bài */
+/**
+ * Các chủ đề (category) đang bật, sắp theo tên — cho form Đăng bài và hàng lọc Bảng tin.
+ * Khoi's code 29/10: thêm postCount = số bài ĐANG HIỆN trên Bảng tin có gắn chủ đề này
+ * → client chọn 4 chủ đề "Hay dùng" và xếp hàng lọc theo số bài.
+ */
 async function findActive() {
   const { rows } = await pool.query(
-    `SELECT category_id::text AS id, name
-     FROM category
-     WHERE is_active
-     ORDER BY name`,
+    `SELECT c.category_id::text AS id, c.name,
+       (SELECT count(*)::int FROM post_category pc JOIN post p ON p.post_id = pc.post_id
+        WHERE pc.category_id = c.category_id AND p.status IN ('public', 'reported')) AS "postCount"
+     FROM category c
+     WHERE c.is_active
+     ORDER BY c.name`,
   );
   return rows;
 }

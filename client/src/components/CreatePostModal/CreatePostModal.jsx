@@ -21,6 +21,8 @@ import useYouTubeCheck, { youTubeCheckText } from '../../hooks/useYouTubeCheck';
 import styles from './CreatePostModal.module.css';
 
 const MAX_TITLE = 255; // = VARCHAR(255) của post.title
+const POPULAR_TOPICS = 4; // Khoi's code 29/10: số chủ đề trong nhóm "Hay dùng"
+const TOPICS_COLLAPSE = 8; // nhóm "Tất cả" dài hơn → gập, nút "+N chủ đề"
 const EMPTY = { postType: 'blog', title: '', content: '', youtubeUrl: '', thumbnailUrl: '', categoryIds: [] };
 const TYPES = [
   { value: 'blog', label: 'Blog', icon: 'journal-text' },
@@ -143,6 +145,12 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
 
   const busy = sending || uploading > 0;
   const options = (categories?.items ?? []).map((c) => ({ value: c.id, label: c.name }));
+  // Khoi's code 29/10: 4 chủ đề nhiều bài nhất → nhóm "Hay dùng" (postCount từ GET /api/categories)
+  const popularIds = [...(categories?.items ?? [])]
+    .filter((c) => c.postCount > 0)
+    .sort((a, b) => b.postCount - a.postCount || a.name.localeCompare(b.name, 'vi'))
+    .slice(0, POPULAR_TOPICS)
+    .map((c) => c.id);
 
   return (
     <Modal
@@ -257,11 +265,14 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
           <CategoryPicker
             label="Chủ đề" // Khoi's code 29/10: đổi "Tag" → "Chủ đề" (tránh nhầm với danh mục món ở trang Công thức). DB vẫn là bảng category.
             noun="chủ đề"
+            popularIds={popularIds}
+            collapseAfter={TOPICS_COLLAPSE}
+            searchFrom={0}
             options={options}
             value={form.categoryIds}
             onChange={set('categoryIds')}
             error={errors.categoryIds}
-            hint="Chọn ít nhất 1 chủ đề."
+            hint={`Đã chọn ${form.categoryIds.length}. Chủ đề do Admin tạo, giúp mọi người tìm bài dễ hơn.`}
             required
             disabled={sending}
           />

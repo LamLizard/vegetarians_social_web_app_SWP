@@ -219,7 +219,8 @@ Object.assign(mock, {
   },
   async getCategories() {
     await wait();
-    return { items: Object.values(CAT) };
+    // Khoi's code 29/10: postCount giống API thật (số bài đang hiện có chủ đề này)
+    return { items: Object.values(CAT).map((c) => ({ ...c, postCount: posts.filter((p) => VISIBLE.includes(p.status) && p.categories.some((x) => x.id === c.id)).length })) };
   },
   async uploadImage(file, { onProgress } = {}) {
     await wait();
