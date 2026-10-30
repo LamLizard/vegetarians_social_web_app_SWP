@@ -163,11 +163,14 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
 
   // Tùng: mô tả cũ: "Bài sẽ hiện trên Bảng tin sau khi Admin duyệt."
   return (
+    // Tùng: mô tả cũ cho luồng tạo bài mới.
     <Modal
       open={open}
       onClose={onClose}
-      title="Đăng bài mới"
-      description="Bài viết được kiểm duyệt tự động."
+      title={initialPost ? 'Sửa bài viết' : 'Đăng bài mới'}
+      description={initialPost
+        ? 'Sau khi lưu, bài viết sẽ tạm ẩn để được duyệt lại.'
+        : 'Bài viết sẽ được kiểm tra trước khi hiển thị.'}
       size="lg"
       dismissible={!sending}
       footer={(
