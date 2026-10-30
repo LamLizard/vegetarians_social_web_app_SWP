@@ -56,6 +56,61 @@ async function streamMessage(input, { signal, onDelta, onUnauthorized, onResult 
   }
 }
 
+// One fetch per user action: a lost response must never trigger an automatic retry.
+async function streamSimpleTurn(input, { signal, onAccepted, onDelta, onResult, onUnauthorized } = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers = new Headers({ 'Content-Type': 'text/plain; charset=utf-8' });
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}${ROOT}/turns/stream`, {
+    method: 'POST', headers, body: JSON.stringify(input), signal, cache: 'no-store',
+  });
+  if (response.status === 401) onUnauthorized?.(token);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const error = new ApiError(payload?.message || 'Không thể gửi câu hỏi lúc này.', response.status, payload);
+    error.rejectedBeforeAdmission = [400, 413, 415].includes(response.status)
+      || payload?.code === 'CHATBOT_DISABLED';
+    throw error;
+  }
+  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
+    throw new ApiError('Không thể nhận câu trả lời.', response.status);
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let buffer = '';
+  let result;
+  let accepted = false;
+  try {
+    while (!result) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      if (buffer.length > 262144) throw new Error('Không thể nhận câu trả lời.');
+      let boundary;
+      while (!result && (boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer))) {
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        const lines = frame.split(/\r\n|\r|\n/);
+        const name = lines.find((line) => line.startsWith('event:'))?.slice(6).trim();
+        const data = lines.filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).replace(/^ /, '')).join('\n');
+        if (!name && !data) continue;
+        if (!data) throw new Error('Không thể nhận câu trả lời.');
+        const payload = JSON.parse(data);
+        if (name === 'accepted' && !accepted && payload.session) { accepted = true; onAccepted?.(payload); }
+        else if (name === 'delta' && accepted && typeof payload.text === 'string') onDelta?.(payload.text);
+        else if (name === 'result' && accepted && payload.kind === 'post' && payload.item) onResult?.(payload);
+        else if (name === 'done' && accepted && payload.session && typeof payload.limited === 'boolean') result = payload;
+        else if (name === 'error') throw new ApiError(payload.message || 'Trợ lý đang gặp trục trặc.', 503, payload);
+        else throw new Error('Không thể nhận câu trả lời.');
+      }
+      if (done && !result) throw new Error('Kết nối bị gián đoạn; chưa xác định được kết quả.');
+    }
+    return result;
+  } finally {
+    void reader.cancel().catch(() => {});
+  }
+}
+
 function discoveryPayload(input) {
   return { text: input.text.trim(), history: input.history.map(({ sender, content }) => ({ sender, content })),
     sessionToken: input.sessionToken ?? null, flowToken: input.flowToken ?? null,
@@ -184,8 +239,18 @@ const chatbotService = {
     });
   },
 
+  verifySimpleSession({ token, deviceId }, { signal } = {}) {
+    return apiFetch(`${ROOT}/session/simple/verify`, {
+      method: 'POST', body: JSON.stringify({ token, deviceId }), signal, cache: 'no-store',
+    });
+  },
+
   getQuota({ signal } = {}) {
     return apiFetch(`${ROOT}/quota`, { signal });
+  },
+
+  getSimpleQuota({ signal } = {}) {
+    return apiFetch(`${ROOT}/quota/simple`, { signal, cache: 'no-store' });
   },
 
   async getRequestState({ operationId, deviceId }, { signal, onUnauthorized } = {}) {
@@ -203,6 +268,7 @@ const chatbotService = {
   },
 
   streamMessage,
+  streamSimpleTurn,
   discoveryPayloadHash,
   prepareTurn(input, options = {}) { return v2Post('/turns/prepare', input, options); },
   getDiscoveryState(input, options = {}) { return v2Post('/discovery/status', input, options); },

@@ -22,4 +22,20 @@ function parseDiscoveryIntent(raw) {
   return { intent: value.intent, subject, offerPlanner: value.offerPlanner };
 }
 
-module.exports = { parseDiscoveryIntent };
+function parseSimpleIntent(raw) {
+  let value;
+  try { value = JSON.parse(raw); } catch { throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' }); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || !['chat', 'post'].includes(value.intent)
+    || (value.subject !== null && typeof value.subject !== 'string')) {
+    throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' });
+  }
+  const subject = typeof value.subject === 'string' ? value.subject.trim().normalize('NFC') : null;
+  if (subject && (Array.from(subject).length > 10000
+    || /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(subject))) {
+    throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' });
+  }
+  return { intent: value.intent, subject: subject || null };
+}
+
+module.exports = { parseDiscoveryIntent, parseSimpleIntent };

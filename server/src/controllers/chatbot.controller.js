@@ -2,7 +2,7 @@ const { createHash } = require('node:crypto');
 const chatbotModel = require('../models/chatbot.model');
 const groq = require('../utils/groq');
 const aiConfig = require('../models/aiConfig.model');
-const { issueSession, verifySession } = require('../utils/chatSessionToken');
+const { issueSession, verifySession, issueSimpleSession, verifySimpleSession } = require('../utils/chatSessionToken');
 const chatDiscoveryModel = require('../models/chatDiscovery.model');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -70,6 +70,18 @@ function validateStreamMessage(body, account) {
   return { operationId: body.operationId, deviceId: account ? undefined : body.deviceId,
     text: body.text.trim(), history: body.history.map(({ sender, content }) => ({ sender, content })),
     sessionToken: body.sessionToken };
+}
+
+function validateSimpleTurn(body, account) {
+  if (!validKeys(body, ['text', 'history', 'deviceId', 'sessionToken'])
+    || (!account && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))
+    || (body.deviceId !== undefined && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))
+    || (body.sessionToken !== undefined && (typeof body.sessionToken !== 'string' || body.sessionToken.length > 1024))
+    || !validText(body.text) || !Array.isArray(body.history) || body.history.length > MAX_HISTORY_ITEMS
+    || !body.history.every((entry) => validKeys(entry, ['sender', 'content'])
+      && ['user', 'bot'].includes(entry.sender) && validText(entry.content, true))) return null;
+  return { deviceId: account ? undefined : body.deviceId, text: body.text.trim(),
+    history: body.history.map(({ sender, content }) => ({ sender, content })), sessionToken: body.sessionToken };
 }
 
 async function getRequestState(req, res) {
@@ -171,6 +183,18 @@ async function verifyChatSession(req, res) {
   }
 }
 
+async function verifySimpleChatSession(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
+  if (!req.account && !UUID.test(String(req.body?.deviceId ?? ''))) return fail(res, 'INVALID_INPUT');
+  try {
+    const result = verifySimpleSession(req.body?.token, req.account, req.body?.deviceId);
+    return res.json(result ? { valid: true, ...result } : { valid: false });
+  } catch {
+    return fail(res, 'SESSION_UNAVAILABLE');
+  }
+}
+
 async function getQuota(req, res) {
   res.set('Cache-Control', 'private, no-store');
   res.vary('Authorization');
@@ -178,6 +202,79 @@ async function getQuota(req, res) {
     return res.json({ quota: await chatbotModel.getQuota(req.account.id) });
   } catch {
     return fail(res, 'STORE_UNAVAILABLE');
+  }
+}
+
+async function getSimpleQuota(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
+  try {
+    return res.json({ quota: await chatbotModel.getSimpleQuota(req.account.id) });
+  } catch {
+    return fail(res, 'STORE_UNAVAILABLE');
+  }
+}
+
+async function simpleTurnStream(req, res) {
+  res.set('Cache-Control', 'private, no-store, no-transform');
+  res.vary('Authorization');
+  const input = validateSimpleTurn(req.body, req.account);
+  if (!input) return fail(res, 'INVALID_INPUT');
+  let session;
+  try {
+    if (!(await aiConfig.getConfig()).chatbot.enabled) return fail(res, 'CHATBOT_DISABLED');
+    if (input.history.length && !verifySimpleSession(input.sessionToken, req.account, input.deviceId)) {
+      return fail(res, 'SESSION_EXPIRED');
+    }
+    // Ensure a signed session can be issued before charging the member.
+    session = issueSimpleSession(req.account, input.deviceId);
+  } catch { return fail(res, 'CONFIG_UNAVAILABLE'); }
+
+  let quota;
+  try {
+    if (req.account) quota = await chatbotModel.admitSimpleTurn(req.account.id);
+  } catch (error) { return fail(res, error.code); }
+
+  const controller = new AbortController();
+  const disconnect = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', disconnect);
+  if (res.destroyed) controller.abort();
+  const emit = (event, data) => {
+    if (!controller.signal.aborted && !res.destroyed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+  try {
+    res.status(200).set('Content-Type', 'text/event-stream; charset=utf-8');
+    res.flushHeaders();
+    emit('accepted', { session, ...(quota ? { quota } : {}) });
+    const intent = await groq.classifySimpleTurn(input.text, input.history);
+    if (controller.signal.aborted) throw Object.assign(new Error('DISCONNECTED'), { code: 'MODEL_UNAVAILABLE' });
+    let limited = false;
+    if (intent.intent === 'post') {
+      if (!req.account) {
+        emit('delta', { text: 'Bạn hãy đăng nhập để tìm bài viết trong cuộc trò chuyện nhé.' });
+      } else if (!intent.subject) {
+        emit('delta', { text: 'Bạn muốn tìm bài viết về chủ đề gì?' });
+      } else {
+        const result = await chatDiscoveryModel.findBestMatch(req.account, 'post', intent.subject);
+        emit('delta', { text: result ? 'Mình đã tìm được bài viết phù hợp cho bạn.' : 'Mình chưa tìm thấy bài viết phù hợp.' });
+        if (result) emit('result', result);
+      }
+    } else {
+      const result = await groq.streamReply(input.text, input.history, {
+        signal: controller.signal, onDelta: (text) => emit('delta', { text }),
+      });
+      limited = result.limited;
+    }
+    if (controller.signal.aborted) throw Object.assign(new Error('DISCONNECTED'), { code: 'MODEL_UNAVAILABLE' });
+    session = issueSimpleSession(req.account, input.deviceId);
+    emit('done', { session, limited, ...(quota ? { quota } : {}) });
+    if (!res.destroyed) res.end();
+  } catch (error) {
+    const code = MESSAGES[error.code] ? error.code : 'STORE_UNAVAILABLE';
+    emit('error', { code, message: MESSAGES[code][1] });
+    if (!res.destroyed) res.end();
+  } finally {
+    res.off('close', disconnect);
   }
 }
 
@@ -459,5 +556,5 @@ function startRequestCleanup() {
   void runRequestCleanup();
 }
 
-module.exports = { availability, getDiscoveryPost, verifyChatSession, getQuota, getRequestState, prepareTurn, discoveryStatus, discoveryStream, sendMessage, streamMessage,
+module.exports = { availability, getDiscoveryPost, verifyChatSession, verifySimpleChatSession, getQuota, getSimpleQuota, getRequestState, prepareTurn, discoveryStatus, discoveryStream, sendMessage, streamMessage, simpleTurnStream,
   startRequestCleanup, isRequestCleanupReady };

@@ -3,6 +3,7 @@ const pool = require('../config/db');
 const { signReceipt, verifyReceipt, signFlow, verifyFlow } = require('../utils/chatDiscoveryToken');
 
 const MEMBER_LIMIT = 20;
+const SIMPLE_MEMBER_LIMIT = 50;
 const LEASE_SECONDS = 120;
 
 class ChatbotStoreError extends Error {
@@ -53,6 +54,31 @@ function quotaView(used, resetAt) {
   return { used: count, limit: MEMBER_LIMIT, remaining: Math.max(0, MEMBER_LIMIT - count), resetAt };
 }
 
+function simpleQuotaView(used, resetAt) {
+  const count = Number(used);
+  return { used: count, limit: SIMPLE_MEMBER_LIMIT, remaining: Math.max(0, SIMPLE_MEMBER_LIMIT - count), resetAt };
+}
+
+// The simple chat turn is charged at admission, independently of its outcome.
+// Existing reservation helpers remain available to the legacy planner and routes.
+async function admitSimpleTurn(accountId) {
+  return transaction(async (client) => {
+    const day = await currentDay(client);
+    await client.query(`
+      INSERT INTO public.daily_quota (subject_type, subject_key, quota_date)
+      VALUES ('account', $1, $2::date) ON CONFLICT DO NOTHING
+    `, [String(accountId), day.day]);
+    const { rows: [row] } = await client.query(`
+      UPDATE public.daily_quota SET chat_turns = chat_turns + 1, updated_at = now()
+      WHERE subject_type = 'account' AND subject_key = $1 AND quota_date = $2::date
+        AND chat_turns < $3
+      RETURNING chat_turns AS used
+    `, [String(accountId), day.day, SIMPLE_MEMBER_LIMIT]);
+    if (!row) throw new ChatbotStoreError('QUOTA_EXCEEDED');
+    return simpleQuotaView(row.used, day.resetAt);
+  });
+}
+
 async function getQuota(accountId) {
   const { rows: [row] } = await pool.query(`
     WITH local_day AS (
@@ -64,6 +90,11 @@ async function getQuota(accountId) {
       ON q.subject_type = 'account' AND q.subject_key = $1 AND q.quota_date = local_day.quota_date
   `, [String(accountId)]);
   return quotaView(row.used, row.resetAt);
+}
+
+async function getSimpleQuota(accountId) {
+  const legacy = await getQuota(accountId);
+  return simpleQuotaView(legacy.used, legacy.resetAt);
 }
 
 async function reserveRequest({ account, deviceId, operationId, payload }) {
@@ -653,5 +684,5 @@ async function reaskChoice(reservation) {
   });
 }
 
-module.exports = { ChatbotStoreError, getQuota, reserveRequest, finishRequest, getRequestState, deleteExpiredRequests,
+module.exports = { ChatbotStoreError, getQuota, getSimpleQuota, admitSimpleTurn, reserveRequest, finishRequest, getRequestState, deleteExpiredRequests,
   prepareV2, claimV2, finishV2, statusV2, beginClarification, prepareChoice, validateChoiceToken, claimChoice, matchesFlowSubject, finishChoice, reaskChoice };
