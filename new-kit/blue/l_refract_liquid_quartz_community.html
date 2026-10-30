@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lá × Refract — Bản Tin Thạch Anh Khúc Xạ & Nhịp Sống Lành</title>
+  
+  <!-- Font chữ: Instrument Serif (Editorial đỉnh cao) & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome 6 Pro icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            quartz: {
+              base: '#f8fafc',
+              light: '#ffffff',
+              ice: '#f0f5f8',
+              border: 'rgba(14, 31, 44, 0.07)',
+              hairline: 'rgba(14, 31, 44, 0.12)',
+            },
+            refract: {
+              primary: '#006c9c',
+              dark: '#0e1f2c',
+              deep: '#004f73',
+              cyan: '#2ea4cc',
+              soft: '#daf0f7',
+              pill: '#e8f4f8',
+              muted: '#62737f',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ==========================================================================
+       LIQUID QUARTZ GLASS & REFRACT PRISM SYSTEM (Thạch anh khúc xạ tối giản)
+       ========================================================================== */
+    :root {
+      --bg-quartz: #f6f9fa;
+      --card-glass: rgba(255, 255, 255, 0.88);
+      --border-quartz: rgba(255, 255, 255, 0.95);
+      --border-line: rgba(14, 31, 44, 0.08);
+      --refract-accent: #006c9c;
+      --refract-deep: #0e1f2c;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      background: linear-gradient(180deg, #ffffff 0%, #f4f8fa 40%, #ebf2f5 100%);
+      color: #0e1f2c;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Bề mặt Thạch Anh Kính Lỏng (Liquid Quartz) */
+    .quartz-panel {
+      background: var(--card-glass);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border: 1px solid var(--border-quartz);
+      box-shadow: 
+        0 1px 1px rgba(0, 0, 0, 0.02),
+        0 12px 32px -8px rgba(0, 50, 80, 0.04),
+        inset 0 1px 0 rgba(255, 255, 255, 1),
+        inset 0 -1px 0 rgba(14, 31, 44, 0.04);
+      position: relative;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Hiệu ứng quang phổ khúc xạ Prism Flare độc nhất khi Hover */
+    .prism-hover {
+      position: relative;
+      overflow: hidden;
+    }
+    .prism-hover::before {
+      content: '';
+      position: absolute;
+      top: 0; left: -150%; width: 100%; height: 100%;
+      background: linear-gradient(
+        110deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.85) 45%,
+        rgba(120, 215, 240, 0.35) 50%,
+        rgba(255, 180, 220, 0.18) 55%,
+        transparent 65%
+      );
+      transform: skewX(-20deg);
+      transition: all 0.9s ease;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .prism-hover:hover::before {
+      left: 150%;
+    }
+    .prism-hover:hover {
+      border-color: rgba(0, 108, 156, 0.22);
+      box-shadow: 
+        0 20px 40px -12px rgba(0, 80, 120, 0.09),
+        0 0 0 1px rgba(0, 108, 156, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 1);
+      transform: translateY(-2px);
+    }
+
+    /* Nút Liquid Glass Refract Blue đặc trưng */
+    .btn-refract-liquid {
+      background: linear-gradient(135deg, #0e7ba8 0%, #006c9c 50%, #005278 100%);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 
+        0 6px 18px rgba(0, 108, 156, 0.22),
+        inset 0 1px 1px rgba(255, 255, 255, 0.45),
+        inset 0 -1px 2px rgba(0, 20, 40, 0.25);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+    }
+    .btn-refract-liquid:hover {
+      transform: translateY(-1.5px);
+      box-shadow: 
+        0 10px 24px rgba(0, 108, 156, 0.32),
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.6);
+      filter: brightness(1.04);
+    }
+    .btn-refract-liquid:active {
+      transform: translateY(0.5px);
+    }
+
+    /* Đường kẻ Refract Hairline sắc nét chuẩn Editorial */
+    .hairline-b {
+      border-bottom: 1px solid rgba(14, 31, 44, 0.08);
+    }
+    .hairline-r {
+      border-right: 1px solid rgba(14, 31, 44, 0.08);
+    }
+
+    /* Story Ring nước tinh khiết */
+    .story-bubble {
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .story-bubble:hover {
+      transform: translateY(-3px) scale(1.02);
+    }
+
+    /* Scrollbar tối giản */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(14, 31, 44, 0.15);
+      border-radius: 99px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 108, 156, 0.35);
+    }
+  </style>
+</head>
+<body class="selection:bg-refract-soft selection:text-refract-dark">
+
+  <!-- 1. LIDO TICKER: Thanh trạng thái sinh thái siêu mỏng -->
+  <aside class="w-full bg-white/90 backdrop-blur-md border-b border-quartz-hairline py-2 px-4 sm:px-8 text-[11px] font-semibold tracking-wider uppercase text-refract-muted z-50 sticky top-0">
+    <div class="max-w-[1520px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-2 text-refract-dark font-bold">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Lá & Lido Community · Volume 08
+        </span>
+        <span class="text-quartz-hairline hidden sm:inline">|</span>
+        <span class="hidden sm:inline text-refract-primary font-medium tracking-normal">Chất lượng nước hồ: 99.9% Tinh khiết tự nhiên</span>
+      </div>
+      <div class="flex items-center gap-4 text-xs font-mono lowercase tracking-tight">
+        <span>nước: <b class="text-refract-dark font-bold font-sans">24.2°C</b></span>
+        <span class="text-slate-300">•</span>
+        <span>không khí: <b class="text-refract-dark font-bold font-sans">21°C sương nhẹ</b></span>
+        <span class="text-slate-300 hidden md:inline">•</span>
+        <span class="hidden md:inline">giờ yên tĩnh: <b class="text-refract-primary font-bold font-sans">13:30 — 16:00</b></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- APP SHELL CONTAINER -->
+  <div class="max-w-[1520px] mx-auto px-3 sm:px-6 py-5">
+    
+    <!-- GRID 3 CỘT: Bento Prism Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- ==============================================================
+           CỘT TRÁI (3 CỘT): Monolithic Navigation & Chỉ số giờ tĩnh lặng
+           ============================================================== -->
+      <aside class="hidden lg:block lg:col-span-3 sticky top-14 space-y-5">
+        
+        <!-- Brand & Nav Card -->
+        <div class="quartz-panel rounded-2xl p-6">
+          <div class="mb-6 flex items-baseline justify-between border-b border-quartz-hairline pb-4">
+            <div>
+              <span class="font-serif text-3xl font-normal text-refract-dark tracking-tight">lá.</span>
+              <span class="block text-[9px] font-extrabold uppercase tracking-[0.24em] text-refract-muted mt-1">Sống Lành & Khúc Xạ</span>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-refract-soft text-refract-primary font-bold">EDITION 2026</span>
+          </div>
+
+          <button onclick="focusPostBox()" class="btn-refract-liquid w-full py-3 rounded-xl text-xs font-bold tracking-wider flex items-center justify-center gap-2 mb-6">
+            <i class="fa-solid fa-plus text-[11px]"></i>
+            <span>TẠO BÀI VIẾT MỚI</span>
+          </button>
+
+          <!-- Nav Links -->
+          <div class="text-[10px] font-bold tracking-[0.16em] uppercase text-refract-muted mb-2 px-2">Khám Phá</div>
+          <nav class="space-y-1 text-xs">
+            <a href="#" onclick="switchMainTab(event, 'all')" class="nav-item active flex items-center justify-between px-3 py-2.5 rounded-xl font-bold bg-refract-soft text-refract-primary transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-water-ladder text-xs"></i>
+                Bản Tin Chung
+              </span>
+              <span class="font-mono text-[11px] opacity-80">[24]</span>
+            </a>
+            <a href="#" onclick="switchMainTab(event, 'recipes')" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-refract-dark/80 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-bowl-rice text-xs text-refract-muted"></i>
+                Bếp Chay & Công Thức
+              </span>
+              <span class="font-mono text-[11px] opacity-60">[09]</span>
+            </a>
+            <a href="#" onclick="switchMainTab(event, 'pool')" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-refract-dark/80 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-compass-drafting text-xs text-refract-muted"></i>
+                Ghi Chép Mặt Hồ
+              </span>
+              <span class="font-mono text-[11px] opacity-60">[07]</span>
+            </a>
+            <a href="#" onclick="switchMainTab(event, 'saved')" class="nav-item flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-refract-dark/80 hover:bg-slate-100 transition">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-regular fa-bookmark text-xs text-refract-muted"></i>
+                Đã Lưu Riêng
+              </span>
+              <span id="navSavedCount" class="font-mono text-[11px] opacity-60">[0]</span>
+            </a>
+          </nav>
+        </div>
+
+        <!-- Quiet Hours Meter (Đặc trưng của Hallmark Refract) -->
+        <div class="quartz-panel rounded-2xl p-6">
+          <div class="flex items-center justify-between mb-3 border-b border-quartz-hairline pb-2">
+            <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-refract-muted">Khung Giờ Tĩnh Lặng</span>
+            <span class="text-xs text-refract-primary"><i class="fa-solid fa-chart-simple"></i></span>
+          </div>
+          <h4 class="font-serif text-xl text-refract-dark mb-1">Mật Độ Hồ & Cộng Đồng</h4>
+          <p class="text-[12px] text-refract-muted mb-4 leading-relaxed">Thời điểm mặt hồ êm đềm và không gian đọc bài tập trung nhất trong ngày.</p>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <div class="flex justify-between text-[11px] font-medium text-refract-dark mb-1">
+                <span>06:30 — 09:00 (Bơi đón nắng)</span>
+                <span class="font-mono text-slate-500">65%</span>
+              </div>
+              <div class="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-refract-cyan rounded-full" style="width: 65%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-bold text-refract-primary mb-1">
+                <span>13:30 — 16:00 (Giờ yên tĩnh nhất) ★</span>
+                <span class="font-mono font-bold">15%</span>
+              </div>
+              <div class="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-emerald-500 rounded-full" style="width: 15%"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-[11px] font-medium text-refract-dark mb-1">
+                <span>17:30 — 19:30 (Phiên chiều tan sở)</span>
+                <span class="font-mono text-slate-500">88%</span>
+              </div>
+              <div class="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                <div class="h-full bg-amber-500 rounded-full" style="width: 88%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quote Capsule -->
+        <div class="p-5 rounded-2xl bg-white/70 border border-quartz-hairline backdrop-blur-md">
+          <span class="font-serif italic text-sm text-refract-dark/90 leading-relaxed block">
+            “Nước tĩnh cho ta nhìn rõ đáy sâu, tâm tĩnh cho ta nhận ra sự bình yên trong từng bữa ăn giản dị.”
+          </span>
+          <span class="text-[10px] tracking-wider uppercase font-bold text-refract-primary mt-3 block">— Ghi chép Lá Refract</span>
+        </div>
+
+      </aside>
+
+      <!-- ==============================================================
+           CỘT GIỮA (6 CỘT): Story Strip, Hero Statement, Composer & Feed
+           ============================================================== -->
+      <section class="col-span-1 lg:col-span-6 space-y-6">
+
+        <!-- Top Editorial Hero Capsule (Sáng, Tinh khiết, Sâu lắng) -->
+        <div class="quartz-panel prism-hover rounded-3xl p-7 sm:p-9">
+          <div class="flex items-center justify-between mb-3">
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-refract-soft text-refract-primary border border-white">
+              Bản Tin Quan Sát & Thực Dưỡng
+            </span>
+            <span class="text-xs font-mono text-slate-400">HÔM NAY · 24 THÁNG 10</span>
+          </div>
+          <h1 class="font-serif text-3xl sm:text-4xl text-refract-dark font-normal leading-tight mb-3">
+            Mặt gương nước sáng, vị ngọt lành từ hạt mầm tự nhiên.
+          </h1>
+          <p class="text-xs sm:text-sm text-refract-muted leading-relaxed max-w-xl">
+            Không gian chia sẻ mở dành cho những ai tìm kiếm sự cân bằng: từ nhịp bơi buổi sớm đến những bữa trưa thực vật trọn vẹn dưỡng chất.
+          </p>
+        </div>
+
+        <!-- Story Circles: Lăng kính nước chuyển động -->
+        <div class="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
+          <!-- Add story -->
+          <button onclick="triggerToast('Tính năng chia sẻ khoảnh khắc 24h đang cập nhật')" class="story-bubble flex flex-col items-center flex-shrink-0 group">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-white to-refract-soft border-2 border-dashed border-refract-cyan flex items-center justify-center text-refract-primary text-xl shadow-sm mb-1.5 group-hover:border-refract-primary transition">
+              <i class="fa-solid fa-plus text-sm"></i>
+            </div>
+            <span class="text-[10px] font-semibold text-refract-muted">Tạo mới</span>
+          </button>
+
+          <!-- User stories -->
+          <button onclick="previewStory('Bếp của An', 'Bữa sáng thanh đạm cùng sữa hạnh nhân tự nấu')" class="story-bubble flex flex-col items-center flex-shrink-0 group">
+            <div class="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-refract-cyan to-refract-primary shadow-sm mb-1.5">
+              <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces" class="w-full h-full rounded-full object-cover border-2 border-white">
+            </div>
+            <span class="text-[10px] font-medium text-refract-dark">Minh An</span>
+          </button>
+
+          <button onclick="previewStory('Khoa Trần', '1500m bơi sáng hoàn thành lúc 06:45')" class="story-bubble flex flex-col items-center flex-shrink-0 group">
+            <div class="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-refract-cyan to-refract-primary shadow-sm mb-1.5">
+              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces" class="w-full h-full rounded-full object-cover border-2 border-white">
+            </div>
+            <span class="text-[10px] font-medium text-refract-dark">Đăng Khoa</span>
+          </button>
+
+          <button onclick="previewStory('Linh Đan', 'Chợ phiên rau hữu cơ sáng sớm')" class="story-bubble flex flex-col items-center flex-shrink-0 group">
+            <div class="w-16 h-16 rounded-full p-0.5 bg-gradient-to-tr from-refract-cyan to-refract-primary shadow-sm mb-1.5">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" class="w-full h-full rounded-full object-cover border-2 border-white">
+            </div>
+            <span class="text-[10px] font-medium text-refract-dark">Linh Đan</span>
+          </button>
+
+          <button onclick="previewStory('Tuấn Vũ', 'Bánh mì men chua nướng sáng nay')" class="story-bubble flex flex-col items-center flex-shrink-0 group">
+            <div class="w-16 h-16 rounded-full p-0.5 bg-slate-300 shadow-sm mb-1.5">
+              <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces" class="w-full h-full rounded-full object-cover border-2 border-white">
+            </div>
+            <span class="text-[10px] font-medium text-slate-500">Tuấn Vũ</span>
+          </button>
+        </div>
+
+        <!-- Filter Tab Bar -->
+        <div class="flex items-center justify-between border-b border-quartz-hairline pb-2 pt-1">
+          <div class="flex items-center gap-6 text-xs font-semibold">
+            <button onclick="filterFeed(this, 'all')" class="feed-filter-btn text-refract-primary font-bold relative after:content-[''] after:absolute after:-bottom-2.5 after:left-0 after:right-0 after:h-[2px] after:bg-refract-primary">
+              Tất Cả Bản Tin
+            </button>
+            <button onclick="filterFeed(this, 'recipes')" class="feed-filter-btn text-refract-muted hover:text-refract-dark transition">
+              Công Thức Bếp Chay
+            </button>
+            <button onclick="filterFeed(this, 'pool')" class="feed-filter-btn text-refract-muted hover:text-refract-dark transition">
+              Nhật Ký Mặt Nước
+            </button>
+          </div>
+
+          <!-- Quick Search -->
+          <div class="flex items-center gap-2 bg-white/80 border border-quartz-hairline rounded-lg px-3 py-1 text-xs text-refract-muted">
+            <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+            <input id="feedSearchInput" oninput="searchArticles(this.value)" placeholder="Lọc nội dung..." class="bg-transparent border-none outline-none text-refract-dark text-xs w-28 sm:w-36 placeholder:text-slate-400">
+          </div>
+        </div>
+
+        <!-- INTERACTIVE POST COMPOSER: Thạch anh lỏng -->
+        <div id="composerCard" class="quartz-panel rounded-3xl p-5 shadow-sm">
+          <div class="flex items-start gap-3.5">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces" class="w-10 h-10 rounded-2xl object-cover border border-white shadow-sm mt-0.5">
+            <div class="flex-1">
+              <textarea 
+                id="postInputContent" 
+                rows="2" 
+                placeholder="Chia sẻ một công thức món chay hoặc cảm nghĩ bên mặt hồ hôm nay..."
+                class="w-full bg-white/50 focus:bg-white border border-white focus:border-refract-cyan/60 rounded-2xl p-3.5 text-xs sm:text-sm text-refract-dark placeholder:text-slate-400 focus:outline-none transition shadow-inner resize-none"
+              ></textarea>
+
+              <!-- Image Link Input (Optional) -->
+              <div id="imageInputRow" class="hidden mt-2">
+                <input id="postImageUrl" type="url" placeholder="Dán liên kết ảnh minh họa (tùy chọn)..." class="w-full bg-white/70 border border-slate-200 rounded-xl px-3 py-2 text-xs text-refract-dark outline-none focus:border-refract-cyan">
+              </div>
+
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-3 mt-1 border-t border-slate-100">
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="toggleImageField()" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-refract-soft border border-quartz-hairline text-refract-muted hover:text-refract-primary transition text-[11px] font-semibold flex items-center gap-1.5">
+                    <i class="fa-regular fa-image text-xs"></i>
+                    <span>Thêm ảnh</span>
+                  </button>
+                  <button type="button" onclick="insertTag('#MonChay')" class="px-2.5 py-1.5 rounded-lg bg-white border border-quartz-hairline text-refract-muted hover:text-refract-primary transition text-[11px] font-semibold">
+                    #MonChay
+                  </button>
+                  <button type="button" onclick="insertTag('#MatNuocLido')" class="px-2.5 py-1.5 rounded-lg bg-white border border-quartz-hairline text-refract-muted hover:text-refract-primary transition text-[11px] font-semibold">
+                    #MatNuocLido
+                  </button>
+                </div>
+
+                <button onclick="handlePublishPost()" class="btn-refract-liquid px-5 py-2 rounded-xl text-xs font-bold tracking-wider flex items-center gap-2">
+                  <span>XUẤT BẢN</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- POST FEED STREAM -->
+        <div id="feedStream" class="space-y-6">
+
+          <!-- Card 1: Bếp Chay Dinh Dưỡng -->
+          <article class="feed-entry quartz-panel prism-hover rounded-3xl p-6 sm:p-7" data-category="recipes" data-title="Bữa trưa phục hồi năng lượng: Đậu gà nướng hương thảo & sốt mè trắng chanh vàng">
+            <div class="flex items-center justify-between pb-4 border-b border-quartz-hairline mb-4">
+              <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces" class="w-10 h-10 rounded-2xl object-cover border border-white shadow-sm">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-xs sm:text-sm text-refract-dark">Minh An</span>
+                    <span class="w-1 h-1 rounded-full bg-refract-cyan"></span>
+                    <span class="text-[11px] text-refract-primary font-semibold">Bếp Trưởng Thực Dưỡng</span>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-mono">09:15 AM · CHUYÊN MỤC BẾP CHAY</span>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-refract-soft text-refract-primary border border-white">
+                Công Thức
+              </span>
+            </div>
+
+            <a href="#" class="font-serif text-2xl sm:text-3xl text-refract-dark hover:text-refract-primary transition block mb-2 leading-tight">
+              Bữa trưa phục hồi năng lượng: Đậu gà nướng hương thảo & sốt mè trắng chanh vàng
+            </a>
+            
+            <p class="text-xs sm:text-sm text-refract-muted leading-relaxed mb-4">
+              Sau buổi tập luyện thể chất hoặc làm việc căng thẳng, cơ thể cần nguồn đạm thực vật nhẹ bụng mà không gây buồn ngủ. Đậu gà nấu mềm, áp chảo cùng dầu ô-liu nguyên chất, lá hương thảo tươi và rưới đẫm sốt tahini chua dịu.
+            </p>
+
+            <!-- Image with Quartz Sheen Frame -->
+            <div class="rounded-2xl overflow-hidden border border-white shadow-sm mb-4 relative max-h-[360px] bg-slate-100">
+              <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1100&q=85" alt="Món chay" class="w-full h-full object-cover">
+              <div class="absolute bottom-3 left-4 right-4 flex justify-between items-center text-[11px] text-white">
+                <span class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">Chỉ số: 480 kcal · 24g Protein</span>
+                <span class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">Thời gian: 15 phút</span>
+              </div>
+            </div>
+
+            <!-- Card Bottom Bar -->
+            <div class="pt-3 border-t border-quartz-hairline flex items-center justify-between text-xs text-refract-muted">
+              <div class="flex items-center gap-5">
+                <button onclick="togglePostLike(this, 128)" class="like-btn flex items-center gap-1.5 hover:text-rose-600 transition font-medium">
+                  <i class="fa-regular fa-heart text-sm"></i>
+                  <span class="like-count">128</span>
+                </button>
+                <button onclick="toggleCommentBox(this)" class="flex items-center gap-1.5 hover:text-refract-dark transition font-medium">
+                  <i class="fa-regular fa-message text-sm"></i>
+                  <span class="comment-count">18 phản hồi</span>
+                </button>
+                <button onclick="savePostItem(this, 'Bữa trưa phục hồi năng lượng: Đậu gà nướng')" class="bookmark-btn flex items-center gap-1.5 hover:text-refract-primary transition font-medium">
+                  <i class="fa-regular fa-bookmark text-sm"></i>
+                  <span>Lưu bài</span>
+                </button>
+              </div>
+              <button onclick="copyPostLink()" class="hover:text-refract-dark transition" title="Chia sẻ liên kết">
+                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+              </button>
+            </div>
+
+            <!-- Inline Comment Section -->
+            <div class="comment-area hidden mt-4 pt-4 border-t border-slate-100">
+              <div class="space-y-2 mb-3 max-h-40 overflow-y-auto pr-1 comments-list">
+                <div class="text-[11px] bg-slate-50 p-2.5 rounded-xl">
+                  <b class="text-refract-dark">Ngọc Hà:</b> Món này mình thêm chút hạt bí rang giòn ăn cùng rất thơm!
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <input placeholder="Viết phản hồi xây dựng..." class="comment-input flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-refract-dark outline-none focus:border-refract-cyan">
+                <button onclick="submitComment(this)" class="btn-refract-liquid px-4 py-2 rounded-xl text-xs font-bold">Gửi</button>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 2: Nhật Ký Mặt Hồ Refract -->
+          <article class="feed-entry quartz-panel prism-hover rounded-3xl p-6 sm:p-7" data-category="pool" data-title="Nhiệt độ nước 24.2°C và khoảnh khắc làn bơi vắng vẻ lúc đầu giờ chiều">
+            <div class="flex items-center justify-between pb-4 border-b border-quartz-hairline mb-4">
+              <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces" class="w-10 h-10 rounded-2xl object-cover border border-white shadow-sm">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-xs sm:text-sm text-refract-dark">Đăng Khoa</span>
+                    <span class="w-1 h-1 rounded-full bg-refract-cyan"></span>
+                    <span class="text-[11px] text-refract-primary font-semibold">Thành viên Làn Bơi 03</span>
+                  </div>
+                  <span class="text-[10px] text-slate-400 font-mono">HÔM NAY · 14:10 PM · NHẬT KÝ MẶT NƯỚC</span>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-refract-soft text-refract-primary border border-white">
+                Mặt Nước
+              </span>
+            </div>
+
+            <a href="#" class="font-serif text-2xl sm:text-3xl text-refract-dark hover:text-refract-primary transition block mb-2 leading-tight">
+              Nhiệt độ nước 24.2°C và khoảnh khắc làn bơi vắng vẻ lúc đầu giờ chiều
+            </a>
+            
+            <p class="text-xs sm:text-sm text-refract-muted leading-relaxed mb-4">
+              Khung giờ tĩnh lặng (13:30 - 15:30) luôn là trải nghiệm đắt giá nhất tại hồ 50m. Mặt nước phẳng lặng phản chiếu bầu trời mùa thu trong vắt, không tiếng còi xe, chỉ còn lại nhịp thở và tiếng nước xé nhẹ theo từng sải tay sải dài.
+            </p>
+
+            <div class="rounded-2xl overflow-hidden border border-white shadow-sm mb-4 relative max-h-[360px] bg-slate-100">
+              <img src="https://images.unsplash.com/photo-1519046904884-53103b34b206?w=1100&q=85" alt="Hồ nước" class="w-full h-full object-cover">
+              <div class="absolute bottom-3 left-4 right-4 flex justify-between items-center text-[11px] text-white">
+                <span class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">Cự ly: 1,200m tự do</span>
+                <span class="bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">Trạng thái: Tĩnh lặng 95%</span>
+              </div>
+            </div>
+
+            <!-- Card Bottom Bar -->
+            <div class="pt-3 border-t border-quartz-hairline flex items-center justify-between text-xs text-refract-muted">
+              <div class="flex items-center gap-5">
+                <button onclick="togglePostLike(this, 94)" class="like-btn flex items-center gap-1.5 hover:text-rose-600 transition font-medium">
+                  <i class="fa-regular fa-heart text-sm"></i>
+                  <span class="like-count">94</span>
+                </button>
+                <button onclick="toggleCommentBox(this)" class="flex items-center gap-1.5 hover:text-refract-dark transition font-medium">
+                  <i class="fa-regular fa-message text-sm"></i>
+                  <span class="comment-count">9 phản hồi</span>
+                </button>
+                <button onclick="savePostItem(this, 'Nhiệt độ nước 24.2°C và khoảnh khắc làn bơi')" class="bookmark-btn flex items-center gap-1.5 hover:text-refract-primary transition font-medium">
+                  <i class="fa-regular fa-bookmark text-sm"></i>
+                  <span>Lưu bài</span>
+                </button>
+              </div>
+              <button onclick="copyPostLink()" class="hover:text-refract-dark transition" title="Chia sẻ liên kết">
+                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+              </button>
+            </div>
+
+            <!-- Inline Comment Section -->
+            <div class="comment-area hidden mt-4 pt-4 border-t border-slate-100">
+              <div class="space-y-2 mb-3 max-h-40 overflow-y-auto pr-1 comments-list">
+                <div class="text-[11px] bg-slate-50 p-2.5 rounded-xl">
+                  <b class="text-refract-dark">Tuấn Minh:</b> Bơi khung giờ này thực sự phục hồi năng lượng cực tốt bạn ơi!
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <input placeholder="Viết phản hồi xây dựng..." class="comment-input flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-refract-dark outline-none focus:border-refract-cyan">
+                <button onclick="submitComment(this)" class="btn-refract-liquid px-4 py-2 rounded-xl text-xs font-bold">Gửi</button>
+              </div>
+            </div>
+          </article>
+
+        </div>
+
+      </section>
+
+      <!-- ==============================================================
+           CỘT PHẢI (3 CỘT): Lido Schedule Table, Chỉ số sinh thái & Gợi ý
+           ============================================================== -->
+      <aside class="hidden lg:block lg:col-span-3 sticky top-14 space-y-5">
+        
+        <!-- Lido Schedule Matrix (Chuẩn Editorial Refract) -->
+        <div class="quartz-panel rounded-2xl p-6">
+          <div class="flex items-center justify-between border-b border-quartz-hairline pb-3 mb-3">
+            <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-refract-muted">Tình Trạng Làn Bơi Hôm Nay</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          </div>
+
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="text-[10px] uppercase font-bold text-slate-400 border-b border-quartz-hairline">
+                <th class="py-2">Khung giờ</th>
+                <th class="py-2">Phiên</th>
+                <th class="py-2 text-right">Chỗ</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-quartz-hairline font-sans text-refract-dark">
+              <tr>
+                <td class="py-2.5 font-mono text-[11px] text-slate-500">12:30</td>
+                <td><span class="font-semibold block">Làn trưa phục hồi</span></td>
+                <td class="py-2.5 text-right"><span class="text-[10px] font-bold text-refract-primary bg-refract-soft px-2 py-0.5 rounded">Còn 3</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-mono text-[11px] text-slate-500">14:00</td>
+                <td><span class="font-semibold block text-emerald-800">Giờ yên tĩnh ★</span></td>
+                <td class="py-2.5 text-right"><span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Còn 14</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-mono text-[11px] text-slate-500">17:30</td>
+                <td><span class="font-semibold block">Hoàng hôn lộng gió</span></td>
+                <td class="py-2.5 text-right"><span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Đã kín</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-mono text-[11px] text-slate-500">19:30</td>
+                <td><span class="font-semibold block">Bơi tối đèn ấm</span></td>
+                <td class="py-2.5 text-right"><span class="text-[10px] font-bold text-refract-primary bg-refract-soft px-2 py-0.5 rounded">Còn 8</span></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button onclick="triggerToast('Hệ thống thẻ thành viên theo mùa đang mở đăng ký đợt 2')" class="w-full mt-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-refract-dark border border-quartz-hairline text-xs font-semibold tracking-wide transition shadow-sm">
+            Xem Toàn Bộ Biểu Phí & Lịch →
+          </button>
+        </div>
+
+        <!-- Ecosystem Metrics (Độ trong suốt & Khoáng tính) -->
+        <div class="quartz-panel rounded-2xl p-6">
+          <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-refract-muted block mb-3">Kiểm Định Sinh Thái Mặt Hồ</span>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div class="p-3 rounded-xl bg-white/70 border border-quartz-hairline">
+              <span class="text-[10px] text-slate-400 block">Độ trong suốt</span>
+              <span class="font-mono text-xl font-bold text-refract-dark">100%</span>
+              <span class="text-[9px] text-emerald-600 font-semibold block mt-0.5">Quang học chuẩn</span>
+            </div>
+            <div class="p-3 rounded-xl bg-white/70 border border-quartz-hairline">
+              <span class="text-[10px] text-slate-400 block">Độ pH Tự Nhiên</span>
+              <span class="font-mono text-xl font-bold text-refract-dark">7.38</span>
+              <span class="text-[9px] text-emerald-600 font-semibold block mt-0.5">Cực kỳ êm da</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-refract-muted leading-relaxed">
+            Hệ thống lọc cát thạch anh tầng sâu kết hợp quang phổ tia cực tím khử khuẩn không sử dụng clo công nghiệp.
+          </p>
+        </div>
+
+        <!-- Community Voices -->
+        <div class="quartz-panel rounded-2xl p-6">
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-[10px] font-bold tracking-[0.16em] uppercase text-refract-muted">Tác Giả Nổi Bật</span>
+            <span class="text-[11px] text-refract-primary font-semibold cursor-pointer">Khám phá</span>
+          </div>
+
+          <div class="space-y-3.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&h=100&fit=crop&crop=faces" class="w-8 h-8 rounded-full object-cover">
+                <div>
+                  <div class="text-xs font-bold text-refract-dark">Ngọc Hà</div>
+                  <div class="text-[10px] text-slate-400">Tác giả "Bữa Cơm Nhẹ Lòng"</div>
+                </div>
+              </div>
+              <button onclick="toggleFollowBtn(this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-quartz-hairline text-refract-dark hover:border-refract-primary transition">
+                Theo dõi
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces" class="w-8 h-8 rounded-full object-cover">
+                <div>
+                  <div class="text-xs font-bold text-refract-dark">Hoàng Nam</div>
+                  <div class="text-[10px] text-slate-400">Bếp chay truyền thống</div>
+                </div>
+              </div>
+              <button onclick="toggleFollowBtn(this)" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white border border-quartz-hairline text-refract-dark hover:border-refract-primary transition">
+                Theo dõi
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- FLOATING TOAST THẠCH ANH (Glass Notification) -->
+  <div id="quartzToast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="quartz-panel px-5 py-3 rounded-2xl flex items-center gap-3 shadow-2xl border border-white">
+      <div class="w-6 h-6 rounded-full bg-refract-primary text-white flex items-center justify-center text-xs">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <span id="toastContent" class="text-xs font-bold text-refract-dark">Đã thực hiện thành công</span>
+    </div>
+  </div>
+
+  <!-- MOBILE BOTTOM BAR -->
+  <nav class="lg:hidden fixed bottom-0 left-0 right-0 h-14 bg-white/95 backdrop-blur-md border-t border-quartz-hairline flex items-center justify-around z-40 text-refract-muted">
+    <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="text-refract-primary"><i class="fa-solid fa-house text-base"></i></button>
+    <button onclick="focusPostBox()"><i class="fa-solid fa-pen-nib text-base"></i></button>
+    <button onclick="triggerToast('Mục thông báo hiện không có tin mới')"><i class="fa-regular fa-bell text-base"></i></button>
+    <button onclick="triggerToast('Hồ sơ thành viên cá nhân')"><i class="fa-regular fa-user text-base"></i></button>
+  </nav>
+
+  <!-- JAVASCRIPT LOGIC TƯƠNG TÁC ĐẦY ĐỦ -->
+  <script>
+    let savedArticlesCount = 0;
+
+    // Toast Message Controller
+    function triggerToast(message) {
+      const toast = document.getElementById('quartzToast');
+      const text = document.getElementById('toastContent');
+      text.textContent = message;
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 2600);
+    }
+
+    // Scroll to composer
+    function focusPostBox() {
+      const composer = document.getElementById('composerCard');
+      const textarea = document.getElementById('postInputContent');
+      composer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      textarea.focus();
+    }
+
+    // Thêm Tag nhanh
+    function insertTag(tag) {
+      const textarea = document.getElementById('postInputContent');
+      textarea.value = (textarea.value.trim() + ' ' + tag).trim() + ' ';
+      textarea.focus();
+    }
+
+    // Mở input URL ảnh
+    function toggleImageField() {
+      const row = document.getElementById('imageInputRow');
+      row.classList.toggle('hidden');
+      if (!row.classList.contains('hidden')) {
+        document.getElementById('postImageUrl').focus();
+      }
+    }
+
+    // Xuất bản bài viết thời gian thực (Interactive Publish)
+    function handlePublishPost() {
+      const textInput = document.getElementById('postInputContent');
+      const imgInput = document.getElementById('postImageUrl');
+      const content = textInput.value.trim();
+      const imgUrl = imgInput ? imgInput.value.trim() : '';
+
+      if (!content) {
+        triggerToast("Vui lòng ghi vài dòng suy nghĩ hoặc công thức trước khi xuất bản!");
+        textInput.focus();
+        return;
+      }
+
+      const stream = document.getElementById('feedStream');
+      const article = document.createElement('article');
+      article.className = "feed-entry quartz-panel prism-hover rounded-3xl p-6 sm:p-7 animate-fade-in";
+      article.setAttribute('data-category', 'all');
+      article.setAttribute('data-title', content);
+
+      let imageHTML = '';
+      if (imgUrl) {
+        imageHTML = `
+          <div class="rounded-2xl overflow-hidden border border-white shadow-sm mb-4 relative max-h-[360px] bg-slate-100">
+            <img src="${imgUrl}" alt="Ảnh chia sẻ" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1547592180-85f173990554?w=1100&q=85'">
+            <div class="absolute bottom-3 left-4 text-[11px] text-white bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/20">
+              Vừa cập nhật
+            </div>
+          </div>
+        `;
+      }
+
+      article.innerHTML = `
+        <div class="flex items-center justify-between pb-4 border-b border-quartz-hairline mb-4">
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces" class="w-10 h-10 rounded-2xl object-cover border border-white shadow-sm">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-xs sm:text-sm text-refract-dark">Bạn (Thành viên Lá)</span>
+                <span class="w-1 h-1 rounded-full bg-refract-cyan"></span>
+                <span class="text-[11px] text-emerald-600 font-semibold">Vừa xong</span>
+              </div>
+              <span class="text-[10px] text-slate-400 font-mono">TRỰC TIẾP · BẢN TIN CỘNG ĐỒNG</span>
+            </div>
+          </div>
+          <span class="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-refract-soft text-refract-primary border border-white">
+            Ghi Chép Mới
+          </span>
+        </div>
+
+        <div class="text-xs sm:text-sm text-refract-dark font-medium leading-relaxed mb-4 whitespace-pre-line">
+          ${escapeHTML(content)}
+        </div>
+
+        ${imageHTML}
+
+        <div class="pt-3 border-t border-quartz-hairline flex items-center justify-between text-xs text-refract-muted">
+          <div class="flex items-center gap-5">
+            <button onclick="togglePostLike(this, 1)" class="like-btn flex items-center gap-1.5 hover:text-rose-600 transition font-medium">
+              <i class="fa-regular fa-heart text-sm"></i>
+              <span class="like-count">1</span>
+            </button>
+            <button onclick="toggleCommentBox(this)" class="flex items-center gap-1.5 hover:text-refract-dark transition font-medium">
+              <i class="fa-regular fa-message text-sm"></i>
+              <span class="comment-count">0 phản hồi</span>
+            </button>
+            <button onclick="savePostItem(this, 'Bài viết vừa đăng')" class="bookmark-btn flex items-center gap-1.5 hover:text-refract-primary transition font-medium">
+              <i class="fa-regular fa-bookmark text-sm"></i>
+              <span>Lưu bài</span>
+            </button>
+          </div>
+          <button onclick="copyPostLink()" class="hover:text-refract-dark transition" title="Chia sẻ liên kết">
+            <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+          </button>
+        </div>
+
+        <div class="comment-area hidden mt-4 pt-4 border-t border-slate-100">
+          <div class="space-y-2 mb-3 max-h-40 overflow-y-auto pr-1 comments-list"></div>
+          <div class="flex gap-2">
+            <input placeholder="Viết phản hồi xây dựng..." class="comment-input flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-refract-dark outline-none focus:border-refract-cyan">
+            <button onclick="submitComment(this)" class="btn-refract-liquid px-4 py-2 rounded-xl text-xs font-bold">Gửi</button>
+          </div>
+        </div>
+      `;
+
+      stream.insertBefore(article, stream.firstChild);
+      textInput.value = '';
+      if (imgInput) imgInput.value = '';
+      document.getElementById('imageInputRow').classList.add('hidden');
+      triggerToast("Ghi chép của bạn đã được xuất bản lên dòng tin!");
+    }
+
+    // Toggle Thích bài viết
+    function togglePostLike(btn, baseCount) {
+      const heart = btn.querySelector('i');
+      const countEl = btn.querySelector('.like-count');
+      const isLiked = btn.classList.toggle('text-rose-600');
+
+      if (isLiked) {
+        heart.classList.remove('fa-regular');
+        heart.classList.add('fa-solid');
+        countEl.textContent = parseInt(countEl.textContent) + 1;
+        triggerToast("Đã gửi cảm xúc đồng điệu đến tác giả!");
+      } else {
+        heart.classList.remove('fa-solid');
+        heart.classList.add('fa-regular');
+        countEl.textContent = parseInt(countEl.textContent) - 1;
+      }
+    }
+
+    // Toggle Bookmark / Lưu bài
+    function savePostItem(btn, title) {
+      const icon = btn.querySelector('i');
+      const isSaved = icon.classList.toggle('fa-solid');
+      icon.classList.toggle('fa-regular');
+      const navCount = document.getElementById('navSavedCount');
+
+      if (isSaved) {
+        btn.classList.add('text-refract-primary');
+        savedArticlesCount++;
+        triggerToast(`Đã lưu "${title.slice(0, 32)}..." vào kho lưu trữ cá nhân`);
+      } else {
+        btn.classList.remove('text-refract-primary');
+        savedArticlesCount = Math.max(0, savedArticlesCount - 1);
+        triggerToast("Đã bỏ lưu bài viết");
+      }
+      if (navCount) navCount.textContent = `[${savedArticlesCount}]`;
+    }
+
+    // Toggle bình luận inline
+    function toggleCommentBox(btn) {
+      const card = btn.closest('.feed-entry');
+      const area = card.querySelector('.comment-area');
+      area.classList.toggle('hidden');
+      if (!area.classList.contains('hidden')) {
+        area.querySelector('.comment-input').focus();
+      }
+    }
+
+    // Gửi bình luận
+    function submitComment(btn) {
+      const area = btn.closest('.comment-area');
+      const input = area.querySelector('.comment-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const list = area.querySelector('.comments-list');
+      const div = document.createElement('div');
+      div.className = "text-[11px] bg-slate-50 p-2.5 rounded-xl";
+      div.innerHTML = `<b class="text-refract-dark">Bạn:</b> ${escapeHTML(text)}`;
+      list.appendChild(div);
+
+      const countLabel = btn.closest('.feed-entry').querySelector('.comment-count');
+      const currentVal = parseInt(countLabel.textContent) || 0;
+      countLabel.textContent = `${currentVal + 1} phản hồi`;
+
+      input.value = '';
+      triggerToast("Bình luận của bạn đã được gửi!");
+    }
+
+    // Lọc theo tabs (Tất Cả, Bếp Chay, Mặt Nước)
+    function filterFeed(btn, category) {
+      document.querySelectorAll('.feed-filter-btn').forEach(b => {
+        b.className = "feed-filter-btn text-refract-muted hover:text-refract-dark transition";
+      });
+      btn.className = "feed-filter-btn text-refract-primary font-bold relative after:content-[''] after:absolute after:-bottom-2.5 after:left-0 after:right-0 after:h-[2px] after:bg-refract-primary";
+
+      const entries = document.querySelectorAll('.feed-entry');
+      entries.forEach(entry => {
+        const cat = entry.getAttribute('data-category');
+        if (category === 'all' || cat === category) {
+          entry.style.display = 'block';
+        } else {
+          entry.style.display = 'none';
+        }
+      });
+      triggerToast(`Đã lọc danh mục: ${btn.textContent.trim()}`);
+    }
+
+    // Lọc qua thanh Menu bên trái
+    function switchMainTab(e, type) {
+      e.preventDefault();
+      document.querySelectorAll('.nav-item').forEach(link => {
+        link.className = "nav-item flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-refract-dark/80 hover:bg-slate-100 transition";
+      });
+      e.currentTarget.className = "nav-item active flex items-center justify-between px-3 py-2.5 rounded-xl font-bold bg-refract-soft text-refract-primary transition";
+
+      const entries = document.querySelectorAll('.feed-entry');
+      if (type === 'saved') {
+        let count = 0;
+        entries.forEach(entry => {
+          const isSaved = entry.querySelector('.bookmark-btn i').classList.contains('fa-solid');
+          if (isSaved) {
+            entry.style.display = 'block';
+            count++;
+          } else {
+            entry.style.display = 'none';
+          }
+        });
+        triggerToast(count > 0 ? `Hiển thị ${count} bài viết đã lưu` : "Bạn chưa lưu bài viết nào");
+        return;
+      }
+
+      entries.forEach(entry => {
+        const cat = entry.getAttribute('data-category');
+        if (type === 'all' || cat === type) {
+          entry.style.display = 'block';
+        } else {
+          entry.style.display = 'none';
+        }
+      });
+    }
+
+    // Tìm kiếm tức thì trong Feed
+    function searchArticles(keyword) {
+      const term = keyword.toLowerCase().trim();
+      const entries = document.querySelectorAll('.feed-entry');
+      entries.forEach(entry => {
+        const text = entry.innerText.toLowerCase();
+        if (text.includes(term)) {
+          entry.style.display = 'block';
+        } else {
+          entry.style.display = 'none';
+        }
+      });
+    }
+
+    // Follow tác giả
+    function toggleFollowBtn(btn) {
+      if (btn.textContent.trim() === 'Theo dõi') {
+        btn.textContent = 'Đang theo dõi';
+        btn.classList.add('bg-refract-dark', 'text-white', 'border-transparent');
+        triggerToast("Đã theo dõi tác giả!");
+      } else {
+        btn.textContent = 'Theo dõi';
+        btn.classList.remove('bg-refract-dark', 'text-white', 'border-transparent');
+      }
+    }
+
+    // Story Preview Modal Demo
+    function previewStory(name, caption) {
+      triggerToast(`Khoảnh khắc từ ${name}: "${caption}"`);
+    }
+
+    // Sao chép liên kết
+    function copyPostLink() {
+      const dummy = document.createElement('input');
+      dummy.value = window.location.href;
+      document.body.appendChild(dummy);
+      dummy.select();
+      try {
+        document.execCommand('copy');
+        triggerToast("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+      } catch (err) {
+        triggerToast("Liên kết sẵn sàng chia sẻ!");
+      }
+      document.body.removeChild(dummy);
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+  </script>
+</body>
+</html>

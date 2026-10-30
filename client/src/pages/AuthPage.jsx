@@ -1,42 +1,32 @@
 // Trang Đăng nhập / Đăng ký (M-17) — 1 trang, 2 chế độ, KHÔNG dùng react-router.
 //   initialMode="login"    → chế độ Đăng nhập
 //   initialMode="register" → chế độ Đăng ký
-// Bố cục port từ template: trái = form · phải = panel "khu vườn" ảnh món chay trôi chậm.
+// Bố cục khu vườn: lớp cảnh trang trí và form xác thực.
 // Luồng gọi server giữ NGUYÊN: useAuth() → AuthContext → auth.service.js → api.js
 import { useEffect, useState } from 'react';
-import { Button, Checkbox, Logo, Notice, PasswordField, Photo, TextField, ThemeToggle } from '../components';
+import { Button, Checkbox, Logo, Notice, PasswordField, TextField, ThemeToggle } from '../components';
 import useAuth from '../hooks/useAuth';
 import styles from './AuthPage.module.css';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-const photo = (id, w = 900) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=70`;
-
-const PHOTOS = {
-  saladBowl: photo('photo-1512621776951-a57141f2eefd'),
-  buddhaBowl: photo('photo-1623428187969-5da2dcea5ebf'),
-  avoToast: photo('photo-1540914124281-342587941389'),
-  tofuSteam: photo('photo-1758293121435-396ed31ebcf4'),
-  tofuFried: photo('photo-1788535284819-87436fcaef2f'),
-  noodleSoup: photo('photo-1579856896394-07dfa10d7c5b'),
-  currySoup: photo('photo-1613844237701-8f3664fc2eff'),
-  acaiBowl: photo('photo-1627308594190-a057cd4bfac8'),
-  smoothie: photo('photo-1610970881699-44a5587cabec'),
-  pumpkinSoup: photo('photo-1547592166-23ac45744acd'),
-  tableBowls: photo('photo-1680173073730-852e0ec93bec'),
-  avocadoBowl: photo('photo-1547496502-affa22d38842'),
-  greenPlate: photo('photo-1591522913962-3ecfa6b271f1'),
-  vegFlatlay: photo('photo-1598449426314-8b02525e8733', 1600),
-  vegBowlDark: photo('photo-1511690656952-34342bb7c2f2', 1600),
-};
-
-const COLUMNS = [
-  [PHOTOS.buddhaBowl, PHOTOS.noodleSoup, PHOTOS.smoothie, PHOTOS.tofuSteam],
-  [PHOTOS.acaiBowl, PHOTOS.tofuFried, PHOTOS.currySoup, PHOTOS.saladBowl],
-  [PHOTOS.avocadoBowl, PHOTOS.pumpkinSoup, PHOTOS.avoToast, PHOTOS.greenPlate],
-];
-
 const STRENGTH = ['', 'Yếu', 'Trung bình', 'Mạnh'];
+
+// Rèm lá: mỗi bên 3 tầng (sau → giữa → trước) để lá hai bên chen vào nhau ở giữa.
+const CURTAIN_SIDES = ['left', 'right'];
+const CURTAIN_DEPTHS = ['back', 'mid', 'front'];
+
+// Lá rơi khi rèm vén ra: vị trí, cỡ, màu, thời lượng, độ lắc và góc xoay ban đầu.
+const FALLING_LEAVES = [
+  { x: '44%', s: '24px', c: '#4d9358', d: '3.9s', delay: '.75s', sway: '-70px', r: '-25deg' },
+  { x: '53%', s: '18px', c: '#8bbf5f', d: '3.5s', delay: '.95s', sway: '55px', r: '30deg' },
+  { x: '38%', s: '20px', c: '#2f6b45', d: '4.1s', delay: '1.2s', sway: '80px', r: '10deg' },
+  { x: '60%', s: '26px', c: '#6aa35a', d: '4.2s', delay: '1.05s', sway: '-90px', r: '-40deg' },
+  { x: '49%', s: '15px', c: '#a9cc6e', d: '3.6s', delay: '1.45s', sway: '40px', r: '60deg' },
+  { x: '33%', s: '17px', c: '#5c9e63', d: '3.7s', delay: '.85s', sway: '-45px', r: '15deg' },
+  { x: '66%', s: '21px', c: '#3e7f52', d: '3.8s', delay: '1.35s', sway: '65px', r: '-15deg' },
+  { x: '56%', s: '13px', c: '#c6dc8a', d: '3.4s', delay: '1.6s', sway: '-35px', r: '45deg' },
+];
 
 function strengthOf(password) {
   if (!password) return 0;
@@ -237,6 +227,51 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
 
   return (
     <main className={styles['auth']}>
+      <div className={styles['garden']} aria-hidden="true">
+        <div className={styles['garden-shade']} />
+        <div className={styles['garden-glow']} />
+        <span className={`${styles['garden-petal']} ${styles['garden-petal-one']}`} />
+        <span className={`${styles['garden-petal']} ${styles['garden-petal-two']}`} />
+        <span className={`${styles['garden-petal']} ${styles['garden-petal-three']}`} />
+      </div>
+
+      <div className={styles['garden-monkey']} aria-hidden="true">
+        <img src="/auth/swinging-monkey.webp" alt="" />
+      </div>
+
+      <div className={styles['garden-curtain']} aria-hidden="true">
+        <div className={styles['curtain-glow']} />
+        {CURTAIN_SIDES.flatMap((side) => CURTAIN_DEPTHS.map((depth) => (
+          <div
+            key={`${side}-${depth}`}
+            className={`${styles['curtain-layer']} ${styles[`curtain-${depth}`]} ${styles[`curtain-${side}`]}`}
+          >
+            {depth === 'mid' && <span className={styles['curtain-fringe']} />}
+          </div>
+        )))}
+        <div className={styles['curtain-rays']} />
+        {FALLING_LEAVES.map((leaf, index) => (
+          <span
+            key={index}
+            className={styles['curtain-leaf']}
+            style={{
+              '--x': leaf.x, '--s': leaf.s, '--c': leaf.c, '--d': leaf.d,
+              '--delay': leaf.delay, '--sway': leaf.sway, '--r': leaf.r,
+            }}
+          >
+            <svg viewBox="0 0 24 34" focusable="false">
+              <path className={styles['leaf-blade']} d="M12 1.5C5.2 7.6 2.6 15.4 5.1 23.2 6.6 28 9.4 31 12 32.5c2.6-1.5 5.4-4.5 6.9-9.3C21.4 15.4 18.8 7.6 12 1.5Z" />
+              <path className={styles['leaf-vein']} d="M12 5.5V31M12 13l-3.6-3M12 18.5l4-3.4M12 24l-4.2-3.2" />
+            </svg>
+          </span>
+        ))}
+      </div>
+
+      <div className={styles['garden-story']}>
+        <h2 className={styles['garden-story-title']}>Ăn chay dễ hơn khi <em>có nhau.</em></h2>
+        <p className={styles['garden-story-copy']}>Công thức, review quán, lịch ngày chay và trợ lý Mầm. Tất cả ở một nơi.</p>
+      </div>
+
       <section className={styles['auth-form-side']}>
         <div className={styles['auth-form-top']}>
           <Logo href="/login" showName size={40} />
@@ -364,8 +399,6 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
 
         <p className={styles['auth-legal']}>Ứng dụng cộng đồng ăn chay · Dự án SWP391</p>
       </section>
-
-      <VisualPanel />
     </main>
   );
 }
@@ -381,33 +414,5 @@ function StrengthMeter({ value }) {
       </div>
       <small>Độ mạnh: {STRENGTH[strength]}</small>
     </div>
-  );
-}
-
-function VisualPanel() {
-  return (
-    <section className={styles['auth-visual']} aria-hidden="true">
-      <div className={styles['auth-columns']}>
-        {COLUMNS.map((column, i) => (
-          <div
-            key={i}
-            className={styles['auth-column']}
-            data-dir={i % 2 ? 'down' : 'up'}
-            style={{ '--dur': `${48 + i * 9}s` }}
-          >
-            {[...column, ...column].map((src, j) => (
-              <Photo key={j} src={src.replace('w=900', 'w=600')} className={styles['auth-tile']} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className={styles['auth-scrim']} />
-      <div className={styles['auth-visual-copy']}>
-        <h1 className={styles['auth-headline']}>
-          Ăn chay dễ hơn khi <em>có nhau.</em>
-        </h1>
-        <p className={styles['auth-lead']}>Công thức, review quán, lịch ngày chay và trợ lý Mầm. Tất cả ở một nơi.</p>
-      </div>
-    </section>
   );
 }

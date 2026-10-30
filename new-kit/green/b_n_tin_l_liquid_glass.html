@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lá · Cộng Đồng Sống Xanh & Ẩm Thực Chay</title>
+  
+  <!-- Google Fonts & Tailwind CSS CDN -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons for clean icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            leaf: {
+              50: '#f2f8f4',
+              100: '#e1ede5',
+              200: '#c5ded0',
+              300: '#9ec4b0',
+              400: '#6fa389',
+              500: '#4b8467',
+              600: '#386a51',
+              700: '#315e46', /* Màu xanh chủ đạo của bạn */
+              800: '#264b38',
+              900: '#1e3c2e',
+              950: '#10221a',
+            },
+            cream: {
+              50: '#fdfcf9',
+              100: '#faf8f2',
+              200: '#f4f0e6',
+              300: '#eae3d3'
+            }
+          },
+          fontFamily: {
+            serif: ['"Playfair Display"', 'serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ---------------- Liquid Glass Styles ---------------- */
+    :root {
+      --primary-green: #315e46;
+      --glass-bg: rgba(255, 255, 255, 0.42);
+      --glass-border: rgba(255, 255, 255, 0.75);
+      --glass-highlight: rgba(255, 255, 255, 0.9);
+      --glass-shadow: 0 16px 36px -10px rgba(49, 94, 70, 0.12), 0 0 1px 1px rgba(255, 255, 255, 0.7) inset;
+    }
+
+    body {
+      background-color: #eaf0e8;
+      color: #23362a;
+      overflow-x: hidden;
+    }
+
+    /* Ambient animated organic liquid bubbles in the background */
+    .liquid-orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.65;
+      animation: floatMotion 22s infinite alternate ease-in-out;
+    }
+    .orb-1 {
+      width: 520px;
+      height: 520px;
+      background: radial-gradient(circle, #5ba47e 0%, rgba(132, 192, 158, 0.35) 70%, transparent 100%);
+      top: -100px;
+      left: 10%;
+      animation-duration: 24s;
+    }
+    .orb-2 {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, #c7e5ce 0%, rgba(200, 230, 208, 0.45) 60%, transparent 100%);
+      top: 45%;
+      right: -80px;
+      animation-duration: 28s;
+      animation-delay: -5s;
+    }
+    .orb-3 {
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, #a2cfb2 0%, rgba(162, 207, 178, 0.3) 70%, transparent 100%);
+      bottom: -100px;
+      left: 30%;
+      animation-duration: 20s;
+      animation-delay: -10s;
+    }
+
+    @keyframes floatMotion {
+      0% {
+        transform: translate(0px, 0px) scale(1);
+      }
+      50% {
+        transform: translate(45px, 60px) scale(1.12);
+      }
+      100% {
+        transform: translate(-35px, 30px) scale(0.92);
+      }
+    }
+
+    /* True Liquid Glass container */
+    .liquid-glass {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.58) 0%, rgba(244, 250, 246, 0.36) 100%);
+      backdrop-filter: blur(20px) saturate(175%);
+      -webkit-backdrop-filter: blur(20px) saturate(175%);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 
+        0 20px 40px -15px rgba(35, 66, 48, 0.08),
+        0 1px 3px 0 rgba(49, 94, 70, 0.05),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1px 1px 0 rgba(200, 220, 205, 0.3);
+      position: relative;
+    }
+
+    /* Glossy reflection shimmer across surface */
+    .glass-gloss {
+      position: relative;
+      overflow: hidden;
+    }
+    .glass-gloss::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 100%);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    /* Liquid Button with glossy reflection & pulse */
+    .liquid-btn-green {
+      background: linear-gradient(135deg, #386a51 0%, #2b553e 100%);
+      box-shadow: 
+        0 10px 22px -6px rgba(49, 94, 70, 0.45),
+        inset 0 1px 2px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -2px 4px 0 rgba(0, 0, 0, 0.2);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .liquid-btn-green:hover {
+      transform: translateY(-2px);
+      box-shadow: 
+        0 14px 28px -6px rgba(49, 94, 70, 0.55),
+        inset 0 1px 3px 0 rgba(255, 255, 255, 0.6);
+      filter: brightness(1.04);
+    }
+    .liquid-btn-green:active {
+      transform: translateY(0);
+      box-shadow: 0 4px 12px -2px rgba(49, 94, 70, 0.4);
+    }
+
+    /* Hide standard scrollbars for sleek glass aesthetic */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(49, 94, 70, 0.2);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(49, 94, 70, 0.4);
+    }
+
+    /* Smooth animations */
+    .like-active {
+      color: #e11d48 !important;
+      animation: heartbeat 0.35s ease-in-out;
+    }
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.35); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="min-h-screen text-[#22352a] font-sans antialiased selection:bg-leaf-200 selection:text-leaf-900 relative">
+
+  <!-- Background Fluid Ambient Liquid Lights (Underneath the frosted glass) -->
+  <div class="liquid-orb orb-1"></div>
+  <div class="liquid-orb orb-2"></div>
+  <div class="liquid-orb orb-3"></div>
+
+  <!-- Main Container -->
+  <div class="relative z-10 max-w-[1440px] mx-auto min-h-screen px-3 sm:px-6 lg:px-8 py-4 sm:py-6 flex flex-col">
+    
+    <!-- Top Glass Navigation Bar -->
+    <header class="liquid-glass glass-gloss rounded-2xl sm:rounded-3xl px-5 sm:px-8 py-3.5 mb-6 flex items-center justify-between sticky top-4 z-40 transition-all duration-300">
+      <!-- Brand Logo -->
+      <div class="flex items-center gap-3">
+        <a href="#" class="flex items-baseline gap-2 group">
+          <span class="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-leaf-700 transition group-hover:opacity-85">lá.</span>
+          <span class="text-[10px] tracking-[0.22em] uppercase font-bold text-leaf-600/80 hidden sm:inline-block">FEED SỐNG XANH</span>
+        </a>
+      </div>
+
+      <!-- Search Bar with Liquid Glass feel -->
+      <div class="hidden md:flex items-center flex-1 max-w-md mx-8">
+        <div class="w-full relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-leaf-700/50 text-sm"></i>
+          <input 
+            type="text" 
+            placeholder="Tìm công thức, bài viết, thực đơn chay..." 
+            class="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/40 border border-white/70 text-xs sm:text-sm text-leaf-950 placeholder:text-leaf-800/40 focus:outline-none focus:ring-2 focus:ring-leaf-600/30 focus:bg-white/60 transition shadow-inner"
+          >
+        </div>
+      </div>
+
+      <!-- User controls -->
+      <div class="flex items-center gap-3 sm:gap-4">
+        <button class="w-10 h-10 rounded-full liquid-glass flex items-center justify-center text-leaf-700 hover:text-leaf-800 transition hover:scale-105" title="Thông báo">
+          <i class="fa-regular fa-bell text-base"></i>
+        </button>
+        <button class="w-10 h-10 rounded-full liquid-glass flex items-center justify-center text-leaf-700 hover:text-leaf-800 transition hover:scale-105" title="Tin nhắn">
+          <i class="fa-regular fa-comment-dots text-base"></i>
+        </button>
+        <div class="h-6 w-[1px] bg-white/70 hidden sm:block"></div>
+        <!-- Profile Bubble -->
+        <div class="flex items-center gap-2.5 p-1 pr-3 rounded-full bg-white/45 border border-white/80 shadow-sm cursor-pointer hover:bg-white/65 transition">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-8 h-8 rounded-full object-cover ring-2 ring-leaf-600/30">
+          <span class="text-xs font-semibold text-leaf-800 hidden sm:inline">Hà My</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main 3-Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1">
+      
+      <!-- LEFT SIDEBAR: Nav & Brand Action (3 cols) -->
+      <aside class="hidden lg:block lg:col-span-3 sticky top-28 space-y-5">
+        <div class="liquid-glass glass-gloss rounded-3xl p-5">
+          <!-- Primary CTA Button -->
+          <button onclick="focusComposer()" class="w-full liquid-btn-green text-white font-medium text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 mb-6 group cursor-pointer">
+            <span class="text-lg leading-none font-bold group-hover:rotate-90 transition duration-300">＋</span>
+            <span>Viết bài chia sẻ mới</span>
+          </button>
+
+          <!-- Nav Items -->
+          <div class="text-[11px] font-bold tracking-widest text-leaf-700/60 uppercase px-3 mb-2.5">
+            Khám phá
+          </div>
+          <nav class="space-y-1">
+            <a href="#" class="flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-leaf-700 text-white font-semibold text-sm shadow-md shadow-leaf-800/15">
+              <i class="fa-solid fa-seedling text-base"></i>
+              <span>Bản tin dành cho bạn</span>
+            </a>
+            <a href="#" class="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-leaf-800/80 hover:bg-white/50 hover:text-leaf-800 font-medium text-sm transition">
+              <i class="fa-solid fa-fire text-base text-leaf-600"></i>
+              <span>Xu hướng ẩm thực</span>
+            </a>
+            <a href="#" class="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-leaf-800/80 hover:bg-white/50 hover:text-leaf-800 font-medium text-sm transition">
+              <i class="fa-regular fa-bookmark text-base text-leaf-600"></i>
+              <span>Công thức đã lưu</span>
+              <span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-leaf-100 text-leaf-700 font-semibold">14</span>
+            </a>
+            <a href="#" class="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-leaf-800/80 hover:bg-white/50 hover:text-leaf-800 font-medium text-sm transition">
+              <i class="fa-solid fa-mortar-pestle text-base text-leaf-600"></i>
+              <span>Thực đơn tuần này</span>
+            </a>
+            <a href="#" class="flex items-center gap-3.5 px-4 py-3 rounded-2xl text-leaf-800/80 hover:bg-white/50 hover:text-leaf-800 font-medium text-sm transition">
+              <i class="fa-solid fa-users text-base text-leaf-600"></i>
+              <span>Góc cộng đồng</span>
+            </a>
+          </nav>
+
+          <div class="h-[1px] bg-white/70 my-5"></div>
+
+          <!-- Bottom micro card -->
+          <div class="p-3.5 rounded-2xl bg-white/35 border border-white/60 text-xs">
+            <div class="flex items-center gap-2 text-leaf-800 font-semibold mb-1">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Thử thách 7 ngày ăn chay
+            </div>
+            <p class="text-[11px] text-leaf-800/70 leading-relaxed">Đã có 1,280 thành viên tham gia tuần này. Cùng bắt đầu nhé!</p>
+          </div>
+        </div>
+
+        <!-- Footnote -->
+        <div class="px-3 text-[11px] text-leaf-800/50 flex flex-wrap gap-x-3 gap-y-1">
+          <span>© 2026 Lá community</span>
+          <span>·</span>
+          <a href="#" class="hover:underline">Điều khoản</a>
+          <span>·</span>
+          <a href="#" class="hover:underline">Bảo mật</a>
+          <span>·</span>
+          <a href="#" class="hover:underline">Dinh dưỡng AI</a>
+        </div>
+      </aside>
+
+      <!-- CENTER: Stories, Post Composer, Newsfeed Feed (6 cols) -->
+      <main class="col-span-1 lg:col-span-6 space-y-6">
+
+        <!-- Stories / Highlights Bar with Liquid Glass Glow -->
+        <div class="liquid-glass glass-gloss rounded-3xl p-4 overflow-hidden">
+          <div class="flex items-center gap-4 overflow-x-auto pb-1 scrollbar-none">
+            <!-- Add story item -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] border-2 border-dashed border-leaf-600/40 group-hover:border-leaf-600 transition flex items-center justify-center bg-white/30 backdrop-blur-md">
+                <div class="w-full h-full rounded-full bg-leaf-50 flex items-center justify-center text-leaf-700 text-lg group-hover:scale-105 transition">
+                  <i class="fa-solid fa-plus"></i>
+                </div>
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5">Tạo tin</span>
+            </div>
+
+            <!-- Story 1 -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-leaf-700 via-leaf-400 to-emerald-300 shadow-md group-hover:scale-105 transition">
+                <img src="https://images.unsplash.com/photo-1540420773420-3366772f4999?w=150&auto=format&fit=crop&q=80" alt="Bếp Xanh" class="w-full h-full object-cover rounded-full border border-white">
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5 truncate max-w-[64px]">Bếp Xanh</span>
+            </div>
+
+            <!-- Story 2 -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-leaf-700 via-leaf-400 to-emerald-300 shadow-md group-hover:scale-105 transition">
+                <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=150&auto=format&fit=crop&q=80" alt="Salad ngày hè" class="w-full h-full object-cover rounded-full border border-white">
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5 truncate max-w-[64px]">Minh Anh</span>
+            </div>
+
+            <!-- Story 3 -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-leaf-700 via-leaf-400 to-emerald-300 shadow-md group-hover:scale-105 transition">
+                <img src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=150&auto=format&fit=crop&q=80" alt="Đậu hũ sốt" class="w-full h-full object-cover rounded-full border border-white">
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5 truncate max-w-[64px]">Thu Hà</span>
+            </div>
+
+            <!-- Story 4 -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-leaf-700 via-leaf-400 to-emerald-300 shadow-md group-hover:scale-105 transition">
+                <img src="https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=150&auto=format&fit=crop&q=80" alt="Matcha Latte" class="w-full h-full object-cover rounded-full border border-white">
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5 truncate max-w-[64px]">Thanh Lam</span>
+            </div>
+
+            <!-- Story 5 -->
+            <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group">
+              <div class="w-16 h-16 rounded-full p-[2.5px] bg-gradient-to-tr from-leaf-700 via-leaf-400 to-emerald-300 shadow-md group-hover:scale-105 transition">
+                <img src="https://images.unsplash.com/photo-1547592180-85f173990554?w=150&auto=format&fit=crop&q=80" alt="Bún nấm" class="w-full h-full object-cover rounded-full border border-white">
+              </div>
+              <span class="text-[11px] font-medium text-leaf-800 mt-1.5 truncate max-w-[64px]">Bếp Mẹ</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- POST COMPOSER: Liquid Glass Card -->
+        <div class="liquid-glass glass-gloss rounded-3xl p-5 shadow-lg">
+          <div class="flex gap-3 items-start">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow">
+            
+            <div class="flex-1">
+              <textarea 
+                id="postContentInput"
+                rows="2" 
+                placeholder="Bạn có món chay nào ngon hay ý tưởng sống xanh hôm nay muốn sẻ chia? 🌿" 
+                class="w-full bg-white/40 focus:bg-white/70 border border-white/80 focus:border-leaf-500/60 rounded-2xl p-3 text-sm text-leaf-950 placeholder:text-leaf-800/50 focus:outline-none transition resize-none shadow-inner"
+              ></textarea>
+
+              <!-- Image preview box (Hidden by default) -->
+              <div id="imagePreviewContainer" class="hidden relative mt-3 rounded-2xl overflow-hidden border border-white/80 group max-h-60">
+                <img id="previewImage" src="" alt="Ảnh đính kèm" class="w-full h-48 object-cover">
+                <button onclick="removeAttachedImage()" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition backdrop-blur-sm">
+                  <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+              </div>
+
+              <!-- Tags bar -->
+              <div class="flex items-center gap-1.5 flex-wrap mt-3">
+                <button type="button" onclick="insertTag('#MonChayNgon')" class="px-2.5 py-1 rounded-full text-xs bg-white/50 hover:bg-white/80 text-leaf-700 border border-white/70 transition">#MonChayNgon</button>
+                <button type="button" onclick="insertTag('#BuaSangLanh')" class="px-2.5 py-1 rounded-full text-xs bg-white/50 hover:bg-white/80 text-leaf-700 border border-white/70 transition">#BuaSangLanh</button>
+                <button type="button" onclick="insertTag('#ZeroWaste')" class="px-2.5 py-1 rounded-full text-xs bg-white/50 hover:bg-white/80 text-leaf-700 border border-white/70 transition">#ZeroWaste</button>
+                <button type="button" onclick="insertTag('#CongThuc15Phut')" class="px-2.5 py-1 rounded-full text-xs bg-white/50 hover:bg-white/80 text-leaf-700 border border-white/70 transition">#CongThuc15Phut</button>
+              </div>
+
+              <!-- Actions row -->
+              <div class="flex items-center justify-between border-t border-white/70 pt-3 mt-3">
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="triggerImageUpload()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-leaf-800 hover:bg-white/50 transition">
+                    <i class="fa-regular fa-image text-leaf-700 text-sm"></i>
+                    <span>Ảnh món ăn</span>
+                  </button>
+                  <button type="button" onclick="addIngredientTag()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-leaf-800 hover:bg-white/50 transition">
+                    <i class="fa-solid fa-carrot text-leaf-700 text-sm"></i>
+                    <span>Nguyên liệu</span>
+                  </button>
+                  <button type="button" onclick="insertTag('🌿 Cảm giác hôm nay rất nhẹ nhàng!')" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-leaf-800 hover:bg-white/50 transition">
+                    <i class="fa-regular fa-face-smile text-leaf-700 text-sm"></i>
+                    <span>Tâm trạng</span>
+                  </button>
+                </div>
+
+                <!-- Hidden file input for real demo interaction -->
+                <input type="file" id="realFileInput" accept="image/*" class="hidden" onchange="handleFileSelected(event)">
+
+                <button onclick="publishNewPost()" class="liquid-btn-green text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 cursor-pointer">
+                  <span>Đăng bài</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FEED FILTER TABS -->
+        <div class="flex items-center justify-between px-2">
+          <div class="flex items-center gap-2 p-1 rounded-2xl bg-white/35 backdrop-blur-md border border-white/60">
+            <button onclick="switchTab(this, 'all')" class="tab-btn active-tab px-4 py-1.5 rounded-xl text-xs font-bold text-white bg-leaf-700 shadow-sm transition">
+              Dành cho bạn
+            </button>
+            <button onclick="switchTab(this, 'latest')" class="tab-btn px-4 py-1.5 rounded-xl text-xs font-medium text-leaf-800 hover:text-leaf-950 transition">
+              Mới nhất
+            </button>
+            <button onclick="switchTab(this, 'recipes')" class="tab-btn px-4 py-1.5 rounded-xl text-xs font-medium text-leaf-800 hover:text-leaf-950 transition">
+              Công thức nấu
+            </button>
+          </div>
+
+          <div class="text-xs text-leaf-800/70 flex items-center gap-1 cursor-pointer hover:text-leaf-900 transition">
+            <i class="fa-solid fa-sliders text-xs"></i>
+            <span class="font-medium hidden sm:inline">Bộ lọc</span>
+          </div>
+        </div>
+
+        <!-- POST FEED CONTAINER -->
+        <div id="postsFeedContainer" class="space-y-6">
+
+          <!-- POST 1 -->
+          <article class="liquid-glass glass-gloss rounded-3xl p-5 sm:p-6 transition hover:shadow-xl">
+            <!-- Author Header -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80" alt="Minh Phương" class="w-11 h-11 rounded-full object-cover ring-2 ring-white">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="font-bold text-sm text-leaf-950">Lê Minh Phương</h3>
+                    <span class="text-leaf-600 text-xs" title="Đầu bếp chay verified"><i class="fa-solid fa-circle-check"></i></span>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] text-leaf-800/60">
+                    <span>2 giờ trước</span>
+                    <span>•</span>
+                    <span class="inline-flex items-center gap-1"><i class="fa-solid fa-earth-americas text-[10px]"></i> Công khai</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- More action dropdown menu toggle -->
+              <button class="w-8 h-8 rounded-full hover:bg-white/50 text-leaf-700/70 hover:text-leaf-900 flex items-center justify-center transition">
+                <i class="fa-solid fa-ellipsis"></i>
+              </button>
+            </div>
+
+            <!-- Text Content -->
+            <div class="text-sm leading-relaxed text-leaf-900 mb-4">
+              Bữa sáng chủ nhật đơn giản với <strong class="font-semibold text-leaf-700">Bánh mì quả bơ nướng hạt chia và nấm áp chảo sốt bơ mè</strong> 🥑🍞.
+              Không cần chuẩn bị cầu kỳ, chỉ 12 phút là đã có một đĩa ăn đủ chất béo tốt và năng lượng xanh dịu lành cho ngày nghỉ. Mời cả nhà cùng dùng bữa nhé!
+              <div class="mt-2 text-xs text-leaf-700 font-semibold space-x-2">
+                <span class="hover:underline cursor-pointer">#MonChayNgon</span>
+                <span class="hover:underline cursor-pointer">#HealthyBrunch</span>
+                <span class="hover:underline cursor-pointer">#VeganVietnam</span>
+              </div>
+            </div>
+
+            <!-- Post Media (Glossy border container) -->
+            <div class="rounded-2xl overflow-hidden border border-white/80 shadow-inner mb-4 max-h-[420px] bg-stone-100">
+              <img src="https://images.unsplash.com/photo-1525351484163-7529414344d8?w=900&auto=format&fit=crop&q=85" alt="Bánh mì bơ nấm chay" class="w-full h-full object-cover hover:scale-102 transition duration-500">
+            </div>
+
+            <!-- Recipe Highlight Tag Widget inside Post -->
+            <div class="p-3.5 rounded-2xl bg-white/40 border border-white/70 flex items-center justify-between mb-4 text-xs">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-leaf-100 text-leaf-700 flex items-center justify-center">
+                  <i class="fa-solid fa-stopwatch text-sm"></i>
+                </div>
+                <div>
+                  <div class="font-bold text-leaf-900">Công thức đính kèm: Bánh Mì Bơ Lành Mạnh</div>
+                  <div class="text-[11px] text-leaf-800/70">12 phút • Dễ làm • Giàu Omega-3</div>
+                </div>
+              </div>
+              <button onclick="showToast('Đã lưu công thức vào bộ sưu tập cá nhân!')" class="px-3 py-1.5 rounded-xl bg-leaf-700 text-white font-semibold text-xs hover:bg-leaf-800 transition">
+                Xem công thức
+              </button>
+            </div>
+
+            <!-- Engagement Stats Bar -->
+            <div class="flex items-center justify-between text-xs text-leaf-800/70 pb-3 border-b border-white/70 mb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-[10px]"><i class="fa-solid fa-heart"></i></span>
+                <span class="w-5 h-5 rounded-full bg-leaf-600 text-white flex items-center justify-center text-[10px]"><i class="fa-solid fa-leaf"></i></span>
+                <span id="likes-count-1" class="ml-1 font-medium">184 lượt yêu thích</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span>32 bình luận</span>
+                <span>•</span>
+                <span>9 lượt chia sẻ</span>
+              </div>
+            </div>
+
+            <!-- Post Interaction Buttons -->
+            <div class="flex items-center justify-between pt-1">
+              <button onclick="toggleLike(this, 'likes-count-1', 184)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-heart text-base"></i>
+                <span>Thích</span>
+              </button>
+              <button onclick="focusComment(1)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-message text-base"></i>
+                <span>Bình luận</span>
+              </button>
+              <button onclick="toggleBookmark(this)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-bookmark text-base"></i>
+                <span>Lưu bài</span>
+              </button>
+              <button onclick="sharePost()" class="w-10 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center transition">
+                <i class="fa-solid fa-arrow-up-from-bracket text-sm"></i>
+              </button>
+            </div>
+          </article>
+
+          <!-- POST 2 -->
+          <article class="liquid-glass glass-gloss rounded-3xl p-5 sm:p-6 transition hover:shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Hoàng Nam" class="w-11 h-11 rounded-full object-cover ring-2 ring-white">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="font-bold text-sm text-leaf-950">Võ Hoàng Nam</h3>
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] text-leaf-800/60">
+                    <span>5 giờ trước</span>
+                    <span>•</span>
+                    <span class="inline-flex items-center gap-1"><i class="fa-solid fa-earth-americas text-[10px]"></i> Công khai</span>
+                  </div>
+                </div>
+              </div>
+
+              <button class="w-8 h-8 rounded-full hover:bg-white/50 text-leaf-700/70 hover:text-leaf-900 flex items-center justify-center transition">
+                <i class="fa-solid fa-ellipsis"></i>
+              </button>
+            </div>
+
+            <!-- Content -->
+            <div class="text-sm leading-relaxed text-leaf-900 mb-4">
+              Sau 3 tháng chuyển từ ăn mặn sang chế độ thuần chay (Plant-based) 80%, chỉ số huyết áp và năng lượng của mình cải thiện rõ rệt. Không còn cảm giác nặng nề uể oải sau mỗi bữa trưa công sở.
+              <br><br>
+              Hôm nay mang theo hộp cơm tự chuẩn bị: Cơm lứt hạt sen, nấm đông cô kho tiêu gừng, canh rong biển đậu hũ non. Ăn chay vừa ngon, vừa thanh tịnh lại bảo vệ môi trường! 💚🌱
+              <div class="mt-2 text-xs text-leaf-700 font-semibold space-x-2">
+                <span class="hover:underline cursor-pointer">#PlantBasedLife</span>
+                <span class="hover:underline cursor-pointer">#MealPrep</span>
+                <span class="hover:underline cursor-pointer">#SongKhoe</span>
+              </div>
+            </div>
+
+            <!-- Media 2 -->
+            <div class="rounded-2xl overflow-hidden border border-white/80 shadow-inner mb-4 max-h-[420px] bg-stone-100">
+              <img src="https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?w=900&auto=format&fit=crop&q=85" alt="Hộp cơm chay chuẩn bị" class="w-full h-full object-cover hover:scale-102 transition duration-500">
+            </div>
+
+            <!-- Stats -->
+            <div class="flex items-center justify-between text-xs text-leaf-800/70 pb-3 border-b border-white/70 mb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="w-5 h-5 rounded-full bg-leaf-600 text-white flex items-center justify-center text-[10px]"><i class="fa-solid fa-leaf"></i></span>
+                <span id="likes-count-2" class="ml-1 font-medium">96 lượt yêu thích</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span>18 bình luận</span>
+                <span>•</span>
+                <span>4 chia sẻ</span>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center justify-between pt-1">
+              <button onclick="toggleLike(this, 'likes-count-2', 96)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-heart text-base"></i>
+                <span>Thích</span>
+              </button>
+              <button onclick="focusComment(2)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-message text-base"></i>
+                <span>Bình luận</span>
+              </button>
+              <button onclick="toggleBookmark(this)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                <i class="fa-regular fa-bookmark text-base"></i>
+                <span>Lưu bài</span>
+              </button>
+              <button onclick="sharePost()" class="w-10 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center transition">
+                <i class="fa-solid fa-arrow-up-from-bracket text-sm"></i>
+              </button>
+            </div>
+          </article>
+        </div>
+
+      </main>
+
+      <!-- RIGHT SIDEBAR: Trends, Suggested, Daily Tip (3 cols) -->
+      <aside class="hidden lg:block lg:col-span-3 sticky top-28 space-y-5">
+        
+        <!-- Trending Topics Card -->
+        <div class="liquid-glass glass-gloss rounded-3xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-serif text-lg font-semibold text-leaf-900">Chủ đề thịnh hành</h3>
+            <span class="text-xs text-leaf-700/60 font-medium">Hôm nay</span>
+          </div>
+
+          <div class="space-y-3.5">
+            <div class="group cursor-pointer">
+              <div class="text-[10px] text-leaf-700/60 font-semibold tracking-wide">ẨM THỰC THỰC DƯỠNG</div>
+              <div class="font-bold text-sm text-leaf-900 group-hover:text-leaf-700 transition">#CanhDuongSinhThanhLoc</div>
+              <div class="text-[11px] text-leaf-800/50">4.2k bài thảo luận</div>
+            </div>
+
+            <div class="group cursor-pointer">
+              <div class="text-[10px] text-leaf-700/60 font-semibold tracking-wide">LỐI SỐNG TỐI GIẢN</div>
+              <div class="font-bold text-sm text-leaf-900 group-hover:text-leaf-700 transition">#KhongRacThaiNhua</div>
+              <div class="text-[11px] text-leaf-800/50">1.8k bài chia sẻ</div>
+            </div>
+
+            <div class="group cursor-pointer">
+              <div class="text-[10px] text-leaf-700/60 font-semibold tracking-wide">THỬ THÁCH MỖI TUẦN</div>
+              <div class="font-bold text-sm text-leaf-900 group-hover:text-leaf-700 transition">#MonChayGiauProtein</div>
+              <div class="text-[11px] text-leaf-800/50">3.5k bài thảo luận</div>
+            </div>
+
+            <div class="group cursor-pointer">
+              <div class="text-[10px] text-leaf-700/60 font-semibold tracking-wide">MẸO BẾP LÀNH</div>
+              <div class="font-bold text-sm text-leaf-900 group-hover:text-leaf-700 transition">#BaoQuanRauCuTuoiLau</div>
+              <div class="text-[11px] text-leaf-800/50">890 bài viết</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggested Accounts / Gợi ý kết nối -->
+        <div class="liquid-glass glass-gloss rounded-3xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-serif text-lg font-semibold text-leaf-900">Gợi ý theo dõi</h3>
+            <a href="#" class="text-xs text-leaf-700 font-semibold hover:underline">Xem thêm</a>
+          </div>
+
+          <div class="space-y-4">
+            <!-- User 1 -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" alt="Bếp Chay Yên" class="w-9 h-9 rounded-full object-cover ring-2 ring-white">
+                <div>
+                  <h4 class="font-semibold text-xs text-leaf-950">Bếp Chay Yên</h4>
+                  <p class="text-[10px] text-leaf-800/60">Đầu bếp thực vật</p>
+                </div>
+              </div>
+              <button onclick="toggleFollow(this)" class="px-3 py-1 rounded-xl bg-white/60 hover:bg-leaf-700 hover:text-white border border-white text-leaf-800 text-xs font-semibold transition">
+                Theo dõi
+              </button>
+            </div>
+
+            <!-- User 2 -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80" alt="Nguyên Hạnh" class="w-9 h-9 rounded-full object-cover ring-2 ring-white">
+                <div>
+                  <h4 class="font-semibold text-xs text-leaf-950">BS. Nguyên Hạnh</h4>
+                  <p class="text-[10px] text-leaf-800/60">Chuyên gia dinh dưỡng</p>
+                </div>
+              </div>
+              <button onclick="toggleFollow(this)" class="px-3 py-1 rounded-xl bg-white/60 hover:bg-leaf-700 hover:text-white border border-white text-leaf-800 text-xs font-semibold transition">
+                Theo dõi
+              </button>
+            </div>
+
+            <!-- User 3 -->
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80" alt="Mai Lan Sống Xanh" class="w-9 h-9 rounded-full object-cover ring-2 ring-white">
+                <div>
+                  <h4 class="font-semibold text-xs text-leaf-950">Mai Lan Eco</h4>
+                  <p class="text-[10px] text-leaf-800/60">Lối sống Không rác</p>
+                </div>
+              </div>
+              <button onclick="toggleFollow(this)" class="px-3 py-1 rounded-xl bg-white/60 hover:bg-leaf-700 hover:text-white border border-white text-leaf-800 text-xs font-semibold transition">
+                Theo dõi
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Featured Daily Leaf Recipe Widget -->
+        <div class="liquid-glass glass-gloss rounded-3xl p-5 border border-white/90">
+          <div class="text-[10px] uppercase tracking-wider font-bold text-leaf-700 mb-2">Món ngon gợi ý hôm nay</div>
+          <div class="rounded-2xl overflow-hidden relative group cursor-pointer mb-3">
+            <img src="https://images.unsplash.com/photo-1547592180-85f173990554?w=400&auto=format&fit=crop&q=80" alt="Bún nấm" class="w-full h-32 object-cover group-hover:scale-105 transition duration-300">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+            <div class="absolute bottom-2 left-3 right-3 text-white">
+              <div class="font-serif font-medium text-sm drop-shadow">Canh Chua Nấm Đùi Gà Nam Bộ</div>
+              <div class="text-[10px] text-white/80">20 phút • Thanh nhiệt</div>
+            </div>
+          </div>
+          <p class="text-[11px] text-leaf-800/70 leading-relaxed">Vị chua thanh mát từ me quả và dứa tươi, giòn ngọt từ nấm giúp mâm cơm ngày cuối tuần tràn ngập hương sắc.</p>
+        </div>
+
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification System (Sleek Glass Floating Tag) -->
+  <div id="toastNotification" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+    <div class="liquid-glass px-5 py-3 rounded-2xl flex items-center gap-3 shadow-2xl border border-white/90">
+      <div class="w-6 h-6 rounded-full bg-leaf-700 text-white flex items-center justify-center text-xs">
+        <i class="fa-solid fa-check"></i>
+      </div>
+      <span id="toastMessage" class="text-xs font-semibold text-leaf-950">Thông báo đã gửi thành công!</span>
+    </div>
+  </div>
+
+  <!-- Client-side Interactive Logic -->
+  <script>
+    let attachedImageData = null;
+
+    // Toast Notification helper
+    function showToast(message) {
+      const toast = document.getElementById('toastNotification');
+      const text = document.getElementById('toastMessage');
+      text.textContent = message;
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3200);
+    }
+
+    // Focus post composer from sidebar button
+    function focusComposer() {
+      const input = document.getElementById('postContentInput');
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Insert Tag into composer
+    function insertTag(tag) {
+      const input = document.getElementById('postContentInput');
+      input.value = (input.value.trim() + ' ' + tag).trim() + ' ';
+      input.focus();
+    }
+
+    // Prompt for adding raw ingredient tag
+    function addIngredientTag() {
+      const tag = prompt("Nhập nguyên liệu bạn muốn gắn thẻ (ví dụ: Nấm hương, Đậu gà, Bí đỏ):", "Nấm đông cô");
+      if (tag && tag.trim()) {
+        insertTag('🥕 ' + tag.trim());
+      }
+    }
+
+    // Trigger fake or real image upload
+    function triggerImageUpload() {
+      document.getElementById('realFileInput').click();
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          attachedImageData = e.target.result;
+          const previewContainer = document.getElementById('imagePreviewContainer');
+          const previewImg = document.getElementById('previewImage');
+          previewImg.src = attachedImageData;
+          previewContainer.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function removeAttachedImage() {
+      attachedImageData = null;
+      document.getElementById('imagePreviewContainer').classList.add('hidden');
+      document.getElementById('realFileInput').value = '';
+    }
+
+    // Publish New Post dynamically into Feed
+    function publishNewPost() {
+      const textarea = document.getElementById('postContentInput');
+      const content = textarea.value.trim();
+
+      if (!content && !attachedImageData) {
+        showToast("Vui lòng nhập nội dung hoặc đính kèm ảnh trước khi đăng!");
+        return;
+      }
+
+      const feed = document.getElementById('postsFeedContainer');
+      const newPostId = Date.now();
+
+      // Formulate media html if attached or random aesthetic vegan food image if not provided
+      const mediaImage = attachedImageData || "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=900&auto=format&fit=crop&q=85";
+
+      const postCard = document.createElement('article');
+      postCard.className = "liquid-glass glass-gloss rounded-3xl p-5 sm:p-6 transition hover:shadow-xl animate-fade-in";
+      postCard.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-11 h-11 rounded-full object-cover ring-2 ring-white">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <h3 class="font-bold text-sm text-leaf-950">Hà My (Bạn)</h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-leaf-100 text-leaf-700 font-semibold">Tác giả</span>
+              </div>
+              <div class="flex items-center gap-2 text-[11px] text-leaf-800/60">
+                <span>Vừa xong</span>
+                <span>•</span>
+                <span class="inline-flex items-center gap-1"><i class="fa-solid fa-earth-americas text-[10px]"></i> Công khai</span>
+              </div>
+            </div>
+          </div>
+          <button class="w-8 h-8 rounded-full hover:bg-white/50 text-leaf-700/70 hover:text-leaf-900 flex items-center justify-center transition">
+            <i class="fa-solid fa-ellipsis"></i>
+          </button>
+        </div>
+
+        <div class="text-sm leading-relaxed text-leaf-900 mb-4 whitespace-pre-line">${escapeHTML(content)}</div>
+
+        ${mediaImage ? `
+          <div class="rounded-2xl overflow-hidden border border-white/80 shadow-inner mb-4 max-h-[420px] bg-stone-100">
+            <img src="${mediaImage}" alt="Ảnh bài viết" class="w-full h-full object-cover hover:scale-102 transition duration-500">
+          </div>
+        ` : ''}
+
+        <div class="flex items-center justify-between text-xs text-leaf-800/70 pb-3 border-b border-white/70 mb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-5 h-5 rounded-full bg-leaf-600 text-white flex items-center justify-center text-[10px]"><i class="fa-solid fa-leaf"></i></span>
+            <span id="likes-count-${newPostId}" class="ml-1 font-medium">1 lượt yêu thích</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span>0 bình luận</span>
+            <span>•</span>
+            <span>0 chia sẻ</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1">
+          <button onclick="toggleLike(this, 'likes-count-${newPostId}', 1)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+            <i class="fa-regular fa-heart text-base"></i>
+            <span>Thích</span>
+          </button>
+          <button onclick="focusComment('${newPostId}')" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+            <i class="fa-regular fa-message text-base"></i>
+            <span>Bình luận</span>
+          </button>
+          <button onclick="toggleBookmark(this)" class="flex-1 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center gap-2 transition">
+            <i class="fa-regular fa-bookmark text-base"></i>
+            <span>Lưu bài</span>
+          </button>
+          <button onclick="sharePost()" class="w-10 py-2 rounded-xl hover:bg-white/50 text-leaf-800/80 hover:text-leaf-900 font-semibold text-xs flex items-center justify-center transition">
+            <i class="fa-solid fa-arrow-up-from-bracket text-sm"></i>
+          </button>
+        </div>
+      `;
+
+      // Prepend to top of feed
+      feed.insertBefore(postCard, feed.firstChild);
+
+      // Reset Form
+      textarea.value = '';
+      removeAttachedImage();
+      showToast("Bài viết của bạn đã được đăng thành công lên Lá Feed! 🌿");
+    }
+
+    // Toggle Like functionality
+    function toggleLike(btn, counterId, baseCount) {
+      const heartIcon = btn.querySelector('i');
+      const counterSpan = document.getElementById(counterId);
+      const isLiked = btn.classList.toggle('text-rose-600');
+      
+      if (isLiked) {
+        heartIcon.classList.remove('fa-regular');
+        heartIcon.classList.add('fa-solid', 'like-active');
+        counterSpan.textContent = (baseCount + 1) + " lượt yêu thích";
+        showToast("Đã gửi một giọt lá yêu thương! 💚");
+      } else {
+        heartIcon.classList.remove('fa-solid', 'like-active');
+        heartIcon.classList.add('fa-regular');
+        counterSpan.textContent = baseCount + " lượt yêu thích";
+      }
+    }
+
+    // Bookmark Toggle
+    function toggleBookmark(btn) {
+      const icon = btn.querySelector('i');
+      const isSaved = icon.classList.toggle('fa-solid');
+      icon.classList.toggle('fa-regular');
+      if (isSaved) {
+        btn.classList.add('text-leaf-700');
+        showToast("Đã lưu bài viết vào mục Công thức & Mẹo yêu thích! 🔖");
+      } else {
+        btn.classList.remove('text-leaf-700');
+        showToast("Đã bỏ lưu bài viết");
+      }
+    }
+
+    // Toggle Follow creator
+    function toggleFollow(btn) {
+      if (btn.textContent.trim() === 'Theo dõi') {
+        btn.textContent = 'Đang theo dõi';
+        btn.classList.add('bg-leaf-700', 'text-white');
+        btn.classList.remove('bg-white/60', 'text-leaf-800');
+        showToast("Đã kết nối với tác giả thực vật!");
+      } else {
+        btn.textContent = 'Theo dõi';
+        btn.classList.remove('bg-leaf-700', 'text-white');
+        btn.classList.add('bg-white/60', 'text-leaf-800');
+      }
+    }
+
+    // Focus comment placeholder
+    function focusComment(id) {
+      const comment = prompt("Viết lời nhắn gửi hoặc cảm nghĩ của bạn về món ăn này:");
+      if (comment && comment.trim()) {
+        showToast("Bình luận của bạn đã được gửi tới người viết!");
+      }
+    }
+
+    // Share action (no prompt alert)
+    function sharePost() {
+      // Use fallback copying mechanism
+      const dummyUrl = window.location.href;
+      const tempInput = document.createElement("input");
+      tempInput.value = dummyUrl;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand('copy');
+        showToast("Đã sao chép liên kết bài viết vào bộ nhớ tạm!");
+      } catch (err) {
+        showToast("Liên kết bài viết đã sẵn sàng chia sẻ!");
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    // Tab switcher
+    function switchTab(btn, category) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active-tab', 'bg-leaf-700', 'text-white', 'shadow-sm', 'font-bold');
+        b.classList.add('text-leaf-800', 'font-medium');
+      });
+      btn.classList.add('active-tab', 'bg-leaf-700', 'text-white', 'shadow-sm', 'font-bold');
+      btn.classList.remove('text-leaf-800', 'font-medium');
+      showToast(`Đang chuyển sang danh mục: ${btn.textContent.trim()}`);
+    }
+
+    // Escape helper
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          "'": '&#39;',
+          '"': '&quot;'
+        }[tag] || tag)
+      );
+    }
+  </script>
+</body>
+</html>

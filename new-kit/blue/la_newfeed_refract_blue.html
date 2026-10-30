@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lá — Cộng đồng sống xanh · Refract Blue</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0e1f2c; --muted:#576570; --accent:#006c9c; --accent-hi:#005a8b;
+  --accent-soft:#daf0f7; --cream:#faf9f5; --line:#d7dde1; --white:#fff;
+  --shadow:0 10px 28px rgba(0,82,120,.065);
+  --shadow-hover:0 15px 34px rgba(0,82,120,.11);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:#edf0ef;color:var(--ink);font-family:'DM Sans',sans-serif}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
+.app{
+  width:min(1500px,100%);min-height:100vh;margin:0 auto;background:var(--cream);
+  display:grid;grid-template-columns:244px minmax(0,1fr) 306px;
+  box-shadow:0 22px 70px rgba(14,31,44,.10);overflow:hidden;
+}
+.sidebar{background:#f3f5f4;border-right:1px solid var(--line);padding:28px 18px 22px;display:flex;flex-direction:column;min-height:100vh}
+.brand{font:600 38px/1 'Playfair Display',serif;letter-spacing:-2px;color:var(--accent);padding:2px 12px 0}
+.brand small{display:block;font:700 9px/1.5 'DM Sans',sans-serif;letter-spacing:2.2px;margin-top:6px;color:#7a8994}
+.create-btn{
+  margin:34px 5px 31px;padding:14px 16px;border:0;border-radius:9px;color:#fff;font-weight:700;font-size:13px;
+  background:linear-gradient(145deg,#167da6,#006c9c 70%);box-shadow:0 7px 15px rgba(0,108,156,.18),inset 0 1px 0 rgba(255,255,255,.28);
+  transition:.2s transform,.2s box-shadow;position:relative;overflow:hidden
+}
+.create-btn:before,.primary-btn:before{content:"";position:absolute;left:10%;right:10%;top:1px;height:1px;background:rgba(255,255,255,.42)}
+.create-btn:hover,.primary-btn:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,108,156,.22),inset 0 1px 0 rgba(255,255,255,.3)}
+.nav-label{font-size:9px;font-weight:700;letter-spacing:1.8px;color:#98a4ad;padding:0 12px;margin:0 0 10px}
+.nav{display:flex;align-items:center;gap:12px;padding:11px 12px;margin:3px 0;border-radius:8px;color:#576570;font-size:12px;font-weight:500;transition:.18s}
+.nav .ico{width:18px;text-align:center;font-size:16px;color:#71818c}
+.nav:hover{background:#edf3f5;color:var(--accent)}
+.nav.active{background:#d8eaf0;color:#005a8b;font-weight:700}
+.nav.active .ico{color:var(--accent)}
+.side-divider{height:1px;background:#e0e7e9;margin:22px 8px}
+.sidebar-bottom{margin-top:auto;padding:18px 10px 2px;border-top:1px solid #e0e7e9;color:#687783;font-size:10px;line-height:1.8}
+.sidebar-bottom strong{color:var(--accent);font-weight:700}
+.main{min-width:0}
+.topbar{height:78px;padding:0 34px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:rgba(250,249,244,.92)}
+.top-title{font:500 23px 'Playfair Display',serif}
+.top-sub{font-size:10px;color:#7b8994;margin-top:4px}
+.top-actions{display:flex;align-items:center;gap:10px}
+.search{width:205px;height:37px;background:#fff;border:1px solid #e5eaeb;border-radius:8px;display:flex;align-items:center;gap:8px;padding:0 11px;color:#96a4ad}
+.search input{border:0;outline:0;background:transparent;width:100%;font-size:11px;color:var(--ink)}
+.icon-btn{width:36px;height:36px;border-radius:9px;border:1px solid #e5eaeb;background:#fff;color:#576570;position:relative}
+.icon-btn:hover{background:#e9f4f7;color:var(--accent)}
+.notification-dot{position:absolute;width:6px;height:6px;border-radius:50%;background:#b56e50;top:7px;right:7px;border:1px solid white}
+.profile-mini{width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #e1edf0}
+.feed-wrap{max-width:800px;margin:0 auto;padding:26px 34px 60px}
+.welcome{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;padding:23px 25px;margin-bottom:20px;
+  border-radius:13px;background:linear-gradient(110deg,#e8f3f6 0%,#f5f7f6 68%,#faf9f5 100%);
+  border:1px solid #e3edf0;box-shadow:0 7px 22px rgba(0,82,120,.045);position:relative;overflow:hidden
+}
+.welcome:after{content:"";position:absolute;width:190px;height:190px;border-radius:50%;right:-55px;top:-105px;background:radial-gradient(circle,rgba(255,255,255,.88),rgba(160,218,235,.13) 42%,rgba(255,255,255,0) 72%)}
+.welcome-copy{position:relative;z-index:1}
+.eyebrow{font-size:9px;letter-spacing:1.7px;font-weight:700;color:#6b96a8;text-transform:uppercase}
+.welcome h1{font:500 25px/1.2 'Playfair Display',serif;margin:7px 0 6px;color:#17374a}
+.welcome p{font-size:11px;color:#687783;margin:0;line-height:1.6}
+.welcome-mark{font:500 52px 'Playfair Display';color:rgba(0,108,156,.23);padding:0 12px;position:relative;z-index:1}
+.stories{display:flex;gap:15px;overflow:auto;padding:1px 1px 18px;margin-bottom:4px;scrollbar-width:none}
+.stories::-webkit-scrollbar{display:none}
+.story{flex:0 0 66px;text-align:center;border:0;background:none;padding:0;color:#576570}
+.story-ring{width:58px;height:58px;padding:3px;border-radius:50%;border:1.5px solid #8ab9ca;margin:0 auto 6px;background:#fff;box-shadow:0 3px 9px rgba(0,108,156,.06)}
+.story-ring img{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.story.add .story-ring{display:grid;place-items:center;background:#e4f1f4;color:var(--accent);font-size:24px;border:1px dashed #8ab9ca}
+.story span{font-size:9px;white-space:nowrap}
+.feed-tabs{display:flex;align-items:center;gap:22px;border-bottom:1px solid var(--line);margin:1px 0 17px}
+.feed-tab{border:0;background:none;color:#7b8994;font-size:11px;font-weight:600;padding:12px 1px 13px;position:relative}
+.feed-tab.active{color:var(--accent)}
+.feed-tab.active:after{content:"";height:2px;background:var(--accent);position:absolute;bottom:-1px;left:0;right:0;border-radius:3px}
+.sort{margin-left:auto;font-size:10px;color:#687783;border:0;background:transparent;padding:8px 0}
+.composer{
+  padding:16px 17px 13px;background:rgba(255,255,255,.86);border:1px solid #e5eaeb;border-radius:12px;
+  box-shadow:0 7px 22px rgba(0,82,120,.045),inset 0 1px 0 rgba(255,255,255,.9);margin-bottom:18px;
+  backdrop-filter:blur(8px)
+}
+.composer-top{display:flex;gap:11px;align-items:flex-start}
+.avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#e1edf0}
+.composer textarea{border:0;outline:0;resize:vertical;min-height:38px;max-height:110px;flex:1;padding:9px 2px;background:transparent;font-size:12px;color:var(--ink)}
+.composer textarea::placeholder{color:#a0abb3}
+.composer-bottom{display:flex;align-items:center;justify-content:space-between;border-top:1px solid #edf0f2;margin-top:10px;padding-top:11px}
+.composer-tools{display:flex;gap:15px}
+.tool{border:0;background:none;color:#687783;font-size:10px;padding:3px 0}
+.tool:hover{color:var(--accent)}
+.primary-btn{position:relative;overflow:hidden;border:0;border-radius:7px;padding:9px 17px;background:linear-gradient(145deg,#167da6,#006c9c);color:white;font-size:10px;font-weight:700;box-shadow:0 4px 10px rgba(0,108,156,.14);transition:.2s}
+.post-card{background:#fff;border:1px solid #e5eaeb;border-radius:12px;margin-bottom:17px;box-shadow:var(--shadow);overflow:hidden;transition:transform .2s,box-shadow .2s}
+.post-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.post-head{display:flex;align-items:center;gap:10px;padding:16px 17px 11px}
+.post-head .avatar{width:37px;height:37px}
+.author{min-width:0;flex:1}
+.author strong{display:block;font-size:11px;color:#2e3f4f;font-weight:700}
+.author span{font-size:9px;color:#96a4ad;display:block;margin-top:3px}
+.more{border:0;background:none;color:#8c9aa4;font-size:19px;padding:3px 7px;border-radius:6px}
+.more:hover{background:#edf3f5;color:var(--accent)}
+.post-copy{padding:0 17px 13px;font-size:11px;line-height:1.75;color:#405462}
+.post-copy p{margin:0 0 8px}
+.post-copy .hash{color:#3284a2;font-weight:600}
+.post-image{width:100%;max-height:380px;object-fit:cover;display:block;background:#e9f2f4}
+.post-image.pair{height:280px}
+.post-meta{display:flex;justify-content:space-between;padding:10px 17px 9px;color:#8d9ba4;font-size:9px}
+.post-actions{display:flex;align-items:center;gap:18px;padding:10px 17px 12px;border-top:1px solid #edf0f2}
+.action{border:0;background:none;padding:2px 0;color:#687783;font-size:10px;display:flex;align-items:center;gap:6px}
+.action:hover{color:var(--accent)}
+.action.liked{color:#b76b62}
+.action.saved{color:var(--accent)}
+.action:last-child{margin-left:auto}
+.comment-box{display:none;padding:12px 17px 15px;background:#fbfcfc;border-top:1px solid #edf0f2}
+.comment-box.show{display:block}
+.comment-line{display:flex;gap:9px;align-items:center}
+.comment-line input{height:34px;flex:1;border:1px solid #e5eaeb;border-radius:20px;padding:0 13px;outline:0;font-size:10px;background:white}
+.comment-line button{border:0;background:none;color:var(--accent);font-size:10px;font-weight:700}
+.rightbar{border-left:1px solid var(--line);background:#fbfaf8;padding:29px 19px;min-width:0}
+.right-section{margin-bottom:26px}
+.right-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+.right-heading h3{font:500 19px 'Playfair Display',serif;margin:0;color:#17374a}
+.right-heading a{font-size:9px;color:#6b96a8;text-decoration:none}
+.featured{border-radius:10px;overflow:hidden;background:#fff;border:1px solid #e5eaeb;box-shadow:var(--shadow);margin-bottom:11px}
+.featured img{width:100%;height:120px;object-fit:cover;display:block}
+.featured-body{padding:12px}
+.category{font-size:8px;letter-spacing:1.2px;color:#3284a2;font-weight:700}
+.featured h4{font:500 16px/1.35 'Playfair Display',serif;margin:6px 0;color:#2e3f4f}
+.featured p{font-size:9px;line-height:1.6;color:#687783;margin:0 0 9px}
+.featured-foot{font-size:9px;color:#96a4ad;border-top:1px solid #edf0f2;padding-top:9px}
+.person{display:flex;align-items:center;gap:9px;margin:12px 0}
+.person img{width:34px;height:34px;border-radius:50%;object-fit:cover}
+.person-info{flex:1;min-width:0}
+.person-info strong{font-size:10px;display:block;color:#2e3f4f}
+.person-info span{font-size:8px;color:#96a4ad;display:block;margin-top:3px}
+.follow{border:1px solid #dceaf0;border-radius:6px;padding:6px 9px;background:#f7fafb;color:var(--accent);font-size:9px;font-weight:700}
+.follow.following{background:#e4f1f4;color:#688493;border-color:#e4f1f4}
+.trend{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #e9f0f2;font-size:10px;color:#576a76}
+.trend:last-child{border-bottom:0}
+.trend span{color:#a0abb3;font-size:9px}
+.quote{padding:15px;border-radius:9px;background:#e3f0f4;border:1px solid #dceaf0;color:#576f7c;font-size:10px;line-height:1.7;position:relative}
+.quote strong{display:block;color:var(--accent);font:500 16px 'Playfair Display',serif;margin-bottom:5px}
+.mobile-nav{display:none}
+.toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);background:#064b6b;color:white;padding:11px 17px;border-radius:8px;font-size:11px;box-shadow:0 8px 24px rgba(0,45,70,.2);opacity:0;pointer-events:none;transition:.25s;z-index:20}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:1120px){.app{grid-template-columns:215px minmax(0,1fr)}.rightbar{display:none}.feed-wrap{max-width:790px}}
+@media(max-width:700px){
+  body{background:var(--cream)}.app{display:block;min-height:100vh;box-shadow:none}.sidebar{display:none}.topbar{height:66px;padding:0 16px}.top-title{font-size:20px}.top-sub{font-size:9px}.search{width:38px;padding:0 10px}.search input{display:none}.top-actions{gap:6px}.feed-wrap{padding:17px 13px 85px}.welcome{padding:17px;border-radius:10px}.welcome h1{font-size:22px}.welcome-mark{font-size:40px}.stories{gap:11px}.feed-tabs{gap:17px}.feed-tab{font-size:10px}.sort{display:none}.composer{padding:13px}.post-head{padding:13px 13px 9px}.post-copy{padding:0 13px 11px}.post-meta{padding:8px 13px}.post-actions{padding:9px 13px 11px;gap:15px}.post-image.pair{height:235px}.mobile-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:61px;background:rgba(250,249,244,.94);backdrop-filter:blur(12px);border-top:1px solid #e5eaeb;justify-content:space-around;align-items:center;z-index:10}.mobile-nav button{border:0;background:none;color:#7b8994;font-size:17px;padding:8px}.mobile-nav button.active{color:var(--accent)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">lá.<small>SỐNG XANH MỖI NGÀY</small></div>
+    <button class="create-btn" onclick="focusComposer()">＋ &nbsp; Tạo bài viết</button>
+    <div class="nav-label">KHÁM PHÁ</div>
+    <a class="nav active" href="#"><span class="ico">⌂</span>Bảng tin</a>
+    <a class="nav" href="#"><span class="ico">♧</span>Khám phá</a>
+    <a class="nav" href="#"><span class="ico">♡</span>Đã lưu</a>
+    <a class="nav" href="#"><span class="ico">♙</span>Bạn bè</a>
+    <div class="side-divider"></div>
+    <div class="nav-label">KHÔNG GIAN CỦA BẠN</div>
+    <a class="nav" href="#"><span class="ico">▧</span>Bài viết của tôi</a>
+    <a class="nav" href="#"><span class="ico">✧</span>Công thức đã lưu</a>
+    <a class="nav" href="#"><span class="ico">⚙</span>Cài đặt</a>
+    <div class="sidebar-bottom">✳ &nbsp; Một chút xanh, một chút lành.<br><strong>© 2026 Lá community</strong></div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div><div class="top-title">Bảng tin</div><div class="top-sub">Một góc nhỏ dành cho người yêu bếp chay</div></div>
+      <div class="top-actions">
+        <label class="search"><span>⌕</span><input id="searchInput" placeholder="Tìm bài viết..." oninput="searchPosts(this.value)"></label>
+        <button class="icon-btn" aria-label="Thông báo">♧<i class="notification-dot"></i></button>
+        <img class="profile-mini" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" alt="Ảnh đại diện">
+      </div>
+    </header>
+
+    <div class="feed-wrap">
+      <section class="welcome">
+        <div class="welcome-copy"><div class="eyebrow">CỘNG ĐỒNG LÁ · Ở ĐÂY CÙNG NHAU</div><h1>Chào ngày mới, Tùng.</h1><p>Chia sẻ một món ngon, lưu lại chút cảm hứng<br>và lan tỏa lối sống xanh theo cách của bạn.</p></div>
+        <div class="welcome-mark">lá.</div>
+      </section>
+
+      <section class="stories" aria-label="Khoảnh khắc cộng đồng">
+        <button class="story add" onclick="toast('Tính năng thêm khoảnh khắc đang ở chế độ demo')"><div class="story-ring">＋</div><span>Khoảnh khắc</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces"></div><span>Minh Anh</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces"></div><span>Quốc Bảo</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&h=100&fit=crop&crop=faces"></div><span>Ngọc Hà</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces"></div><span>Hoàng Nam</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces"></div><span>Thảo Vy</span></button>
+        <button class="story"><div class="story-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"></div><span>Tuấn Minh</span></button>
+      </section>
+
+      <div class="feed-tabs">
+        <button class="feed-tab active" onclick="setTab(this,'all')">Dành cho bạn</button>
+        <button class="feed-tab" onclick="setTab(this,'following')">Đang theo dõi</button>
+        <button class="feed-tab" onclick="setTab(this,'latest')">Mới nhất</button>
+        <button class="sort">Phù hợp nhất⌄</button>
+      </div>
+
+      <section class="composer" id="composer">
+        <div class="composer-top">
+          <img class="avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces" alt="">
+          <textarea id="postText" placeholder="Hôm nay bạn muốn chia sẻ điều gì với cộng đồng Lá?" rows="1"></textarea>
+        </div>
+        <div class="composer-bottom">
+          <div class="composer-tools"><button class="tool" onclick="toast('Đã mở chọn ảnh (demo)')">▧ &nbsp;Ảnh</button><button class="tool" onclick="toast('Đã mở chọn công thức (demo)')">♧ &nbsp;Công thức</button><button class="tool" onclick="toast('Đã mở thêm chủ đề (demo)')">⌗ &nbsp;Chủ đề</button></div>
+          <button class="primary-btn" onclick="publishPost()">Đăng bài</button>
+        </div>
+      </section>
+
+      <div id="posts">
+        <article class="post-card" data-kind="following latest" data-search="salad rau củ hạt dinh dưỡng bữa trưa minh anh">
+          <div class="post-head">
+            <img class="avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=faces" alt="">
+            <div class="author"><strong>Minh Anh <span style="color:#6ea8bc">✦</span></strong><span>Hôm nay lúc 09:24 · <span style="color:#4b93ad">Công thức</span></span></div>
+            <button class="more" aria-label="Tùy chọn">···</button>
+          </div>
+          <div class="post-copy"><p>Một chiếc salad nhỏ cho ngày cần ăn nhẹ 🌿 Mình kết hợp rau rocket, cà chua bi, bơ và một ít hạt óc chó. Phần sốt chanh olive làm món ăn tươi hơn hẳn.</p><p class="hash">#BepChay #SongXanh #AnLanhMoiNgay</p></div>
+          <img class="post-image" src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=1100&q=88" alt="Salad rau củ nhiều màu sắc">
+          <div class="post-meta"><span>♡ 128 lượt thích · 18 bình luận</span><span>3 lượt chia sẻ</span></div>
+          <div class="post-actions"><button class="action" onclick="likePost(this)">♡ <span>Thích</span></button><button class="action" onclick="toggleComments(this)">▢ <span>Bình luận</span></button><button class="action">↗ <span>Chia sẻ</span></button><button class="action" onclick="savePost(this)">♧ <span>Lưu</span></button></div>
+          <div class="comment-box"><div class="comment-line"><input placeholder="Viết bình luận tử tế..."><button onclick="toast('Bình luận đã được thêm (demo)')">Gửi</button></div></div>
+        </article>
+
+        <article class="post-card" data-kind="latest" data-search="bữa cơm nhà đậu hũ nấm kho tiêu rau muống ngọc hà">
+          <div class="post-head">
+            <img class="avatar" src="https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=100&h=100&fit=crop&crop=faces" alt="">
+            <div class="author"><strong>Ngọc Hà</strong><span>Hôm qua lúc 19:42 · <span style="color:#4b93ad">Bữa cơm nhà</span></span></div>
+            <button class="more" aria-label="Tùy chọn">···</button>
+          </div>
+          <div class="post-copy"><p>Bữa cơm tối đơn giản nhưng lúc nào cũng thấy ấm lòng: đậu hũ kho tiêu, nấm xào và canh rau. Không cần cầu kỳ, chỉ cần đủ rau, đủ đạm và ăn thật ngon miệng. 🍚</p><p class="hash">#ComNha #MonChayDeLam</p></div>
+          <img class="post-image pair" src="https://images.unsplash.com/photo-1547592180-85f173990554?w=1100&q=88" alt="Bữa ăn thực vật với rau củ và đậu">
+          <div class="post-meta"><span>♡ 96 lượt thích · 12 bình luận</span><span>5 lượt chia sẻ</span></div>
+          <div class="post-actions"><button class="action" onclick="likePost(this)">♡ <span>Thích</span></button><button class="action" onclick="toggleComments(this)">▢ <span>Bình luận</span></button><button class="action">↗ <span>Chia sẻ</span></button><button class="action" onclick="savePost(this)">♧ <span>Lưu</span></button></div>
+          <div class="comment-box"><div class="comment-line"><input placeholder="Viết bình luận tử tế..."><button onclick="toast('Bình luận đã được thêm (demo)')">Gửi</button></div></div>
+        </article>
+
+        <article class="post-card" data-kind="following" data-search="trồng rau ban công húng quế bạc hà sống xanh quốc bảo">
+          <div class="post-head">
+            <img class="avatar" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=faces" alt="">
+            <div class="author"><strong>Quốc Bảo</strong><span>Hôm qua lúc 16:10 · <span style="color:#4b93ad">Sống xanh</span></span></div>
+            <button class="more" aria-label="Tùy chọn">···</button>
+          </div>
+          <div class="post-copy"><p>Góc ban công bé xíu sau gần một tháng chăm chút. Có thêm húng quế, bạc hà và vài chậu rau thơm để mỗi lần nấu ăn chỉ cần bước ra hái một ít. 🌱</p><p class="hash">#VuonNha #SongXanhTuNhungDieuNho</p></div>
+          <img class="post-image pair" src="https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=1100&q=88" alt="Khu vườn nhỏ xanh mát">
+          <div class="post-meta"><span>♡ 74 lượt thích · 9 bình luận</span><span>2 lượt chia sẻ</span></div>
+          <div class="post-actions"><button class="action" onclick="likePost(this)">♡ <span>Thích</span></button><button class="action" onclick="toggleComments(this)">▢ <span>Bình luận</span></button><button class="action">↗ <span>Chia sẻ</span></button><button class="action" onclick="savePost(this)">♧ <span>Lưu</span></button></div>
+          <div class="comment-box"><div class="comment-line"><input placeholder="Viết bình luận tử tế..."><button onclick="toast('Bình luận đã được thêm (demo)')">Gửi</button></div></div>
+        </article>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rightbar">
+    <section class="right-section">
+      <div class="right-heading"><h3>Góc nhỏ hôm nay</h3><a href="#">Xem tất cả</a></div>
+      <div class="featured">
+        <img src="https://images.unsplash.com/photo-1547592180-85f173990554?w=700&q=85" alt="Món ăn chay">
+        <div class="featured-body"><div class="category">ĐƯỢC YÊU THÍCH · CÔNG THỨC</div><h4>Ăn chay đủ chất bắt đầu từ đâu?</h4><p>Những nguyên tắc nhỏ để bữa ăn thực vật đa dạng và cân bằng hơn.</p><div class="featured-foot">✧ 5 phút đọc &nbsp;·&nbsp; Lá biên tập</div></div>
+      </div>
+    </section>
+    <section class="right-section">
+      <div class="right-heading"><h3>Có thể bạn quen</h3><a href="#">Khám phá</a></div>
+      <div class="person"><img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=faces"><div class="person-info"><strong>Hoàng Nam</strong><span>Yêu món chay truyền thống</span></div><button class="follow" onclick="toggleFollow(this)">Theo dõi</button></div>
+      <div class="person"><img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=faces"><div class="person-info"><strong>Thảo Vy</strong><span>Chia sẻ công thức mỗi tuần</span></div><button class="follow" onclick="toggleFollow(this)">Theo dõi</button></div>
+      <div class="person"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=faces"><div class="person-info"><strong>Tuấn Minh</strong><span>Plant-based home cook</span></div><button class="follow" onclick="toggleFollow(this)">Theo dõi</button></div>
+    </section>
+    <section class="right-section">
+      <div class="right-heading"><h3>Chủ đề nổi bật</h3><a href="#">Tất cả</a></div>
+      <div class="trend">#BepChayMoiNgay <span>1.2k bài</span></div>
+      <div class="trend">#MonChayDeLam <span>846 bài</span></div>
+      <div class="trend">#SongXanh <span>628 bài</span></div>
+      <div class="trend">#AnChayDuChat <span>412 bài</span></div>
+    </section>
+    <div class="quote"><strong>“Ăn lành, sống xanh.”</strong>Mỗi lựa chọn nhỏ hôm nay đều có thể tạo nên một thay đổi dịu dàng cho ngày mai.</div>
+  </aside>
+</div>
+
+<nav class="mobile-nav"><button class="active">⌂</button><button>♧</button><button onclick="focusComposer()">＋</button><button>♡</button><button>♙</button></nav>
+<div class="toast" id="toast"></div>
+<script>
+let toastTimer;
+function toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),2200)}
+function focusComposer(){document.getElementById('composer').scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>document.getElementById('postText').focus(),350)}
+function likePost(button){button.classList.toggle('liked');const active=button.classList.contains('liked');button.innerHTML=(active?'♥':'♡')+' <span>'+(active?'Đã thích':'Thích')+'</span>'}
+function savePost(button){button.classList.toggle('saved');const active=button.classList.contains('saved');button.innerHTML=(active?'✓':'♧')+' <span>'+(active?'Đã lưu':'Lưu')+'</span>';toast(active?'Đã lưu bài viết':'Đã bỏ lưu bài viết')}
+function toggleComments(button){const box=button.closest('.post-card').querySelector('.comment-box');box.classList.toggle('show');if(box.classList.contains('show'))box.querySelector('input').focus()}
+function toggleFollow(button){const active=button.classList.toggle('following');button.textContent=active?'Đang theo dõi':'Theo dõi';toast(active?'Đã theo dõi người dùng':'Đã hủy theo dõi')}
+function setTab(button,kind){document.querySelectorAll('.feed-tab').forEach(x=>x.classList.remove('active'));button.classList.add('active');document.querySelectorAll('.post-card').forEach(card=>{card.style.display=kind==='all'||card.dataset.kind.includes(kind)?'block':'none'})}
+function searchPosts(value){const q=value.toLowerCase().trim();document.querySelectorAll('.post-card').forEach(card=>{card.style.display=card.dataset.search.includes(q)||card.innerText.toLowerCase().includes(q)?'block':'none'})}
+function publishPost(){const input=document.getElementById('postText');const value=input.value.trim();if(!value){toast('Viết vài dòng trước khi đăng nhé');input.focus();return}const card=document.createElement('article');card.className='post-card';card.dataset.kind='latest';card.dataset.search=value.toLowerCase();card.innerHTML=`<div class="post-head"><img class="avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=faces"><div class="author"><strong>Bạn</strong><span>Vừa xong · <span style="color:#4b93ad">Chia sẻ</span></span></div><button class="more">···</button></div><div class="post-copy"><p></p></div><div class="post-meta"><span>♡ 0 lượt thích · 0 bình luận</span><span>Vừa đăng</span></div><div class="post-actions"><button class="action" onclick="likePost(this)">♡ <span>Thích</span></button><button class="action" onclick="toggleComments(this)">▢ <span>Bình luận</span></button><button class="action">↗ <span>Chia sẻ</span></button><button class="action" onclick="savePost(this)">♧ <span>Lưu</span></button></div><div class="comment-box"><div class="comment-line"><input placeholder="Viết bình luận tử tế..."><button onclick="toast('Bình luận đã được thêm (demo)')">Gửi</button></div></div>`;card.querySelector('.post-copy p').textContent=value;document.getElementById('posts').prepend(card);input.value='';toast('Bài viết demo đã được đăng');card.scrollIntoView({behavior:'smooth',block:'center'})}
+</script>
+</body>
+</html>
