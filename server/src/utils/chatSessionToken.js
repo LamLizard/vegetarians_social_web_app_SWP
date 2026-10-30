@@ -45,12 +45,16 @@ function verifySession(token, account, deviceId) {
 }
 
 // A separate token version keeps the legacy planner/session contract intact.
-function issueSimpleSession(account, deviceId) {
+// Tùng: dùng mốc admission/completion thật để reload không gia hạn history.
+function issueSimpleSession(account, deviceId, activityTime = Date.now()) {
   const key = signingKey();
   const serverTime = Date.now();
-  const expiresAt = serverTime + SIMPLE_TTL_MS;
+  if (!Number.isSafeInteger(activityTime) || activityTime + SIMPLE_TTL_MS <= serverTime) {
+    throw Object.assign(new Error('SESSION_UNAVAILABLE'), { code: 'SESSION_UNAVAILABLE' });
+  }
+  const expiresAt = activityTime + SIMPLE_TTL_MS;
   const payload = Buffer.from(JSON.stringify({
-    scope: actorScope(account, deviceId, key), session: randomUUID(), version: 2, expiresAt,
+    scope: actorScope(account, deviceId, key), session: randomUUID(), version: 3, expiresAt,
   })).toString('base64url');
   const signature = createHmac('sha256', key).update(`chat-session-token:${payload}`).digest('base64url');
   return { token: `${payload}.${signature}`, expiresAt, serverTime };
@@ -67,11 +71,11 @@ function verifySimpleSession(token, account, deviceId) {
   try {
     const payload = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
     if (payload.scope !== actorScope(account, deviceId, key) || !Number.isSafeInteger(payload.expiresAt)
-      || (payload.version !== undefined && payload.version !== 2)) return null;
+      || (payload.version !== undefined && payload.version !== 2 && payload.version !== 3)) return null;
     const serverTime = Date.now();
     // An unversioned signed token was issued for ten minutes. Preserve its
     // original activity time without extending its window on every reload.
-    const expiresAt = payload.version === 2 ? payload.expiresAt : payload.expiresAt - TTL_MS + SIMPLE_TTL_MS;
+    const expiresAt = payload.version === 2 || payload.version === 3 ? payload.expiresAt : payload.expiresAt - TTL_MS + SIMPLE_TTL_MS;
     if (!Number.isSafeInteger(expiresAt) || expiresAt <= serverTime) return null;
     return { expiresAt, serverTime };
   } catch {

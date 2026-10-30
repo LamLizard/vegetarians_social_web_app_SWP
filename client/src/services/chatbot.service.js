@@ -111,6 +111,70 @@ async function streamSimpleTurn(input, { signal, onAccepted, onDelta, onResult, 
   }
 }
 
+// Tùng: mỗi thao tác gửi chỉ fetch một lần và đối chiếu turnId trước khi cập nhật UI.
+async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onUnauthorized } = {}) {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers = new Headers({ 'Content-Type': 'text/plain; charset=utf-8' });
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(`${API_BASE_URL}${ROOT}/turns/stream`, {
+    method: 'POST', headers, body: JSON.stringify(input), signal, cache: 'no-store',
+  });
+  if (response.status === 401) onUnauthorized?.(token);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const error = new ApiError(payload?.message || 'Chưa xác định được trạng thái lượt này.', response.status, payload);
+    error.rejectedBeforeAdmission = payload?.admitted === false && payload.turnId === input.turnId;
+    throw error;
+  }
+  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('Không thể nhận câu trả lời.');
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let buffer = '';
+  let accepted = false;
+  let result = null;
+  try {
+    while (!result) {
+      const chunk = await reader.read();
+      buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+      if (buffer.length > 262144) throw new Error('Không thể nhận câu trả lời.');
+      let boundary;
+      while (!result && (boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer))) {
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        const lines = frame.split(/\r\n|\r|\n/);
+        const name = lines.find((line) => line.startsWith('event:'))?.slice(6).trim();
+        const data = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice(5).replace(/^ /, '')).join('\n');
+        if (!name && !data) continue;
+        const payload = JSON.parse(data);
+        if (payload.turnId !== input.turnId) throw new Error('Phản hồi không thuộc lượt hiện tại.');
+        if (name === 'accepted' && !accepted && payload.session && typeof payload.quotaDay === 'string') {
+          accepted = true;
+          onAccepted?.(payload);
+        } else if (name === 'delta' && accepted && typeof payload.text === 'string'
+          && (payload.purpose === undefined || payload.purpose === 'post-found')
+          && (payload.searchSubject === undefined || (typeof payload.searchSubject === 'string'
+            && Boolean(payload.searchSubject.trim()) && Array.from(payload.searchSubject).length <= 10000
+            && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(payload.searchSubject)))) {
+          onDelta?.(payload.text, payload.purpose, payload.searchSubject);
+        }
+        else if (name === 'result' && accepted && payload.kind === 'post' && payload.item
+          && (payload.search === undefined || (payload.search && typeof payload.search === 'object'
+            && !Array.isArray(payload.search) && Object.keys(payload.search).length === 2
+            && Object.keys(payload.search).every((key) => ['subject', 'matchKind'].includes(key))
+            && typeof payload.search.subject === 'string' && payload.search.subject.trim()
+            && Array.from(payload.search.subject).length <= 10000
+            && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(payload.search.subject)
+            && ['exact', 'near'].includes(payload.search.matchKind)))) onResult?.(payload);
+        else if (name === 'done' && accepted && payload.session && payload.limited === false) result = payload;
+        else if (name === 'error' && accepted) throw new ApiError(payload.message || 'Trợ lý chưa hoàn tất.', 503, payload);
+        else throw new Error('Phản hồi lượt không hợp lệ.');
+      }
+      if (chunk.done && !result) throw new Error('Kết nối bị gián đoạn; chưa xác định được kết quả.');
+    }
+    return result;
+  } finally { void reader.cancel().catch(() => {}); }
+}
+
 function discoveryPayload(input) {
   return { text: input.text.trim(), history: input.history.map(({ sender, content }) => ({ sender, content })),
     sessionToken: input.sessionToken ?? null, flowToken: input.flowToken ?? null,
@@ -233,6 +297,14 @@ const chatbotService = {
     return apiFetch(`${ROOT}/availability`, { signal, cache: 'no-store' });
   },
 
+  // Tùng: refresh clock trong deadline của lượt không qua wrapper có retry.
+  async getAvailabilityOnce({ signal } = {}) {
+    const response = await fetch(`${API_BASE_URL}${ROOT}/availability`, { signal, cache: 'no-store' });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(payload?.message || 'Chưa thể kiểm tra chatbot.', response.status, payload);
+    return payload;
+  },
+
   verifySession({ token, deviceId }, { signal } = {}) {
     return apiFetch(`${ROOT}/session/verify`, {
       method: 'POST', body: JSON.stringify({ token, deviceId }), signal, cache: 'no-store',
@@ -269,6 +341,7 @@ const chatbotService = {
 
   streamMessage,
   streamSimpleTurn,
+  streamTurnV3,
   discoveryPayloadHash,
   prepareTurn(input, options = {}) { return v2Post('/turns/prepare', input, options); },
   getDiscoveryState(input, options = {}) { return v2Post('/discovery/status', input, options); },
@@ -287,6 +360,19 @@ const chatbotService = {
     if (!response.ok) {
       throw new ApiError(payload?.message || 'Chưa thể tải bài viết.', response.status, payload);
     }
+    return payload;
+  },
+
+  // Tùng: trang chi tiết luôn lấy bài mới qua contract member-only.
+  async getMemberPost(id, { signal } = {}) {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY);
+    const headers = new Headers();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const response = await fetch(`${API_BASE_URL}${ROOT}/posts/${encodeURIComponent(id)}`, {
+      headers, signal, cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new ApiError(payload?.message || 'Chưa thể tải bài viết.', response.status, payload);
     return payload;
   },
 

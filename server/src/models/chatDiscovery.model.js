@@ -27,6 +27,27 @@ async function findPostForModal(postId, account) {
   return post ?? null;
 }
 
+// Tùng: detail riêng cho member có view thật và quyền tương tác, không đổi preview guest.
+async function findPostForMemberDetail(postId, account) {
+  if (account?.role !== 'member' || !account.id) throw Object.assign(new Error('FORBIDDEN'), { code: 'FORBIDDEN' });
+  const { rows: [post] } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS type, p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
+      p.vote_count AS "voteCount", p.comment_count AS "commentCount", p.view_count AS "viewCount",
+      p.created_at AS "createdAt", COALESCE(p.published_at, p.created_at) AS "publishedAt",
+      json_build_object('id', a.account_id::text, 'fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author,
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
+        FROM public.post_category pc JOIN public.category c ON c.category_id = pc.category_id
+        WHERE pc.post_id = p.post_id AND c.is_active), '[]'::json) AS categories,
+      EXISTS (SELECT 1 FROM public.post_vote v WHERE v.post_id = p.post_id AND v.account_id = $2::bigint) AS "isVoted",
+      EXISTS (SELECT 1 FROM public.report r WHERE r.target_type = 'post' AND r.target_id = p.post_id
+        AND r.reporter_id = $2::bigint AND r.status = 'pending') AS "hasReported"
+    FROM public.post p JOIN public.account a ON a.account_id = p.account_id
+    WHERE p.post_id = $1::bigint AND p.status IN ('public', 'reported')
+  `, [postId, String(account.id)]);
+  return post ?? null;
+}
+
 // Normalize in JavaScript so both precomposed and decomposed Vietnamese text
 // are compared consistently without requiring a database extension.
 function normalizeSearch(value) {
@@ -91,4 +112,57 @@ async function findBestMatch(account, kind, phrase) {
   return { kind, item: best };
 }
 
-module.exports = { findPostForModal, findBestMatch };
+// Tùng: tìm ứng viên post cho chat mà không thay các caller tìm kiếm hiện hữu.
+// Kết quả chưa xác nhận tính phù hợp với chế độ ăn; caller v3 phải nêu mức chưa chắc.
+async function findChatPosts(account, { subject, seenIds, order, nearTerms }) {
+  if (account?.role !== 'member' || !account.id) {
+    throw Object.assign(new Error('FORBIDDEN'), { code: 'FORBIDDEN' });
+  }
+  const validTerm = (value) => typeof value === 'string' && value.trim()
+    && Array.from(value).length <= 10000
+    && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value);
+  if (!validTerm(subject) || !['votes', 'comments'].includes(order)
+    || !Array.isArray(seenIds) || !seenIds.every((id) => typeof id === 'string' && /^[1-9]\d{0,17}$/.test(id))
+    || !Array.isArray(nearTerms) || nearTerms.length > 8 || !nearTerms.every(validTerm)) {
+    throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
+  }
+
+  const exact = normalizeSearch(subject.trim());
+  if (!exact.trim()) throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
+  const alternatives = [...new Set(nearTerms.map((term) => normalizeSearch(term.trim())))]
+    .filter((term) => term.trim() && term !== exact);
+  const excluded = new Set(seenIds);
+  const { rows } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS type, p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.vote_count AS "voteCount",
+      p.comment_count AS "commentCount", COALESCE(p.published_at, p.created_at) AS "publishedAt",
+      json_build_object('fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author
+    FROM public.post p JOIN public.account a ON a.account_id = p.account_id
+    WHERE p.status IN ('public', 'reported')
+  `);
+  const eligible = rows.filter((row) => /^[1-9]\d{0,17}$/.test(row.id)
+    && typeof row.title === 'string' && row.title.trim() && !excluded.has(row.id));
+  const matches = (row, term) => [row.title, row.content].some((value) => normalizeSearch(value).includes(term));
+  const exactMatches = eligible.filter((row) => matches(row, exact));
+  const candidates = exactMatches.length ? exactMatches
+    : eligible.filter((row) => alternatives.some((term) => matches(row, term)));
+  const field = order === 'comments' ? 'commentCount' : 'voteCount';
+  // Tùng: thiếu counter của một ứng viên thì không thể xác định thứ hạng.
+  if (candidates.some((row) => !Number.isInteger(row[field]) || row[field] < 0)) {
+    return { kind: 'post', status: 'rank_unknown' };
+  }
+  let best = null;
+  let bestScore = -1;
+  let ties = 0;
+  for (const row of candidates) {
+    const score = row[field];
+    if (!best || score > bestScore) { best = row; bestScore = score; ties = 1; }
+    else if (score === bestScore && randomInt(++ties) === 0) best = row;
+  }
+  if (!best) return null;
+  const { content, ...item } = best;
+  return { kind: 'post', item: { ...item, excerpt: Array.from(content ?? '').slice(0, 240).join(''),
+    matchKind: exactMatches.length ? 'exact' : 'near' } };
+}
+
+module.exports = { findPostForModal, findPostForMemberDetail, findBestMatch, findChatPosts };

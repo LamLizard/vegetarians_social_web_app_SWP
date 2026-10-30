@@ -15,6 +15,7 @@ import { readChatSession, writeChatSession } from '../utils/chatSession';
 import styles from './ChatbotPage.module.css';
 
 const GUEST_KEY = 'vegetarian-chat-guest-quota-v1';
+const GUEST_V2_KEY = 'vegetarian-chat-guest-quota-v2';
 const GUEST_LIMIT = 5;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SUGGESTIONS = [
@@ -27,6 +28,15 @@ const SUGGESTIONS = [
 function validText(value) {
   return Array.from(value).length <= 10000
     && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(value);
+}
+
+// Tùng: chỉ so sánh chủ đề bằng chữ chuẩn hóa, không tự suy đồng nghĩa.
+function subjectKey(value) {
+  return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
+}
+
+function emptyPostContext(state = 'unknown') {
+  return { version: 1, state, activeSubject: null, topics: [], delivery: null };
 }
 
 function completedHistory(messages) {
@@ -43,7 +53,7 @@ function completedHistory(messages) {
   return result.slice(-20);
 }
 
-function readGuest() {
+function readLegacyGuest() {
   const raw = localStorage.getItem(GUEST_KEY);
   if (raw === null) return { used: 0, deviceId: null };
   const value = JSON.parse(raw);
@@ -56,37 +66,86 @@ function readGuest() {
   return value;
 }
 
-function withGuestLock(action) {
+function withGuestLock(action, signal) {
   // Keep concurrent guest counter updates and pre-admission reversals isolated.
   if (!navigator.locks) return Promise.reject(new Error('Trình duyệt không hỗ trợ quản lý lượt dùng an toàn.'));
-  return navigator.locks.request(GUEST_KEY, action);
+  return navigator.locks.request(GUEST_KEY, signal ? { signal } : {}, action);
 }
 
-async function reserveGuest(id) {
+// Tùng: chuyển nguyên lượt cũ trong cùng lock; ngày do server cung cấp, không dùng giờ máy.
+function guestForDay(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('Không thể xác nhận ngày sử dụng.');
+  const raw = localStorage.getItem(GUEST_V2_KEY);
+  let current;
+  if (raw === null) {
+    const legacy = readLegacyGuest();
+    current = { version: 2, deviceId: legacy.deviceId ?? crypto.randomUUID(), day, used: legacy.used,
+      pending: (legacy.simpleCharges || []).map((turnId) => ({ turnId, day })) };
+  } else {
+    current = JSON.parse(raw);
+    if (!current || current.version !== 2 || typeof current.deviceId !== 'string' || !UUID.test(current.deviceId)
+      || typeof current.day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(current.day)
+      || !Number.isInteger(current.used) || current.used < 0 || current.used > GUEST_LIMIT
+      || !Array.isArray(current.pending) || !current.pending.every((p) => p && UUID.test(p.turnId)
+        && /^\d{4}-\d{2}-\d{2}$/.test(p.day))) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
+    if (day < current.day) throw new Error('Không thể xác nhận ngày sử dụng.');
+    if (day > current.day) current = { ...current, day, used: 0 };
+  }
+  localStorage.setItem(GUEST_V2_KEY, JSON.stringify(current));
+  return current;
+}
+
+async function readGuest(day, signal) { return withGuestLock(() => guestForDay(day), signal); }
+
+async function reserveGuest(id, day, signal) {
   return withGuestLock(() => {
-    const current = readGuest();
-    if (current.used >= GUEST_LIMIT) throw new Error('Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.');
-    const next = { ...current, deviceId: current.deviceId ?? crypto.randomUUID(), used: current.used + 1,
-      simpleCharges: [...(current.simpleCharges || []), id] };
-    localStorage.setItem(GUEST_KEY, JSON.stringify(next));
+    if (signal.aborted) throw new Error('Kết nối quá lâu.');
+    const current = guestForDay(day);
+    if (current.used >= GUEST_LIMIT) throw new Error('Bạn đã dùng hết lượt hỏi thử hôm nay.');
+    const next = { ...current, used: current.used + 1, pending: [...current.pending, { turnId: id, day }] };
+    localStorage.setItem(GUEST_V2_KEY, JSON.stringify(next));
     return next;
-  });
+  }, signal);
 }
 
-async function settleGuest(id, rejectedBeforeAdmission) {
+// Tùng: response cũ chỉ hoàn đúng reservation cùng ngày; outcome chưa rõ giữ nguyên lượt.
+async function settleGuest(id, day, rejectedBeforeAdmission, known) {
   return withGuestLock(() => {
-    const current = readGuest();
-    const charges = current.simpleCharges || [];
-    if (!charges.includes(id)) return current;
-    const next = { ...current, used: rejectedBeforeAdmission ? Math.max(0, current.used - 1) : current.used,
-      simpleCharges: charges.filter((charge) => charge !== id) };
-    localStorage.setItem(GUEST_KEY, JSON.stringify(next));
+    const raw = localStorage.getItem(GUEST_V2_KEY);
+    if (!raw) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
+    const current = JSON.parse(raw);
+    if (!current || current.version !== 2 || !Array.isArray(current.pending)
+      || !Number.isInteger(current.used) || current.used < 0 || current.used > GUEST_LIMIT) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
+    const pending = current.pending.find((entry) => entry.turnId === id && entry.day === day);
+    if (!pending || !known) return current;
+    const next = { ...current,
+      used: rejectedBeforeAdmission && current.day === day ? Math.max(0, current.used - 1) : current.used,
+      pending: current.pending.filter((entry) => !(entry.turnId === id && entry.day === day)) };
+    localStorage.setItem(GUEST_V2_KEY, JSON.stringify(next));
     return next;
   });
 }
 
 function guestQuota(value) {
-  return { used: value.used, limit: GUEST_LIMIT, remaining: GUEST_LIMIT - value.used };
+  return { day: value.day, used: value.used, limit: GUEST_LIMIT, remaining: GUEST_LIMIT - value.used };
+}
+
+// Tùng: suy ngày từ clock server và đồng hồ monotonic để chặn response ngày cũ.
+function clockDay(clock) {
+  if (!clock) return null;
+  const at = clock.serverTime + Math.max(0, performance.now() - clock.capturedAt);
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(at);
+  const part = (type) => parts.find((entry) => entry.type === type).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function rememberClock(ref, availability) {
+  if (!Number.isFinite(availability.serverTime) || !/^\d{4}-\d{2}-\d{2}$/.test(availability.quotaDay)
+    || !Number.isFinite(Date.parse(availability.resetAt))) throw new Error('Không thể xác nhận ngày sử dụng.');
+  const clock = { serverTime: availability.serverTime, capturedAt: performance.now() };
+  if (clockDay(clock) !== availability.quotaDay) throw new Error('Không thể xác nhận ngày sử dụng.');
+  if (ref.current && availability.quotaDay < clockDay(ref.current)) throw new Error('Không thể xác nhận ngày sử dụng.');
+  ref.current = clock;
 }
 
 function MamAvatar({ className = '' }) {
@@ -161,7 +220,11 @@ export default function ChatbotPage({ user }) {
   const [loginOpen, setLoginOpen] = useState(false);
   const messagesRef = useRef([]);
   const sessionRef = useRef(null);
+  const postContextRef = useRef(emptyPostContext());
   const running = useRef(null);
+  const generation = useRef(0);
+  const serverClock = useRef(null);
+  const actorToken = useRef(null);
   const textareaRef = useRef(null);
   const actor = user?.id ? `account:${user.id}` : 'guest';
 
@@ -175,6 +238,25 @@ export default function ChatbotPage({ user }) {
   const updateSession = useCallback((next) => { sessionRef.current = next; setSession(next); }, []);
 
   useLayoutEffect(() => {
+    const context = postContextRef.current;
+    const delivery = context.delivery;
+    const currentSession = sessionRef.current;
+    if (!delivery || delivery.state !== 'pending' || !currentSession
+      || !messages.some((message) => message.turnId === delivery.turnId && message.result?.item?.id === delivery.postId)) return;
+    if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) return;
+    try {
+      const saved = readChatSession(currentSession.scope);
+      if (!saved || saved.postContext?.delivery?.turnId !== delivery.turnId) throw new Error('STORAGE_UNAVAILABLE');
+      const shown = { ...context, delivery: { ...delivery, state: 'shown' } };
+      writeChatSession(currentSession.scope, currentSession.token, messagesRef.current, saved.flowToken, saved.postDiscovery, shown);
+      postContextRef.current = shown;
+    } catch {
+      postContextRef.current = { ...context, state: 'unknown' };
+      setError('Không thể xác định danh sách bài đã hiện trên trình duyệt này.');
+    }
+  }, [messages]);
+
+  useLayoutEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
     textarea.style.height = 'auto';
@@ -183,54 +265,97 @@ export default function ChatbotPage({ user }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    const tokenSnapshot = localStorage.getItem(AUTH_TOKEN_KEY);
+    actorToken.current = tokenSnapshot;
+    // Tùng: token đổi trước khi React cập nhật actor thì bỏ mọi response cũ.
+    const actorCurrent = () => !controller.signal.aborted && localStorage.getItem(AUTH_TOKEN_KEY) === tokenSnapshot;
+    let resetTimer;
+    const scheduleReset = (availability) => {
+      window.clearTimeout(resetTimer);
+      const delay = Date.parse(availability.resetAt) - Number(availability.serverTime);
+      if (Number.isFinite(delay) && delay >= 0) resetTimer = window.setTimeout(() => { void refreshQuota(); }, delay + 50);
+    };
     updateMessages([]);
     updateSession(null);
+    postContextRef.current = emptyPostContext();
     setSessionReady(false);
     setQuota(null);
     setEnabled(false);
     setError('');
     async function load() {
       try {
-        const availability = await chatbotService.getAvailability({ signal: controller.signal });
-        if (controller.signal.aborted) return;
+        const availability = await chatbotService.getAvailabilityOnce({ signal: controller.signal });
+        if (!actorCurrent()) return;
+        rememberClock(serverClock, availability);
         setEnabled(Boolean(availability.enabled));
+        if (availability.enabled) scheduleReset(availability);
         let guest;
         if (user?.id) {
           const result = await chatbotService.getSimpleQuota({ signal: controller.signal });
-          if (controller.signal.aborted) return;
+          if (!actorCurrent()) return;
           setQuota(result.quota);
         } else {
-          guest = readGuest();
+          guest = availability.enabled ? await readGuest(availability.quotaDay, controller.signal) : readLegacyGuest();
+          if (!actorCurrent()) return;
           setQuota(guestQuota(guest));
         }
         const scope = user?.id ? actor : guest.deviceId ? `device:${guest.deviceId}` : null;
         const saved = scope ? readChatSession(scope) : null;
         if (saved) {
           const result = await chatbotService.verifySimpleSession({ token: saved.token, deviceId: guest?.deviceId }, { signal: controller.signal });
-          if (controller.signal.aborted) return;
+          if (!actorCurrent()) return;
           if (result.valid) {
-            updateMessages(saved.messages.map((message) => ({ ...message, status: 'complete' })));
+            updateMessages(saved.messages);
+            postContextRef.current = saved.postContext ?? emptyPostContext();
             updateSession({ token: saved.token, scope, deviceId: guest?.deviceId,
               expiresAt: result.expiresAt, serverTime: result.serverTime });
-          }
+          } else postContextRef.current = emptyPostContext('known');
+        } else {
+          postContextRef.current = emptyPostContext('known');
         }
       } catch (loadError) {
-        if (!controller.signal.aborted) setError(loadError.message || 'Chưa thể mở cuộc trò chuyện.');
+        if (actorCurrent()) setError(loadError.message || 'Chưa thể mở cuộc trò chuyện.');
       } finally {
-        if (!controller.signal.aborted) setSessionReady(true);
+        if (actorCurrent()) setSessionReady(true);
       }
     }
     void load();
-    const syncGuest = () => {
-      if (user?.id) return;
-      try { setQuota(guestQuota(readGuest())); } catch { setQuota(null); setError('Không thể đọc lượt dùng trên trình duyệt này.'); }
+    // Tùng: refresh theo clock server khi tab được mở lại hoặc counter tab khác đổi.
+    const refreshQuota = async () => {
+      if (!actorCurrent()) {
+        generation.current += 1;
+        running.current?.abort();
+        running.current = null;
+        updateMessages([]);
+        updateSession(null);
+        setQuota(null);
+        setEnabled(false);
+        setSessionReady(false);
+        setBusy(false);
+        return;
+      }
+      const refreshGeneration = generation.current;
+      try {
+        const availability = await chatbotService.getAvailabilityOnce({ signal: controller.signal });
+        if (!actorCurrent() || !availability.enabled) return;
+        rememberClock(serverClock, availability);
+        scheduleReset(availability);
+        const current = user?.id ? (await chatbotService.getSimpleQuota({ signal: controller.signal })).quota
+          : guestQuota(await readGuest(availability.quotaDay, controller.signal));
+        if (actorCurrent() && refreshGeneration === generation.current && current.day === clockDay(serverClock.current)) setQuota(current);
+      } catch { if (actorCurrent() && refreshGeneration === generation.current) { setQuota(null); setError('Không thể đọc lượt dùng trên trình duyệt này.'); } }
     };
-    window.addEventListener('storage', syncGuest);
+    window.addEventListener('storage', refreshQuota);
+    window.addEventListener('focus', refreshQuota);
     return () => {
       controller.abort();
+      window.clearTimeout(resetTimer);
+      generation.current += 1;
       running.current?.abort();
       running.current = null;
-      window.removeEventListener('storage', syncGuest);
+      serverClock.current = null;
+      window.removeEventListener('storage', refreshQuota);
+      window.removeEventListener('focus', refreshQuota);
     };
   }, [actor, user?.id, updateMessages, updateSession]);
 
@@ -242,6 +367,7 @@ export default function ChatbotPage({ user }) {
       setBusy(false);
       updateMessages([]);
       updateSession(null);
+      postContextRef.current = emptyPostContext('known');
       setAnnouncement('Phiên trò chuyện đã hết hạn.');
     }, Math.max(0, session.expiresAt - session.serverTime));
     return () => window.clearTimeout(timer);
@@ -249,12 +375,17 @@ export default function ChatbotPage({ user }) {
 
   const sendQuestion = async (question) => {
     if (!enabled || !sessionReady || busy || running.current || !quota?.remaining || !question.trim() || !validText(question)) return;
+    if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) { setError('Tài khoản đã thay đổi. Vui lòng mở lại cuộc trò chuyện.'); return; }
     if (!globalThis.crypto?.randomUUID) { setError('Không thể gửi câu hỏi trên trình duyệt này.'); return; }
+    const turnToken = actorToken.current;
     const turnId = crypto.randomUUID();
+    const turnGeneration = ++generation.current;
     const controller = new AbortController();
     running.current = controller;
     let timedOut = false;
-    const requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 90000);
+    const startedAt = performance.now();
+    // Tùng: giới hạn thời gian chờ bao gồm clock, lock và stream của lượt.
+    const requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
     setBusy(true);
     setError('');
     setAnnouncement('Đang chờ phản hồi.');
@@ -265,10 +396,18 @@ export default function ChatbotPage({ user }) {
     let guest;
     let rejected = false;
     let accepted = false;
+    let requestStarted = false;
+    let scope;
     let reply = '';
+    let pendingPostText = '';
     let resultCard;
-    const active = () => running.current === controller && !controller.signal.aborted;
-    const ownsTurn = () => running.current === controller;
+    const active = () => {
+      if (performance.now() - startedAt >= 20000) { timedOut = true; controller.abort(); }
+      if (localStorage.getItem(AUTH_TOKEN_KEY) !== turnToken || actorToken.current !== turnToken) controller.abort();
+      return running.current === controller && !controller.signal.aborted;
+    };
+    const ownsTurn = () => running.current === controller && actorToken.current === turnToken
+      && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken;
     const updateTurn = (changes) => updateMessages((current) => current.map((message) => (
       message.turnId === turnId && message.sender === 'bot' ? { ...message, ...changes } : message
     )));
@@ -276,42 +415,115 @@ export default function ChatbotPage({ user }) {
       if (!value || typeof value.token !== 'string' || !Number.isFinite(value.expiresAt) || !Number.isFinite(value.serverTime)) {
         throw new Error('Không thể xác nhận phiên trò chuyện.');
       }
+      const previousSession = sessionRef.current;
       const next = { ...value, scope, deviceId };
       updateSession(next);
       try {
         const previous = readChatSession(scope);
-        writeChatSession(scope, value.token, completed, previous?.flowToken);
-      } catch { setError('Không thể lưu lịch sử trên trình duyệt này.'); }
+        // Tùng: chỉ giữ metadata bài khi đang tiếp tục đúng phiên của actor.
+        const postDiscovery = previousSession?.scope === scope ? previous?.postDiscovery : undefined;
+        const postContext = !previousSession || previousSession.scope === scope ? postContextRef.current : emptyPostContext();
+        postContextRef.current = postContext;
+        writeChatSession(scope, value.token, completed, previous?.flowToken, postDiscovery, postContext);
+      } catch {
+        postContextRef.current = { ...postContextRef.current, state: 'unknown' };
+        setError('Không thể lưu lịch sử trên trình duyệt này.');
+      }
     };
     try {
+      // Tùng: kiểm tra clock và trạng thái trong cùng deadline, không tự retry lượt.
+      const availability = await chatbotService.getAvailabilityOnce({ signal: controller.signal });
+      if (!active()) throw new Error('Kết nối quá lâu.');
+      rememberClock(serverClock, availability);
+      if (!availability.enabled || typeof availability.quotaDay !== 'string') {
+        setEnabled(false);
+        throw new Error('Trợ lý hiện không khả dụng.');
+      }
       if (!user?.id) {
-        guest = await reserveGuest(turnId);
+        guest = await reserveGuest(turnId, availability.quotaDay, controller.signal);
         if (!active()) { if (timedOut) throw new Error('Kết nối quá lâu.'); return; }
         setQuota(guestQuota(guest));
       }
       const deviceId = guest?.deviceId;
-      const scope = user?.id ? actor : `device:${deviceId}`;
+      scope = user?.id ? actor : `device:${deviceId}`;
       const priorSession = sessionRef.current;
-      const response = await chatbotService.streamSimpleTurn({ text: question, history,
-        ...(deviceId ? { deviceId } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) }, {
+      if (priorSession && !readChatSession(scope)) postContextRef.current = emptyPostContext();
+      const postContext = postContextRef.current;
+      const topic = postContext.topics.find((entry) => postContext.activeSubject
+        && subjectKey(entry.subject) === subjectKey(postContext.activeSubject));
+      const searchContext = { state: postContext.state, subject: postContext.activeSubject,
+        seenIds: postContext.state === 'known' ? (topic?.seenIds ?? []) : [] };
+      const payload = { protocol: 3, turnId, text: question, history,
+        postContext: searchContext,
+        ...(deviceId ? { deviceId, expectedDay: guest.day } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) };
+      if (new TextEncoder().encode(JSON.stringify(payload)).length > 2 * 1024 * 1024) {
+        postContextRef.current = { ...postContextRef.current, state: 'unknown' };
+        throw new Error('Không thể xác định danh sách bài đã hiện do dữ liệu quá lớn.');
+      }
+      requestStarted = true;
+      const response = await chatbotService.streamTurnV3(payload, {
         signal: controller.signal,
         onUnauthorized: (token) => { if (token && localStorage.getItem(AUTH_TOKEN_KEY) === token) logout(); },
         onAccepted: (payload) => {
           if (!active()) return;
           accepted = true;
-          if (payload.quota) setQuota(payload.quota);
-          saveSession(payload.session, scope, deviceId, history);
+          if (payload.quota?.day === clockDay(serverClock.current)) setQuota(payload.quota);
+          const current = updateMessages((list) => list.map((message) => message.turnId === turnId && message.sender === 'user'
+            ? { ...message, status: 'complete' } : message));
+          saveSession(payload.session, scope, deviceId, current);
         },
-        onDelta: (chunk) => { if (active()) { reply += chunk; updateTurn({ content: reply, status: 'streaming' }); } },
-        onResult: (value) => { if (active()) { resultCard = value; updateTurn({ result: value }); } },
+        onDelta: (chunk, purpose, searchSubject) => {
+          if (active()) {
+            if (searchSubject && postContextRef.current.state === 'known') {
+              const current = postContextRef.current;
+              const key = subjectKey(searchSubject);
+              const existing = current.topics.find((entry) => subjectKey(entry.subject) === key);
+              postContextRef.current = { ...current, activeSubject: searchSubject,
+                topics: [...current.topics.filter((entry) => subjectKey(entry.subject) !== key),
+                  { subject: searchSubject, seenIds: existing?.seenIds ?? [] }], delivery: null };
+            }
+            if (purpose === 'post-found') pendingPostText += chunk;
+            else { reply += chunk; updateTurn({ content: reply, status: 'streaming' }); }
+          }
+        },
+        onResult: (value) => {
+          if (!active()) return;
+          if (!value.search) {
+            postContextRef.current = { ...postContextRef.current, state: 'unknown' };
+            resultCard = value;
+            updateTurn({ result: value });
+            return;
+          }
+          const id = value.item?.id;
+          if (typeof id !== 'string' || !/^[1-9]\d{0,17}$/.test(id)
+            || typeof value.item.title !== 'string' || !value.item.title.trim()) throw new Error('Không thể nhận bài viết hợp lệ.');
+          const current = postContextRef.current;
+          const key = subjectKey(value.search.subject);
+          const oldTopic = current.topics.find((entry) => subjectKey(entry.subject) === key);
+          const entry = { subject: value.search.subject, seenIds: [...new Set([...(oldTopic?.seenIds ?? []), id])] };
+          const nextContext = { ...current, activeSubject: entry.subject,
+            topics: [...current.topics.filter((item) => subjectKey(item.subject) !== key), entry],
+            delivery: { turnId, subject: entry.subject, postId: id, state: 'pending' } };
+          const nextMessages = messagesRef.current.map((message) => message.turnId === turnId && message.sender === 'bot'
+            ? { ...message, content: reply + pendingPostText, status: 'streaming', result: value } : message);
+          const saved = readChatSession(scope);
+          if (!saved || !sessionRef.current?.token) throw new Error('Không thể lưu danh sách bài đã hiện.');
+          writeChatSession(scope, sessionRef.current.token, nextMessages, saved.flowToken, saved.postDiscovery, nextContext);
+          postContextRef.current = nextContext;
+          reply += pendingPostText;
+          pendingPostText = '';
+          resultCard = value;
+          updateMessages(nextMessages);
+        },
       });
       if (!active()) { if (timedOut) throw new Error('Kết nối quá lâu.'); return; }
+      if (pendingPostText) throw new Error('Không thể hiển thị bài viết; kết quả chưa xác định.');
       const nextMessages = updateMessages((current) => current.map((message) => (
         message.turnId === turnId ? { ...message, status: 'complete',
           ...(message.sender === 'bot' ? { content: reply, result: resultCard, limited: response.limited } : {}) } : message
       )));
-      saveSession(response.session, scope, deviceId, completedHistory(nextMessages));
-      if (response.quota) setQuota(response.quota);
+      saveSession(response.session, scope, deviceId, nextMessages);
+      if (response.quota?.day === clockDay(serverClock.current)) setQuota(response.quota);
       setAnnouncement('Đã nhận phản hồi.');
     } catch (requestError) {
       rejected = !accepted && requestError.rejectedBeforeAdmission === true;
@@ -321,23 +533,35 @@ export default function ChatbotPage({ user }) {
           updateSession(null);
           updateMessages((current) => current.filter((message) => message.turnId === turnId));
         }
-        updateMessages((current) => current.map((message) => message.turnId === turnId
+        const nextMessages = updateMessages((current) => current.map((message) => message.turnId === turnId
           ? { ...message, status: 'failed', ...(message.sender === 'bot' ? {
             content: reply, error: timedOut ? 'Kết nối quá lâu; chưa xác định được kết quả. Bạn có thể gửi lại.'
               : requestError instanceof TypeError ? 'Không thể kết nối; chưa xác định được kết quả. Bạn có thể gửi lại.'
                 : requestError.message || 'Chưa xác định được kết quả. Bạn có thể gửi lại.',
           } : {}) } : message));
+        if (accepted && scope && sessionRef.current?.token) {
+          try {
+            const previous = readChatSession(scope);
+            writeChatSession(scope, sessionRef.current.token, nextMessages, previous?.flowToken, previous?.postDiscovery, postContextRef.current);
+          }
+          catch {
+            postContextRef.current = { ...postContextRef.current, state: 'unknown' };
+            setError('Không thể lưu lịch sử trên trình duyệt này.');
+          }
+        }
         setAnnouncement('Không thể hoàn tất phản hồi. Bạn có thể gửi lại.');
       }
     } finally {
       window.clearTimeout(requestTimeout);
+      // Tùng: mở composer đúng hạn, không chờ lock đối soát của tab khác.
+      if (running.current === controller) { running.current = null; setBusy(false); }
       if (guest) {
         try {
-          const current = await settleGuest(turnId, rejected);
-          if (ownsTurn()) setQuota(guestQuota(current));
-        } catch { if (ownsTurn()) { setQuota(null); setError('Không thể cập nhật lượt dùng trên trình duyệt này.'); } }
+          const current = await settleGuest(turnId, guest.day, rejected || !requestStarted, accepted || rejected || !requestStarted);
+          if (generation.current === turnGeneration && actorToken.current === turnToken
+            && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken && current.day === clockDay(serverClock.current)) setQuota(guestQuota(current));
+        } catch { if (generation.current === turnGeneration && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken) { setQuota(null); setError('Không thể cập nhật lượt dùng trên trình duyệt này.'); } }
       }
-      if (running.current === controller) { running.current = null; setBusy(false); }
     }
   };
 

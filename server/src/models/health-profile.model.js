@@ -32,13 +32,22 @@ async function withTransaction(work) {
   }
 }
 
+// Tùng: chặn truy vấn tiếp theo khi lượt chatbot đã hết deadline; caller cũ không cần truyền options.
+function checkReadDeadline(signal, deadlineAt) {
+  if (signal?.aborted || (Number.isFinite(deadlineAt) && Date.now() >= deadlineAt)) {
+    throw Object.assign(new Error('DEADLINE_EXCEEDED'), { code: 'DEADLINE_EXCEEDED' });
+  }
+}
+
 // Duy's code: Tải hồ sơ cùng danh sách dị ứng thuộc đúng tài khoản.
-async function loadHealthProfile(client, accountId) {
+async function loadHealthProfile(client, accountId, { signal, deadlineAt } = {}) {
+  checkReadDeadline(signal, deadlineAt);
   const { rows } = await client.query(`
     SELECT ${PROFILE_FIELDS}
     FROM public.profile p
     WHERE p.account_id = $1
   `, [accountId]);
+  checkReadDeadline(signal, deadlineAt);
   const profile = rows[0] ?? null;
   if (!profile) return null;
 
@@ -48,12 +57,13 @@ async function loadHealthProfile(client, accountId) {
     WHERE profile_id = $1
     ORDER BY allergy_id
   `, [profile.id]);
+  checkReadDeadline(signal, deadlineAt);
   return { ...profile, allergies: allergies.rows };
 }
 
 // Duy's code: Đọc trực tiếp hồ sơ sức khỏe của tài khoản đã được xác thực.
-async function getHealthProfile(accountId) {
-  return loadHealthProfile(pool, accountId);
+async function getHealthProfile(accountId, options = {}) {
+  return loadHealthProfile(pool, accountId, options);
 }
 
 // Duy's code: Lưu hồ sơ và danh sách dị ứng nguyên tử trong cùng transaction.

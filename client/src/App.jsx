@@ -39,6 +39,8 @@ import RecipeListPage from './pages/RecipeListPage'; // Khoi's code: trang Công
 import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
 import MealPlanPage from './pages/MealPlanPage';
 import ChatbotPage from './pages/ChatbotPage';
+// Tùng: đăng ký trang chi tiết riêng cho kết quả chatbot của member.
+import PostDetailPage from './pages/PostDetailPage';
 
 // Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
 export default function App() {
@@ -107,6 +109,9 @@ function AppContent() {
   if (!isAdmin && path === '/me/posts') return <UserPostManagementPage user={user} accountMenu={accountMenu} shopAction={shopAction} />;
   const editPostId = /^\/posts\/(\d+)\/edit$/.exec(path)?.[1];
   if (!isAdmin && editPostId) return <UserPostEditPage postId={editPostId} user={user} accountMenu={accountMenu} shopAction={shopAction} />;
+  // Tùng: URL chi tiết yêu cầu member và không lấn route sửa bài hiện có.
+  const detailPostId = /^\/posts\/([1-9]\d{0,17})$/.exec(path)?.[1];
+  if (user?.role === 'member' && detailPostId) return <PostDetailPage postId={detailPostId} user={user} />;
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   // Khoi's code: xem công thức đã duyệt — thành viên và Admin

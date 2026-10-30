@@ -50,7 +50,8 @@ export default function AdminAIConfigurationSettings({
             </div>
           </section>
           <section className={styles.setting}>
-            <div><h3>Chatbot</h3><p>Model: Groq GPT-OSS 120B</p></div>
+            {/* Tùng: hiển thị đúng provider/model chatbot, giữ checkbox cấu hình hiện có. */}
+            <div><h3>Chatbot</h3><p>Model: DeepSeek ({config.chatbot.model})</p></div>
             <Checkbox className={styles.switch} switch checked={config.chatbot.enabled} disabled={busy}
               onChange={(enabled) => onChange('chatbot', { enabled })}>Bật chatbot</Checkbox>
           </section>
@@ -59,6 +60,8 @@ export default function AdminAIConfigurationSettings({
             <div className={styles.serviceRows}>
               <p><strong>OpenAI:</strong> {statusText(status?.openai)}</p>
               <p><strong>Groq:</strong> {statusText(status?.groq)}</p>
+              {/* Tùng: trạng thái DeepSeek không gộp với lỗi của Groq. */}
+              <p><strong>DeepSeek:</strong> {statusText(status?.deepseek)}</p>
             </div>
           </section>
         </form>

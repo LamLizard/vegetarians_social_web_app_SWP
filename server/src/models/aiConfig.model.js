@@ -4,6 +4,8 @@ const pool = require('../config/db');
 const providerStatus = {
   openai: { state: 'unknown', observedAt: null, code: null },
   groq: { state: 'unknown', observedAt: null, code: null },
+  // Tùng: tách trạng thái chatbot DeepSeek khỏi dịch vụ kiểm duyệt Groq.
+  deepseek: { state: 'unknown', observedAt: null, code: null },
 };
 
 function snapshot(row) {
@@ -11,7 +13,8 @@ function snapshot(row) {
   return {
     comment: { enabled: row.comment_enabled, provider: row.comment_provider },
     post: { enabled: row.post_enabled, provider: row.post_provider },
-    chatbot: { enabled: row.chatbot_enabled, model: 'openai/gpt-oss-120b' },
+    // Tùng: phản ánh model chatbot theo plan, không đổi cấu hình kiểm duyệt.
+    chatbot: { enabled: row.chatbot_enabled, provider: 'deepseek', model: 'deepseek-flash' },
     version: row.version,
     updatedAt: row.updated_at,
   };
@@ -62,7 +65,7 @@ function clearProviderError(provider) {
 }
 
 function getProviderStatus() {
-  return { openai: { ...providerStatus.openai }, groq: { ...providerStatus.groq } };
+  return { openai: { ...providerStatus.openai }, groq: { ...providerStatus.groq }, deepseek: { ...providerStatus.deepseek } };
 }
 
 module.exports = { getConfig, updateConfig, recordProviderError, clearProviderError, getProviderStatus };

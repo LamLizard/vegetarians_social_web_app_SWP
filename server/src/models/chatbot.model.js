@@ -59,24 +59,68 @@ function simpleQuotaView(used, resetAt) {
   return { used: count, limit: SIMPLE_MEMBER_LIMIT, remaining: Math.max(0, SIMPLE_MEMBER_LIMIT - count), resetAt };
 }
 
-// The simple chat turn is charged at admission, independently of its outcome.
-// Existing reservation helpers remain available to the legacy planner and routes.
-async function admitSimpleTurn(accountId) {
-  return transaction(async (client) => {
-    const day = await currentDay(client);
-    await client.query(`
-      INSERT INTO public.daily_quota (subject_type, subject_key, quota_date)
-      VALUES ('account', $1, $2::date) ON CONFLICT DO NOTHING
-    `, [String(accountId), day.day]);
-    const { rows: [row] } = await client.query(`
-      UPDATE public.daily_quota SET chat_turns = chat_turns + 1, updated_at = now()
-      WHERE subject_type = 'account' AND subject_key = $1 AND quota_date = $2::date
-        AND chat_turns < $3
-      RETURNING chat_turns AS used
-    `, [String(accountId), day.day, SIMPLE_MEMBER_LIMIT]);
-    if (!row) throw new ChatbotStoreError('QUOTA_EXCEEDED');
-    return simpleQuotaView(row.used, day.resetAt);
-  });
+// Tùng: admission v3 khóa theo tài khoản và deadline để trừ lượt đúng ngày.
+// Legacy writers must be drained before rollout; this lock cannot fence old code.
+async function admitSimpleTurn(accountId, { deadlineAt, signal } = {}) {
+  const remaining = () => {
+    if (signal?.aborted) throw new ChatbotStoreError('DEADLINE_EXCEEDED');
+    const ms = Math.floor(deadlineAt - Date.now());
+    if (!Number.isFinite(ms) || ms <= 0) throw new ChatbotStoreError('DEADLINE_EXCEEDED');
+    return ms;
+  };
+  remaining();
+  const client = await pool.connect();
+  let begun = false;
+  let committing = false;
+  try {
+    remaining();
+    await client.query('BEGIN');
+    begun = true;
+    const boundedQuery = async (sql, params = []) => {
+      const timeout = `${remaining()}ms`;
+      await client.query("SELECT set_config('statement_timeout', $1, true), set_config('lock_timeout', $1, true)", [timeout]);
+      remaining();
+      return client.query(sql, params);
+    };
+    await boundedQuery('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`chatbot-admission:${accountId}`]);
+    for (;;) {
+      const { rows: [clock] } = await boundedQuery(`SELECT
+        (clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::text AS day`);
+      await boundedQuery(`INSERT INTO public.daily_quota (subject_type, subject_key, quota_date)
+        VALUES ('account', $1, $2::date) ON CONFLICT DO NOTHING`, [String(accountId), clock.day]);
+      await boundedQuery(`SELECT 1 FROM public.daily_quota
+        WHERE subject_type = 'account' AND subject_key = $1 AND quota_date = $2::date FOR UPDATE`,
+      [String(accountId), clock.day]);
+      const { rows: [row] } = await boundedQuery(`WITH admission_clock AS MATERIALIZED (
+        SELECT clock_timestamp() AS admitted_at
+      )
+      UPDATE public.daily_quota q SET chat_turns = q.chat_turns + 1, updated_at = admission_clock.admitted_at
+      FROM admission_clock
+      WHERE q.subject_type = 'account' AND q.subject_key = $1 AND q.quota_date = $2::date
+        AND q.quota_date = (admission_clock.admitted_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        AND q.chat_turns < $3
+      RETURNING q.chat_turns AS used, admission_clock.admitted_at AS "admittedAt"`,
+      [String(accountId), clock.day, SIMPLE_MEMBER_LIMIT]);
+      if (row) {
+        remaining();
+        committing = true;
+        await boundedQuery('COMMIT');
+        begun = false;
+        const resetAt = new Date(`${clock.day}T17:00:00.000Z`);
+        return { ...simpleQuotaView(row.used, resetAt), day: clock.day, admittedAt: row.admittedAt };
+      }
+      const { rows: [current] } = await boundedQuery(`SELECT
+        (clock_timestamp() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date::text AS day`);
+      if (current.day === clock.day) throw new ChatbotStoreError('QUOTA_EXCEEDED');
+    }
+  } catch (error) {
+    if (begun && !committing) {
+      try { await client.query('ROLLBACK'); } catch { /* preserve the original failure */ }
+    }
+    throw error;
+  } finally {
+    client.release(committing && begun);
+  }
 }
 
 async function getQuota(accountId) {
@@ -84,17 +128,17 @@ async function getQuota(accountId) {
     WITH local_day AS (
       SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS quota_date
     )
-    SELECT COALESCE(q.chat_turns, 0) AS used,
+    SELECT COALESCE(q.chat_turns, 0) AS used, local_day.quota_date::text AS day,
       ((local_day.quota_date + 1)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh') AS "resetAt"
     FROM local_day LEFT JOIN public.daily_quota q
       ON q.subject_type = 'account' AND q.subject_key = $1 AND q.quota_date = local_day.quota_date
   `, [String(accountId)]);
-  return quotaView(row.used, row.resetAt);
+  return { ...quotaView(row.used, row.resetAt), day: row.day };
 }
 
 async function getSimpleQuota(accountId) {
   const legacy = await getQuota(accountId);
-  return simpleQuotaView(legacy.used, legacy.resetAt);
+  return { ...simpleQuotaView(legacy.used, legacy.resetAt), day: legacy.day };
 }
 
 async function reserveRequest({ account, deviceId, operationId, payload }) {
