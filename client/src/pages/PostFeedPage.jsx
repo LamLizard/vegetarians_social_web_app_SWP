@@ -35,6 +35,7 @@ import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
+import chatbotService from '../services/chatbot.service';
 // Tùng: I-AI-01 — chỉ create/comment dùng contract Moderation; feed/vote/report giữ service cũ.
 import postContentService from '../services/postContent.service';
 import styles from './PostFeedPage.module.css';
@@ -75,6 +76,10 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const [categoryId, setCategoryId] = useState(null); // Khoi's code: lọc theo danh mục (null = Tất cả)
 
   const [opened, setOpened] = useState(null);       // { id, toComments }
+  const [linkedPost, setLinkedPost] = useState(null);
+  const [openPostId, setOpenPostId] = useState(() => initialParam('openPost'));
+  const [openPostError, setOpenPostError] = useState('');
+  const openRequestRef = useRef(0);
   const [reportTarget, setReportTarget] = useState(null); // { type, id, title }
   const [loginOpen, setLoginOpen] = useState(false);
 
@@ -113,6 +118,41 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     window.history.replaceState(null, '', window.location.pathname);
   }, [isGuest]);
 
+  // Chat links open a fresh, server-authorized post rather than trusting URL data.
+  useEffect(() => {
+    if (!openPostId) return undefined;
+    const controller = new AbortController();
+    const context = viewerContext;
+    const request = ++openRequestRef.current;
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('openPost')) {
+      params.delete('openPost');
+      const queryString = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${queryString ? `?${queryString}` : ''}${window.location.hash}`);
+    }
+    setOpenPostError('');
+    chatbotService.getDiscoveryPost(openPostId, { signal: controller.signal })
+      .then(({ post }) => {
+        if (controller.signal.aborted || request !== openRequestRef.current || !isViewerCurrent(context)) return;
+        if (!post || String(post.id) !== openPostId) throw new Error('Bài viết không còn khả dụng.');
+        setLinkedPost({ context, post });
+        setOpened({ id: post.id, toComments: false, context });
+        setOpenPostId('');
+      })
+      .catch((err) => {
+        if (controller.signal.aborted || request !== openRequestRef.current || !isViewerCurrent(context)) return;
+        setOpenPostError(err.message || 'Chưa thể tải bài viết.');
+        setOpenPostId('');
+      });
+    return () => controller.abort();
+  }, [openPostId, viewerContext, isViewerCurrent]);
+
+  useEffect(() => {
+    setLinkedPost(null);
+    setOpened(null);
+    setOpenPostError('');
+  }, [viewerContext]);
+
   /** D-10: đăng xong ở lại trang, báo "đang chờ duyệt". Bài pending chưa hiện trên Bảng tin nên không cần tải lại. */
   const submitPost = async (data) => {
     // Tùng: giữ flow cũ để đối chiếu:
@@ -136,7 +176,9 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   // Cũ: onCommentAdded={(id) => setItems((list) => list.map((p) => (p.id === id ? { ...p, commentCount: p.commentCount + 1 } : p)))}
   const updatePublicCommentCount = useCallback((id, count) => {
     setItems((list) => list.map((post) => (post.id === id ? { ...post, commentCount: count } : post)));
-  }, []);
+    setLinkedPost((current) => (current?.post.id === id && isViewerCurrent(current.context)
+      ? { ...current, post: { ...current.post, commentCount: count } } : current));
+  }, [isViewerCurrent]);
 
   // ---------- Tải trang đầu (đổi khách/thành viên, đổi từ khoá, bấm Thử lại) ----------
   useEffect(() => {
@@ -184,17 +226,24 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   }, [nextCursor, loadMore]);
 
   // ---------- Thao tác trên bài ----------
-  const patchPost = (id, patch) => setItems((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  const patchPost = (id, patch) => {
+    setItems((list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    setLinkedPost((current) => (current?.post.id === id && isViewerCurrent(current.context)
+      ? { ...current, post: { ...current.post, ...patch } } : current));
+  };
 
   const vote = async (post) => {
     if (isGuest) { requireLogin(); return; }
+    const context = viewerContext;
     const before = { isVoted: post.isVoted, voteCount: post.voteCount };
     // Cập nhật ngay cho mượt, lỗi thì trả lại như cũ
     patchPost(post.id, { isVoted: !post.isVoted, voteCount: post.voteCount + (post.isVoted ? -1 : 1) });
     try {
       const res = await postService.toggleVote(post.id);
+      if (!isViewerCurrent(context)) return;
       patchPost(post.id, { isVoted: res.voted, voteCount: res.voteCount });
     } catch (err) {
+      if (!isViewerCurrent(context)) return;
       patchPost(post.id, before);
       toast(err.message || 'Chưa thích được bài, thử lại sau', { tone: 'alert' });
     }
@@ -204,13 +253,16 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   const submitReport = async ({ reasonCode, reasonText }) => {
     const { type, id } = reportTarget;
+    const context = viewerContext;
     try {
       await postService.report({ targetType: type, targetId: id, reasonCode, reasonText });
     } catch (err) {
+      if (!isViewerCurrent(context)) throw new Error('Tài khoản đã thay đổi. Vui lòng thử lại.', { cause: err });
       // 409 = đã báo cáo từ trước (vd ở tab khác) → vẫn đánh dấu để nút đổi thành "Đã báo cáo"
       if (err.status === 409 && type === 'post') patchPost(id, { hasReported: true });
       throw err; // ReportDialog tự hiện câu lỗi
     }
+    if (!isViewerCurrent(context)) throw new Error('Tài khoản đã thay đổi. Vui lòng thử lại.');
     // Bài bị báo cáo: BE đã đổi public → reported, FE đổi theo cho khớp mà không cần tải lại
     if (type === 'post') patchPost(id, { hasReported: true, status: 'reported' });
     toast('Đã gửi báo cáo. Admin sẽ xem xét sớm.');
@@ -224,7 +276,10 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     setQuery(value);
   };
 
-  const openedPost = opened && items.find((p) => p.id === opened.id);
+  const openedPost = opened?.context === viewerContext
+    ? (linkedPost?.context === viewerContext && linkedPost.post.id === opened.id
+      ? linkedPost.post : items.find((p) => p.id === opened.id))
+    : null;
 
   const clearSearch = () => { setSearchText(''); setQuery(''); };
 
@@ -271,6 +326,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             </Notice>
           )}
 
+          {openPostError && <Notice tone="alert" title="Không mở được bài viết">{openPostError}</Notice>}
+
           {query && status !== 'error' && (
             <div className={styles.searchBar}>
               <span>Bài có tiêu đề chứa <b>“{query}”</b></span>
@@ -313,8 +370,8 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
                 commentCount={post.commentCount}
                 voted={post.isVoted}
                 onVote={() => vote(post)}
-                onOpen={() => setOpened({ id: post.id, toComments: false })}
-                onComment={() => setOpened({ id: post.id, toComments: true })}
+                onOpen={() => { openRequestRef.current += 1; setOpenPostId(''); setLinkedPost(null); setOpened({ id: post.id, toComments: false, context: viewerContext }); }}
+                onComment={() => { openRequestRef.current += 1; setOpenPostId(''); setLinkedPost(null); setOpened({ id: post.id, toComments: true, context: viewerContext }); }}
                 onReport={isMine(post) ? undefined : () => askReport({ type: 'post', id: post.id, title: post.title })}
                 reported={post.hasReported}
               />
@@ -360,7 +417,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         post={openedPost}
         toComments={opened?.toComments}
         user={user}
-        onClose={() => setOpened(null)}
+        onClose={() => { openRequestRef.current += 1; setOpenPostId(''); setOpened(null); setLinkedPost(null); }}
         onVote={vote}
         onReport={askReport}
         isMine={openedPost ? isMine(openedPost) : false}

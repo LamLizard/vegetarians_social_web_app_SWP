@@ -1,7 +1,9 @@
+const { createHash } = require('node:crypto');
 const chatbotModel = require('../models/chatbot.model');
 const groq = require('../utils/groq');
 const aiConfig = require('../models/aiConfig.model');
 const { issueSession, verifySession } = require('../utils/chatSessionToken');
+const chatDiscoveryModel = require('../models/chatDiscovery.model');
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_TEXT_LENGTH = 1000;
@@ -86,12 +88,74 @@ async function getRequestState(req, res) {
   } catch { return fail(res, 'STORE_UNAVAILABLE'); }
 }
 
+// Receipt endpoints are separate from the existing v1 API. The receipt is
+// returned only after the operation metadata transaction commits.
+async function prepareTurn(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
+  const body = req.body;
+  if (!validKeys(body, ['operationId', 'deviceId', 'kind', 'payloadHash', 'flowToken', 'sessionToken'])
+    || typeof body.operationId !== 'string' || !UUID.test(body.operationId)
+    || body.kind !== 'turn' || typeof body.payloadHash !== 'string' || !/^[0-9a-f]{64}$/.test(body.payloadHash)
+    || (body.flowToken !== undefined && (typeof body.flowToken !== 'string' || body.flowToken.length > 2048
+      || typeof body.sessionToken !== 'string' || body.sessionToken.length > 1024 || !req.account))
+    || (body.sessionToken !== undefined && (typeof body.sessionToken !== 'string' || body.sessionToken.length > 1024))
+    || (!req.account && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))
+    || (body.deviceId !== undefined && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))) {
+    return fail(res, 'INVALID_INPUT');
+  }
+  try {
+    if (!(await aiConfig.getConfig()).chatbot.enabled) return fail(res, 'CHATBOT_DISABLED');
+    if (!isRequestCleanupReady()) return fail(res, 'STORE_UNAVAILABLE');
+    const sessionValid = body.flowToken ? Boolean(verifySession(body.sessionToken, req.account, body.deviceId)) : true;
+    const input = { account: req.account, deviceId: body.deviceId,
+      operationId: body.operationId.toLowerCase(), payloadHash: body.payloadHash };
+    const result = body.flowToken
+      ? await chatbotModel.prepareChoice({ ...input, flowToken: body.flowToken, sessionToken: body.sessionToken, allowCreate: sessionValid })
+      : await chatbotModel.prepareV2(input);
+    return res.json(result);
+  } catch (error) { return fail(res, error.code); }
+}
+
+async function discoveryStatus(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
+  const body = req.body;
+  if (!validKeys(body, ['operationId', 'deviceId', 'receipt'])
+    || typeof body.operationId !== 'string' || !UUID.test(body.operationId)
+    || typeof body.receipt !== 'string' || body.receipt.length > 2048
+    || (!req.account && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))
+    || (body.deviceId !== undefined && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)))) {
+    return fail(res, 'INVALID_INPUT');
+  }
+  try {
+    return res.json(await chatbotModel.statusV2({ account: req.account, deviceId: body.deviceId,
+      operationId: body.operationId.toLowerCase(), receipt: body.receipt }));
+  } catch (error) { return fail(res, error.code); }
+}
+
 async function availability(req, res) {
   res.set('Cache-Control', 'no-store');
   try {
     return res.json({ enabled: (await aiConfig.getConfig()).chatbot.enabled });
   } catch {
     return fail(res, 'CONFIG_UNAVAILABLE');
+  }
+}
+
+async function getDiscoveryPost(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
+  const postId = String(req.params.id ?? '');
+  if (!/^[1-9]\d{0,17}$/.test(postId)) {
+    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Mã bài viết không hợp lệ.' });
+  }
+  try {
+    const post = await chatDiscoveryModel.findPostForModal(postId, req.account);
+    if (!post) return res.status(404).json({ code: 'POST_UNAVAILABLE', message: 'Bài viết không còn khả dụng.' });
+    return res.json({ post });
+  } catch {
+    return res.status(503).json({ code: 'STORE_UNAVAILABLE', message: 'Chưa thể tải bài viết, vui lòng thử lại.' });
   }
 }
 
@@ -220,6 +284,159 @@ async function streamMessage(req, res) {
   }
 }
 
+function clarificationText(subject) {
+  const detailed = `Bạn muốn tìm bài viết hay công thức về “${subject}”?`;
+  return Array.from(detailed).length <= 10000 ? detailed : 'Bạn muốn tìm bài viết hay công thức?';
+}
+
+// V2 binds a deterministic payload digest to the receipt. A result card is
+// emitted only after its outcome and quota have committed.
+async function discoveryStream(req, res) {
+  res.set('Cache-Control', 'private, no-store, no-transform');
+  res.vary('Authorization');
+  const body = req.body;
+  const keys = ['operationId', 'receipt', 'text', 'history', 'deviceId', 'sessionToken', 'flowToken', 'flowSubject'];
+  if (!validKeys(body, keys) || typeof body.receipt !== 'string' || body.receipt.length > 2048
+    || (body.flowToken !== undefined && (typeof body.flowToken !== 'string' || body.flowToken.length > 2048
+      || !req.account || !validText(body.flowSubject)))
+    || (body.flowToken === undefined && body.flowSubject !== undefined)) return fail(res, 'INVALID_INPUT');
+  const input = validateStreamMessage({ operationId: body.operationId, text: body.text, history: body.history,
+    ...(body.deviceId !== undefined ? { deviceId: body.deviceId } : {}),
+    ...(body.sessionToken !== undefined ? { sessionToken: body.sessionToken } : {}) }, req.account);
+  if (!input) return fail(res, 'INVALID_INPUT');
+  input.operationId = input.operationId.toLowerCase();
+  const canonical = { text: input.text, history: input.history, sessionToken: input.sessionToken ?? null,
+    flowToken: body.flowToken ?? null, flowSubject: body.flowSubject ?? null };
+  const payloadHash = createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex');
+  try {
+    if (!(await aiConfig.getConfig()).chatbot.enabled) return fail(res, 'CHATBOT_DISABLED');
+    if (!isRequestCleanupReady()) return fail(res, 'STORE_UNAVAILABLE');
+    if ((input.history.length || body.flowToken) && !verifySession(input.sessionToken, req.account, input.deviceId)) {
+      return fail(res, 'SESSION_EXPIRED');
+    }
+  } catch { return fail(res, 'STORE_UNAVAILABLE'); }
+  let reservation;
+  try {
+    const args = { account: req.account, deviceId: input.deviceId, operationId: input.operationId,
+      receipt: body.receipt, payloadHash };
+    reservation = body.flowToken
+      ? await chatbotModel.claimChoice({ ...args, flowToken: body.flowToken, sessionToken: input.sessionToken })
+      : await chatbotModel.claimV2(args);
+  } catch (error) { return fail(res, error.code); }
+
+  const controller = new AbortController();
+  const disconnect = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', disconnect);
+  if (res.destroyed) controller.abort();
+  let finishing = false;
+  const emit = (event, data) => {
+    if (!controller.signal.aborted && !res.destroyed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  };
+  try {
+    res.status(200).set('Content-Type', 'text/event-stream; charset=utf-8');
+    res.flushHeaders();
+    const intent = body.flowToken && input.text === 'Hủy tìm kiếm và mở công cụ lập thực đơn'
+      ? { intent: 'cancel', subject: null, offerPlanner: true }
+      : await groq.classifyDiscovery(input.text, input.history, Boolean(body.flowToken));
+    if (controller.signal.aborted) throw new Error('DISCONNECTED');
+    const search = ['post', 'recipe'].includes(intent.intent);
+    const searching = search || intent.intent === 'clarify';
+    let outcome;
+    let result = null;
+    let flowToken;
+    let flowSubject;
+    let reply = '';
+    let limited = false;
+    let session;
+    const pendingPlanner = reservation.offerPlanner === true;
+    if (!req.account && searching) {
+      outcome = 'login_required';
+      reply = 'Bạn hãy đăng nhập để tìm bài viết hoặc công thức trong cuộc trò chuyện nhé.';
+    } else if (body.flowToken) {
+      if (!chatbotModel.matchesFlowSubject(reservation, body.flowSubject)) {
+        throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
+      }
+      if (search) {
+        result = await chatDiscoveryModel.findBestMatch(req.account, intent.intent, body.flowSubject);
+        outcome = result ? 'found' : 'empty';
+        reply = result ? 'Mình đã tìm được nội dung phù hợp cho bạn.' : 'Mình chưa tìm thấy nội dung phù hợp.';
+      } else if (intent.intent === 'cancel') {
+        outcome = 'cancelled';
+        if (intent.offerPlanner) reply = 'Mình đã dừng tìm kiếm. Bạn có thể mở công cụ lập thực đơn.';
+        else {
+          const streamed = await groq.streamReply(input.text, input.history, {
+            signal: controller.signal, onDelta: (text) => emit('delta', { text }),
+          });
+          limited = streamed.limited;
+        }
+      } else {
+        outcome = 'clarify';
+        flowToken = body.flowToken;
+        flowSubject = body.flowSubject;
+        reply = clarificationText(body.flowSubject);
+      }
+    } else if (intent.intent === 'clarify') {
+      outcome = 'clarify';
+      flowSubject = intent.subject;
+      reply = clarificationText(intent.subject);
+    } else if (search) {
+      result = await chatDiscoveryModel.findBestMatch(req.account, intent.intent, intent.subject);
+      outcome = result ? 'found' : 'empty';
+      reply = result ? 'Mình đã tìm được nội dung phù hợp cho bạn.' : 'Mình chưa tìm thấy nội dung phù hợp.';
+    } else if (intent.intent === 'planner') {
+      outcome = 'success';
+      reply = 'Bạn có thể chọn “Lên thực đơn tuần” để xem gợi ý phù hợp với hồ sơ của mình.';
+    } else {
+      outcome = 'success';
+      const streamed = await groq.streamReply(input.text, input.history, {
+        signal: controller.signal, onDelta: (text) => emit('delta', { text }),
+      });
+      limited = streamed.limited;
+    }
+    if (controller.signal.aborted) throw new Error('DISCONNECTED');
+    // Start the choice window after emitting the initial question, rather than
+    // at classification start. A lost done event remains recoverable by status.
+    const questionEmitted = outcome === 'clarify' && !body.flowToken;
+    if (questionEmitted) {
+      emit('delta', { text: reply });
+      if (controller.signal.aborted) throw new Error('DISCONNECTED');
+    }
+    if (outcome === 'clarify' && body.flowToken) {
+      const verified = verifySession(input.sessionToken, req.account, input.deviceId);
+      if (!verified) throw Object.assign(new Error('SESSION_EXPIRED'), { code: 'SESSION_EXPIRED' });
+      session = { token: input.sessionToken, ...verified };
+    } else session = issueSession(req.account, input.deviceId);
+    finishing = true;
+    if (outcome === 'clarify' && body.flowToken) await chatbotModel.reaskChoice(reservation);
+    else if (outcome === 'clarify') flowToken = await chatbotModel.beginClarification(reservation, session.token, flowSubject, intent.offerPlanner);
+    else if (body.flowToken) await chatbotModel.finishChoice(reservation, outcome);
+    else await chatbotModel.finishV2(reservation, outcome);
+    reservation = null;
+    if (reply && !questionEmitted) emit('delta', { text: reply });
+    if (result) emit('result', result);
+    const quota = req.account ? await chatbotModel.getQuota(req.account.id) : undefined;
+    emit('done', { session, limited, outcome: outcome === 'success' ? 'chat' : outcome,
+      ...(flowToken ? { flowToken, flowSubject } : {}),
+      ...((outcome !== 'clarify' && (intent.offerPlanner || (pendingPlanner && ['found', 'empty'].includes(outcome))))
+        ? { offerPlanner: true } : {}),
+      ...(quota ? { quota } : {}) });
+    if (!res.destroyed) res.end();
+  } catch (error) {
+    let code = error.code;
+    if (reservation && !finishing) {
+      try {
+        if (reservation.flowId) await chatbotModel.finishChoice(reservation, 'failed');
+        else await chatbotModel.finishV2(reservation, 'failed');
+      } catch { code = 'STORE_UNAVAILABLE'; }
+    } else if (finishing) code = 'STORE_UNAVAILABLE';
+    const [, message] = MESSAGES[code] ?? MESSAGES.STORE_UNAVAILABLE;
+    emit('error', { code: MESSAGES[code] ? code : 'STORE_UNAVAILABLE', message });
+    if (!res.destroyed) res.end();
+  } finally {
+    res.off('close', disconnect);
+  }
+}
+
 async function runRequestCleanup() {
   if (cleanupRunning) return;
   cleanupRunning = true;
@@ -242,5 +459,5 @@ function startRequestCleanup() {
   void runRequestCleanup();
 }
 
-module.exports = { availability, verifyChatSession, getQuota, getRequestState, sendMessage, streamMessage,
+module.exports = { availability, getDiscoveryPost, verifyChatSession, getQuota, getRequestState, prepareTurn, discoveryStatus, discoveryStream, sendMessage, streamMessage,
   startRequestCleanup, isRequestCleanupReady };

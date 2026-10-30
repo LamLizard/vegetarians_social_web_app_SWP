@@ -3,6 +3,7 @@
 //       recipe_proposed_ingredient (nguyên liệu chưa có trong kho, chờ Admin duyệt).
 // Model không kiểm tra dữ liệu form — việc đó ở utils/recipeInput.js.
 const pool = require('../config/db');
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
 const { findAnimalWord, animalWarnings } = require('../utils/animalWords');
 const { getKeywords } = require('./bannedKeyword.model');
 
@@ -19,6 +20,7 @@ async function transaction(work) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     const result = await work(client);
     await client.query('COMMIT');
     return result;

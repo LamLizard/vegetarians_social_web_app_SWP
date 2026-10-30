@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
 
 // Duy's code: Chuẩn hóa các cột hồ sơ sức khỏe thành cấu trúc phản hồi API.
 const PROFILE_FIELDS = `
@@ -17,6 +18,7 @@ async function withTransaction(work) {
   try {
     // Duy's code: Bắt đầu transaction trước mọi thao tác nhiều bảng.
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     const result = await work(client);
     // Duy's code: Lưu mọi thay đổi nếu toàn bộ nghiệp vụ hoàn tất.
     await client.query('COMMIT');

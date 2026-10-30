@@ -24,7 +24,7 @@ const SLOT_ICON = {
   dinner: 'moon-stars',
   snack: 'cup-hot',
 };
-const WEEKDAY_LABELS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+const WEEKDAY_LABELS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 
 function dateKey(date) {
   const year = date.getFullYear();
@@ -62,7 +62,7 @@ function isoWeekNumber(date) {
 }
 
 function formatWeekLabel(weekStartDate) {
-  const endDate = addDays(weekStartDate, 5);
+  const endDate = addDays(weekStartDate, 6);
   return `Tuần ${isoWeekNumber(weekStartDate)} · ${shortDate(weekStartDate)} – ${shortDate(endDate)}`;
 }
 
@@ -132,7 +132,7 @@ function WeekPicker({ weekStart, selectedDate, onWeekChange, onSelectDate }) {
   const monday = mondayOf(parseDateKey(weekStart));
   const currentMonday = mondayOf(getTodayInVietnam());
   const finalMonday = mondayOf(new Date(new Date().getFullYear(), 11, 31, 12));
-  const weekDays = Array.from({ length: 6 }, (_, index) => addDays(monday, index));
+  const weekDays = Array.from({ length: 7 }, (_, index) => addDays(monday, index));
 
   return (
     <section className={styles.weekPicker} aria-label="Chọn tuần và ngày">
@@ -158,7 +158,8 @@ function WeekPicker({ weekStart, selectedDate, onWeekChange, onSelectDate }) {
         </button>
       </div>
 
-      <div className={styles.weekDays} role="group" aria-label="Ngày trong tuần">
+      <div className={styles.weekDays} role="group" aria-label="Ngày trong tuần"
+        style={{ gridTemplateColumns: 'repeat(7, minmax(4rem, 1fr))', overflowX: 'auto' }}>
         {weekDays.map((day, index) => {
           const key = dateKey(day);
           const selected = key === selectedDate;

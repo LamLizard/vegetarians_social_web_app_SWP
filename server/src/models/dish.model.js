@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
 const { getDishDecision } = require('../utils/dish');
 
 // Duy's code: Dùng chung các cột Dish và JSON danh mục cho các truy vấn danh sách.
@@ -29,6 +30,7 @@ async function withTransaction(work) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     const result = await work(client);
     await client.query('COMMIT');
     return result;

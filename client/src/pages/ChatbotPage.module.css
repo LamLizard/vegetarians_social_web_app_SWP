@@ -44,13 +44,19 @@
 .empty > small { margin-top: var(--mam-space-md); color: var(--mam-muted); }
 .suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--mam-space-xs); max-width: 42rem; }
 .suggestions button { min-height: 44px; padding: var(--mam-space-xs) var(--mam-space-sm); border-radius: var(--mam-radius-control); font-size: .84rem; }
-.suggestions button:focus-visible, .toolsButton:focus-visible, .toolItem:focus-visible, .retry:focus-visible, .dayButton:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
-.suggestions button:active, .toolsButton:active, .toolItem:active, .retry:active, .dayButton:active { transform: translateY(1px); }
+.suggestions button:focus-visible, .retry:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
+.suggestions button:active, .retry:active { transform: translateY(1px); }
 .messageBot { display: flex; align-items: flex-end; gap: var(--mam-space-xs); width: min(100%, 880px); margin-inline: auto; }
 .messageUser { width: min(100%, 880px); margin-inline: auto; }
 .messageAvatar { flex: none; width: 34px; height: 34px; margin-bottom: 2px; }
 .messageBody { flex: 1; min-width: 0; }
 .botBubble > span:first-child { display: none; }
+.replyText { white-space: normal; }
+.replyText p, .replyText ul, .replyText ol, .replyText h3 { margin: 0; }
+.replyText > :not(:first-child) { margin-top: .6rem; }
+.replyText h3 { font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.replyText ul, .replyText ol { padding-left: 1.25rem; }
+.replyText li + li { margin-top: .2rem; }
 .waiting { width: min(100%, 880px); margin: 0 auto; color: var(--mam-muted); font-size: .8rem; }
 .waiting:empty { display: none; }
 .messageNotice { margin: var(--mam-space-xs) 0 0; color: var(--mam-muted); font-size: .85rem; }
@@ -60,18 +66,6 @@
 .composer { display: grid; flex: none; gap: var(--mam-space-xs); width: min(100%, 880px); margin-inline: auto; }
 .composerBox { display: flex; align-items: flex-end; gap: var(--mam-space-xs); padding: var(--mam-space-xs); border: 1px solid var(--mam-strong-line); border-radius: 16px; background: var(--mam-well); }
 .composerBox:focus-within { border-color: var(--mam-accent-text); outline: 3px solid var(--mam-focus); outline-offset: 1px; }
-.tools { position: relative; flex: none; }
-.toolsButton { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--mam-ink); cursor: pointer; }
-.toolsButton:hover, .toolsButton[aria-expanded='true'] { background: var(--mam-accent-soft); color: var(--mam-accent-text); }
-.toolsButton:disabled { color: var(--mam-muted); cursor: not-allowed; }
-.toolsMenu { position: absolute; z-index: 5; bottom: calc(100% + 12px); left: 0; width: 288px; max-width: calc(100vw - 48px); max-height: min(360px, 50dvh); overflow-y: auto; padding: var(--mam-space-xs); border: 1px solid var(--mam-line); border-radius: 16px; background: var(--mam-paper); box-shadow: var(--ac-shadow-lg); }
-.toolItem { display: flex; align-items: center; gap: var(--mam-space-sm); width: 100%; padding: var(--mam-space-sm); border: 0; border-radius: 10px; background: transparent; color: var(--mam-ink); text-align: left; cursor: pointer; }
-.toolItem:hover { background: var(--mam-well); }
-.toolItem:disabled { color: var(--mam-muted); cursor: not-allowed; }
-.toolItem > span:last-child { display: grid; gap: 2px; min-width: 0; }
-.toolItem strong { font-size: .88rem; }
-.toolItem small { color: var(--mam-muted); font-size: .75rem; }
-.toolIcon { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--mam-accent-soft); color: var(--mam-accent-text); }
 .composerBox textarea { box-sizing: border-box; flex: 1; min-width: 0; min-height: 42px; max-height: 168px; padding: var(--mam-space-xs); overflow-y: auto; resize: none; border: 0; outline: 0; background: transparent; color: var(--mam-ink); font-size: 1rem; line-height: 1.5; }
 .composerBox textarea:focus-visible { outline: 0 !important; }
 .composerBox textarea::placeholder { color: var(--mam-muted); }
@@ -79,23 +73,6 @@
 .composerFoot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--mam-space-xs); color: var(--mam-muted); line-height: 1.45; }
 .composerFoot small { font-size: .72rem; }
 .composerFoot small:last-child { max-width: 38rem; }
-.plan { display: grid; gap: var(--mam-space-sm); padding: var(--mam-space-md); border-radius: var(--mam-radius-control); background: var(--mam-well); }
-.planHeading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--mam-space-xs); }
-.planHeading h2 { margin: 0; font-size: 1rem; overflow-wrap: break-word; min-width: 0; }
-.planHeading p { margin: 4px 0 0; color: var(--mam-muted); font-size: .8rem; }
-.previewLabel { color: var(--mam-muted); font-size: .75rem; }
-.planDays { display: flex; flex-wrap: wrap; gap: var(--mam-space-xs); }
-.dayButton { display: grid; gap: 2px; min-width: 88px; min-height: 44px; padding: var(--mam-space-xs); border: 1px solid var(--mam-strong-line); border-radius: 8px; background: var(--mam-paper); color: var(--mam-ink); text-align: left; cursor: pointer; }
-.dayButton span { font-size: .8rem; font-weight: 700; }
-.dayButton small { color: var(--mam-muted); font-size: .72rem; }
-.dayButton[aria-pressed='true'] { border-color: var(--mam-accent); background: var(--mam-accent-soft); color: var(--mam-accent-text); }
-.planDay { padding: var(--mam-space-sm) 0 0; border-top: 1px solid var(--mam-line); }
-.planDay h3 { margin: 0 0 var(--mam-space-sm); font-size: .9rem; }
-.meals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mam-space-sm); }
-.meal { display: grid; align-content: start; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
-.meal span, .meal small { color: var(--mam-muted); font-size: .8rem; }
-.meal strong { font-size: .88rem; }
-.planEmpty { margin: 0; color: var(--mam-muted); }
 @media (max-width: 767.98px) {
   .page { height: calc(100dvh - 64px); padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
   .header { min-height: 62px; padding: var(--mam-space-xs) var(--mam-space-md); }
@@ -107,9 +84,8 @@
   .empty { padding: var(--mam-space-sm) 0; }
   .empty p { margin-bottom: var(--mam-space-md); }
   .suggestions button { flex: 1 1 180px; }
-  .meals { grid-template-columns: 1fr; }
   .composerFoot { flex-direction: column; gap: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .suggestions button:active, .toolsButton:active, .toolItem:active, .retry:active, .dayButton:active { transform: none; }
+  .suggestions button:active, .retry:active { transform: none; }
 }

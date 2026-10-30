@@ -1,0 +1,3 @@
+.result { width: min(100%, 540px); min-width: 0; }
+.locked { display: grid; justify-items: start; gap: .5rem; width: min(100%, 540px); padding: .85rem; border: 1px solid var(--mam-line); border-radius: var(--mam-radius-control); background: var(--mam-well); }
+.locked p { margin: 0; color: var(--mam-ink); }
