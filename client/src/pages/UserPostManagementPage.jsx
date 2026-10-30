@@ -271,7 +271,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                     const displayStatus = getMyPostDisplayStatus(post);
                     const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
                     const badgeStatus = displayStatus === 'removed' || displayStatus === 'deleted' ? 'deleted' : displayStatus;
-                    const label = displayStatus === 'rejected' ? 'Bị từ chối'
+                    const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối' : 'Quản trị viên từ chối')
                       : displayStatus === 'removed' ? 'Đã gỡ' : displayStatus === 'deleted' ? 'Đã xóa' : undefined;
                     return <StatusBadge entity="post" status={badgeStatus} label={label} toneOverride={redStatus ? 'bad' : undefined} size="sm" />;
                   })()}
@@ -282,7 +282,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                   const displayStatus = getMyPostDisplayStatus(post);
                   const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
                   if (!redStatus && !post.moderationNote) return null;
-                  const label = displayStatus === 'rejected' ? 'Bài viết bị từ chối'
+                  const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối bài viết' : 'Quản trị viên từ chối bài viết')
                     : displayStatus === 'removed' ? 'Bài viết đã bị gỡ'
                       : displayStatus === 'deleted' ? 'Bài viết đã bị xóa' : 'Ghi chú kiểm duyệt';
                   const message = getMyPostModerationMessage(post);
@@ -316,7 +316,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         readOnly={!canInteractWithManagedPost(details?.post)}
         showComments={canInteractWithManagedPost(details?.post)}
         statusBanner={details?.post && ['rejected', 'removed', 'deleted'].includes(getMyPostDisplayStatus(details.post)) ? {
-          label: getMyPostDisplayStatus(details.post) === 'rejected' ? 'Bài viết bị từ chối'
+          label: getMyPostDisplayStatus(details.post) === 'rejected' ? (details.post.moderationSource === 'ai' ? 'AI từ chối bài viết' : 'Quản trị viên từ chối bài viết')
             : getMyPostDisplayStatus(details.post) === 'removed' ? 'Bài viết đã bị gỡ' : 'Bài viết đã bị xóa',
           reason: getMyPostModerationMessage(details.post),
         } : null}

@@ -99,7 +99,10 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
       {post && <>
       {reportCase?.targetType === 'comment' && <h2 className={styles.postTitle}>Bài viết chứa bình luận</h2>}
       <h3 className={styles.postTitle}>{post.title}</h3>
-      {post.aiUnavailable && <Notice tone="info">AI chưa kiểm tra bài viết này; cần duyệt thủ công.</Notice>}
+      {post.aiModerationOrigin === 'provider_unavailable' && <Notice tone="info">AI chưa kiểm tra bài viết này; cần duyệt thủ công.</Notice>}
+      {post.aiModerationOrigin === 'ai_disabled' && <Notice tone="info">AI đang tắt khi bài được gửi; cần duyệt thủ công.</Notice>}
+      {post.aiModerationOrigin === 'ai' && post.status === 'pending' && <Notice tone="info">AI đã kiểm tra nội dung hiện tại; bài đang chờ quyết định của quản trị viên.</Notice>}
+      {!post.aiModerationOrigin && post.status === 'pending' && <Notice tone="info">Chưa có thông tin AI cho nội dung hiện tại.</Notice>}
       <AnimalWarnings warnings={post.animalWarnings} className="mb-3" />
       <div className={styles.metadata}>
         <Avatar name={post.authorName || post.authorEmail} src={post.authorAvatarUrl} size={32} />

@@ -15,7 +15,16 @@ const POST_FIELDS = `
   p.moderated_at AS "moderatedAt", p.published_at AS "publishedAt",
   p.deleted_at AS "deletedAt", p.created_at AS "createdAt", p.updated_at AS "updatedAt",
   p.view_count AS "viewCount", p.vote_count AS "voteCount", p.comment_count AS "commentCount",
-  COALESCE(to_jsonb(p)->'creation_moderation'->>'origin' = 'provider_unavailable', false) AS "aiUnavailable"
+  CASE WHEN to_jsonb(p)->'edit_moderation' IS NOT NULL
+      AND to_jsonb(p)->'edit_moderation' <> 'null'::jsonb
+    THEN to_jsonb(p)->'edit_moderation'->>'origin'
+    WHEN p.status = 'pending' AND p.published_at IS NOT NULL THEN NULL
+    ELSE to_jsonb(p)->'creation_moderation'->>'origin' END AS "aiModerationOrigin",
+  COALESCE(CASE WHEN to_jsonb(p)->'edit_moderation' IS NOT NULL
+      AND to_jsonb(p)->'edit_moderation' <> 'null'::jsonb
+    THEN to_jsonb(p)->'edit_moderation'->>'origin' = 'provider_unavailable'
+    WHEN p.status = 'pending' AND p.published_at IS NOT NULL THEN false
+    ELSE to_jsonb(p)->'creation_moderation'->>'origin' = 'provider_unavailable' END, false) AS "aiUnavailable"
 `;
 const REPORT_FIELDS = `
   r.report_id AS id, r.reporter_id AS "reporterId", r.target_type AS "targetType",

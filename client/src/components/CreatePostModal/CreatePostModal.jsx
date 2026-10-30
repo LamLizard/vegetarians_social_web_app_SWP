@@ -290,12 +290,14 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
         {/* Câu lỗi từ server đặt sát nút Đăng để người dùng thấy ngay (form dài, đầu form có thể đã cuộn khuất) */}
         {serverError && (
           <div ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}>
-            <Notice tone="alert" title="Chưa đăng được bài">{serverError}</Notice>
+            <Notice tone="alert" title={initialPost ? 'Chưa lưu được bài' : 'Chưa đăng được bài'}>{serverError}</Notice>
           </div>
         )}
 
         <p className={styles.pendingNote}>
-          <i className="bi bi-hourglass-split" aria-hidden="true" /> Sau khi đăng, bài ở trạng thái <b>chờ duyệt</b> và chỉ hiện trên Bảng tin khi Admin duyệt.
+          <i className="bi bi-hourglass-split" aria-hidden="true" /> {initialPost
+            ? 'Bản sửa được gửi duyệt sẽ tạm ẩn khỏi Bảng tin.'
+            : 'Bài sẽ hiển thị trên Bảng tin sau khi được duyệt.'}
         </p>
       </form>
     </Modal>

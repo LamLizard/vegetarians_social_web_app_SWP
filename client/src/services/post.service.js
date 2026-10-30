@@ -54,7 +54,14 @@ const real = {
     return apiFetch(`/posts/mine?${params}`);
   },
   getMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`),
-  updateMyPost: (id, data) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateMyPost: async (id, data) => {
+    const result = await apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+    if (result?.post?.status !== 'pending' || String(result.post.id) !== String(id)
+      || typeof result.replayed !== 'boolean') {
+      throw new Error('Chưa xác nhận được kết quả lưu bài. Vui lòng tải lại.');
+    }
+    return result;
+  },
   deleteMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getCategories: () => apiFetch('/categories'),
   // Khoi's code: video YouTube có phát được trên trang mình không (hooks/useYouTubeCheck.js)

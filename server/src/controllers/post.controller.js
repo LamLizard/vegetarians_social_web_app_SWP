@@ -7,6 +7,11 @@ const { parsePostInput, PostInputError } = require('../utils/postInput');
 const { checkYouTubeVideo, youTubeRejectMessage } = require('../utils/youtubeCheck');
 // Khoi's code: Cloud lưu ảnh bìa (bộ CLOUDINARY_POST_*), khớp với nơi API upload đẩy ảnh lên.
 const { POST_CLOUD_NAME } = require('../config/cloudinary');
+const { createHash } = require('node:crypto');
+const { parseRequestId, submissionFingerprint } = require('../utils/postContentInput');
+const { moderate } = require('../utils/aiModeration');
+const { evaluateRules } = require('../utils/postContentRules');
+const { getConfig } = require('../models/aiConfig.model');
 
 const { PostError } = postModel;
 const MAX_COMMENT = 1000;
@@ -41,8 +46,9 @@ const handle = (fn) => async (req, res) => {
   try {
     await fn(req, res);
   } catch (error) {
-    if (error instanceof PostError) return res.status(error.status).json({ message: error.message });
-    console.error(`[post.${fn.name}]`, error);
+    if (error instanceof PostError) return res.status(error.status).json({ message: error.message, ...(error.code ? { code: error.code } : {}) });
+    if (fn.name === 'updateMyPost') console.error('[post.updateMyPost]', error.code || error.name || 'UNEXPECTED');
+    else console.error(`[post.${fn.name}]`, error);
     return res.status(500).json({ message: 'Có lỗi xảy ra, vui lòng thử lại sau.' });
   }
 };
@@ -138,18 +144,36 @@ async function getMyPost(req, res) {
 
 // Duy's Code: Endpoint sửa chỉ nhận dữ liệu bài; danh tính luôn lấy từ phiên đăng nhập.
 async function updateMyPost(req, res) {
+  res.set('Cache-Control', 'private, no-store');
+  res.vary('Authorization');
   const postId = parseId(req.params.id, 'Mã bài viết');
   let input;
-  try { input = parsePostInput(req.body, { cloudName: POST_CLOUD_NAME }); }
+  let requestId;
+  try {
+    input = parsePostInput(req.body, { cloudName: POST_CLOUD_NAME });
+    requestId = parseRequestId(req.body?.requestId);
+  }
   catch (error) {
     if (error instanceof PostInputError) throw new PostError(400, error.message);
     throw error;
   }
+  const fingerprint = createHash('sha256').update(`${postId}|${submissionFingerprint('post', input)}`).digest('hex');
+  const precheck = await postModel.precheckMyPostEdit({ accountId: req.account.id, postId,
+    categoryIds: input.categoryIds, requestId, fingerprint });
+  if (precheck.replay) return res.json(precheck.replay);
   if (input.youtubeUrl) {
     const rejected = await youTubeRejectMessage(input.youtubeUrl);
     if (rejected) throw new PostError(400, rejected);
   }
-  res.json({ post: await postModel.updateMyPost({ ...input, accountId: req.account.id, postId }) });
+  let config;
+  try { config = await getConfig(); } catch {
+    throw Object.assign(new PostError(503, 'Không thể đọc cấu hình AI.'), { code: 'CONFIG_UNAVAILABLE' });
+  }
+  const text = `${input.title}\n\n${input.content}`;
+  const providerResult = await moderate({ kind: 'post', text, settings: config.post });
+  const moderation = await evaluateRules({ kind: 'post', text, providerResult });
+  res.json(await postModel.updateMyPost({ ...input, accountId: req.account.id, postId,
+    revision: precheck.revision, requestId, fingerprint, moderation }));
 }
 
 // Duy's Code: Xóa mềm, model kiểm tra lại chủ sở hữu và trạng thái trước khi cập nhật.

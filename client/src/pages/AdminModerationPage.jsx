@@ -206,7 +206,8 @@ export default function AdminModerationPage() {
   const handleLogout = () => { logout(); window.location.assign('/'); };
   const columns = query.tab === 'post' ? [
     { key: 'title', header: 'Bài viết', primary: true,
-      render: row => <span>{row.title}{row.aiUnavailable && <small> · AI chưa kiểm tra</small>}</span> },
+      render: row => <span>{row.title}{row.aiModerationOrigin === 'provider_unavailable' && <small> · AI chưa kiểm tra</small>}
+        {row.aiModerationOrigin === 'ai_disabled' && <small> · AI đang tắt</small>}</span> },
     { key: 'postType', header: 'Loại', render: row => row.postType === 'video' ? 'Video' : 'Blog', width: 85 },
     { key: 'authorName', header: 'Tác giả', render: row => (
       <span className={styles.metadata}><Avatar name={row.authorName || row.authorEmail} src={row.authorAvatarUrl} size={28} />

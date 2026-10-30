@@ -23,6 +23,8 @@ export default function PostDetailContent({
 }) {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState(false);
+  const [commentsRetry, setCommentsRetry] = useState(0);
   const postId = post?.id;
   const sectionId = `binh-luan-${postId}`;
   const viewerId = String(user?.id ?? 'guest');
@@ -40,6 +42,7 @@ export default function PostDetailContent({
     if (!postId || !showComments || loading) {
       setComments([]);
       setCommentsLoading(false);
+      setCommentsError(false);
       return undefined;
     }
     // Tùng: đổi bài/tài khoản phải vô hiệu hóa cả GET lẫn POST cũ trước khi nhận dữ liệu riêng.
@@ -48,17 +51,19 @@ export default function PostDetailContent({
     const isCurrent = () => activeContextRef.current === active && contextRef.current === context
       && isViewerCurrent(viewerContext);
     setComments([]);
+    setCommentsError(false);
     setCommentsLoading(true);
     loadingRequestRef.current = postContentService.getComments(postId)
       .then((result) => {
-        if (!isCurrent()) return;
+        if (!isCurrent()) return false;
         setComments(result.items);
         onCommentCountChange?.(postId, result.publicCommentCount);
+        return true;
       })
-      .catch(() => { if (isCurrent()) setComments([]); })
+      .catch(() => { if (isCurrent()) setCommentsError(true); return false; })
       .finally(() => { if (isCurrent()) setCommentsLoading(false); });
     return () => { if (activeContextRef.current === active) activeContextRef.current = null; };
-  }, [postId, showComments, loading, context, onCommentCountChange, isViewerCurrent, viewerContext]);
+  }, [postId, showComments, loading, context, onCommentCountChange, isViewerCurrent, viewerContext, commentsRetry]);
 
   // Duy's Code: Giữ nguyên hành vi Bảng tin khi mở từ nút bình luận.
   useEffect(() => {
@@ -71,8 +76,9 @@ export default function PostDetailContent({
       && isViewerCurrent(viewerContext);
     if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
     // Tùng: chờ GET đầu tiên để response cũ không ghi đè bình luận vừa gửi.
-    await loadingRequestRef.current;
+    const loaded = await loadingRequestRef.current;
     if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
+    if (!loaded) throw new Error('Chưa tải được bình luận. Vui lòng thử tải lại trước khi gửi.');
     const created = await postContentService.addComment(post.id, content, options);
     if (!isCurrent()) throw new Error('Ngữ cảnh bình luận đã thay đổi. Vui lòng mở lại bài viết.');
     setComments((current) => (created.displayable
@@ -141,6 +147,8 @@ export default function PostDetailContent({
               total={post.commentCount}
               currentUser={toPerson(user)}
               loading={commentsLoading}
+              loadError={commentsError}
+              onRetry={() => { activeContextRef.current = null; setCommentsRetry((value) => value + 1); }}
               onCreate={addComment}
               onReport={(commentId) => {
                 const comment = comments.find((entry) => entry.id === commentId);
