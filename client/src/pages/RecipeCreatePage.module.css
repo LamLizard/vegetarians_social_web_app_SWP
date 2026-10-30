@@ -167,7 +167,7 @@
 /* Khoi's code: cảnh báo đồ động vật dưới ô tên món / tên công thức — không phải lỗi, vẫn gửi được */
 .flag { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.4rem 0 0; color: var(--ac-bad-fg); font-size: 0.8rem; font-weight: 500; }
 
-/* Khoi's code: khối "Dinh dưỡng (không bắt buộc)" — mở/gập theo chiều dọc (grid-template-rows 0fr → 1fr) */
+/* Khoi's code: khối "Dinh dưỡng" (28/10: bắt buộc 5 ô) — mở/gập theo chiều dọc (grid-template-rows 0fr → 1fr) */
 .nutri { border: 1px solid var(--v-line); border-radius: var(--ac-radius-surface); }
 .nutriToggle {
   display: flex; align-items: center; gap: 8px; width: 100%;
@@ -177,7 +177,9 @@
 .nutriToggle:hover { background: var(--ac-hover-soft); }
 .nutriToggle:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }
 .nutriTitle { flex: 1; }
-.nutriOptional { color: var(--v-muted); font-weight: 400; }
+.nutriRequired { color: var(--ac-bad-fg); font-weight: 700; }
+/* Gợi ý calo lệch nhiều so với đạm/tinh bột/béo — chỉ nhắc, không chặn gửi */
+.nutriWarn { display: flex; gap: 8px; align-items: baseline; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--ac-warn-bg); color: var(--ac-warn-fg); font-size: 13px; line-height: 1.5; }
 .nutriCount { color: var(--v-muted); font-size: 13px; font-weight: 500; }
 .nutriBad { color: var(--ac-bad-fg); font-size: 13px; font-weight: 600; }
 .nutriChevron { transition: transform .25s var(--ac-ease-out, ease-out); }

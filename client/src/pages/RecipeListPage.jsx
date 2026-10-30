@@ -5,6 +5,7 @@ import DishBowl from '../components/DishBowl/DishBowl';
 import EmptyState from '../components/EmptyState/EmptyState';
 import FeaturedCarousel from '../components/FeaturedCarousel/FeaturedCarousel';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
+import LoginPrompt from '../components/LoginPrompt/LoginPrompt';
 import MemberLayout from '../components/MemberLayout/MemberLayout';
 import Notice from '../components/Notice/Notice';
 import Select from '../components/Select/Select';
@@ -13,6 +14,8 @@ import SearchInput from '../components/SearchInput/SearchInput';
 import Skeleton from '../components/Skeleton/Skeleton';
 import recipeService from '../services/recipe.service';
 import { getHealthProfile } from '../services/user.service';
+import useHideAllergen from '../hooks/useHideAllergen';
+import { GUEST_LIMIT } from '../constants/domain';
 import { plain } from '../utils/dishMatch';
 import s from './RecipeListPage.module.css';
 
@@ -62,9 +65,11 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   const [state, setState] = useState({ status: 'loading', items: [], categories: [] });
   const [text, setText] = useState(q);
   const [allergies, setAllergies] = useState([]);
-  const [hideAllergen, setHideAllergen] = useState(false);
+  const [hideAllergen, setHideAllergen] = useHideAllergen(user?.id); // 27/10: nhớ qua các lần mở trang
   const [shown, setShown] = useState(PAGE);
   const [sort, setSort] = useState('new');
+  const isGuest = !user; // Khách: chỉ 3 công thức nhiều tim nhất (server giới hạn), không tìm/lọc, bấm vào thẻ → mời đăng nhập
+  const [loginHref, setLoginHref] = useState(null); // khách bấm công thức nào → mở hộp mời đăng nhập; Đăng nhập xong vào thẳng công thức đó
 
   // Đổi từ khoá / danh mục: ghi lên thanh địa chỉ (Back của trình duyệt quay lại được), không tải lại trang
   const go = (next) => {
@@ -106,7 +111,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   };
 
   const all = state.items.filter((it) => !(hideAllergen && allergenOf(it)));
-  const browsing = !q && !dm;
+  const browsing = isGuest || (!q && !dm); // khách không tìm/lọc được → bỏ qua ?q= / ?dm= gõ tay trên URL
   const categories = state.categories;
 
   const card = (it) => (
@@ -130,10 +135,10 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
 
   // ---------- Chế độ duyệt: nổi bật + các hàng danh mục ----------
   const liked = all.filter((it) => it.likesThisWeek > 0).sort((a, b) => b.likesThisWeek - a.likesThisWeek || byNewest(a, b));
-  const featuredTitle = liked.length ? 'Nổi bật tuần này' : 'Mới duyệt tuần này';
-  const featuredHint = liked.length ? 'Nhiều lượt thích nhất trong 7 ngày' : 'Công thức vừa được Admin duyệt';
+  const featuredTitle = isGuest ? 'Công thức nổi bật' : liked.length ? 'Nổi bật tuần này' : 'Mới duyệt tuần này';
+  const featuredHint = isGuest ? 'Nhiều lượt thích nhất' : liked.length ? 'Nhiều lượt thích nhất trong 7 ngày' : 'Công thức vừa được Admin duyệt';
   const featured = [...liked, ...[...all].sort(byNewest).filter((it) => !liked.includes(it))].slice(0, FEATURED);
-  const sections = categories
+  const sections = (isGuest ? [] : categories) // khách chỉ có 3 công thức → không chia hàng danh mục (tránh lặp lại cùng 3 thẻ)
     .map((c) => ({ ...c, items: all.filter((it) => it.categoryIds.includes(c.id)).sort(byNewest) }))
     .filter((c) => c.items.length > 0);
 
@@ -164,7 +169,14 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
       onRegister={onRegister}
       renderTopbar={topbar}
     >
-      <div className={s.page}>
+      <div
+        className={s.page}
+        // Khách bấm vào thẻ công thức (link, hoặc cả khung băng chuyền nổi bật) → mời đăng nhập, không mở trang chi tiết
+        onClickCapture={isGuest ? (e) => {
+          const hit = e.target.closest('a[href^="/recipes/"], [data-href^="/recipes/"]');
+          if (hit) { e.preventDefault(); e.stopPropagation(); setLoginHref(hit.getAttribute('href') ?? hit.dataset.href); }
+        } : undefined}
+      >
         <header className={s.head}>
           <div className={s.headText}>
             <h1 className={s.title}>Công thức</h1>
@@ -172,21 +184,27 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
           </div>
         </header>
 
-        <div className={s.tools}>
-          <div className={s.search}>
-            <SearchInput
-              value={text}
-              onChange={setText}
-              onSearch={(v) => go({ q: v, dm })}
-              size="lg"
-              label="Tìm công thức"
-              placeholder="Tìm theo tên món hoặc công thức, ví dụ: canh chua"
-            />
+        {isGuest ? (
+          <Notice tone="info" title="Bạn đang xem với tư cách khách">
+            Đây là {GUEST_LIMIT.recipes} công thức được thích nhiều nhất. Đăng nhập để xem toàn bộ công thức, tìm kiếm, xem chi tiết và thích công thức.
+          </Notice>
+        ) : (
+          <div className={s.tools}>
+            <div className={s.search}>
+              <SearchInput
+                value={text}
+                onChange={setText}
+                onSearch={(v) => go({ q: v, dm })}
+                size="lg"
+                label="Tìm công thức"
+                placeholder="Tìm theo tên món hoặc công thức, ví dụ: canh chua"
+              />
+            </div>
+            {allergyKeys.length > 0 && (
+              <Checkbox switch checked={hideAllergen} onChange={setHideAllergen}>Ẩn món tôi dị ứng</Checkbox>
+            )}
           </div>
-          {allergyKeys.length > 0 && (
-            <Checkbox switch checked={hideAllergen} onChange={setHideAllergen}>Ẩn món tôi dị ứng</Checkbox>
-          )}
-        </div>
+        )}
 
         {state.status === 'loading' && (
           <div className={`${s.grid} ${s.firstBlock}`} role="status" aria-label="Đang tải công thức">
@@ -278,7 +296,32 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
             )}
           </section>
         )}
+
+        {/* Khách: hết 3 công thức → mời đăng nhập (giống Bảng tin) */}
+        {state.status === 'ready' && isGuest && all.length > 0 && (
+          <EmptyState
+            icon="person-check"
+            title="Đăng nhập để xem thêm công thức"
+            action={(
+              <div className={s.guestActions}>
+                <Button onClick={onLogin}>Đăng nhập</Button>
+                <Button variant="outline" onClick={onRegister}>Tạo tài khoản miễn phí</Button>
+              </div>
+            )}
+          >
+            Thành viên được xem toàn bộ công thức, tìm kiếm theo món và danh mục, lọc món dị ứng và thích công thức.
+          </EmptyState>
+        )}
       </div>
+
+      <LoginPrompt
+        open={Boolean(loginHref)}
+        reason="recipe"
+        // /recipes/:id khi chưa đăng nhập = form Đăng nhập → đăng nhập xong thấy ngay công thức vừa bấm
+        onLogin={() => window.location.assign(loginHref)}
+        onRegister={() => { setLoginHref(null); onRegister?.(); }}
+        onClose={() => setLoginHref(null)}
+      />
     </MemberLayout>
   );
 }

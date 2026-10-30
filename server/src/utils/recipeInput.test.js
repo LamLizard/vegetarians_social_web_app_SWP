@@ -141,3 +141,16 @@ test('strictUnits: chỉ nhận đơn vị trong bộ chuẩn và lưu đúng t�
   // Không bật strictUnits (luồng Admin) → đơn vị tự do vẫn nhận như cũ
   assert.equal(parseRecipeInput(base({ ingredients: [{ name: 'Sả', amount: 1, unit: 'cây' }] }), { cloudName: CLOUD }).ingredients[0].unit, 'cây');
 });
+
+// Khoi's code 28/10: form của thành viên bắt buộc 5 chỉ số dinh dưỡng (Đường, Natri tuỳ chọn); Admin (mặc định) vẫn tuỳ chọn
+test('requireNutrition: thiếu chỉ số bắt buộc nào báo đúng tên, đủ 5 thì nhận (0 g hợp lệ)', () => {
+  const full = { caloriesKcal: 350, proteinG: 12, carbG: 45, fatG: 10, fiberG: 0 };
+  const strict = (body) => parseRecipeInput(body, { cloudName: CLOUD, requireNutrition: true });
+  assert.throws(() => strict(base()), /còn thiếu: Calo, Đạm, Tinh bột, Chất béo, Chất xơ\./);
+  assert.throws(() => strict(base({ ...full, fiberG: '' })), /còn thiếu: Chất xơ\./);
+  const ok = strict(base(full)); // thiếu Đường, Natri vẫn nhận
+  assert.equal(ok.fiberG, 0);
+  assert.equal(ok.sugarG, null);
+  assert.equal(ok.sodiumMg, null);
+  assert.equal(parse(base()).caloriesKcal, null); // không bật → vẫn tuỳ chọn như cũ
+});

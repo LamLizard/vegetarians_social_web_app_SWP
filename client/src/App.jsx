@@ -71,20 +71,26 @@ function AppContent() {
   const path = window.location.pathname.replace(/\/$/, '') || '/';
   const isFeedPath = path === '/' || path === '/feed';
   const goTo = (url) => window.location.assign(url);
-  // Khoi's code: /recipes/123 → xem công thức đã duyệt (khách cũng xem được). /recipes/new KHÔNG khớp vì chỉ nhận số.
+  // Khoi's code: /recipes/123 → xem công thức đã duyệt (cần đăng nhập: khách mở link này → trang Đăng nhập, xong quay lại đúng công thức). /recipes/new KHÔNG khớp vì chỉ nhận số.
   const recipeViewId = /^\/recipes\/(\d+)$/.exec(path)?.[1];
 
   if (!isAuthenticated) {
     if (path === '/chatbot') return <ChatbotPage key="guest" user={null} />;
     if (isFeedPath) return <PostFeedPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
-    if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
-    if (path === '/recipes') return <RecipeListPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />; // Khoi's code
+    // Khoi's code: ?next=/recipes → đăng nhập / đăng ký xong quay lại trang Công thức (thay vì về Bảng tin)
+    if (path === '/recipes') return <RecipeListPage user={null} onLogin={() => goTo('/login?next=/recipes')} onRegister={() => goTo('/register?next=/recipes')} />;
     const isAuthPath = path === '/login' || path === '/register';
     return (
       <AuthPage
         initialMode={path === '/register' ? 'register' : 'login'}
-        // Đăng nhập xong ở /login → đổi URL về trang chủ (không tải lại trang)
-        onAuthenticated={() => { if (isAuthPath) window.history.replaceState(null, '', '/'); }}
+        // Đăng nhập xong ở /login → đổi URL về trang chủ (không tải lại trang).
+        // Khoi's code: có ?next= (vd /login?next=/recipes) → về trang đó. Chỉ nhận đường dẫn nội bộ "/..." (chặn "//web-khac.com", "http://...": open redirect).
+        onAuthenticated={() => {
+          if (!isAuthPath) return;
+          const next = new URLSearchParams(window.location.search).get('next');
+          const safeNext = next && /^\/(?![/\\])/.test(next) ? next : '/';
+          window.history.replaceState(null, '', safeNext);
+        }}
       />
     );
   }

@@ -22,7 +22,7 @@ const toRecipeBody = ({ dish, ...rest }) => ({
 
 const recipeService = {
   /**
-   * Khoi's code: trang Công thức — mọi công thức đã duyệt (khách cũng gọi được)
+   * Khoi's code: trang Công thức — thành viên: mọi công thức đã duyệt · khách: chỉ 3 công thức nhiều lượt thích nhất
    * → { items: [{ id, title, description, dishId, dishName, thumbnailUrl, servings, prepTimeMinutes, cookTimeMinutes,
    *      caloriesKcal, createdAt, moderatedAt, authorName, authorAvatarUrl, categoryIds: string[], ingredientNames: string[],
    *      likeCount, likesThisWeek, likedByMe }],

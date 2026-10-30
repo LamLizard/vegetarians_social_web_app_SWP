@@ -38,3 +38,21 @@
   .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tab { padding: 0 6px; }
 }
+
+/* Khoi's code 29/10: menu "+N chủ đề" có ô lọc nhanh */
+.morePanel { display: flex; flex-direction: column; gap: 6px; }
+.moreSearch {
+  height: 34px; padding: 0 10px; border: 1px solid var(--v-line); border-radius: 9px;
+  background: var(--v-surface); color: var(--v-text); font-size: 0.875rem;
+}
+.moreSearch:focus { outline: 0; border-color: var(--v-accent-line); box-shadow: 0 0 0 3px var(--v-accent-soft); }
+.moreList { display: flex; flex-direction: column; max-height: 280px; overflow-y: auto; }
+.moreItem {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: none; color: var(--v-text); font-size: 0.9rem; text-align: left;
+}
+.moreItem span { flex: 1; min-width: 0; }
+.moreItem small { color: var(--v-muted); font-size: 0.75rem; }
+.moreItem:hover { background: var(--v-surface-2); }
+.moreItemOn { background: var(--v-accent-soft); color: var(--v-accent-text); font-weight: 600; }
+.moreNone { padding: 8px 10px; color: var(--v-muted); font-size: 0.85rem; }

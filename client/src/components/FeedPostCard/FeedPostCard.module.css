@@ -57,15 +57,24 @@
 
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .moreTags { align-self: center; color: var(--v-muted); font-size: 0.76rem; font-weight: 700; }
+/* Khoi's code 29/10: chip chủ đề có icon dấu trang, nền trung tính (không dùng "#" → không nhầm hashtag) */
 .tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 3px 10px;
-  border: 1px solid var(--v-accent-line);
+  border: 1px solid var(--v-line);
   border-radius: 999px;
-  background: var(--v-accent-soft);
-  color: var(--v-accent-text);
+  background: var(--v-surface-2);
+  color: var(--v-text);
   font-size: 0.76rem;
   font-weight: 600;
 }
+.tag i { color: var(--v-muted); font-size: 0.72rem; }
+.tagBtn { cursor: pointer; transition: border-color .15s, background-color .15s, color .15s; }
+.tagBtn:hover { border-color: var(--v-accent-line); background: var(--v-accent-soft); color: var(--v-accent-text); }
+.tagBtn:hover i { color: inherit; }
+.tagBtn:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }
 
 .media { display: block; margin-top: 2px; text-decoration: none; }
 .glare { display: block !important; width: 100% !important; height: auto !important; overflow: hidden; }

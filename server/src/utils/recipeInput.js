@@ -26,6 +26,8 @@ const NUTRIENTS = {
   sugarG: ['Đường', MAX_GRAMS, 1],
   sodiumMg: ['Natri', MAX_SODIUM, 0],
 };
+/** Khoi's code 28/10: chất bắt buộc khi requireNutrition (cùng Calo). Đường, Natri tuỳ chọn. */
+const REQUIRED_NUTRIENTS = ['proteinG', 'carbG', 'fatG', 'fiberG'];
 
 /** Lỗi dữ liệu đầu vào → controller đổi thành HTTP 400 */
 class RecipeInputError extends Error {
@@ -165,15 +167,23 @@ function parseIngredients(value, { strictUnits = false } = {}) {
  *        requireMeta (Khoi's code): form Tạo công thức BẮT BUỘC khẩu phần, thời gian chuẩn bị, thời gian nấu (cho phép 0 phút).
  *        Mặc định false để luồng Admin tạo món kèm công thức (dish.controller) không đổi.
  *        strictUnits (Khoi's code): chỉ nhận đơn vị trong bộ chuẩn; chỉ form Tạo/Sửa công thức của người dùng bật.
+ *        requireNutrition (Khoi's code 28/10): BẮT BUỘC 5 chỉ số dinh dưỡng (Calo, Đạm, Tinh bột, Chất béo, Chất xơ — 1 người);
+ *             Đường, Natri vẫn tuỳ chọn.
+ *             Chỉ form Tạo/Sửa công thức của thành viên bật; Admin tạo món kèm công thức (dish.controller) vẫn tuỳ chọn.
  * @returns {{ dishId, proposedDishName, title, description, thumbnailUrl, youtubeUrl, servings, prepTimeMinutes,
  *             cookTimeMinutes, caloriesKcal, proteinG, carbG, fatG, fiberG, sugarG, sodiumMg, ingredients, instructions }}
  */
-function parseRecipeInput(body, { cloudName, requireMeta = false, strictUnits = false } = {}) {
+function parseRecipeInput(body, { cloudName, requireMeta = false, strictUnits = false, requireNutrition = false } = {}) {
   const b = body ?? {};
   if (requireMeta) {
     if (isEmpty(b.servings)) fail('Nhập khẩu phần.');
     if (isEmpty(b.prepTimeMinutes)) fail('Nhập thời gian chuẩn bị (không cần thì ghi 0).');
     if (isEmpty(b.cookTimeMinutes)) fail('Nhập thời gian nấu (không cần thì ghi 0).');
+  }
+  if (requireNutrition) {
+    const missing = [['caloriesKcal', 'Calo'], ...REQUIRED_NUTRIENTS.map((key) => [key, NUTRIENTS[key][0]])]
+      .filter(([key]) => isEmpty(b[key])).map(([, label]) => label);
+    if (missing.length) fail(`Nhập đủ dinh dưỡng cho 1 người, còn thiếu: ${missing.join(', ')}.`);
   }
   const dish = parseDish(b);
 
