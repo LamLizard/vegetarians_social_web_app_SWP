@@ -19,7 +19,7 @@ import styles from './PostDetailContent.module.css';
 export default function PostDetailContent({
   post, loading = false, toComments, user, isMine,
   onVote, onReport, onRequireLogin, onCommentCountChange, readOnly = false,
-  showComments = true, statusBanner, viewerContext, isViewerCurrent,
+  showComments = true, statusBanner, viewerContext, isViewerCurrent, onTopicClick,
 }) {
   const [comments, setComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -120,7 +120,12 @@ export default function PostDetailContent({
 
           {post.categories?.length > 0 && (
             <div className={feedCardStyles.tags}>
-              {post.categories.map((category) => <span key={category.id} className={feedCardStyles.tag}>#{category.name}</span>)}
+              {post.categories.map((category) => (onTopicClick ? (
+                <button key={category.id} type="button" className={`${feedCardStyles.tag} ${feedCardStyles.tagBtn}`}
+                  onClick={() => onTopicClick(category)} aria-label={`Xem bài cùng chủ đề ${category.name}`}>
+                  <i className="bi bi-bookmark" aria-hidden="true" />{category.name}
+                </button>
+              ) : <span key={category.id} className={feedCardStyles.tag}>#{category.name}</span>))}
             </div>
           )}
 
