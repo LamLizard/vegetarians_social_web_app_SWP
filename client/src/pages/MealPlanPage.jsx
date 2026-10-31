@@ -110,10 +110,6 @@ function getItemForSlot(plan, slot) {
   return (plan?.items ?? []).find((item) => item.mealSlot === slot) ?? null;
 }
 
-function getEmptySlots(plan) {
-  return SLOT_ORDER.filter((slot) => !getItemForSlot(plan, slot));
-}
-
 function getWarning(item, allergies) {
   if (!item || !allergies?.length) return null;
 
@@ -349,7 +345,6 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     ? targetCaloriesValue
     : null;
   const canEditSelectedDate = !isPastDate(selectedDate);
-  const emptySlots = getEmptySlots(selectedPlan);
   const caloriePercentage = targetCalories && totalCalories > 0 && selectedPlan?.items?.length
     ? (totalCalories / targetCalories) * 100
     : null;
@@ -525,42 +520,6 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     }
   };
 
-  const handleRandomize = async () => {
-    if (!canEditSelectedDate || isSaving || isRandomizingDays) return;
-    if (!targetCalories || emptySlots.length === 0) {
-      setNotice({ tone: 'alert', message: 'Không thể random bữa trống cho ngày này.' });
-      return;
-    }
-
-    setIsSaving(true);
-    setNotice({ tone: 'info', message: 'Đang chọn món…' });
-
-    try {
-      const planToUse = selectedPlan ?? await ensurePlanForSelectedDate();
-      const response = await mealPlanService.randomize(planToUse.id);
-      const newItems = (response.items ?? []).map(normalizeItem).filter(Boolean);
-      updateSelectedDayPlan((currentPlan) => {
-        const itemsBySlot = new Map((currentPlan?.items ?? []).map((item) => [item.mealSlot, item]));
-        newItems.forEach((item) => {
-          if (SLOT_ORDER.includes(item.mealSlot)) itemsBySlot.set(item.mealSlot, item);
-        });
-        return {
-          ...(currentPlan ?? { id: planToUse.id, planDate: selectedDate, items: [] }),
-          id: planToUse.id,
-          planDate: selectedDate,
-          items: SLOT_ORDER.map((slot) => itemsBySlot.get(slot)).filter(Boolean),
-        };
-      });
-      setNotice({ tone: 'success', message: response.message || `Đã thêm ${newItems.length} món.` });
-      toast(response.message || `Đã thêm ${newItems.length} món.`);
-    } catch (error) {
-      setNotice({ tone: 'alert', message: error.message || 'Không thể random bữa trống.' });
-      toast(error.message || 'Không thể random bữa trống.', { tone: 'alert' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const openRandomDaysModal = () => {
     setRandomDaysSelection([]);
     setRandomDaysSelectionError('');
@@ -679,28 +638,16 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
               <h1>Hôm nay bạn ăn gì?</h1>
             </div>
 
-            <div className={styles.randomActions}>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                icon="shuffle"
-                disabled={!canEditSelectedDate || isSaving || !targetCalories || emptySlots.length === 0}
-                onClick={handleRandomize}
-              >
-                Random bữa trống
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                icon="calendar2-check"
-                disabled={isSaving}
-                onClick={openRandomDaysModal}
-              >
-                Random nhiều ngày
-              </Button>
-            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="primary"
+              icon="calendar2-check"
+              disabled={isSaving}
+              onClick={openRandomDaysModal}
+            >
+              Random món ăn theo ngày
+            </Button>
           </div>
 
           <div className={styles.summaryStrip}>
