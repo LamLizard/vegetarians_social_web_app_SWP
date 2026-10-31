@@ -1,8 +1,13 @@
 const adminModel = require('../models/admin.model');
 
 async function getDashboard(req, res) {
+  // Khoi's code 30/10: ?range=today|7d|30d (mặc định 7d)
+  const range = String(req.query.range ?? '7d');
+  if (!Object.hasOwn(adminModel.RANGES, range)) {
+    return res.status(400).json({ message: 'Khoảng thời gian không hợp lệ.' });
+  }
   try {
-    return res.json(await adminModel.getDashboard());
+    return res.json(await adminModel.getDashboard(range));
   } catch (error) {
     console.error('[admin.dashboard]', error.code || error.name || 'UnexpectedError');
     return res.status(500).json({ message: 'Không thể tải dữ liệu quản trị. Vui lòng thử lại sau.' });

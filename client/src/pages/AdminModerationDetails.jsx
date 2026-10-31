@@ -48,7 +48,8 @@ const CASE_HISTORY_COLUMNS = [
   { key: 'reportId', header: 'Mã report', render: row => `#${row.reportId}`, width: 100 },
   ...REPORT_HISTORY_COLUMNS,
 ];
-const COMMENT_HISTORY_COLUMNS = historyColumns({ REMOVE: 'Xóa bình luận', HIDE: 'Ẩn bình luận', DELETE: 'Xóa bình luận', UPDATE: 'Cập nhật bình luận' });
+const COMMENT_HISTORY_COLUMNS = historyColumns({ REMOVE: 'Xóa bình luận', HIDE: 'Ẩn bình luận', DELETE: 'Xóa bình luận', UPDATE: 'Cập nhật bình luận' })
+  .map((column) => column.key === 'adminName' ? { ...column, header: 'Người thực hiện' } : column);
 
 export default function AdminModerationDetails({ post, reportCase, reports = [], comment }) {
   return (
@@ -62,7 +63,8 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
             <dt>Mở nhóm lúc</dt><dd>{dateLabel(reportCase.createdAt)}</dd>
             <dt>Báo cáo gần nhất</dt><dd>{dateLabel(reports[0]?.createdAt)}</dd>
             <dt>Trạng thái nhóm</dt><dd><ReportModerationStatus status={reportCase.status} targetType={reportCase.targetType} /></dd>
-            {reportCase.handledAt && <><dt>Đã xử lý</dt><dd>{reportCase.handlerName || reportCase.handlerEmail || 'Admin'} · {dateLabel(reportCase.handledAt)}</dd></>}
+            {reportCase.handledAt && <><dt>Đã xử lý</dt><dd>{reportCase.status === 'auto_closed_deleted'
+              ? 'Hệ thống' : (reportCase.handlerName || reportCase.handlerEmail || 'Admin')} · {dateLabel(reportCase.handledAt)}</dd></>}
             {reportCase.resolutionNote && <><dt>Kết quả</dt><dd className={styles.content}>{reportCase.resolutionNote}</dd></>}
           </dl>
         </Panel>
@@ -83,11 +85,13 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
             <dt>Ngày gửi</dt><dd>{dateLabel(comment.createdAt)}</dd>
             <dt>Bài viết chứa bình luận</dt><dd>{post?.title || `Bài #${comment.postId} không còn tồn tại`}</dd>
           </dl>
-          <div className={`${styles.content} mt-3`}>{comment.content}</div>
+          {comment.status === 'deleted'
+            ? <Notice tone="info">Bình luận đã bị xóa.</Notice>
+            : <div className={`${styles.content} mt-3`}>{comment.content}</div>}
         </Panel>
         <Panel title="Nhật ký thao tác trên bình luận" icon="clock-history" flush>
           <DataTable columns={COMMENT_HISTORY_COLUMNS} rows={comment.history || []}
-            caption="20 thao tác quản trị gần nhất của bình luận" empty={{ title: 'Chưa có thao tác quản trị' }} />
+            caption="Nhật ký thao tác trên bình luận" empty={{ title: 'Chưa có thao tác' }} />
         </Panel>
         {!post && <Notice tone="info" title="Bài viết chứa bình luận không còn tồn tại">Thông tin bình luận và các báo cáo vẫn được giữ để xử lý.</Notice>}
       </>}
@@ -95,6 +99,10 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
       {post && <>
       {reportCase?.targetType === 'comment' && <h2 className={styles.postTitle}>Bài viết chứa bình luận</h2>}
       <h3 className={styles.postTitle}>{post.title}</h3>
+      {post.aiModerationOrigin === 'provider_unavailable' && <Notice tone="info">AI chưa kiểm tra bài viết này; cần duyệt thủ công.</Notice>}
+      {post.aiModerationOrigin === 'ai_disabled' && <Notice tone="info">AI đang tắt khi bài được gửi; cần duyệt thủ công.</Notice>}
+      {post.aiModerationOrigin === 'ai' && post.status === 'pending' && <Notice tone="info">AI đã kiểm tra nội dung hiện tại; bài đang chờ quyết định của quản trị viên.</Notice>}
+      {!post.aiModerationOrigin && post.status === 'pending' && <Notice tone="info">Chưa có thông tin AI cho nội dung hiện tại.</Notice>}
       <AnimalWarnings warnings={post.animalWarnings} className="mb-3" />
       <div className={styles.metadata}>
         <Avatar name={post.authorName || post.authorEmail} src={post.authorAvatarUrl} size={32} />

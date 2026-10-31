@@ -5,21 +5,25 @@ import cx from '../cx';
 import { getLink } from '../link';
 import styles from './AdminSidebar.module.css';
 
+// Khoi's code 30/10: chia 3 nhóm (Kiểm duyệt · Nội dung · Người dùng) cho dễ tìm; key/href giữ nguyên như cũ
 const MENU = [
-  { key: 'dashboard', label: 'Bảng điều khiển', icon: 'speedometer2', href: '/admin' },
-  { key: 'moderation', label: 'Kiểm duyệt', icon: 'clipboard2-check', href: '/admin/moderation' },
-  // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
-  { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
-  { key: 'dish-management', label: 'Quản lý món ăn', icon: 'egg-fried', href: '/admin/dishes' },
+  { key: 'dashboard', label: 'Tổng quan', icon: 'speedometer2', href: '/admin' },
+  // Tùng: AI Configuration là trang quản trị riêng, giữ các mục hiện có.
+  { key: 'ai-config', label: 'Cấu hình AI', icon: 'cpu', href: '/admin/ai-configuration' },
+  { group: 'Kiểm duyệt' },
+  { key: 'moderation', label: 'Bài viết & báo cáo', icon: 'clipboard2-check', href: '/admin/moderation' },
   { key: 'recipe-verify', label: 'Duyệt công thức', icon: 'book-half', href: '/admin/recipes/verify' },
   // Duy's Code : Mở trang Admin xử lý tên nguyên liệu do thành viên đề cử.
   { key: 'ingredient-verify', label: 'Duyệt nguyên liệu', icon: 'basket', href: '/admin/ingredients/verify' },
   // Tùng — Sprint 2: BRIDGE-02 thêm entry riêng, khớp activeKey của ShopVerifyPage.
   { key: 'shops', label: 'Xác minh quán', icon: 'shop', href: '/admin/shops/verify' },
-  { key: 'appeals', label: 'Khiếu nại', icon: 'envelope-paper', href: '/admin/appeals' },
-  { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
+  { group: 'Nội dung' },
+  { key: 'dish-management', label: 'Quản lý món ăn', icon: 'egg-fried', href: '/admin/dishes' },
+  // Duy's code: Mở form để Admin tạo Dish mới ở trạng thái hoạt động.
+  { key: 'dish-create', label: 'Tạo món ăn', icon: 'plus-square', href: '/admin/dishes/create' },
   { key: 'categories', label: 'Danh mục', icon: 'tags', href: '/admin/categories' },
-  { divider: true }
+  { group: 'Người dùng' },
+  { key: 'accounts', label: 'Tài khoản', icon: 'people', href: '/admin/accounts' },
 ];
 
 export default function AdminSidebar({ activeKey, user, onLogout, linkAs, onNavigate }) {
@@ -35,6 +39,7 @@ export default function AdminSidebar({ activeKey, user, onLogout, linkAs, onNavi
       <nav className={styles.navList} aria-label="Menu quản trị">
         {MENU.map((item, index) => {
           if (item.divider) return <hr key={`divider-${index}`} />;
+          if (item.group) return <span key={`group-${index}`} className={styles.group}>{item.group}</span>;
           const [Link, linkProps] = getLink(linkAs, item.href);
           const active = item.key === activeKey;
           return (

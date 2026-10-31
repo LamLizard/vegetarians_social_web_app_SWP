@@ -3,7 +3,7 @@
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
-//   GET  /posts?cursor=&limit=&q=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
+//   GET  /posts?cursor=&limit=&q=&in=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
 //                                           mới ĐĂNG nhất trước (publishedAt); cursor là chuỗi BE tự tạo, FE chỉ gửi lại
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
@@ -32,10 +32,11 @@ export const FEED_PAGE_SIZE = 5;
 // =====================================================================
 const real = {
   getPreview: () => apiFetch('/posts/preview'),
-  getFeed: ({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
+  getFeed: ({ cursor, q, scope, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
     const params = new URLSearchParams({ limit: String(limit) });
     if (cursor) params.set('cursor', cursor);
     if (q) params.set('q', q);
+    if (q && scope && scope !== 'all') params.set('in', scope); // Khoi's code 28/10: phạm vi tìm (title · author · topic)
     if (categoryId) params.set('categoryId', categoryId); // Khoi's code: lọc theo danh mục (Sprint 2)
     return apiFetch(`/posts?${params}`);
   },
@@ -54,7 +55,14 @@ const real = {
     return apiFetch(`/posts/mine?${params}`);
   },
   getMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`),
-  updateMyPost: (id, data) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  updateMyPost: async (id, data) => {
+    const result = await apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+    if (result?.post?.status !== 'pending' || String(result.post.id) !== String(id)
+      || typeof result.replayed !== 'boolean') {
+      throw new Error('Chưa xác nhận được kết quả lưu bài. Vui lòng tải lại.');
+    }
+    return result;
+  },
   deleteMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getCategories: () => apiFetch('/categories'),
   // Khoi's code: video YouTube có phát được trên trang mình không (hooks/useYouTubeCheck.js)
@@ -143,12 +151,19 @@ const mock = {
     return { items: mockPreview() };
   },
 
-  async getFeed({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) {
+  async getFeed({ cursor, q, scope = 'all', categoryId, limit = FEED_PAGE_SIZE } = {}) {
     await wait();
     const keyword = (q ?? '').trim().toLowerCase();
+    // Khoi's code 28/10: mock tìm theo phạm vi (bản thật bỏ dấu ở server)
+    const topic = keyword.startsWith('#') || scope === 'topic' ? keyword.replace(/^#+/, '').trim() : null;
+    const hit = (p) => (topic
+      ? (p.categories ?? []).some((c) => c.name.toLowerCase().includes(topic))
+      : (scope !== 'author' && p.title.toLowerCase().includes(keyword))
+        || (scope !== 'title' && (p.author?.fullName ?? '').toLowerCase().includes(keyword))
+        || (scope === 'all' && (p.categories ?? []).some((c) => c.name.toLowerCase().includes(keyword))));
     const list = posts
       .filter((p) => VISIBLE.includes(p.status))
-      .filter((p) => !keyword || p.title.toLowerCase().includes(keyword))
+      .filter((p) => !keyword || hit(p))
       .filter((p) => !categoryId || p.categories.some((c) => c.id === categoryId))
       .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
       .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
@@ -211,7 +226,8 @@ Object.assign(mock, {
   },
   async getCategories() {
     await wait();
-    return { items: Object.values(CAT) };
+    // Khoi's code 29/10: postCount giống API thật (số bài đang hiện có chủ đề này)
+    return { items: Object.values(CAT).map((c) => ({ ...c, postCount: posts.filter((p) => VISIBLE.includes(p.status) && p.categories.some((x) => x.id === c.id)).length })) };
   },
   async uploadImage(file, { onProgress } = {}) {
     await wait();

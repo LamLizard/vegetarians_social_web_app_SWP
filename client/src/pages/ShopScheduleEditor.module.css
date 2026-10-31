@@ -1,0 +1,46 @@
+/* Tùng — Sprint 3: chỉ bố cục editor lịch, tái dùng tokens và control của kit. */
+.editor { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.legend { margin: 0; font-size: 1.05rem; font-weight: 700; }
+.toolbar, .dayActions, .presets { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.toolbar { justify-content: space-between; }
+.hint { margin: 0; color: var(--ac-muted); font-size: .88rem; overflow-wrap: anywhere; }
+.week { display: grid; min-width: 0; }
+.day { padding: 16px 0; border-bottom: 1px solid var(--ac-border); min-width: 0; }
+.dayHeader { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 1.6fr) auto; align-items: center; gap: 14px; }
+.dayLabel { display: grid; justify-items: start; gap: 6px; min-width: 0; }
+.dayLabel small { font-size: .8rem; color: var(--ac-muted); white-space: nowrap; }
+.dayActions { justify-content: flex-end; }
+.summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.summary li { min-width: 0; overflow-wrap: anywhere; }
+.changed { color: var(--ac-warn-fg); background: var(--ac-warn-bg); padding: 3px 7px; border-radius: 6px; font-size: .75rem; }
+.dayEditor { margin-top: 16px; padding: 16px; border-radius: 10px; background: var(--ac-elevated); border: 1px solid var(--ac-border); }
+.dayEditor[hidden] { display: none; }
+.dayEditor > button { margin-top: 14px; }
+.slots { display: grid; gap: 16px; min-width: 0; }
+.slot { display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) auto; gap: 12px; align-items: start; min-width: 0; }
+.slot > button { margin-top: 28px; }
+.slotLabel { font-size: .85rem; padding-top: 32px; }
+/* Tùng — Select giờ/phút giữ cùng một nhóm đầu giờ, đủ chỗ chọn trên mobile. */
+.timeSelect { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
+.error { grid-column: 1 / -1; color: var(--ac-alert); font-size: .88rem; margin: 8px 0 0; overflow-wrap: anywhere; }
+.invalidDay { border-bottom-color: var(--ac-alert); }
+.day:focus, .error:focus, .targets:focus { outline: 3px solid var(--ac-focus-ring); outline-offset: 4px; }
+.quickSetup { display: grid; gap: 20px; min-width: 0; }
+.template { display: grid; gap: 14px; min-width: 0; }
+.template > button { justify-self: start; }
+.targets { border: 0; padding: 0; margin: 0; display: grid; gap: 14px; min-width: 0; }
+.targetDays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.overwrite { margin: 0; padding: 12px; border-radius: 8px; background: var(--ac-warn-bg); color: var(--ac-warn-fg); font-size: .9rem; overflow-wrap: anywhere; }
+@media (max-width: 680px) {
+  .dayHeader { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .dayHeader > .summary, .dayHeader > .hint { grid-column: 1 / -1; grid-row: 2; }
+  .dayActions { grid-column: 2; grid-row: 1; }
+  .summary { grid-template-columns: minmax(0, 1fr); }
+  .dayEditor { padding: 12px; }
+  .slot { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .slotLabel { grid-column: 1 / -1; padding-top: 0; }
+  .slot > button { grid-column: 1 / -1; justify-self: start; margin-top: 0; }
+}
+@media (max-width: 400px) {
+  .targetDays { grid-template-columns: minmax(0, 1fr); }
+}

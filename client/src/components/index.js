@@ -77,6 +77,7 @@ export { default as AiProgress, MEAL_PLAN_STEPS } from './AiProgress/AiProgress'
 export { default as DayTabs, dayLabel } from './DayTabs/DayTabs';
 export { default as MealCard } from './MealCard/MealCard';
 export { default as CalorieSummary } from './CalorieSummary/CalorieSummary';
+export { default as NutritionRing } from './NutritionRing/NutritionRing';
 export { default as StatCard } from './StatCard/StatCard';
 export { default as DataTable } from './DataTable/DataTable';
 export { default as NotificationList } from './NotificationList/NotificationList';

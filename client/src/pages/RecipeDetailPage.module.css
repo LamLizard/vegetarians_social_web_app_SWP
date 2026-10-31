@@ -22,28 +22,47 @@
   box-shadow: var(--v-shadow);
 }
 .page :is(h1, h2, h3, p, li) { overflow-wrap: anywhere; }
-.factsCard { gap: 4px; padding-block: 16px; }
+
+/* 27/10: 3 ô thông số ngay dưới tiêu đề — số to, chia đều bề ngang (không còn khoảng trống bên phải) */
+.stats { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.stat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--ac-radius-surface);
+  background: var(--v-surface);
+}
+.stat i {
+  grid-row: span 3;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--v-accent-soft);
+  color: var(--v-accent-text);
+  font-size: 18px;
+}
+.statLabel { color: var(--v-muted); font-size: 13px; font-weight: 600; }
+.statValue { color: var(--v-text); font-size: 20px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.statSub { color: var(--v-muted); font-size: 12px; }
+
+/* 27/10: cảnh báo dị ứng — 1 dòng gọn trong đầu thẻ Nguyên liệu (dòng nguyên liệu cũng được tô đỏ + nhãn) */
+.allergy { display: flex; gap: 8px; margin: 4px 0 0; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ac-alert) 10%, transparent); color: var(--v-text); font-size: 14px; line-height: 1.5; }
+.allergy i { color: var(--ac-alert); }
+.allergy b { color: var(--ac-alert); }
+
+/* Cột phải: Cách làm + Dinh dưỡng + Video */
+.main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 
 .head { display: flex; flex-direction: column; gap: 4px; }
 .h2 { margin: 0; color: var(--v-text); font-size: 20px; font-weight: 700; line-height: 1.25; }
 .hint { margin: 0; color: var(--v-muted); font-size: 14px; line-height: 1.6; }
 
-/* Khoi's code: dinh dưỡng tuỳ chọn — chấm màu theo theme (--ac-protein, --ac-carb, --ac-fat, --ac-fiber) */
-.nutri { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--v-line); }
-.nutriLabel { color: var(--v-muted); font-size: 13px; font-weight: 600; }
-.nutriList { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.nutriItem {
-  --dot: var(--v-muted);
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-  border: 1px solid var(--v-line); border-radius: var(--ac-radius-full, 999px);
-  color: var(--v-text-2); font-size: 13px;
-}
-.nutriItem::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
-.nutriItem b { color: var(--v-text); font-weight: 600; }
-.nutriItem[data-tone='protein'] { --dot: var(--ac-protein); }
-.nutriItem[data-tone='carb'] { --dot: var(--ac-carb); }
-.nutriItem[data-tone='fat'] { --dot: var(--ac-fat); }
-.nutriItem[data-tone='fiber'] { --dot: var(--ac-fiber); }
+/* Dinh dưỡng: components/NutritionRing (27/10, phương án C) */
 
 /* Món · tác giả · thời gian đăng — ngay dưới tiêu đề */
 .byline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: -12px; color: var(--v-text-2); font-size: 14px; }
@@ -67,6 +86,10 @@
 @media (max-width: 767.98px) {
   .page { width: calc(100% - 24px); padding: 16px 0 120px; }
   .card { padding: 16px; }
+  .stats { gap: 8px; }
+  .stat { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; }
+  .stat i { display: none; }
+  .statValue { font-size: 16px; }
 }
 
 /* Khoi's code 20/10: nút "Quay lại Công thức" trên breadcrumb */

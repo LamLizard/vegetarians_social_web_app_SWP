@@ -23,7 +23,8 @@ import s from './FeedPostCard.module.css';
  * @param {string} [youtubeVideoId]     bài video → tự lấy ảnh bìa YouTube
  * @param {{name, avatarUrl?}} author
  * @param {string} createdAt            ISO, hiện "2 giờ trước"
- * @param {{id, name}[]} [categories]   hiện tối đa 3
+ * @param {{id, name}[]} [categories]   chủ đề, hiện tối đa 3 + "+N"
+ * @param {(topic: {id, name}) => void} [onTopicClick]  Khoi's code 29/10: có → bấm chip chủ đề để lọc Bảng tin
  * @param {number} voteCount · commentCount · @param {boolean} voted
  * @param {boolean} [reported]          người xem đã báo cáo → menu hiện "Đã báo cáo" (không bấm được)
  * @param {() => void} onVote · onOpen · onComment
@@ -32,7 +33,7 @@ import s from './FeedPostCard.module.css';
 export default function FeedPostCard({
   postType = 'blog', title, excerpt, href = '#', thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, voted = false, reported = false,
-  onVote, onOpen, onComment, onReport,
+  onVote, onOpen, onComment, onReport, onTopicClick,
 }) {
   const [theme] = useTheme();
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
@@ -75,9 +76,18 @@ export default function FeedPostCard({
       {excerpt && <p className={s.excerpt}>{excerpt}</p>}
 
       {categories.length > 0 && (
-        <div className={s.tags}>
-          {categories.slice(0, 3).map((c) => <span key={c.id} className={s.tag}>#{c.name}</span>)}
-          {categories.length > 3 && <span className={s.moreTags}>+{categories.length - 3}</span>}
+        // Khoi's code 29/10: chủ đề = chip có icon (bỏ "#" để không bị nhầm là hashtag); bấm → lọc Bảng tin theo chủ đề đó
+        <div className={s.tags} aria-label="Chủ đề">
+          {categories.slice(0, 3).map((c) => (onTopicClick ? (
+            <button key={c.id} type="button" className={`${s.tag} ${s.tagBtn}`} onClick={() => onTopicClick(c)} aria-label={`Xem bài cùng chủ đề ${c.name}`}>
+              <i className="bi bi-bookmark" aria-hidden="true" />{c.name}
+            </button>
+          ) : (
+            <span key={c.id} className={s.tag}><i className="bi bi-bookmark" aria-hidden="true" />{c.name}</span>
+          )))}
+          {categories.length > 3 && (
+            <span className={s.moreTags} title={categories.slice(3).map((c) => c.name).join(', ')}>+{categories.length - 3}</span>
+          )}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
 const { formatIngredientName } = require('../utils/ingredientName');
 
 class IngredientProposalError extends Error {
@@ -17,6 +18,7 @@ async function submit(accountId, rawName) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     const known = await client.query('SELECT 1 FROM public.ingredient WHERE lower(btrim(name)) = lower($1::varchar(120)) LIMIT 1', [name]);
     if (known.rowCount) throw new IngredientProposalError(409, 'Nguyên liệu này đã có trong kho. Hãy chọn nguyên liệu trong kết quả.');
     await client.query('INSERT INTO public.profile (account_id) VALUES ($1) ON CONFLICT (account_id) DO NOTHING', [accountId]);
@@ -146,6 +148,7 @@ async function decide(rawName, sourceType, adminId, action, note = '', classific
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     await client.query('SELECT pg_advisory_xact_lock(hashtext(lower($1::text)))', [name]);
     const pending = await client.query(`
       SELECT 1 FROM (

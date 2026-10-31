@@ -22,6 +22,8 @@ const posts = new Map([
   ['803', { id: '803', accountId: '501', postType: 'video', title: 'Bài đang báo cáo', content: 'Đang chờ Admin', thumbnailUrl: null, youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', status: 'reported', moderationNote: null, moderatedBy: null, moderatedAt: null, publishedAt: stamp, deletedAt: null, createdAt: stamp, updatedAt: stamp, viewCount: 4, voteCount: 0, commentCount: 0, categories: [{ id: '1', name: 'Món chính' }] }],
   ['804', { id: '804', accountId: '777', postType: 'blog', title: 'Bài người khác', content: 'Riêng tư', thumbnailUrl: null, youtubeUrl: null, status: 'pending', moderationNote: null, moderatedBy: null, moderatedAt: null, publishedAt: null, deletedAt: null, createdAt: stamp, updatedAt: stamp, viewCount: 0, voteCount: 0, commentCount: 0, categories: [{ id: '1', name: 'Món chính' }] }],
   ['805', { id: '805', accountId: '501', postType: 'blog', title: 'Bài bị từ chối', content: 'Nội dung vẫn còn cho chủ bài', thumbnailUrl: null, youtubeUrl: null, status: 'pending', moderationNote: null, moderatedBy: null, moderatedAt: null, publishedAt: null, deletedAt: null, createdAt: stamp, updatedAt: stamp, viewCount: 0, voteCount: 0, commentCount: 0, categories: [] }],
+  ['806', { id: '806', accountId: '501', postType: 'blog', title: 'Bài công khai để sửa', content: 'Nội dung cũ', thumbnailUrl: null, youtubeUrl: null, status: 'public', moderationNote: null, moderatedBy: '901', moderatedAt: stamp, publishedAt: stamp, deletedAt: null, createdAt: stamp, updatedAt: stamp, viewCount: 4, voteCount: 2, commentCount: 1, categories: [{ id: '1', name: 'Món chính' }] }],
+  ['807', { id: '807', accountId: '501', postType: 'blog', title: 'Bài đã xóa', content: 'Không sửa', thumbnailUrl: null, youtubeUrl: null, status: 'deleted', moderationNote: null, moderatedBy: null, moderatedAt: null, publishedAt: null, deletedAt: stamp, createdAt: stamp, updatedAt: stamp, viewCount: 0, voteCount: 0, commentCount: 0, categories: [] }],
 ]);
 const notifications = [];
 const postModerationActions = new Map();
@@ -29,6 +31,8 @@ const comments = [{ id: 'c-1', postId: '802', authorId: '501', content: 'Bình l
 const queryLog = [];
 let nextNotificationId = 1;
 let nextCommentId = 2;
+let nextPostId = 900;
+let forceEditUpdateMiss = false;
 
 // Duy's Code: FakePg chỉ thực thi các truy vấn do luồng được kiểm thử phát ra.
 async function fakeQuery(rawSql, values = []) {
@@ -123,7 +127,7 @@ async function fakeQuery(rawSql, values = []) {
   }
   if (sql.startsWith('SELECT post_id FROM post WHERE post_id = $1 AND account_id = $2 AND status =')) {
     const post = posts.get(String(values[0]));
-    return { rows: post?.accountId === String(values[1]) && post.status === 'pending' ? [{ post_id: post.id }] : [], rowCount: 1 };
+    return { rows: post?.accountId === String(values[1]) && post.status === 'public' ? [{ post_id: post.id }] : [], rowCount: post?.accountId === String(values[1]) && post.status === 'public' ? 1 : 0 };
   }
   if (sql.startsWith('SELECT 1 FROM post WHERE post_id = $1 AND account_id = $2')) {
     const post = posts.get(String(values[0]));
@@ -136,10 +140,21 @@ async function fakeQuery(rawSql, values = []) {
   if (sql.startsWith('SELECT category_id FROM category WHERE category_id = ANY')) {
     return { rows: values[0].map((id) => ({ category_id: id })), rowCount: values[0].length };
   }
+  if (sql.startsWith('INSERT INTO post (account_id, post_type')) {
+    const [accountId, postType, title, content, thumbnailUrl, youtubeUrl] = values;
+    const id = String(nextPostId++);
+    const post = { id, accountId: String(accountId), postType, title, content, thumbnailUrl, youtubeUrl,
+      status: 'pending', moderationNote: null, createdAt: stamp, updatedAt: stamp,
+      viewCount: 0, voteCount: 0, commentCount: 0, categories: [] };
+    posts.set(id, post);
+    return { rows: [{ id, status: post.status, createdAt: stamp }], rowCount: 1 };
+  }
   if (sql.startsWith('UPDATE post SET post_type =')) {
-    const [postType, title, content, thumbnailUrl, youtubeUrl, id] = values;
+    const [postType, title, content, thumbnailUrl, youtubeUrl, id, accountId] = values;
     const post = posts.get(String(id));
-    Object.assign(post, { postType, title, content, thumbnailUrl, youtubeUrl, moderationNote: null, updatedAt: stamp });
+    if (forceEditUpdateMiss) { forceEditUpdateMiss = false; return { rows: [], rowCount: 0 }; }
+    if (!post || post.accountId !== String(accountId) || post.status !== 'public') return { rows: [], rowCount: 0 };
+    Object.assign(post, { postType, title, content, thumbnailUrl, youtubeUrl, status: 'pending', moderationNote: null, updatedAt: stamp });
     return { rows: [{ id: post.id, status: post.status, updatedAt: stamp }], rowCount: 1 };
   }
   if (sql.startsWith('DELETE FROM post_category WHERE post_id = $1')) return { rows: [], rowCount: 1 };
@@ -256,7 +271,7 @@ test('Member manages own posts and receives the Admin decision in the notificati
   assert.equal((await request('/posts/mine', { token: adminToken })).status, 403);
   const list = await request('/posts/mine', { token: memberToken });
   assert.equal(list.status, 200);
-  assert.deepEqual(list.body.items.map((post) => post.id), ['805', '803', '802', '801']);
+  assert.deepEqual(list.body.items.map((post) => post.id), ['807', '806', '805', '803', '802', '801']);
   assert.equal(list.body.items.some((post) => post.id === '804'), false);
   assert.equal(list.body.items[0].author.fullName, 'Member Sprint 3');
   assert.equal(list.body.items[0].isVoted, false);
@@ -296,16 +311,42 @@ test('Member manages own posts and receives the Admin decision in the notificati
   assert.equal(pageQueryCount, 4, 'two outer SQL statements per page (count + rows); correlated fields stay within each SELECT');
   for (let id = 810; id < 832; id += 1) posts.delete(String(id));
 
-  // Duy's Code: Luồng đọc/sửa kiểm tra quyền chủ bài, validation và ghi nội dung/tag qua model thật.
-  assert.equal((await request('/posts/mine/804', { token: memberToken })).status, 404);
-  const update = await request('/posts/mine/801', { token: memberToken, method: 'PUT', body: {
-    postType: 'blog', title: 'Bài đã sửa', content: 'Nội dung đã cập nhật', categoryIds: ['1'],
+  // Duy's Code: Chỉ bài public sửa được; UPDATE nguyên tử chuyển status về pending.
+  const pendingEditPage = await request('/posts/mine/801', { token: memberToken });
+  assert.equal(pendingEditPage.status, 200);
+  assert.equal(pendingEditPage.body.post.status, 'pending');
+  const update = await request('/posts/mine/806', { token: memberToken, method: 'PUT', body: {
+    postType: 'blog', title: 'Bài đã sửa', content: 'Nội dung đã cập nhật', categoryIds: ['1'], status: 'public',
   } });
   assert.equal(update.status, 200);
-  assert.equal(posts.get('801').title, 'Bài đã sửa');
-  assert.equal((await request('/posts/mine/803', { token: memberToken, method: 'PUT', body: {
-    postType: 'blog', title: 'Không được sửa', content: 'Bài có report', categoryIds: ['1'],
-  } })).status, 409);
+  assert.equal(posts.get('806').title, 'Bài đã sửa');
+  assert.equal(posts.get('806').status, 'pending');
+  assert.deepEqual({ voteCount: posts.get('806').voteCount, commentCount: posts.get('806').commentCount, viewCount: posts.get('806').viewCount },
+    { voteCount: 2, commentCount: 1, viewCount: 4 });
+  for (const id of ['801', '803', '807']) {
+    const before = { ...posts.get(id) };
+    const blockedUpdate = await request(`/posts/mine/${id}`, { token: memberToken, method: 'PUT', body: {
+      postType: 'blog', title: 'Không được sửa', content: 'Không đổi dữ liệu', categoryIds: ['1'],
+    } });
+    assert.equal(blockedUpdate.status, 409);
+    assert.equal(posts.get(id).title, before.title);
+    assert.equal(posts.get(id).content, before.content);
+    assert.equal(posts.get(id).status, before.status);
+  }
+  const foreignEdit = await request('/posts/mine/804', { token: memberToken, method: 'PUT', body: {
+    postType: 'blog', title: 'Không được sửa', content: 'Không được lộ', categoryIds: ['1'],
+  } });
+  assert.equal(foreignEdit.status, 404);
+  assert.equal(JSON.stringify(foreignEdit.body).includes('Riêng tư'), false);
+  const beforeRace = { ...posts.get('802') };
+  forceEditUpdateMiss = true;
+  const racedEdit = await request('/posts/mine/802', { token: memberToken, method: 'PUT', body: {
+    postType: 'blog', title: 'Race', content: 'Không được ghi đè', categoryIds: ['1'],
+  } });
+  assert.equal(racedEdit.status, 409);
+  assert.equal(posts.get('802').title, beforeRace.title);
+  assert.equal(posts.get('802').status, beforeRace.status);
+  assert.equal(posts.get('802').content, beforeRace.content);
 
   // Duy's Code: GET/POST comments and vote stay unavailable outside public/reported.
   assert.equal((await request('/posts/801/comments', { token: memberToken })).status, 404);
@@ -344,4 +385,12 @@ test('Member manages own posts and receives the Admin decision in the notificati
   assert.equal(rejectedPost.body.items[0].moderationAction, 'REJECT');
   assert.equal(rejectedPost.body.items[0].content, 'Nội dung vẫn còn cho chủ bài');
   assert.equal(rejectedPost.body.items[0].moderationNote, 'Thiếu nguồn tham khảo.');
+
+  // Duy's Code: Hồi quy tạo bài mới — luồng hiện hành vẫn tạo bài pending.
+  const created = await request('/posts', { token: memberToken, method: 'POST', body: {
+    postType: 'blog', title: 'Bài mới hồi quy', content: 'Nội dung chờ duyệt', categoryIds: ['1'], status: 'public',
+  } });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.post.status, 'pending');
+  assert.equal(posts.get(created.body.post.id).status, 'pending');
 });

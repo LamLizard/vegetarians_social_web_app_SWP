@@ -13,7 +13,7 @@ import StatusBadge from '../components/StatusBadge/StatusBadge';
 import { useToast } from '../components/Toast/Toast';
 import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import postService from '../services/post.service';
-import { canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
+import { canEdit, canInteractWithManagedPost, getMyPostDisplayStatus, getMyPostModerationMessage } from '../utils/userPostManagement';
 import {
   findNotificationPost, getMyPostListOptions, getNotificationPostId, removeNotificationPostId,
   resolveNotificationPost, shouldLoadNotificationPost,
@@ -30,6 +30,12 @@ const STATUS_OPTIONS = [
 // Duy's Code: Trang cá nhân chỉ gọi API; quyền sở hữu luôn được xác thực lại ở server.
 export default function UserPostManagementPage({ user, accountMenu = [], shopAction }) {
   const toast = useToast();
+  // Tùng: vô hiệu hóa phản hồi của tài khoản cũ kể cả khi modal đã được thay thế.
+  const viewerId = String(user?.id ?? 'guest');
+  const viewerRef = useRef({ id: viewerId });
+  if (viewerRef.current.id !== viewerId) viewerRef.current = { id: viewerId };
+  const viewerContext = viewerRef.current;
+  const isViewerCurrent = useCallback((context) => viewerRef.current === context, []);
   const detailRequest = useRef(0);
   const [postId, setPostId] = useState(() => getNotificationPostId(window.location.search));
   const handledTarget = useRef(null);
@@ -84,6 +90,18 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     return () => { active = false; };
   }, [status, type, page, reloadKey]);
 
+  // Duy's Code: Hiện toast sau khi chuyển trang trở lại từ form sửa.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const editResult = params.get('editResult');
+    if (!editResult) return;
+    if (editResult === 'success') toast('Đã gửi bài chỉnh sửa, đang chờ duyệt', { tone: 'info' });
+    if (editResult === 'conflict') toast('Bài viết đã thay đổi trạng thái, không thể sửa', { tone: 'alert' });
+    params.delete('editResult');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, [toast]);
+
   // A notification target is loaded separately so it can open even when outside the visible page/filter.
   useEffect(() => {
     if (!shouldLoadNotificationPost(postId, handledTarget.current)) {
@@ -137,12 +155,11 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [postId, result]);
 
-  // Duy's Code: Server chỉ cho sửa pending và xóa pending/public; UI đồng bộ để tránh thao tác không hợp lệ.
-  const canEdit = (post) => post.status === 'pending';
+  // Duy's Code: Server chỉ cho sửa public và xóa pending/public; UI đồng bộ để tránh thao tác không hợp lệ.
   const canDelete = (post) => ['pending', 'public'].includes(post.status);
 
   // Duy's Code: Cập nhật số liệu ở card và popup cùng lúc sau like/bình luận.
-  const patchPost = (id, patch) => {
+  const patchPost = useCallback((id, patch) => {
     setResult((current) => current && ({
       ...current,
       items: current.items.map((post) => (String(post.id) === String(id) ? { ...post, ...patch } : post)),
@@ -150,7 +167,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     setDetails((current) => current?.post && String(current.post.id) === String(id)
       ? { ...current, post: { ...current.post, ...patch } }
       : current);
-  };
+  }, []);
 
   // Duy's Code: Chi tiết được lấy lại theo postId từ API chủ bài để có đủ nội dung và vẫn kiểm tra ownership.
   const openPost = async (summary) => {
@@ -196,12 +213,10 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     }
   };
 
-  // Duy's Code: Bình luận chỉ được tải/ghi ở public hoặc reported theo chính sách API hiện có.
-  const onCommentAdded = (id) => {
-    const current = details?.post;
-    const count = Number(current?.commentCount ?? posts.find((post) => String(post.id) === String(id))?.commentCount ?? 0);
-    patchPost(id, { commentCount: count + 1 });
-  };
+  // Tùng: dùng số công khai từ server; refusal và replay không tự cộng vào số đếm.
+  const onCommentCountChange = useCallback((id, count) => {
+    patchPost(id, { commentCount: count });
+  }, [patchPost]);
 
   const confirmDelete = async () => {
     if (!deleting || saving) return;
@@ -256,7 +271,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                     const displayStatus = getMyPostDisplayStatus(post);
                     const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
                     const badgeStatus = displayStatus === 'removed' || displayStatus === 'deleted' ? 'deleted' : displayStatus;
-                    const label = displayStatus === 'rejected' ? 'Bị từ chối'
+                    const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối' : 'Quản trị viên từ chối')
                       : displayStatus === 'removed' ? 'Đã gỡ' : displayStatus === 'deleted' ? 'Đã xóa' : undefined;
                     return <StatusBadge entity="post" status={badgeStatus} label={label} toneOverride={redStatus ? 'bad' : undefined} size="sm" />;
                   })()}
@@ -267,7 +282,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                   const displayStatus = getMyPostDisplayStatus(post);
                   const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
                   if (!redStatus && !post.moderationNote) return null;
-                  const label = displayStatus === 'rejected' ? 'Bài viết bị từ chối'
+                  const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối bài viết' : 'Quản trị viên từ chối bài viết')
                     : displayStatus === 'removed' ? 'Bài viết đã bị gỡ'
                       : displayStatus === 'deleted' ? 'Bài viết đã bị xóa' : 'Ghi chú kiểm duyệt';
                   const message = getMyPostModerationMessage(post);
@@ -292,6 +307,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         message="Bài sẽ không còn xuất hiện trên Bảng tin. Bản ghi vẫn được giữ để bảo toàn lịch sử."
         confirmLabel="Xóa bài viết" loading={saving} onConfirm={confirmDelete} onCancel={() => setDeleting(null)} />
       <PostDetailModal
+        key={`${user?.id ?? 'guest'}:${details?.post?.id ?? details?.summary?.id ?? ''}`}
         post={details?.post}
         loading={details?.status === 'loading'}
         loadingTitle={details?.summary?.title}
@@ -300,13 +316,15 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
         readOnly={!canInteractWithManagedPost(details?.post)}
         showComments={canInteractWithManagedPost(details?.post)}
         statusBanner={details?.post && ['rejected', 'removed', 'deleted'].includes(getMyPostDisplayStatus(details.post)) ? {
-          label: getMyPostDisplayStatus(details.post) === 'rejected' ? 'Bài viết bị từ chối'
+          label: getMyPostDisplayStatus(details.post) === 'rejected' ? (details.post.moderationSource === 'ai' ? 'AI từ chối bài viết' : 'Quản trị viên từ chối bài viết')
             : getMyPostDisplayStatus(details.post) === 'removed' ? 'Bài viết đã bị gỡ' : 'Bài viết đã bị xóa',
           reason: getMyPostModerationMessage(details.post),
         } : null}
         onClose={closeDetails}
         onVote={toggleManagedVote}
-        onCommentAdded={onCommentAdded}
+        viewerContext={viewerContext}
+        isViewerCurrent={isViewerCurrent}
+        onCommentCountChange={onCommentCountChange}
       />
     </MemberLayout>
   );

@@ -1,0 +1,6 @@
+.result { display: flex; gap: .75rem; width: min(100%, 540px); min-width: 0; padding: .85rem; border: 1px solid var(--mam-line); border-radius: var(--mam-radius-control); background: var(--mam-well); }
+.image { flex: 0 0 88px; width: 88px; overflow: hidden; border-radius: .5rem; }
+.content { min-width: 0; }
+.content h3 { margin: 0 0 .4rem; font-size: 1rem; overflow-wrap: anywhere; }
+.content p { margin: 0 0 .5rem; overflow-wrap: anywhere; }
+.meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; font-size: .85rem; color: var(--mam-ink); }

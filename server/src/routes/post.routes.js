@@ -7,6 +7,9 @@
 //                    POST /youtube-check  (Khoi's code: video YouTube có phát được trên trang khác không)
 const express = require('express');
 const postController = require('../controllers/post.controller');
+// Tùng: I-AI-01 — chỉ ba binding tạo post/đọc-gửi comment chuyển sang luồng Moderation.
+const postContentController = require('../controllers/postContent.controller');
+const commentDeletionController = require('../controllers/commentDeletion.controller');
 const { requireAuth, requireMember } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -22,14 +25,21 @@ router.put('/mine/:id', requireAuth, requireMember, postController.updateMyPost)
 router.delete('/mine/:id', requireAuth, requireMember, postController.deleteMyPost);
 router.get('/', requireAuth, postController.getFeed);
 // Khoi's code: Đăng bài mới → bài 'pending' chờ Admin duyệt (Sprint 2).
-router.post('/', requireAuth, postController.createPost);
+// Tùng: giữ binding cũ để đối chiếu; route mới hỗ trợ auto-public/reject/pending.
+// router.post('/', requireAuth, postController.createPost);
+router.post('/', requireAuth, postContentController.createPost);
 // Khoi's code: form Đăng bài + Tạo công thức kiểm tra link YouTube ngay khi dán
 router.post('/youtube-check', requireAuth, postController.checkYouTube);
 
 router.post('/:id/vote', requireAuth, postController.toggleVote);
 
-router.get('/:id/comments', optionalAuth, postController.getComments);
-router.post('/:id/comments', requireAuth, postController.addComment);
+// Tùng: giữ middleware và binding cũ; server chỉ trả refusal cho chính tác giả.
+// router.get('/:id/comments', optionalAuth, postController.getComments);
+// router.post('/:id/comments', requireAuth, postController.addComment);
+router.get('/:id/comments', optionalAuth, postContentController.getComments);
+router.post('/:id/comments', requireAuth, postContentController.addComment);
+// Tùng: xóa bình luận xác thực actor và xử lý báo cáo trong cùng giao dịch.
+router.delete('/comments/:commentId', requireAuth, commentDeletionController.remove);
 
 router.post('/:id/report', requireAuth, postController.reportPost);
 router.post('/comments/:id/report', requireAuth, postController.reportComment);

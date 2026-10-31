@@ -3,6 +3,7 @@
 //       recipe_proposed_ingredient (nguyên liệu chưa có trong kho, chờ Admin duyệt).
 // Model không kiểm tra dữ liệu form — việc đó ở utils/recipeInput.js.
 const pool = require('../config/db');
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
 const { findAnimalWord, animalWarnings } = require('../utils/animalWords');
 const { getKeywords } = require('./bannedKeyword.model');
 
@@ -19,6 +20,7 @@ async function transaction(work) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
     const result = await work(client);
     await client.query('COMMIT');
     return result;
@@ -234,7 +236,10 @@ async function findAvailableRecipes(query = '') {
  * @returns {{ items: object[], categories: {id: string, name: string}[] }}  categories = danh mục có ít nhất 1 công thức, theo tên
  */
 const LIST_LIMIT = 500;
+const GUEST_LIST_LIMIT = 3; // Khách chỉ thấy 3 công thức nhiều tim nhất
 async function findPublicList(viewerId = null) {
+  // Khách (chưa đăng nhập): chỉ 3 công thức nhiều lượt thích nhất (giống 3 bài nổi bật của Bảng tin). Giới hạn ở SERVER, không chỉ ở giao diện.
+  const guest = viewerId == null;
   const { rows: items } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, r.description,
       r.dish_id::text AS "dishId", d.name AS "dishName",
@@ -254,9 +259,9 @@ async function findPublicList(viewerId = null) {
     JOIN dish d ON d.dish_id = r.dish_id AND d.status = 'active'
     JOIN account a ON a.account_id = r.author_id
     WHERE r.status = 'approved'
-    ORDER BY "moderatedAt" DESC, r.recipe_id DESC
+    ORDER BY ${guest ? '"likeCount" DESC, ' : ''}"moderatedAt" DESC, r.recipe_id DESC
     LIMIT $1
-  `, [LIST_LIMIT, viewerId]);
+  `, [guest ? GUEST_LIST_LIMIT : LIST_LIMIT, viewerId]);
   const used = new Set(items.flatMap((it) => it.categoryIds));
   const { rows: categories } = await pool.query(
     'SELECT category_id::text AS id, name FROM category WHERE is_active ORDER BY name',

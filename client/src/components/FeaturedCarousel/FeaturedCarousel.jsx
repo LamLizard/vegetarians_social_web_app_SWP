@@ -45,6 +45,7 @@ export default function FeaturedCarousel({ items, hrefOf, flagOf = () => undefin
       <article
         key={it.id}
         className={s.slide}
+        data-href={hrefOf(it.id)} // Khoi's code: trang cha biết khung này mở công thức nào (vd khách → mời đăng nhập thay vì chuyển trang)
         aria-roledescription="trang chiếu"
         aria-label={`${current + 1} trên ${items.length}`}
         aria-live={paused ? 'polite' : 'off'}

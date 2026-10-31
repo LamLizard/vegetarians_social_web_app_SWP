@@ -1,0 +1,5 @@
+/* Tùng: bố cục trang chi tiết dùng lại nội dung popup trên màn hình nhỏ. */
+.page { max-width: 900px; margin: 0 auto; padding: 1.25rem; display: grid; gap: 1rem; }
+.article { min-width: 0; padding: 1.25rem; background: var(--ac-card); border: 1px solid var(--ac-border); border-radius: 1rem; }
+.article h1 { overflow-wrap: anywhere; margin: 0 0 1rem; }
+@media (max-width: 767.98px) { .page { padding: .75rem; } .article { padding: .9rem; } }

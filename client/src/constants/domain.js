@@ -139,6 +139,10 @@ const AUDIT_TARGET_LABEL = {
   comment: 'bình luận',
   category: 'danh mục',
   banned_keyword: 'từ khoá vi phạm',
+  // Khoi's code 30/10: đối tượng có trong admin_log nhưng chưa có nhãn
+  recipe: 'công thức',
+  ingredient: 'nguyên liệu',
+  shop: 'quán',
 };
 
 export function describeAuditAction(action, targetType) {
@@ -159,6 +163,30 @@ export function describeAuditAction(action, targetType) {
     category_renamed: 'Đã đổi tên danh mục',
     category_activated: 'Đã bật danh mục',
     category_deactivated: 'Đã tắt danh mục',
+    // Khoi's code 30/10: các action đang có trong admin_log mà trước đây hiện mã thô (vd "Recipe rejected")
+    'ACCEPT:report': 'Đã chấp nhận báo cáo',
+    'REMOVE:post': 'Đã gỡ bài viết',
+    'REMOVE:comment': 'Đã gỡ bình luận',
+    HANDLE_REPORT_CASE: 'Đã xử lý hồ sơ báo cáo',
+    LOCK_ACCOUNT: 'Đã khoá tài khoản',
+    recipe_approved: 'Đã duyệt công thức',
+    recipe_rejected: 'Đã từ chối công thức',
+    recipe_dish_renamed: 'Đã đổi tên món của công thức',
+    recipe_dish_linked: 'Đã gắn công thức vào món',
+    dish_created: 'Đã tạo món ăn',
+    dish_approved: 'Đã duyệt món ăn',
+    dish_rejected: 'Đã từ chối món ăn',
+    ingredient_proposal_approved: 'Đã duyệt nguyên liệu đề xuất',
+    ingredient_proposal_rejected: 'Đã từ chối nguyên liệu đề xuất',
+    ingredient_proposal_removed: 'Đã gỡ nguyên liệu đề xuất',
+    SHOP_REGISTRATION_ACCEPTED: 'Đã duyệt đăng ký quán',
+    SHOP_REGISTRATION_REJECTED: 'Đã từ chối đăng ký quán',
+    SHOP_RESUBMISSION_ACCEPTED: 'Đã duyệt hồ sơ quán gửi lại',
+    SHOP_RESUBMISSION_REJECTED: 'Đã từ chối hồ sơ quán gửi lại',
+    SHOP_IDENTITY_EDIT_ACCEPTED: 'Đã duyệt sửa thông tin quán',
+    SHOP_IDENTITY_EDIT_REJECTED: 'Đã từ chối sửa thông tin quán',
+    SHOP_STATUS_LOCKED: 'Đã khoá quán',
+    SHOP_STATUS_UNLOCKED: 'Đã mở khoá quán',
   };
   const key = `${action}:${targetType}`;
   if (descriptions[key]) return descriptions[key];
@@ -216,6 +244,7 @@ export const INGREDIENT_UNIT = [
 export const GUEST_LIMIT = {
   postsPerDay: 3,
   chatTurnsPerDay: 3,
+  recipes: 3, // Khoi's code: /recipes — khách chỉ thấy 3 công thức nhiều tim nhất (server: GUEST_LIST_LIMIT)
 };
 
 /** Tiện ích: biến object hằng số thành mảng { value, label } cho Select / Radio. */

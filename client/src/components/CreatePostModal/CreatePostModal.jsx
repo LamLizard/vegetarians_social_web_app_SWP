@@ -1,6 +1,6 @@
 // Khoi's code: Hộp thoại Đăng bài đầy đủ (Sprint 2 · UC-03 Blog, UC-04 Video).
 // Theo "Quyết định Sprint 2 – Đăng bài":
-//   D-05 Blog + Video · D-11 tiêu đề ≤ 255, nội dung bắt buộc, có **đậm** *nghiêng* · D-12 ít nhất 1 tag
+//   D-05 Blog + Video · D-11 tiêu đề ≤ 255, nội dung bắt buộc, có **đậm** *nghiêng* · D-12 ít nhất 1 chủ đề (29/10: trước gọi là tag)
 //   D-13 ảnh bìa không bắt buộc · D-14 video bắt buộc mô tả · D-10 đăng xong ở lại trang, báo "đang chờ duyệt".
 // Component KHÔNG gọi API: trang truyền categories, onSubmit, onUpload (giống các component khác trong kit).
 // Nháp được giữ khi đóng hộp (state nằm ngoài Modal); đăng thành công mới xoá.
@@ -18,9 +18,13 @@ import TextField from '../TextField/TextField';
 import YouTubeEmbed from '../YouTubeEmbed/YouTubeEmbed';
 import { rules, validate, hasErrors, getYouTubeId } from '../../utils/validate';
 import useYouTubeCheck, { youTubeCheckText } from '../../hooks/useYouTubeCheck'; // Khoi's code: video có phát được không
+// Tùng: I-AI-01 — ID ổn định theo nháp để retry không tạo bài lần hai.
+import { createPostContentRequestId } from '../../utils/postContentRequest';
 import styles from './CreatePostModal.module.css';
 
 const MAX_TITLE = 255; // = VARCHAR(255) của post.title
+const POPULAR_TOPICS = 4; // Khoi's code 29/10: số chủ đề trong nhóm "Hay dùng"
+const TOPICS_COLLAPSE = 8; // nhóm "Tất cả" dài hơn → gập, nút "+N chủ đề"
 const EMPTY = { postType: 'blog', title: '', content: '', youtubeUrl: '', thumbnailUrl: '', categoryIds: [] };
 const TYPES = [
   { value: 'blog', label: 'Blog', icon: 'journal-text' },
@@ -46,6 +50,8 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
   const formId = useId();
   const contentId = useId();
   const pendingCaret = useRef(null);
+  const submissionRef = useRef(null);
+  const busyRef = useRef(false);
 
   // Duy's Code: Nạp dữ liệu chủ bài một lần khi form sửa sẵn sàng mở.
   useEffect(() => {
@@ -109,27 +115,39 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
 
   const submit = async (e) => {
     e.preventDefault();
+    if (busyRef.current || uploading > 0) return;
     const errs = validate(form, {
       title: [rules.required('Vui lòng nhập tiêu đề'), rules.maxLength(MAX_TITLE)],
       content: [rules.required(isVideo ? 'Vui lòng nhập mô tả cho video' : 'Vui lòng nhập nội dung bài viết')],
       youtubeUrl: isVideo ? [rules.required('Dán link video YouTube'), rules.youtubeUrl()] : [],
-      categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 tag để mọi người dễ tìm')],
+      categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 chủ đề để mọi người dễ tìm')],
     });
     if (!errs.youtubeUrl && isVideo && ytCheck.rejected) errs.youtubeUrl = ytCheck.message;
     setErrors(errs);
     if (hasErrors(errs)) return;
 
+    busyRef.current = true;
     setSending(true);
     setServerError('');
     try {
-      await onSubmit({
+      // Tùng: dữ liệu cũ được giữ nguyên, thêm requestId ngoài business fields.
+      // Luồng cũ: await onSubmit({ postType: form.postType, title: form.title.trim(),
+      // content: form.content.trim(), youtubeUrl: isVideo ? form.youtubeUrl.trim() : undefined,
+      // thumbnailUrl: form.thumbnailUrl || undefined, categoryIds: form.categoryIds });
+      const data = {
         postType: form.postType,
         title: form.title.trim(),
         content: form.content.trim(),
         youtubeUrl: isVideo ? form.youtubeUrl.trim() : undefined,
         thumbnailUrl: form.thumbnailUrl || undefined,
         categoryIds: form.categoryIds,
-      });
+      };
+      const signature = JSON.stringify({ ...data, categoryIds: [...data.categoryIds].sort() });
+      if (submissionRef.current?.signature !== signature) {
+        submissionRef.current = { signature, requestId: createPostContentRequestId() };
+      }
+      await onSubmit({ ...data, requestId: submissionRef.current.requestId });
+      submissionRef.current = null;
       setForm(EMPTY);
       setErrors({});
       setPreview(false);
@@ -137,19 +155,30 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
     } catch (err) {
       setServerError(err?.message || 'Chưa đăng được bài, vui lòng thử lại.');
     } finally {
+      busyRef.current = false;
       setSending(false);
     }
   };
 
   const busy = sending || uploading > 0;
   const options = (categories?.items ?? []).map((c) => ({ value: c.id, label: c.name }));
+  // Khoi's code 29/10: 4 chủ đề nhiều bài nhất → nhóm "Hay dùng" (postCount từ GET /api/categories)
+  const popularIds = [...(categories?.items ?? [])]
+    .filter((c) => c.postCount > 0)
+    .sort((a, b) => b.postCount - a.postCount || a.name.localeCompare(b.name, 'vi'))
+    .slice(0, POPULAR_TOPICS)
+    .map((c) => c.id);
 
+  // Tùng: mô tả cũ: "Bài sẽ hiện trên Bảng tin sau khi Admin duyệt."
   return (
+    // Tùng: mô tả cũ cho luồng tạo bài mới.
     <Modal
       open={open}
       onClose={onClose}
       title={initialPost ? 'Sửa bài viết' : 'Đăng bài mới'}
-      description={initialPost ? 'Lưu thay đổi để cập nhật bài đang chờ duyệt.' : 'Bài sẽ hiện trên Bảng tin sau khi Admin duyệt.'}
+      description={initialPost
+        ? 'Sau khi lưu, bài viết sẽ tạm ẩn để được duyệt lại.'
+        : 'Bài viết sẽ được kiểm tra trước khi hiển thị.'}
       size="lg"
       dismissible={!sending}
       footer={(
@@ -247,20 +276,24 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
           disabled={sending}
         />
 
-        {categories?.status === 'loading' && <Spinner size="sm" label="Đang tải danh sách tag…" showLabel />}
+        {categories?.status === 'loading' && <Spinner size="sm" label="Đang tải danh sách chủ đề…" showLabel />}
         {categories?.status === 'error' && (
-          <Notice tone="alert" title="Không tải được danh sách tag" action={{ label: 'Thử lại', onClick: onRetryCategories }}>
+          <Notice tone="alert" title="Không tải được danh sách chủ đề" action={{ label: 'Thử lại', onClick: onRetryCategories }}>
             {categories.error}
           </Notice>
         )}
         {categories?.status === 'ready' && (
           <CategoryPicker
-            label="Tag"
+            label="Chủ đề" // Khoi's code 29/10: đổi "Tag" → "Chủ đề" (tránh nhầm với danh mục món ở trang Công thức). DB vẫn là bảng category.
+            noun="chủ đề"
+            popularIds={popularIds}
+            collapseAfter={TOPICS_COLLAPSE}
+            searchFrom={0}
             options={options}
             value={form.categoryIds}
             onChange={set('categoryIds')}
             error={errors.categoryIds}
-            hint="Chọn ít nhất 1 tag."
+            hint={`Đã chọn ${form.categoryIds.length}. Chủ đề do Admin tạo, giúp mọi người tìm bài dễ hơn.`}
             required
             disabled={sending}
           />
@@ -269,12 +302,14 @@ export default function CreatePostModal({ open, onClose, categories, onRetryCate
         {/* Câu lỗi từ server đặt sát nút Đăng để người dùng thấy ngay (form dài, đầu form có thể đã cuộn khuất) */}
         {serverError && (
           <div ref={(el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })}>
-            <Notice tone="alert" title="Chưa đăng được bài">{serverError}</Notice>
+            <Notice tone="alert" title={initialPost ? 'Chưa lưu được bài' : 'Chưa đăng được bài'}>{serverError}</Notice>
           </div>
         )}
 
         <p className={styles.pendingNote}>
-          <i className="bi bi-hourglass-split" aria-hidden="true" /> Sau khi đăng, bài ở trạng thái <b>chờ duyệt</b> và chỉ hiện trên Bảng tin khi Admin duyệt.
+          <i className="bi bi-hourglass-split" aria-hidden="true" /> {initialPost
+            ? 'Bản sửa được gửi duyệt sẽ tạm ẩn khỏi Bảng tin.'
+            : 'Bài sẽ hiển thị trên Bảng tin sau khi được duyệt.'}
         </p>
       </form>
     </Modal>

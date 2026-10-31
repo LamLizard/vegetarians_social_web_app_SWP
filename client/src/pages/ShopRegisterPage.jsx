@@ -17,12 +17,18 @@ import { emptyShopForm, cloneShopSchedule, ShopIdentityFields, ShopScheduleField
 import styles from './ShopRegisterPage.module.css';
 
 function RegistrationForm({ resubmitting, initialValue, onSaved, onConflict }) {
-  const [form, setForm] = useState(() => initialValue || emptyShopForm());
-  const [scheduleLater, setScheduleLater] = useState(() => !initialValue?.schedule?.some(day => !day.isClosed));
+  // Tùng — [] là bổ sung sau, bảy ngày Nghỉ là lịch đã cung cấp; giữ nháp tuần cho editor.
+  const [form, setForm] = useState(() => {
+    const initial = initialValue || emptyShopForm();
+    return initial.schedule.length ? initial : { ...initial, schedule: emptyShopForm().schedule };
+  });
+  const [scheduleLater, setScheduleLater] = useState(() => !initialValue?.schedule?.length);
   const [failure, setFailure] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [localErrors, setLocalErrors] = useState({});
+  // Tùng — Sprint 3: điều hướng lỗi lịch trên cả đăng ký mới và gửi lại.
+  const [scheduleValidationAttempt, setScheduleValidationAttempt] = useState(0);
   const uploadActive = useRef(false);
   const inFlight = useRef(false);
   const alive = useRef(true);
@@ -30,6 +36,8 @@ function RegistrationForm({ resubmitting, initialValue, onSaved, onConflict }) {
   const submit = async event => {
     event.preventDefault();
     if (inFlight.current || uploadActive.current) return;
+    // Tùng — Sprint 3: bổ sung sau vẫn bỏ validation lịch và giữ payload [].
+    if (!scheduleLater) setScheduleValidationAttempt(current => current + 1);
     const errors = scheduleLater ? {} : validateShopSchedule(form.schedule);
     if (!form.avtShopUrl) errors.avtShopUrl = 'Chọn và tải lên ảnh quán trước khi gửi hồ sơ.';
     setLocalErrors(errors);
@@ -50,14 +58,32 @@ function RegistrationForm({ resubmitting, initialValue, onSaved, onConflict }) {
     } finally { inFlight.current = false; if (alive.current) setSaving(false); }
   };
   const errors = { ...failure?.details?.fieldErrors, ...localErrors };
+  // Tùng — Sprint 3: chỉ bỏ path lịch lỗi thời, giữ lỗi identity/upload và thông báo khác.
+  const clearScheduleErrors = () => {
+    const keep = path => path !== 'schedule' && !path.startsWith('schedule.');
+    setLocalErrors(current => Object.fromEntries(Object.entries(current).filter(([path]) => keep(path))));
+    setFailure(current => {
+      const fields = current?.details?.fieldErrors;
+      if (!fields || !Object.keys(fields).some(path => !keep(path))) return current;
+      return { ...current, message: current.message, details: { ...current.details,
+        fieldErrors: Object.fromEntries(Object.entries(fields).filter(([path]) => keep(path))) } };
+    });
+  };
   return <form onSubmit={submit} className={styles.form}>
     <ShopIdentityFields desktopColumns value={form} onChange={next => { setForm(next); setLocalErrors({}); }} errors={errors} disabled={saving}
       onShopUnavailable={onConflict}
       onUploadStateChange={active => { uploadActive.current = active; setUploading(active); }} />
     <section className={styles.schedule}>
-      <Checkbox checked={scheduleLater} disabled={saving} onChange={value => { setScheduleLater(value); setLocalErrors({}); }}>Bổ sung lịch mở cửa sau</Checkbox>
+      {/* Tùng — Sprint 3: đổi nháp lịch không xóa lỗi các phần khác của hồ sơ. */}
+      <Checkbox checked={scheduleLater} disabled={saving} onChange={value => {
+        if (inFlight.current) return;
+        setScheduleLater(value); clearScheduleErrors();
+      }}>Bổ sung lịch mở cửa sau</Checkbox>
       {scheduleLater ? <p className={styles.hint}>Bạn có thể cập nhật lịch trong trang quản lý sau khi quán được duyệt.</p>
-        : <ShopScheduleFields allowCopy value={form.schedule} onChange={schedule => { setForm(current => ({ ...current, schedule })); setLocalErrors({}); }} errors={errors} disabled={saving} />}
+        : <ShopScheduleFields allowCopy value={form.schedule} onChange={schedule => {
+          if (inFlight.current) return;
+          setForm(current => ({ ...current, schedule })); clearScheduleErrors();
+        }} validationAttempt={scheduleValidationAttempt} errors={errors} disabled={saving} />}
     </section>
     {failure && <Notice tone="alert">{failure.message}</Notice>}
     <div className={styles.actions}>{uploading && <span role="status">Đang tải ảnh quán…</span>}
@@ -73,8 +99,9 @@ function RejectedRegistration({ context, onSaved, onConflict }) {
   });
   const [confirmFresh, setConfirmFresh] = useState(false);
   const snapshot = latestSubmission?.afterValue || shop;
+  // Tùng — giữ [] của snapshot để form phân biệt chưa cập nhật với tuần nghỉ toàn bộ.
   const initialValue = mode === 'edit' ? { name: snapshot.name || '', address: snapshot.address || '', phone: snapshot.phone || '', avtShopUrl: snapshot.avtShopUrl || '',
-    schedule: snapshot.schedule?.length === 7 ? cloneShopSchedule(snapshot.schedule) : emptyShopForm().schedule } : null;
+    schedule: snapshot.schedule?.length === 7 ? cloneShopSchedule(snapshot.schedule) : [] } : null;
   const chooseMode = next => {
     const params = new URLSearchParams(window.location.search);
     params.set('retry', next);

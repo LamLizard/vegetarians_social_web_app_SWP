@@ -40,8 +40,10 @@ export function RecipeFacts({ cookTimeMinutes, servings, calories, size = 'md', 
  * @param {number} [baseServings]  khẩu phần gốc của công thức (recipe.servings)
  * @param {number} [servings]      khẩu phần đang xem (vd NumberStepper trong trang) → số lượng tự nhân
  * @param {boolean} [checkable]    bấm để gạch những thứ đã chuẩn bị (chỉ lưu tạm trên màn hình)
+ * @param {(item) => boolean} [isFlagged]  dòng cần cảnh báo (vd trùng dị ứng của người xem) → tô đỏ + nhãn
+ * @param {string} [flagLabel='Dị ứng']
  */
-export function IngredientList({ items = [], baseServings, servings, checkable = false, className }) {
+export function IngredientList({ items = [], baseServings, servings, checkable = false, isFlagged, flagLabel = 'Dị ứng', className }) {
   const [done, setDone] = useState(() => new Set());
   const toggle = (i) => setDone((s) => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; });
 
@@ -50,15 +52,17 @@ export function IngredientList({ items = [], baseServings, servings, checkable =
       {items.map((it, i) => {
         const amount = scaleAmount(it.amount, baseServings, servings ?? baseServings);
         const qty = [formatAmount(amount), it.unit].filter(Boolean).join(' ');
+        const flagged = isFlagged?.(it);
         const content = (
           <>
             <span className={styles.ingName}>{it.name}</span>
+            {flagged && <span className={styles.flag}>{flagLabel}</span>}
             <span className={styles.dots} aria-hidden="true" />
             <span className={styles.qty}>{qty}</span>
           </>
         );
         return (
-          <li key={`${it.name}-${i}`} className={cx(done.has(i) && styles.done)}>
+          <li key={`${it.name}-${i}`} className={cx(done.has(i) && styles.done, flagged && styles.flagged)}>
             {checkable ? (
               <label className={styles.check}>
                 <input type="checkbox" className="form-check-input" checked={done.has(i)} onChange={() => toggle(i)} />

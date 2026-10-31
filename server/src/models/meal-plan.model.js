@@ -1,5 +1,23 @@
 ﻿const pool = require('../config/db');
 
+const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
+
+async function withMealPlanWrite(work) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await lockMealPlanWriter(client);
+    const result = await work(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    try { await client.query('ROLLBACK'); } catch { /* preserve the original failure */ }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 class MealPlanError extends Error {
   constructor(status, message) {
     super(message);
@@ -64,9 +82,9 @@ function normalizeItem(item = {}) {
   };
 }
 
-async function loadPlanItemsById(planIds) {
+async function loadPlanItemsById(planIds, db = pool) {
   if (!planIds.length) return {};
-  const { rows } = await pool.query(`
+  const { rows } = await db.query(`
     SELECT ${ITEM_COLUMNS}
     FROM public.meal_plan_item i
     LEFT JOIN public.recipe r ON r.recipe_id = i.recipe_id
@@ -96,7 +114,7 @@ async function getWeekPlan(accountId, weekStart) {
   if (!normalizedWeekStart) return [];
 
   const weekStartDate = getWeekStart(normalizedWeekStart);
-  const weekEndDate = addDaysToDate(weekStartDate, 5);
+  const weekEndDate = addDaysToDate(weekStartDate, 6);
   const { rows: plans } = await pool.query(`
     SELECT ${PLAN_COLUMNS}
     FROM public.meal_plan
@@ -109,7 +127,7 @@ async function getWeekPlan(accountId, weekStart) {
   const planIds = plans.map((plan) => Number(plan.id));
   const itemsByPlanId = await loadPlanItemsById(planIds);
 
-  return Array.from({ length: 6 }, (_, offset) => {
+  return Array.from({ length: 7 }, (_, offset) => {
     const date = addDaysToDate(weekStartDate, offset);
     const plan = plans.find((entry) => entry.planDate === date) ?? null;
 
@@ -129,8 +147,8 @@ async function getWeekPlan(accountId, weekStart) {
   });
 }
 
-async function getPlanByDate(accountId, planDate) {
-  const { rows: [plan] } = await pool.query(`
+async function getPlanByDate(accountId, planDate, db = pool) {
+  const { rows: [plan] } = await db.query(`
     SELECT ${PLAN_COLUMNS}
     FROM public.meal_plan
     WHERE account_id = $1 AND plan_date = $2::date
@@ -147,193 +165,202 @@ async function createDayPlan(accountId, planDate, mealsPerDay = 3) {
     throw new MealPlanError(400, 'Ngày thực đơn không hợp lệ.');
   }
 
-  const existing = await getPlanByDate(accountId, normalizedPlanDate);
-  if (existing) {
-    const itemsByPlanId = await loadPlanItemsById([Number(existing.id)]);
+  return withMealPlanWrite(async (client) => {
+    const existing = await getPlanByDate(accountId, normalizedPlanDate, client);
+    if (existing) {
+      const itemsByPlanId = await loadPlanItemsById([Number(existing.id)], client);
+      return {
+        id: String(existing.id),
+        planDate: normalizedPlanDate,
+        items: itemsByPlanId[String(existing.id)] ?? [],
+        mealsPerDay: Number(existing.mealsPerDay ?? mealsPerDay),
+        targetCaloriesKcal: existing.targetCaloriesKcal ?? null,
+        status: existing.status ?? 'saved',
+      };
+    }
+
+    let profile = null;
+    await client.query('SAVEPOINT meal_plan_profile_lookup');
+    try {
+      const profileQuery = await client.query(`
+        SELECT p.bmi, p.target_calories_kcal, p.health_goal,
+          COALESCE((
+            SELECT json_agg(a.name ORDER BY a.name)
+            FROM public.allergy a
+            WHERE a.profile_id = p.profile_id
+          ), '[]'::json) AS allergies
+        FROM public.profile p
+        WHERE p.account_id = $1
+        LIMIT 1
+      `, [accountId]);
+      profile = profileQuery.rows[0] ?? null;
+    } catch (error) {
+      await client.query('ROLLBACK TO SAVEPOINT meal_plan_profile_lookup');
+      profile = null;
+    }
+    await client.query('RELEASE SAVEPOINT meal_plan_profile_lookup');
+
+    const { rows: [inserted] } = await client.query(`
+      INSERT INTO public.meal_plan (
+        account_id,
+        title,
+        plan_date,
+        meals_per_day,
+        source,
+        bmi_snapshot,
+        target_calories_kcal,
+        goal_snapshot,
+        allergy_snapshot,
+        status
+      ) VALUES (
+        $1,
+        $2,
+        $3::date,
+        $4,
+        'manual',
+        $5,
+        $6,
+        $7,
+        $8::jsonb,
+        'saved'
+      )
+      RETURNING ${PLAN_COLUMNS}
+    `, [
+      accountId,
+      `Thực đơn ${normalizedPlanDate}`,
+      normalizedPlanDate,
+      Number.isInteger(mealsPerDay) && mealsPerDay > 0 ? mealsPerDay : 3,
+      profile?.bmi ?? null,
+      profile?.target_calories_kcal ?? null,
+      profile?.health_goal ?? null,
+      JSON.stringify(profile?.allergies ?? []),
+    ]);
+
     return {
-      id: String(existing.id),
+      id: String(inserted.id),
       planDate: normalizedPlanDate,
-      items: itemsByPlanId[String(existing.id)] ?? [],
-      mealsPerDay: Number(existing.mealsPerDay ?? mealsPerDay),
-      targetCaloriesKcal: existing.targetCaloriesKcal ?? null,
-      status: existing.status ?? 'saved',
+      items: [],
+      mealsPerDay: Number(inserted.mealsPerDay ?? mealsPerDay),
+      targetCaloriesKcal: inserted.targetCaloriesKcal ?? null,
+      status: inserted.status ?? 'saved',
     };
-  }
-
-  let profile = null;
-  try {
-    const profileQuery = await pool.query(`
-      SELECT p.bmi, p.target_calories_kcal, p.health_goal,
-        COALESCE((
-          SELECT json_agg(a.name ORDER BY a.name)
-          FROM public.allergy a
-          WHERE a.profile_id = p.profile_id
-        ), '[]'::json) AS allergies
-      FROM public.profile p
-      WHERE p.account_id = $1
-      LIMIT 1
-    `, [accountId]);
-    profile = profileQuery.rows[0] ?? null;
-  } catch (error) {
-    profile = null;
-  }
-
-  const { rows: [inserted] } = await pool.query(`
-    INSERT INTO public.meal_plan (
-      account_id,
-      title,
-      plan_date,
-      meals_per_day,
-      source,
-      bmi_snapshot,
-      target_calories_kcal,
-      goal_snapshot,
-      allergy_snapshot,
-      status
-    ) VALUES (
-      $1,
-      $2,
-      $3::date,
-      $4,
-      'manual',
-      $5,
-      $6,
-      $7,
-      $8::jsonb,
-      'saved'
-    )
-    RETURNING ${PLAN_COLUMNS}
-  `, [
-    accountId,
-    `Thực đơn ${normalizedPlanDate}`,
-    normalizedPlanDate,
-    Number.isInteger(mealsPerDay) && mealsPerDay > 0 ? mealsPerDay : 3,
-    profile?.bmi ?? null,
-    profile?.target_calories_kcal ?? null,
-    profile?.health_goal ?? null,
-    JSON.stringify(profile?.allergies ?? []),
-  ]);
-
-  return {
-    id: String(inserted.id),
-    planDate: normalizedPlanDate,
-    items: [],
-    mealsPerDay: Number(inserted.mealsPerDay ?? mealsPerDay),
-    targetCaloriesKcal: inserted.targetCaloriesKcal ?? null,
-    status: inserted.status ?? 'saved',
-  };
+  });
 }
 
 async function saveDailyPlanItem(accountId, planId, mealSlot, recipeId) {
-  const plan = await pool.query(
-    'SELECT meal_plan_id::text AS id, plan_date::text AS "planDate" FROM public.meal_plan WHERE meal_plan_id = $1 AND account_id = $2 LIMIT 1',
-    [planId, accountId],
-  );
+  return withMealPlanWrite(async (client) => {
+    const plan = await client.query(
+      'SELECT meal_plan_id::text AS id, plan_date::text AS "planDate" FROM public.meal_plan WHERE meal_plan_id = $1 AND account_id = $2 LIMIT 1',
+      [planId, accountId],
+    );
 
-  if (!plan.rows[0]) {
-    throw new MealPlanError(404, 'Không tìm thấy thực đơn để lưu công thức.');
-  }
+    if (!plan.rows[0]) {
+      throw new MealPlanError(404, 'Không tìm thấy thực đơn để lưu công thức.');
+    }
 
-  const { rows: [recipe] } = await pool.query(`
-    SELECT r.recipe_id::text AS id,
-      r.title AS "recipeName",
-      r.description,
-      r.calories_kcal AS "caloriesKcal",
-      r.thumbnail_url AS "imageUrl",
-      COALESCE((
-        SELECT json_agg(json_build_object(
-          'name', ing.name,
-          'amount', ri.amount,
-          'unit', ri.unit
-        ) ORDER BY ing.name)
-        FROM public.recipe_ingredient ri
-        JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
-        WHERE ri.recipe_id = r.recipe_id
-      ), '[]'::json) AS ingredients
-    FROM public.recipe r
-    WHERE r.recipe_id = $1 AND r.status = 'approved'
-    LIMIT 1
-  `, [recipeId]);
+    const { rows: [recipe] } = await client.query(`
+      SELECT r.recipe_id::text AS id,
+        r.title AS "recipeName",
+        r.description,
+        r.calories_kcal AS "caloriesKcal",
+        r.thumbnail_url AS "imageUrl",
+        COALESCE((
+          SELECT json_agg(json_build_object(
+            'name', ing.name,
+            'amount', ri.amount,
+            'unit', ri.unit
+          ) ORDER BY ing.name)
+          FROM public.recipe_ingredient ri
+          JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
+          WHERE ri.recipe_id = r.recipe_id
+        ), '[]'::json) AS ingredients
+      FROM public.recipe r
+      WHERE r.recipe_id = $1 AND r.status = 'approved'
+      LIMIT 1
+    `, [recipeId]);
 
-  if (!recipe) {
-    throw new MealPlanError(404, 'Không tìm thấy công thức đã duyệt.');
-  }
+    if (!recipe) {
+      throw new MealPlanError(404, 'Không tìm thấy công thức đã duyệt.');
+    }
 
-  const { rows: [saved] } = await pool.query(`
-    INSERT INTO public.meal_plan_item (
-      meal_plan_id,
-      meal_slot,
-      recipe_id,
-      recipe_name,
-      description,
-      calories_kcal,
-      nutrition_group,
-      ingredients
-    ) VALUES (
-      $1,
-      $2::meal_slot_enum,
-      $3,
-      $4,
-      $5,
-      $6,
-      NULL,
-      $7::jsonb
-    )
-    ON CONFLICT (meal_plan_id, meal_slot) DO UPDATE SET
-      recipe_id = EXCLUDED.recipe_id,
-      recipe_name = EXCLUDED.recipe_name,
-      description = EXCLUDED.description,
-      calories_kcal = EXCLUDED.calories_kcal,
-      ingredients = EXCLUDED.ingredients
-    RETURNING item_id
-  `, [
-    planId,
-    mealSlot,
-    recipe.id,
-    recipe.recipeName,
-    recipe.description,
-    recipe.caloriesKcal,
-    JSON.stringify(recipe.ingredients ?? []),
-  ]);
+    const { rows: [saved] } = await client.query(`
+      INSERT INTO public.meal_plan_item (
+        meal_plan_id,
+        meal_slot,
+        recipe_id,
+        recipe_name,
+        description,
+        calories_kcal,
+        nutrition_group,
+        ingredients
+      ) VALUES (
+        $1,
+        $2::meal_slot_enum,
+        $3,
+        $4,
+        $5,
+        $6,
+        NULL,
+        $7::jsonb
+      )
+      ON CONFLICT (meal_plan_id, meal_slot) DO UPDATE SET
+        recipe_id = EXCLUDED.recipe_id,
+        recipe_name = EXCLUDED.recipe_name,
+        description = EXCLUDED.description,
+        calories_kcal = EXCLUDED.calories_kcal,
+        ingredients = EXCLUDED.ingredients
+      RETURNING item_id
+    `, [
+      planId,
+      mealSlot,
+      recipe.id,
+      recipe.recipeName,
+      recipe.description,
+      recipe.caloriesKcal,
+      JSON.stringify(recipe.ingredients ?? []),
+    ]);
 
-  const { rows: [item] } = await pool.query(`
-    SELECT
-      p.meal_plan_id::text AS "mealPlanId",
-      p.item_id::text AS id,
-      p.meal_slot::text AS "mealSlot",
-      p.recipe_id::text AS "recipeId",
-      p.recipe_name AS "recipeName",
-      p.description,
-      p.calories_kcal AS "caloriesKcal",
-      p.nutrition_group::text AS "nutritionGroup",
-      p.ingredients,
-      r.thumbnail_url AS "imageUrl"
-    FROM public.meal_plan_item p
-    LEFT JOIN public.recipe r ON r.recipe_id = p.recipe_id
-    WHERE p.item_id = $1
-  `, [saved.item_id]);
+    const { rows: [item] } = await client.query(`
+      SELECT
+        p.meal_plan_id::text AS "mealPlanId",
+        p.item_id::text AS id,
+        p.meal_slot::text AS "mealSlot",
+        p.recipe_id::text AS "recipeId",
+        p.recipe_name AS "recipeName",
+        p.description,
+        p.calories_kcal AS "caloriesKcal",
+        p.nutrition_group::text AS "nutritionGroup",
+        p.ingredients,
+        r.thumbnail_url AS "imageUrl"
+      FROM public.meal_plan_item p
+      LEFT JOIN public.recipe r ON r.recipe_id = p.recipe_id
+      WHERE p.item_id = $1
+    `, [saved.item_id]);
 
-  await pool.query('UPDATE public.meal_plan SET updated_at = NOW() WHERE meal_plan_id = $1', [planId]);
-  return normalizeItem(item);
+    await client.query('UPDATE public.meal_plan SET updated_at = NOW() WHERE meal_plan_id = $1', [planId]);
+    return normalizeItem(item);
+  });
 }
 
 async function deleteDailyPlanItem(accountId, planId, mealSlot) {
-  const plan = await pool.query(
-    'SELECT meal_plan_id::text AS id FROM public.meal_plan WHERE meal_plan_id = $1 AND account_id = $2 LIMIT 1',
-    [planId, accountId],
-  );
+  return withMealPlanWrite(async (client) => {
+    const plan = await client.query(
+      'SELECT meal_plan_id::text AS id FROM public.meal_plan WHERE meal_plan_id = $1 AND account_id = $2 LIMIT 1',
+      [planId, accountId],
+    );
 
-  if (!plan.rows[0]) {
-    throw new MealPlanError(404, 'Không tìm thấy thực đơn để xóa công thức.');
-  }
+    if (!plan.rows[0]) {
+      throw new MealPlanError(404, 'Không tìm thấy thực đơn để xóa công thức.');
+    }
 
-  await pool.query(
-    'DELETE FROM public.meal_plan_item WHERE meal_plan_id = $1 AND meal_slot = $2::meal_slot_enum',
-    [planId, mealSlot],
-  );
+    await client.query(
+      'DELETE FROM public.meal_plan_item WHERE meal_plan_id = $1 AND meal_slot = $2::meal_slot_enum',
+      [planId, mealSlot],
+    );
 
-  await pool.query('UPDATE public.meal_plan SET updated_at = NOW() WHERE meal_plan_id = $1', [planId]);
-  return true;
+    await client.query('UPDATE public.meal_plan SET updated_at = NOW() WHERE meal_plan_id = $1', [planId]);
+    return true;
+  });
 }
 
 function shuffle(items) {
@@ -442,6 +469,7 @@ async function randomizePlanItems(accountId, planId) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await lockMealPlanWriter(client);
 
     const { rows: [plan] } = await client.query(`
       SELECT meal_plan_id::text AS id,

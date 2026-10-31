@@ -3,6 +3,7 @@ import Button from '../Button/Button';
 import ConfirmDialog from '../ConfirmDialog/ConfirmDialog';
 import EmptyState from '../EmptyState/EmptyState';
 import Skeleton from '../Skeleton/Skeleton';
+import Notice from '../Notice/Notice';
 import CommentComposer from './CommentComposer';
 import CommentItem from './CommentItem';
 import cx from '../cx';
@@ -27,16 +28,20 @@ import styles from './Comment.module.css';
  */
 export default function CommentSection({
   comments = [], total, currentUser, onCreate, onUpdate, onDelete, onReport, onRequireLogin,
-  loading = false, hasMore = false, loadingMore = false, onLoadMore, id = 'binh-luan', className,
+  loading = false, loadError = false, onRetry, hasMore = false, loadingMore = false, onLoadMore, id = 'binh-luan', className,
 }) {
   const [deleting, setDeleting] = useState(null); // id
   const [busy, setBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   const confirmDelete = async () => {
     setBusy(true);
+    setDeleteError('');
     try {
       await onDelete?.(deleting);
       setDeleting(null);
+    } catch (error) {
+      setDeleteError(error.message || 'Không thể xóa bình luận lúc này.');
     } finally {
       setBusy(false);
     }
@@ -61,6 +66,10 @@ export default function CommentSection({
             </div>
           ))}
         </div>
+      ) : loadError ? (
+        <Notice tone="alert" title="Không tải được bình luận" action={onRetry ? { label: 'Thử lại', onClick: onRetry } : undefined}>
+          Vui lòng thử lại sau.
+        </Notice>
       ) : comments.length === 0 ? (
         <EmptyState icon="chat-heart" title="Chưa có bình luận nào">Hãy là người đầu tiên chia sẻ cảm nhận về bài viết này.</EmptyState>
       ) : (
@@ -85,11 +94,11 @@ export default function CommentSection({
       <ConfirmDialog
         open={deleting != null}
         title="Xoá bình luận này?"
-        message="Bình luận sẽ bị gỡ khỏi bài viết."
+        message={<>{'Bình luận sẽ bị gỡ khỏi bài viết.'}{deleteError && <span role="alert"> {deleteError}</span>}</>}
         confirmLabel="Xoá bình luận"
         loading={busy}
         onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
+        onCancel={() => { setDeleting(null); setDeleteError(''); }}
       />
     </section>
   );

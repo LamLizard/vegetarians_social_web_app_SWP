@@ -26,7 +26,8 @@ const POST_STATUSES = [
 ];
 const REPORT_STATUSES = [
   { value: 'pending', label: 'Chờ xử lý' }, { value: 'accepted', label: 'Đã chấp nhận' },
-  { value: 'rejected', label: 'Đã từ chối' }, { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'rejected', label: 'Đã từ chối' }, { value: 'auto_closed_deleted', label: 'Tự đóng do bình luận đã xóa' },
+  { value: 'all', label: 'Tất cả trạng thái' },
 ];
 const POST_TYPES = [
   { value: 'all', label: 'Blog và Video' }, { value: 'blog', label: 'Blog' }, { value: 'video', label: 'Video' },
@@ -154,7 +155,7 @@ export default function AdminModerationPage() {
       let message = decision.entity === 'post'
         ? (decision.action === 'approve' ? 'Đã duyệt bài viết.' : 'Đã từ chối bài viết; bài chuyển sang Đã xóa.')
         : decision.targetType === 'comment'
-          ? (decision.action === 'accept' ? 'Đã xử lý nhóm báo cáo và xóa bình luận.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
+          ? (decision.action === 'accept' ? 'Đã xóa bình luận và tự đóng báo cáo.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
           : (decision.action === 'accept' ? 'Đã xử lý nhóm báo cáo và gỡ bài.' : 'Đã từ chối gỡ bài theo nhóm báo cáo này.');
       if (decision.entity === 'case' && decision.targetType === 'post' && decision.action === 'reject') {
         if (result.postStatus === 'deleted') message += ' Bài đã xóa được giữ nguyên.';
@@ -204,7 +205,9 @@ export default function AdminModerationPage() {
   const canRemove = target && (isCommentCase ? ['public', 'hidden', 'deleted'] : ['public', 'reported', 'deleted']).includes(target.status);
   const handleLogout = () => { logout(); window.location.assign('/'); };
   const columns = query.tab === 'post' ? [
-    { key: 'title', header: 'Bài viết', primary: true },
+    { key: 'title', header: 'Bài viết', primary: true,
+      render: row => <span>{row.title}{row.aiModerationOrigin === 'provider_unavailable' && <small> · AI chưa kiểm tra</small>}
+        {row.aiModerationOrigin === 'ai_disabled' && <small> · AI đang tắt</small>}</span> },
     { key: 'postType', header: 'Loại', render: row => row.postType === 'video' ? 'Video' : 'Blog', width: 85 },
     { key: 'authorName', header: 'Tác giả', render: row => (
       <span className={styles.metadata}><Avatar name={row.authorName || row.authorEmail} src={row.authorAvatarUrl} size={28} />
