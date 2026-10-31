@@ -1,5 +1,7 @@
 // Duy's Code: Một điểm ánh xạ duy nhất; chỉ notification gắn trực tiếp với bài có thể điều hướng.
-const POST_NOTIFICATION_TYPES = new Set(['post_approved', 'post_rejected', 'post_hidden', 'post_removed']);
+const POST_NOTIFICATION_TYPES = new Set([
+  'post_approved', 'post_rejected', 'post_hidden', 'post_removed', 'post_edit_approved',
+]);
 
 export default function getNotificationTarget(notification, role = 'member') {
   if (role !== 'member' || notification?.refType !== 'post'

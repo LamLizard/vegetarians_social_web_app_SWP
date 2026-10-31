@@ -24,6 +24,7 @@ import styles from './UserPostManagementPage.module.css';
 // Duy's Code: Bộ lọc khớp enum post_status_enum của database hiện tại.
 const STATUS_OPTIONS = [
   ['all', 'Tất cả trạng thái'], ['pending', 'Chờ duyệt'], ['public', 'Công khai'],
+  ['edit_pending', 'Bài viết chờ cập nhật'],
   ['reported', 'Đang bị báo cáo'], ['deleted', 'Đã gỡ / đã xóa'],
 ];
 
@@ -294,8 +295,15 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                 author={{ name: user?.fullName || user?.email, avatarUrl: user?.avatarUrl }} createdAt={post.createdAt}
                 voteCount={post.voteCount} commentCount={post.commentCount} viewCount={post.viewCount}
                 titleOnlyOpen onOpen={() => openPost(post)} titleLinkClassName={styles.titleLink}
-                isOwner onEdit={canEdit(post) ? () => window.location.assign(`/posts/${encodeURIComponent(post.id)}/edit`) : undefined}
+                isOwner onEdit={canEdit(post) ? () => {
+                  if (post.hasPendingEdit) {
+                    toast('Bản sửa đang chờ admin duyệt, bài hiện tại vẫn công khai.', { tone: 'info' });
+                    return;
+                  }
+                  window.location.assign(`/posts/${encodeURIComponent(post.id)}/edit`);
+                } : undefined}
                 onDelete={canDelete(post) ? () => setDeleting(post) : undefined} />
+              {post.hasPendingEdit && <p className={styles.policy}>Bản sửa đang chờ admin duyệt, bài hiện tại vẫn công khai.</p>}
               {post.status === 'reported' && <p className={styles.policy}>Bài đang được xem xét theo báo cáo nên tạm thời không thể sửa hoặc xóa.</p>}
             </article>
           ))}

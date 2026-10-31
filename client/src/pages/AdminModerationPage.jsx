@@ -9,12 +9,14 @@ import {
 } from '../components';
 import useAuth from '../hooks/useAuth';
 import postModerationService from '../services/postModeration.service';
+import AdminPostEditQueue from './AdminPostEditQueue';
 import AdminModerationDetails from './AdminModerationDetails';
 import { PostModerationStatus, ReportModerationStatus } from './postModerationPresentation';
 import styles from './AdminModerationPage.module.css';
 
 const TABS = [
   { key: 'post', label: 'Duyệt bài viết', icon: 'journal-text' },
+  { key: 'post-edits', label: 'Bản sửa chờ duyệt', icon: 'pencil-square' },
   { key: 'report', label: 'Báo cáo bài viết', icon: 'flag' },
   // Tung's code: Giữ key report cho link dashboard; thêm tab comment riêng.
   { key: 'comment-report', label: 'Báo cáo bình luận', icon: 'chat-left-text' },
@@ -87,7 +89,7 @@ export default function AdminModerationPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) return undefined;
+    if (!isAdmin || query.tab === 'post-edits') return undefined;
     const controller = new AbortController();
     let active = true;
     setLoading(true);
@@ -106,7 +108,7 @@ export default function AdminModerationPage() {
   }, [query, reload, isAdmin]);
 
   useEffect(() => {
-    if (!selected || !isAdmin) return undefined;
+    if (!selected || !isAdmin || query.tab === 'post-edits') return undefined;
     const controller = new AbortController();
     let active = true;
     setDetailLoading(true);
@@ -118,7 +120,7 @@ export default function AdminModerationPage() {
       .catch(err => { if (active && err.name !== 'AbortError') setDetailError(err); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; controller.abort(); };
-  }, [selected, detailReload, isAdmin]);
+  }, [selected, detailReload, isAdmin, query.tab]);
 
   const changeFilters = (patch) => setQuery(current => ({ ...current, ...patch, page: 1 }));
   const changeTab = (tab) => {
@@ -241,8 +243,9 @@ export default function AdminModerationPage() {
   return (
     <AdminLayout activeKey="moderation" title="Quản lý bài viết" user={user} onLogout={handleLogout}>
       <PageHeader title="Quản lý bài viết" description="Duyệt bài blog/video và xử lý nhóm báo cáo bài viết, bình luận."
-        actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={loading}>Tải lại</Button>} />
+        actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={query.tab !== 'post-edits' && loading}>Tải lại</Button>} />
       <Tabs items={TABS} value={query.tab} onChange={changeTab} label="Chọn danh sách quản trị bài viết" />
+      {query.tab === 'post-edits' ? <AdminPostEditQueue refreshKey={reload} /> : <>
       <Panel className="my-3" title="Bộ lọc" icon="funnel">
         <div className={styles.filters}>
           <div className={styles.search}>
@@ -318,6 +321,7 @@ export default function AdminModerationPage() {
         reason={config?.reason ? { label: config.reason, required: true } : false}
         message={<>{config?.message}{actionError && <><br /><strong role="alert" className="text-danger">Chưa lưu được quyết định: {actionError}</strong></>}</>}
         onConfirm={confirmDecision} onCancel={() => { if (!saveInFlight.current) setDecision(null); }} />
+      </>}
     </AdminLayout>
   );
 }

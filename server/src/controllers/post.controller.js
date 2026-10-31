@@ -1,6 +1,7 @@
 // Trang Bảng tin: đọc request → KIỂM TRA dữ liệu → gọi post.model → trả JSON.
 // Controller không viết SQL. Câu lỗi trả về là tiếng Việt vì FE hiện nguyên văn lên UI.
 const postModel = require('../models/post.model');
+const postEditRequestModel = require('../models/postEditRequest.model');
 const { SEARCH_SCOPES } = require('../utils/postSearch'); // Khoi's code 28/10
 // Khoi's code: Kiểm tra dữ liệu form Đăng bài (Sprint 2).
 const { parsePostInput, PostInputError } = require('../utils/postInput');
@@ -127,7 +128,7 @@ async function createPost(req, res) {
 
 // Duy's Code: Bộ lọc danh sách cá nhân dùng đúng enum post hiện có, không nhận accountId từ client.
 async function getMyPosts(req, res) {
-  const allowedStatuses = ['all', 'pending', 'public', 'reported', 'deleted'];
+  const allowedStatuses = ['all', 'pending', 'edit_pending', 'public', 'reported', 'deleted'];
   const allowedTypes = ['all', 'blog', 'video'];
   const status = req.query.status ?? 'all';
   const postType = req.query.type ?? 'all';
@@ -162,7 +163,7 @@ async function updateMyPost(req, res) {
     throw error;
   }
   const fingerprint = createHash('sha256').update(`${postId}|${submissionFingerprint('post', input)}`).digest('hex');
-  const precheck = await postModel.precheckMyPostEdit({ accountId: req.account.id, postId,
+  const precheck = await postEditRequestModel.precheckMyPostEdit({ accountId: req.account.id, postId,
     categoryIds: input.categoryIds, requestId, fingerprint });
   if (precheck.replay) return res.json(precheck.replay);
   if (input.youtubeUrl) {
@@ -176,7 +177,10 @@ async function updateMyPost(req, res) {
   const text = `${input.title}\n\n${input.content}`;
   const providerResult = await moderate({ kind: 'post', text, settings: config.post });
   const moderation = await evaluateRules({ kind: 'post', text, providerResult });
-  res.json(await postModel.updateMyPost({ ...input, accountId: req.account.id, postId,
+  if (moderation.decision === 'reject') {
+    throw Object.assign(new PostError(422, moderation.reason || 'Nội dung chưa phù hợp. Vui lòng chỉnh sửa rồi gửi lại.'), { code: 'POST_EDIT_REJECTED' });
+  }
+  res.json(await postEditRequestModel.submitMyPostEdit({ ...input, accountId: req.account.id, postId,
     revision: precheck.revision, requestId, fingerprint, moderation }));
 }
 
