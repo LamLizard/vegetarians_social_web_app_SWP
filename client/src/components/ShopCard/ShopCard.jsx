@@ -26,11 +26,12 @@ export const mapsSearchUrl = (address) => `https://www.google.com/maps/search/?a
  * @param {string} [status] · [showStatus] · [moderationNote]  shop.verification_status, cho chủ quán / admin
  * @param {boolean} [showDirections=true]     link "Chỉ đường" mở Google Maps theo địa chỉ
  * @param {boolean} [showOpenState=true]      false = ẩn nhãn Mở cửa/Đóng cửa (vẫn giữ dòng giờ)
+ * @param {boolean} [preserveImageColor=false] giữ màu ảnh gốc khi hiển thị trong danh sách quán
  */
 export default function ShopCard({
-  layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, hoursText, openState,
-  href = '#', linkAs, dishCount, matchedDish, status, showStatus = false, moderationNote,
-  showDirections = true, showOpenState = true, className,
+ layout = 'card', name, imageUrl, address, phone, openTime, closeTime, now, hoursText, openState,
+ href = '#', linkAs, dishCount, matchedDish, status, showStatus = false, moderationNote,
+ showDirections = true, showOpenState = true, preserveImageColor = false, className,
 }) {
   const [Link, linkProps] = getLink(linkAs, href);
   const computedState = getOpenState(openTime, closeTime, now);
@@ -79,7 +80,12 @@ export default function ShopCard({
   const note = showStatus && moderationNote && status === 'rejected' && <p className={styles.note}><b>Lý do:</b> {moderationNote}</p>;
 
   return (
-    <article className={cx(layout === 'row' ? styles.row : styles.card, openState === 'closed' && styles.isClosed, className)}>
+    <article className={cx(
+      layout === 'row' ? styles.row : styles.card,
+      openState === 'closed' && styles.isClosed,
+      preserveImageColor && styles.preserveImageColor,
+      className,
+    )}>
       <Link {...linkProps} className={styles.media} tabIndex={-1} aria-hidden="true">
         <Photo src={imageUrl} ratio={layout === 'row' ? '1/1' : '16/9'} shape="rounded" className={styles.img} />
       </Link>

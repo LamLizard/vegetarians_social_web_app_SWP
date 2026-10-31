@@ -12,6 +12,7 @@
 .img { transition: transform .3s var(--ac-ease-out), filter .2s; }
 .media:hover .img { transform: scale(1.03); }
 .isClosed .img { filter: saturate(.55); }
+.isClosed.preserveImageColor .img { filter: none; }
 
 .body { display: flex; flex: 1; flex-direction: column; gap: 0.4rem; min-width: 0; }
 .card .body { padding-inline: 0.3rem; }
