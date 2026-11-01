@@ -1,11 +1,12 @@
 // Khoi's code (01/11/2026): cột PHẢI của Bảng tin = "khám phá" — theo prototype v4 (src/v4/components/Rail.jsx).
-//  1. Quán chay đang mở — GET /api/shops (giờ mở cửa theo shop_schedule, tính bằng utils/time.js như trang Quán)
+//  1. Quán chay đang mở — GET /api/shops (TẤT CẢ các trang, xem PostFeedPage); giờ mở cửa tính ở ./shopStatus.js,
+//     tự tính lại mỗi phút. Xếp: đang mở → sắp mở lại sớm nhất → chưa có giờ.
 //  2. Nổi bật tuần này  — nhiều lượt thích 7 ngày nhất (likesThisWeek, giống khung Nổi bật trang Công thức)
 //  3. Hỏi Mầm           — lối vào trang chatbot /chatbot
 // Khách: chỉ có "Hỏi Mầm" (danh sách quán cần đăng nhập).
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Photo from '../Photo/Photo';
-import { getOpenStateFromSlots, getTodayHours } from '../../utils/time';
+import { shopOpenInfo, shopStatusText } from './shopStatus';
 import RecipeMini from './RecipeMini';
 import useRailHeight from './useRailHeight';
 import s from './FeedRails.module.css';
@@ -16,35 +17,46 @@ const ASK_EXAMPLES = [
   'Ăn chay sao cho đủ đạm?',
 ];
 
+/** Giờ hiện tại, tự cập nhật đầu mỗi phút và khi quay lại tab (để "Mở đến/Sắp đóng" không đứng yên). */
+function useMinuteClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer;
+    const tick = () => {
+      setNow(new Date());
+      timer = setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50);
+    };
+    timer = setTimeout(tick, 60_000 - (Date.now() % 60_000) + 50);
+    const onVisible = () => { if (document.visibilityState === 'visible') setNow(new Date()); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
+  return now;
+}
+
 function ShopsBlock({ shops }) {
+  const now = useMinuteClock();
   const list = useMemo(() => {
     if (!shops) return null;
-    const now = new Date();
     return shops
       .filter((x) => x.operatingStatus !== 'inactive')
-      .map((x) => {
-        const today = getTodayHours(x.schedule ?? [], now);
-        const state = today.isClosed ? 'closed' : getOpenStateFromSlots(today.slots ?? [], now);
-        const first = today.slots?.[0];
-        const current = (today.slots ?? []).find((sl) => getOpenStateFromSlots([sl], now) !== 'closed');
-        return { ...x, state, closeAt: current?.closeTime, openAt: first?.openTime };
-      })
-      .sort((a, b) => Number(b.state === 'open' || b.state === 'closingSoon') - Number(a.state === 'open' || a.state === 'closingSoon'));
-  }, [shops]);
-  const openCount = list?.filter((x) => x.state === 'open' || x.state === 'closingSoon').length ?? 0;
+      .map((x) => ({ ...x, info: shopOpenInfo(x.schedule ?? [], now) }))
+      .sort((a, b) => a.info.minutesToOpen - b.info.minutesToOpen); // đang mở = 0 → sắp mở lại → không có giờ (Infinity)
+  }, [shops, now]);
+  const openCount = list?.filter((x) => x.info.isOpen).length ?? 0;
 
   return (
     <section className={s.box}>
       <div className={s.head}>
         <h2 className={s.title}>Quán chay đang mở</h2>
-        {list && <span className={s.badge}>{openCount}/{list.length}</span>}
+        {list && <span className={s.badge} title={`${openCount} quán đang mở trên tổng ${list.length} quán`}>{openCount}/{list.length}</span>}
       </div>
       {!list && <div className={`${s.sk} ${s.skList}`} />}
       {list?.length === 0 && <p className={s.emptyText}>Chưa có quán nào được xác minh.</p>}
       {list?.length > 0 && (
         <ul className={s.shops}>
           {list.slice(0, 3).map((shop) => {
-            const isOpen = shop.state === 'open' || shop.state === 'closingSoon';
+            const isOpen = shop.info.isOpen;
             return (
               <li key={shop.id}>
                 <a className={s.shop} href={`/shops/${encodeURIComponent(shop.id)}`}>
@@ -53,9 +65,7 @@ function ShopsBlock({ shops }) {
                     <b>{shop.name}</b>
                     {shop.address && <small>{shop.address}</small>}
                     <span className={isOpen ? s.open : s.closed}>
-                      {isOpen
-                        ? (shop.state === 'closingSoon' ? `Sắp đóng · ${shop.closeAt ?? ''}` : `Mở đến ${shop.closeAt ?? ''}`)
-                        : (shop.openAt ? `Đóng cửa · mở lúc ${shop.openAt}` : 'Hôm nay nghỉ')}
+                      {shopStatusText(shop.info)}
                     </span>
                   </span>
                   <i className={`bi bi-chevron-right ${s.go}`} aria-hidden="true" />

@@ -75,6 +75,7 @@ const mondayKey = (now = new Date()) => {
   return localDateKey(d);
 };
 const TOP_TOPICS = 6; // số chủ đề ở khối "Chủ đề hay dùng"
+const MAX_SHOP_PAGES = 12; // Khoi's code 01/11: chặn trên khi tải tất cả quán (9 quán/trang ≈ 108 quán)
 
 /**
  * @param {{id, fullName, avatarUrl?}|null} user   null = khách (lấy từ useAuth() ở App)
@@ -141,7 +142,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     return () => { delete document.documentElement.dataset.feedV4; };
   }, []);
   const [recipes, setRecipes] = useState(null);                       // GET /api/recipes (null = đang tải)
-  const [shops, setShops] = useState(null);                           // GET /api/shops trang 1 (chỉ thành viên)
+  const [shops, setShops] = useState(null);                           // GET /api/shops tất cả các trang (chỉ thành viên)
   const [plan, setPlan] = useState({ status: 'loading', today: null }); // Thực đơn AI hôm nay (chỉ đọc)
   const [showTop, setShowTop] = useState(false);
 
@@ -153,8 +154,17 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       .catch(() => alive && setRecipes([]));
     if (!isGuest) {
       setShops(null);
+      // Khoi's code 01/11: lấy TẤT CẢ quán đã xác minh (API phân trang 9 quán/trang) → trang 1 cho biết totalPages, các trang còn lại tải song song
       shopService.getShops({ page: 1 })
-        .then((res) => alive && setShops(res.items ?? []))
+        .then(async (first) => {
+          const pages = Math.min(first.totalPages ?? 1, MAX_SHOP_PAGES);
+          const rest = await Promise.all(
+            Array.from({ length: pages - 1 }, (_, i) => shopService.getShops({ page: i + 2 }).then((r) => r.items ?? []).catch(() => [])),
+          );
+          const seen = new Set();
+          const all = [first.items ?? [], ...rest].flat().filter((x) => !seen.has(x.id) && seen.add(x.id));
+          if (alive) setShops(all);
+        })
         .catch(() => alive && setShops([]));
       setPlan({ status: 'loading', today: null });
       mealPlanService.getWeek(mondayKey())
