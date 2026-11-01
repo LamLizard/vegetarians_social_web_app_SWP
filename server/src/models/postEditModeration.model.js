@@ -61,7 +61,7 @@ async function decide(id, decision, admin) {
     SELECT post_id::text AS "postId" FROM public.post_edit_requests
     WHERE post_edit_request_id = $1 AND status = 'edited'
   `, [id]);
-  if (!located.rows[0]) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bản sửa đã được xử lý hoặc không còn chờ duyệt.');
+  if (!located.rows[0]) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bản sửa đã được xử lý hoặc không còn trong hàng chờ duyệt.');
   const postId = located.rows[0].postId;
 
   return transaction(async (client) => {
@@ -71,20 +71,20 @@ async function decide(id, decision, admin) {
       FROM public.post p WHERE p.post_id = $1 FOR UPDATE
     `, [postId]);
     const post = posts.rows[0];
-    if (!post) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bài gốc không còn tồn tại; bản sửa không thể được áp dụng.');
+    if (!post) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bài viết gốc không còn tồn tại. Không thể áp dụng bản sửa.');
 
     const requests = await client.query(`
       SELECT er.* FROM public.post_edit_requests er
       WHERE er.post_edit_request_id = $1 AND er.post_id = $2 AND er.status = 'edited' FOR UPDATE
     `, [id, postId]);
     const request = requests.rows[0];
-    if (!request) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bản sửa đã được xử lý hoặc không còn chờ duyệt.');
+    if (!request) throw failure(409, 'EDIT_REQUEST_NOT_PENDING', 'Bản sửa đã được xử lý hoặc không còn trong hàng chờ duyệt.');
     // Assumption pending confirmation from Tùng: report resolution blocks both edit decisions.
     if (post.status === 'reported') {
-      throw failure(409, 'POST_REPORTED', 'Bài gốc đang được xử lý báo cáo. Hãy giải quyết báo cáo trước khi quyết định bản sửa.');
+      throw failure(409, 'POST_REPORTED', 'Bài viết gốc đang được xử lý báo cáo. Chưa thể quyết định bản sửa.');
     }
     if (post.status !== 'public') {
-      throw failure(409, 'POST_NOT_EDITABLE', 'Bài gốc không còn ở trạng thái cho phép áp dụng bản sửa.');
+      throw failure(409, 'POST_NOT_EDITABLE', 'Bài viết gốc không còn công khai. Không thể áp dụng bản sửa.');
     }
 
     const before = { postId, postStatus: post.status, editRequestId: String(request.post_edit_request_id) };
@@ -95,7 +95,7 @@ async function decide(id, decision, admin) {
         WHERE post_id = $6 AND status = 'public'
         RETURNING post_id::text AS id, status, published_at AS "publishedAt"
       `, [request.post_type, request.title, request.content, request.thumbnail_url, request.youtube_url, postId]);
-      if (!updated.rows[0]) throw failure(409, 'POST_NOT_EDITABLE', 'Trạng thái bài gốc đã thay đổi; không áp dụng bản sửa.');
+      if (!updated.rows[0]) throw failure(409, 'POST_NOT_EDITABLE', 'Trạng thái bài viết gốc đã thay đổi. Bản sửa chưa được áp dụng.');
       await client.query('DELETE FROM public.post_category WHERE post_id = $1', [postId]);
       await client.query(`
         INSERT INTO public.post_category (post_id, category_id)
@@ -110,7 +110,7 @@ async function decide(id, decision, admin) {
       await client.query(`
         INSERT INTO public.notification (account_id, type, title, content, ref_type, ref_id)
         VALUES ($1, 'post_edit_rejected'::notification_type_enum,
-          'Yêu cầu sửa bài không được duyệt', $2, 'post'::notification_ref_type_enum, $3)
+          'Bản sửa chưa được duyệt', $2, 'post'::notification_ref_type_enum, $3)
       `, [request.account_id, decision.note, postId]);
     }
 
@@ -118,7 +118,7 @@ async function decide(id, decision, admin) {
       await client.query(`
         INSERT INTO public.notification (account_id, type, title, content, ref_type, ref_id)
         VALUES ($1, 'post_edit_approved'::notification_type_enum,
-          'Bản sửa đã được duyệt', 'Bản sửa của bạn đã được duyệt và cập nhật lên bài viết',
+          'Bản sửa đã được duyệt', 'Bản sửa đã được duyệt và áp dụng vào bài viết.',
           'post'::notification_ref_type_enum, $2)
       `, [request.account_id, postId]);
     }

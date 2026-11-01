@@ -10,7 +10,7 @@ import postService from '../services/post.service';
 const MY_POSTS_PATH = '/me/posts';
 
 function postLoadMessage(error) {
-  if (error?.status === 403) return 'Tài khoản của bạn không có quyền xem hoặc sửa bài viết này.';
+  if (error?.status === 403) return 'Tài khoản không có quyền xem hoặc sửa bài viết này.';
   if (error?.status === 404) return 'Không tìm thấy bài viết hoặc bạn không có quyền truy cập.';
   return error?.message || 'Không tải được bài viết.';
 }
@@ -132,9 +132,13 @@ export default function UserPostEditPage({ postId, user, accountMenu = [], shopA
     } catch (error) {
       savingRef.current = false;
       allowNavigationRef.current = false;
+      if (error?.status === 422 && error?.details?.code === 'NO_CHANGES') {
+        setDirty(false);
+        throw error;
+      }
       setDirty(true);
       if (error?.status === 409 && error?.details?.code === 'PENDING_EDIT_EXISTS') {
-        throw new Error('Bài viết đã có một bản sửa đang chờ duyệt. Nội dung bạn nhập vẫn được giữ lại; hãy tải lại trạng thái trước khi gửi tiếp.', { cause: error });
+        throw new Error('Bài viết đã có bản sửa đang chờ duyệt. Nội dung vẫn được giữ lại. Hãy tải lại trạng thái trước khi gửi lại.', { cause: error });
       }
       throw error;
     }
@@ -154,7 +158,7 @@ export default function UserPostEditPage({ postId, user, accountMenu = [], shopA
   return (
     <MemberLayout user={user} accountMenu={accountMenu} shopAction={shopAction}>
       <main className="container py-4" onInputCapture={() => setDirty(true)} onChangeCapture={() => setDirty(true)}>
-        <PageHeader title="Sửa bài viết" description="Chỉ bài công khai mới có thể chỉnh sửa."
+        <PageHeader title="Sửa bài viết" description="Chỉ bài viết công khai mới đủ điều kiện gửi bản sửa."
           breadcrumb={[{ label: 'Bảng tin', href: '/' }, { label: 'Bài của tôi', href: MY_POSTS_PATH }, { label: 'Sửa bài' }]}
           actions={<Button variant="subtle" onClick={close}>Quay lại bài của tôi</Button>} />
 
@@ -166,24 +170,22 @@ export default function UserPostEditPage({ postId, user, accountMenu = [], shopA
         </Notice>}
 
         {postState.status === 'ready' && post && !editStateAvailable && <Notice tone="info" title="Chưa thể sửa bài viết">
-          Backend chưa trả `editState`; chức năng gửi bản sửa đang khóa cho tới khi contract được tích hợp.
+          Máy chủ chưa cung cấp trạng thái chỉnh sửa. Chức năng gửi bản sửa hiện chưa khả dụng.
         </Notice>}
 
-        {postState.status === 'ready' && post && editStateAvailable && hasPendingEdit && <Notice tone="info" title="Đang có bản sửa chờ duyệt" action={{ label: 'Quay lại bài của tôi', onClick: close }}>
-          Máy chủ xác nhận bài viết đang có bản sửa chờ. Bạn chưa thể gửi thêm bản sửa.
+        {postState.status === 'ready' && post && editStateAvailable && hasPendingEdit && post.status !== 'reported' && <Notice tone="info" title="Đang có bản sửa chờ duyệt" action={{ label: 'Quay lại bài của tôi', onClick: close }}>
+          Bài viết đang có bản sửa chờ duyệt. Hiện chưa thể gửi thêm bản sửa.
         </Notice>}
 
-        {postState.status === 'ready' && post && editStateAvailable && !editState.editable && !hasPendingEdit && <Notice tone="info" title="Bài viết này hiện không thể sửa" action={{ label: 'Quay lại bài của tôi', onClick: close }}>
-          {editState.reason === 'reported'
-            ? 'Bài viết đang được Admin xử lý báo cáo; yêu cầu sửa chưa thể gửi.'
-            : 'Máy chủ xác nhận bài viết hiện không cho phép chỉnh sửa.'}
+        {postState.status === 'ready' && post && editStateAvailable && !editState.editable && (!hasPendingEdit || post.status === 'reported') && <Notice tone="info" title="Chưa thể chỉnh sửa bài viết" action={{ label: 'Quay lại bài của tôi', onClick: close }}>
+          Bài viết hiện chưa thể chỉnh sửa.
         </Notice>}
 
         {categories.status === 'error' && <Notice tone="alert" title="Không tải được danh sách chủ đề" action={{ label: 'Thử lại', onClick: loadCategories }}>{categories.error}</Notice>}
 
         {postState.status === 'ready' && post && editStateAvailable && editState.editable && !hasPendingEdit && categories.status === 'ready'
           && <PostEditForm post={post} categories={categories}
-            onDirty={() => setDirty(true)} onSubmit={save} onUpload={postService.uploadImage} />}
+            onDirty={setDirty} onSubmit={save} onUpload={postService.uploadImage} />}
 
         {postState.status === 'ready' && post && editStateAvailable && editState.editable && !hasPendingEdit && categories.status === 'loading'
           && <Spinner size="sm" label="Đang tải danh sách chủ đề…" showLabel />}
@@ -193,11 +195,11 @@ export default function UserPostEditPage({ postId, user, accountMenu = [], shopA
         <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(0,0,0,.55)' }}>
           <section role="alertdialog" aria-modal="true" aria-labelledby="unsaved-title" aria-describedby="unsaved-description"
             style={{ width: 'min(100%, 440px)', padding: 24, borderRadius: 12, background: 'var(--ac-card, #fff)', color: 'var(--ac-ink, #222)', boxShadow: '0 16px 48px rgba(0,0,0,.25)' }}>
-            <h2 id="unsaved-title" style={{ fontSize: '1.2rem' }}>Bạn có thay đổi chưa lưu</h2>
-            <p id="unsaved-description">Nếu rời trang, nội dung chỉnh sửa hiện tại sẽ không được lưu.</p>
+            <h2 id="unsaved-title" style={{ fontSize: '1.2rem' }}>Có thay đổi chưa lưu</h2>
+            <p id="unsaved-description">Nếu rời trang, các thay đổi hiện tại sẽ không được lưu.</p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
-              <Button variant="subtle" onClick={() => { pendingNavigationRef.current = null; setPendingNavigation(null); }}>Tiếp tục sửa</Button>
-              <Button variant="alert" onClick={leavePage}>Rời đi</Button>
+              <Button variant="subtle" onClick={() => { pendingNavigationRef.current = null; setPendingNavigation(null); }}>Tiếp tục chỉnh sửa</Button>
+              <Button variant="alert" onClick={leavePage}>Rời trang</Button>
             </div>
           </section>
         </div>

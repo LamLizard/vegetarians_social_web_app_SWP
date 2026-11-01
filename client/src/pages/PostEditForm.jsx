@@ -19,6 +19,18 @@ const TYPES = [
   { value: 'video', label: 'Video', icon: 'play-btn' },
 ];
 
+const normalizeComparableText = (value) => String(value ?? '').replace(/\r\n/g, '\n').trim();
+const normalizeOptionalText = (value) => normalizeComparableText(value) || null;
+
+function samePostContent(left, right) {
+  return left.postType === right.postType
+    && normalizeComparableText(left.title) === normalizeComparableText(right.title)
+    && normalizeComparableText(left.content) === normalizeComparableText(right.content)
+    && normalizeOptionalText(left.thumbnailUrl) === normalizeOptionalText(right.thumbnailUrl)
+    && normalizeOptionalText(left.youtubeUrl) === normalizeOptionalText(right.youtubeUrl)
+    && [...left.categoryIds].map(String).sort().join(',') === [...right.categoryIds].map(String).sort().join(',');
+}
+
 // Sao chép tối thiểu phần điều phối form/validation/editor/submit từ CreatePostModal:
 // nội dung form không được export; các component và tiện ích dùng chung vẫn được import.
 export default function PostEditForm({ post, categories, onDirty, onSubmit, onUpload }) {
@@ -45,10 +57,28 @@ export default function PostEditForm({ post, categories, onDirty, onSubmit, onUp
   const ytCheck = useYouTubeCheck(isVideo ? form.youtubeUrl : '');
   const ytText = youTubeCheckText(ytCheck);
   const busy = sending || uploading > 0;
+  const originalContent = {
+    postType: post.postType,
+    title: post.title,
+    content: post.content,
+    thumbnailUrl: post.thumbnailUrl,
+    youtubeUrl: post.youtubeUrl,
+    categoryIds: (post.categories ?? []).map((category) => String(category.id)),
+  };
+  const formContent = (values) => ({
+    postType: values.postType,
+    title: values.title,
+    content: values.content,
+    thumbnailUrl: values.thumbnailUrl,
+    youtubeUrl: values.postType === 'video' ? values.youtubeUrl : null,
+    categoryIds: values.categoryIds,
+  });
+  const hasChanges = !samePostContent(originalContent, formContent(form));
 
   const set = (key) => (value) => {
-    setForm((current) => ({ ...current, [key]: value }));
-    onDirty?.();
+    const nextForm = { ...form, [key]: value };
+    setForm(nextForm);
+    onDirty?.(!samePostContent(originalContent, formContent(nextForm)));
     if (errors[key]) setErrors((current) => ({ ...current, [key]: undefined }));
     setServerError('');
   };
@@ -88,11 +118,15 @@ export default function PostEditForm({ post, categories, onDirty, onSubmit, onUp
   const submit = async (event) => {
     event.preventDefault();
     if (busyRef.current || uploading > 0) return;
+    if (!hasChanges) {
+      setServerError('Chưa có thay đổi nào so với bài viết hiện tại.');
+      return;
+    }
     const nextErrors = validate(form, {
       title: [rules.required('Vui lòng nhập tiêu đề'), rules.maxLength(MAX_TITLE)],
       content: [rules.required(isVideo ? 'Vui lòng nhập mô tả cho video' : 'Vui lòng nhập nội dung bài viết')],
-      youtubeUrl: isVideo ? [rules.required('Dán link video YouTube'), rules.youtubeUrl()] : [],
-      categoryIds: [rules.minItems(1, 'Chọn ít nhất 1 chủ đề')],
+      youtubeUrl: isVideo ? [rules.required('Nhập đường dẫn video YouTube.'), rules.youtubeUrl()] : [],
+      categoryIds: [rules.minItems(1, 'Chọn ít nhất một chủ đề.')],
     });
     if (!nextErrors.youtubeUrl && isVideo && ytCheck.rejected) nextErrors.youtubeUrl = ytCheck.message;
     setErrors(nextErrors);
@@ -117,7 +151,7 @@ export default function PostEditForm({ post, categories, onDirty, onSubmit, onUp
       await onSubmit({ ...data, requestId: submissionRef.current.requestId });
       submissionRef.current = null;
     } catch (error) {
-      setServerError(error?.message || 'Chưa lưu được bài viết, vui lòng thử lại.');
+      setServerError(error?.message || 'Không thể lưu bài viết. Vui lòng thử lại.');
     } finally {
       busyRef.current = false;
       setSending(false);
@@ -139,7 +173,7 @@ export default function PostEditForm({ post, categories, onDirty, onSubmit, onUp
 
       {isVideo && <>
         <TextField label="Link YouTube" type="url" icon="youtube" value={form.youtubeUrl} onChange={set('youtubeUrl')}
-          error={errors.youtubeUrl || ytText.error} hint={ytText.hint || 'Dán link youtube.com/watch?v=… hoặc youtu.be/…'}
+          error={errors.youtubeUrl || ytText.error} hint={ytText.hint || 'Nhập đường dẫn dạng youtube.com/watch?v=… hoặc youtu.be/…'}
           placeholder="https://www.youtube.com/watch?v=..." required disabled={sending} />
         {videoId && !ytCheck.rejected && <YouTubeEmbed videoId={videoId} title={form.title || 'Xem trước video'} />}
       </>}
@@ -152,28 +186,29 @@ export default function PostEditForm({ post, categories, onDirty, onSubmit, onUp
           <button type="button" className={styles.tool} onClick={() => wrap('**', 'chữ đậm')} disabled={preview || sending} title="In đậm (Ctrl+B)" aria-label="In đậm"><i className="bi bi-type-bold" aria-hidden="true" /></button>
           <button type="button" className={styles.tool} onClick={() => wrap('*', 'chữ nghiêng')} disabled={preview || sending} title="In nghiêng (Ctrl+I)" aria-label="In nghiêng"><i className="bi bi-type-italic" aria-hidden="true" /></button>
           <button type="button" className={`${styles.tool} ${preview ? styles.toolOn : ''}`} onClick={() => setPreview((value) => !value)} aria-pressed={preview}>
-            <i className={`bi bi-${preview ? 'pencil' : 'eye'}`} aria-hidden="true" />&nbsp;{preview ? 'Sửa' : 'Xem trước'}
+            <i className={`bi bi-${preview ? 'pencil' : 'eye'}`} aria-hidden="true" />&nbsp;{preview ? 'Soạn thảo' : 'Xem trước'}
           </button>
           <span className={styles.toolbarHint}>**đậm** · *nghiêng*</span>
         </div>
         {preview ? <div className={styles.preview} aria-live="polite">
           {form.content.trim() ? <PostRichText text={form.content} /> : <span className={styles.previewEmpty}>Chưa có nội dung để xem trước.</span>}
         </div> : <TextArea id={contentId} value={form.content} onChange={set('content')} onKeyDown={onEditorKey} error={errors.content}
-          rows={6} maxRows={16} placeholder={isVideo ? 'Mô tả video và nguyên liệu cần chuẩn bị…' : 'Chia sẻ công thức, mẹo nấu hoặc trải nghiệm ăn chay…'} required disabled={sending} />}
+          rows={6} maxRows={16} placeholder={isVideo ? 'Nhập mô tả video và nguyên liệu cần chuẩn bị…' : 'Nhập công thức, mẹo nấu hoặc trải nghiệm ăn chay…'} required disabled={sending} />}
       </div>
 
-      <ImageUpload label="Ảnh bìa" hint={isVideo ? 'Không bắt buộc. Bỏ trống thì dùng ảnh của video YouTube.' : 'Không bắt buộc. JPG, PNG, WEBP, tối đa 5MB.'}
+      <ImageUpload label="Ảnh bìa" hint={isVideo ? 'Không bắt buộc. Nếu bỏ trống, ảnh bìa sẽ dùng hình thu nhỏ từ YouTube.' : 'Không bắt buộc. JPG, PNG, WEBP, tối đa 5MB.'}
         value={form.thumbnailUrl} onChange={set('thumbnailUrl')} onUpload={upload} ratio="16/9" disabled={sending} />
       <CategoryPicker label="Chủ đề" noun="chủ đề" popularIds={popularIds} collapseAfter={8} searchFrom={0} options={options}
         value={form.categoryIds} onChange={set('categoryIds')} error={errors.categoryIds}
-        hint={`Đã chọn ${form.categoryIds.length}. Chủ đề giúp mọi người tìm bài dễ hơn.`} required disabled={sending} />
+        hint={`Đã chọn ${form.categoryIds.length} chủ đề. Chủ đề giúp người đọc tìm bài viết dễ dàng hơn.`} required disabled={sending} />
 
-      {serverError && <div role="status"><Notice tone="alert" title="Chưa lưu được bài">{serverError}</Notice></div>}
+      {serverError && <div role="status"><Notice tone="alert" title="Không thể lưu bài viết">{serverError}</Notice></div>}
       <p className={styles.pendingNote}>
-        <i className="bi bi-hourglass-split" aria-hidden="true" /> Bài hiện tại vẫn hiển thị công khai trong thời gian bản sửa chờ duyệt. Nếu admin từ chối, bạn sẽ nhận thông báo kèm lý do.
+        <i className="bi bi-hourglass-split" aria-hidden="true" /> Bài viết hiện tại vẫn công khai trong thời gian bản sửa chờ duyệt. Nếu quản trị viên từ chối, lý do sẽ được gửi trong thông báo.
       </p>
       <div className="d-flex justify-content-end pt-2">
-        <Button type="submit" icon="send" loading={sending} disabled={uploading > 0 || (isVideo && ytCheck.rejected)}>
+        {!hasChanges && <small className="text-body-secondary align-self-center me-2">Chưa có thay đổi</small>}
+        <Button type="submit" icon="send" loading={sending} disabled={!hasChanges || uploading > 0 || (isVideo && ytCheck.rejected)}>
           {uploading > 0 ? 'Đang tải ảnh…' : 'Lưu thay đổi'}
         </Button>
       </div>

@@ -321,6 +321,8 @@ async function findMyPosts({ accountId, status = 'all', postType = 'all', page =
     filters.push(`p.status = 'public' AND EXISTS (
       SELECT 1 FROM public.post_edit_requests er WHERE er.post_id = p.post_id AND er.status = 'edited'
     )`);
+  } else if (status === 'public') {
+    filters.push(`p.status IN ('public', 'reported')`);
   } else if (status !== 'all') { values.push(status); filters.push(`p.status = $${values.length}`); }
   if (postType !== 'all') { values.push(postType); filters.push(`p.post_type = $${values.length}`); }
   // Duy's Code: ID chỉ là filter bổ sung; ownership vẫn luôn khóa theo account_id.
@@ -391,7 +393,7 @@ async function findMyPost(accountId, postId) {
   const editable = post.status === 'public' && pendingEdit === null;
   return { ...post, editState: {
     editable,
-    reason: editable ? null : pendingEdit ? 'pending_edit' : post.status === 'reported' ? 'reported' : 'not_editable',
+    reason: editable ? null : pendingEdit ? 'pending_edit' : 'not_editable',
     pendingEdit,
   } };
 }
@@ -405,7 +407,7 @@ async function deleteMyPost(accountId, postId) {
     `, [postId, accountId]);
     if (!owned[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
     if (!['pending', 'public'].includes(owned[0].status)) {
-      throw new PostError(409, 'Bài đang bị báo cáo hoặc đã được gỡ nên không thể xóa từ trang này.');
+      throw new PostError(409, 'Bài viết hiện chưa thể chỉnh sửa hoặc xóa.');
     }
     await client.query('DELETE FROM public.post_edit_requests WHERE post_id = $1', [postId]);
     const { rows } = await client.query(`

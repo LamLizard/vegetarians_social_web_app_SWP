@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Avatar, Button, Checkbox, Chip, ConfirmDialog, DataTable, Modal, Notice,
+  Avatar, Button, Checkbox, Chip, ConfirmDialog, DataTable, Modal, Notice, StatusBadge,
   Pagination, Photo, Panel, SearchInput, Select, Skeleton, formatDate, timeAgo,
   useToast, YouTubeEmbed,
 } from '../components';
@@ -143,12 +143,12 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
   const currentCategories = detail?.post?.categories ?? [];
 
   const decisionConfig = useMemo(() => decision?.action === 'reject' ? {
-    title: 'Từ chối bản sửa này?', label: 'Từ chối bản sửa', tone: 'alert',
-    message: 'Bản sửa sẽ bị xóa khỏi hàng chờ. Bài gốc giữ nguyên; thành viên nhận thông báo kèm lý do.',
-    reason: { label: 'Lý do từ chối', required: true, placeholder: 'Lý do này sẽ được gửi cho thành viên' },
+    title: 'Từ chối bản sửa?', label: 'Từ chối bản sửa', tone: 'alert',
+    message: 'Bản sửa sẽ bị xóa khỏi hàng chờ. Bài viết hiện tại được giữ nguyên. Lý do từ chối sẽ được gửi trong thông báo.',
+    reason: { label: 'Lý do từ chối', required: true, placeholder: 'Lý do sẽ được gửi trong thông báo cho người sửa' },
   } : {
-    title: 'Duyệt bản sửa này?', label: 'Duyệt bản sửa', tone: 'primary',
-    message: 'Nội dung bản sửa sẽ được áp dụng lên bài viết hiện tại.',
+    title: 'Duyệt bản sửa?', label: 'Duyệt bản sửa', tone: 'primary',
+    message: 'Sau khi duyệt, bản sửa sẽ được áp dụng vào bài viết hiện tại.',
   }, [decision]);
 
   const confirmDecision = async (note) => {
@@ -163,24 +163,24 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
         || result?.outcome !== expectedOutcome) {
         throw new Error('Máy chủ chưa xác nhận kết quả xử lý bản sửa.');
       }
-      toast(decision.action === 'approve' ? 'Đã duyệt bản sửa.' : 'Đã từ chối bản sửa; lý do đã được gửi cho thành viên.');
+      toast(decision.action === 'approve' ? 'Đã duyệt bản sửa.' : 'Đã từ chối bản sửa. Lý do đã được gửi trong thông báo.');
       closeDetail();
       refreshList();
     } catch (error) {
       if (error.status === 409) {
         const code = error.details?.code;
         if (code === 'POST_REPORTED') {
-          setReviewError('Bài gốc đang bị báo cáo. Cả duyệt và từ chối đều bị chặn cho tới khi xử lý xong báo cáo.');
+          setReviewError('Bài viết đang được xử lý báo cáo. Chưa thể duyệt hoặc từ chối bản sửa.');
           setDecision(null);
           setDetailReload((value) => value + 1);
           refreshList();
         } else if (code === 'POST_NOT_EDITABLE') {
-          setReviewError('Bài gốc đã bị gỡ hoặc xóa nên không thể quyết định bản sửa.');
+          setReviewError('Bài viết gốc đã bị gỡ hoặc xóa. Không thể xử lý bản sửa.');
           setDecision(null);
           setDetailReload((value) => value + 1);
           refreshList();
         } else if (code === 'EDIT_REQUEST_NOT_PENDING') {
-          toast('Bản sửa đã bị hủy hoặc được Admin khác xử lý. Danh sách đã được làm mới.', { tone: 'info' });
+          toast('Bản sửa đã bị hủy hoặc được quản trị viên khác xử lý. Danh sách đã được làm mới.', { tone: 'info' });
           closeDetail();
           refreshList();
         } else {
@@ -189,7 +189,7 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
           refreshList();
         }
       } else if (error.status === 404) {
-        toast('Bản sửa đã bị hủy hoặc không còn trong hàng chờ. Danh sách đã được làm mới.', { tone: 'info' });
+        toast('Bản sửa đã bị hủy hoặc không còn trong hàng chờ duyệt. Danh sách đã được làm mới.', { tone: 'info' });
         closeDetail();
         refreshList();
       } else {
@@ -221,13 +221,16 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
   };
 
   const columns = [
-    { key: 'title', header: 'Tiêu đề', primary: true, render: (row) => <span>{row.title}</span> },
-    { key: 'authorName', header: 'Người sửa', render: (row) => <span className={styles.author}><Avatar name={row.authorName || row.authorEmail} size={28} />{row.authorName || row.authorEmail || `Tài khoản #${row.accountId}`}</span> },
-    { key: 'submittedAt', header: 'Ngày gửi', render: (row) => {
-      const isStale = now > 0 && now - new Date(row.submittedAt).getTime() > 48 * 60 * 60 * 1000;
-      return <span className={isStale ? 'text-danger' : undefined}>{formatDate(row.submittedAt)}<small className="d-block">{timeAgo(row.submittedAt)}</small></span>;
-    } },
-    { key: 'kind', header: 'Loại', render: () => <span className="badge text-bg-info">Bản sửa</span>, width: 110 },
+    { key: 'title', header: 'Bài viết', primary: true, render: (row) => <span>{row.title}</span> },
+    { key: 'postType', header: 'Loại', render: (row) => row.postType === 'video' ? 'Video' : 'Blog', width: 85 },
+    { key: 'authorName', header: 'Người sửa', render: (row) => <span className={pageStyles.metadata}><Avatar name={row.authorName || row.authorEmail} size={28} />{row.authorName || row.authorEmail || `Tài khoản #${row.accountId}`}</span> },
+    { key: 'status', header: 'Trạng thái', render: () => <StatusBadge entity="post" status="pending" label="Bản sửa" size="sm" /> },
+    { key: 'submittedAt', header: 'Ngày gửi', render: (row) => formatDate(row.submittedAt) },
+    { key: 'waiting', header: 'Thời gian chờ', hideOnMobile: true, render: (row) => (
+      <span className={now - new Date(row.submittedAt).getTime() > 48 * 3600000 ? 'text-danger' : undefined}>
+        {timeAgo(row.submittedAt)}
+      </span>
+    ) },
     { key: 'actions', header: 'Thao tác', align: 'right', render: (row) => <Button size="sm" variant="outline" icon="eye" onClick={() => setSelectedId(row.id)}>Xem chi tiết</Button> },
   ];
 
@@ -274,16 +277,16 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
           </Notice>
         ) : detail && <>
           <div className={styles.meta}>
-            <span className="badge text-bg-info">Bản sửa</span>
-            <span>Bài gốc #{detail.post.id} · {dateLabel(detail.editRequest.submittedAt)}</span>
+            <StatusBadge entity="post" status="pending" label="Bản sửa" size="sm" />
+            <span>Bài viết gốc #{detail.post.id} · gửi {dateLabel(detail.editRequest.submittedAt)}</span>
             <span>Người sửa: {detail.editRequest.authorName || detail.editRequest.authorEmail || `Tài khoản #${detail.editRequest.accountId}`}</span>
           </div>
-          {detail.post.status === 'reported' && <Notice tone="alert" title="Bài gốc đang bị báo cáo">Cả duyệt và từ chối bản sửa đều bị khóa cho tới khi báo cáo được xử lý.</Notice>}
-          {detail.post.status !== 'public' && detail.post.status !== 'reported' && <Notice tone="alert" title="Bài gốc đã gỡ hoặc không còn công khai">Không thể duyệt hay từ chối bản sửa khi bài gốc không còn ở trạng thái công khai.</Notice>}
+          {detail.post.status === 'reported' && <Notice tone="alert" title="Bài viết đang được xử lý báo cáo">Chưa thể duyệt hoặc từ chối bản sửa.</Notice>}
+          {detail.post.status !== 'public' && detail.post.status !== 'reported' && <Notice tone="alert" title="Bài viết gốc đã gỡ hoặc không còn công khai">Không thể duyệt hoặc từ chối bản sửa khi bài viết gốc không còn công khai.</Notice>}
           {reviewError && <Notice tone="alert" title="Chưa xử lý được bản sửa">{reviewError}</Notice>}
           <div className={styles.comparison}>
             <section className={styles.version}>
-              <h3>Bài đang công khai</h3>
+              <h3>Bài viết hiện tại (đang công khai)</h3>
               <p className={styles.status}>Trạng thái: {detail.post.status}</p>
               <Value label="Tiêu đề" before={detail.post.title} after={detail.post.title} />
               <Value label="Nội dung" before={detail.post.content} after={detail.post.content} className={styles.contentValue} />
@@ -293,7 +296,7 @@ export default function AdminPostEditQueue({ refreshKey = 0 }) {
             </section>
             <section className={styles.version}>
               <h3>Bản sửa đề xuất</h3>
-              <p className={styles.status}>Nhãn: Bản sửa · trạng thái: edited</p>
+              <p className={styles.status}>Trạng thái: Bản sửa chờ duyệt</p>
               <Value label="Tiêu đề" before={detail.post.title} after={detail.editRequest.title} />
               <Value label="Nội dung" before={detail.post.content} after={detail.editRequest.content} className={styles.contentValue} />
               <MediaValue label="Ảnh bìa" before={detail.post.thumbnailUrl} after={detail.editRequest.thumbnailUrl} />

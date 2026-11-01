@@ -1,6 +1,7 @@
 const { createHash } = require('node:crypto');
 const pool = require('../config/db');
 const { PostError } = require('./post.model');
+const { submissionFingerprint } = require('../utils/postContentInput');
 
 const failure = (status, code, message) => Object.assign(new PostError(status, message), { code });
 
@@ -41,18 +42,42 @@ async function priorRequest(db, accountId, requestId, fingerprint) {
   return requestResponse(prior.postId, prior.editRequestId, true);
 }
 
-async function precheckMyPostEdit({ accountId, postId, categoryIds, requestId, fingerprint }) {
-  const replay = await priorRequest(pool, accountId, requestId, fingerprint);
-  if (replay) return { replay };
+function normalizeComparableText(value) {
+  return String(value ?? '').replace(/\r\n/g, '\n').trim();
+}
+
+function comparableFingerprint(input, categoryIds = input.categoryIds) {
+  const optionalText = (value) => normalizeComparableText(value) || null;
+  return submissionFingerprint('post', {
+    postType: input.postType,
+    title: normalizeComparableText(input.title),
+    content: normalizeComparableText(input.content),
+    thumbnailUrl: optionalText(input.thumbnailUrl),
+    youtubeUrl: optionalText(input.youtubeUrl),
+    categoryIds: categoryIds.map((id) => String(id).trim()).sort(),
+  });
+}
+
+async function precheckMyPostEdit({ accountId, postId, input, categoryIds, requestId, fingerprint }) {
   const { rows } = await pool.query(`
-    SELECT p.post_id::text AS id, p.status, p.updated_at::text AS revision
+    SELECT p.post_id::text AS id, p.status, p.updated_at::text AS revision,
+      p.post_type AS "postType", p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl"
     FROM public.post p WHERE p.post_id = $1 AND p.account_id = $2
   `, [postId, accountId]);
   const post = rows[0];
   if (!post) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
   if (post.status !== 'public') throw failure(409, 'POST_NOT_EDITABLE', 'Bài viết này hiện không thể sửa.');
+  const replay = await priorRequest(pool, accountId, requestId, fingerprint);
+  if (replay) return { replay };
   const pending = await pool.query("SELECT 1 FROM public.post_edit_requests WHERE post_id = $1 AND status = 'edited'", [postId]);
   if (pending.rows[0]) throw failure(409, 'PENDING_EDIT_EXISTS', 'Bài viết đã có một bản sửa đang chờ duyệt. Hãy chờ quản trị viên xử lý.');
+  const currentCategories = await pool.query(
+    'SELECT category_id::text AS id FROM public.post_category WHERE post_id = $1', [postId],
+  );
+  if (comparableFingerprint(input) === comparableFingerprint({ ...post, categoryIds: currentCategories.rows.map((row) => row.id) })) {
+    throw failure(422, 'NO_CHANGES', 'Chưa có thay đổi nào so với bài viết hiện tại.');
+  }
   const categories = await pool.query(
     'SELECT category_id FROM public.category WHERE category_id = ANY($1::bigint[]) AND is_active', [categoryIds],
   );

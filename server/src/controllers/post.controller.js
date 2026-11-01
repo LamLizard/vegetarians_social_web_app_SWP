@@ -164,7 +164,7 @@ async function updateMyPost(req, res) {
   }
   const fingerprint = createHash('sha256').update(`${postId}|${submissionFingerprint('post', input)}`).digest('hex');
   const precheck = await postEditRequestModel.precheckMyPostEdit({ accountId: req.account.id, postId,
-    categoryIds: input.categoryIds, requestId, fingerprint });
+    input, categoryIds: input.categoryIds, requestId, fingerprint });
   if (precheck.replay) return res.json(precheck.replay);
   if (input.youtubeUrl) {
     const rejected = await youTubeRejectMessage(input.youtubeUrl);
