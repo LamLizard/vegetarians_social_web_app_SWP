@@ -58,7 +58,6 @@ export { default as PostComposer, COMPOSER_PROMPTS } from './PostComposer/PostCo
 // ---- Đợt 4 · Món, công thức, quán ------------------------------------
 export { default as DishCard } from './DishCard/DishCard';
 export { default as RecipeCard } from './RecipeCard/RecipeCard';
-export { default as DishBowl } from './DishBowl/DishBowl'; // Khoi's code
 export { default as FeaturedCarousel } from './FeaturedCarousel/FeaturedCarousel'; // Khoi's code
 export { RecipeFacts, IngredientList, RecipeSteps } from './RecipeView/RecipeView';
 export { default as IngredientEditor } from './IngredientEditor/IngredientEditor';

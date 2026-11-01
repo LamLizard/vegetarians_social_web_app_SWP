@@ -8,6 +8,7 @@
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
 const { buildSearch, searchWhere } = require('../utils/postSearch'); // Khoi's code 28/10: tìm theo phạm vi, không dấu
+const { buildFeedCursor } = require('../utils/feedCursor'); // Khoi's code 01/11: cursor Mới nhất / Nhiều tim
 // Tung's code: Điểm nối Bảng tin của Khôi với module gom báo cáo theo case.
 const { getOrCreatePendingCase } = require('./reportCase.model');
 
@@ -117,23 +118,31 @@ const SORT_KEY = `(extract(epoch FROM ${PUBLISHED}) * 1000000)::bigint`;
  */
 // Khoi's code: categoryId (Sprint 2) — lọc bài có gắn danh mục đó (hàng nút lọc trên Bảng tin)
 // Khoi's code 28/10: scope = phạm vi tìm (all · title · author · topic), không phân biệt dấu — xem utils/postSearch.js
-async function findFeed({ viewerId, cursor = null, q = '', scope = 'all', categoryId = null, limit = 10 }) {
+// Khoi's code 01/11: sort = 'new' (Mới nhất, như trên) · 'top' (Nhiều tim: vote_count DESC, rồi mới nhất, rồi post_id DESC).
+//   'top' dùng cursor "<vote_count>_<micro giây>_<post_id>" → so sánh bộ 3 (vote_count, mốc, id).
+async function findFeed({ viewerId, cursor = null, q = '', scope = 'all', categoryId = null, limit = 10, sort = 'new' }) {
   const { titleLike, authorLike, topicLike } = buildSearch(q, scope);
+  const top = sort === 'top';
+  const after = top
+    ? `($2::bigint IS NULL OR (p.vote_count, ${SORT_KEY}, p.post_id) < ($9::int, $2::bigint, $3::bigint))`
+    : `($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))`;
+  const params = [viewerId, cursor?.time ?? null, cursor?.id ?? null, titleLike, limit + 1, categoryId, authorLike, topicLike];
+  if (top) params.push(cursor?.votes ?? null);
   const { rows } = await pool.query(`
     SELECT ${POST_FIELDS}, ${SORT_KEY}::text AS "sortKey"
     ${FROM_POST}
     WHERE ${VISIBLE}
-      AND ($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))
+      AND ${after}
       AND ${searchWhere(4, 7, 8)}
       AND ($6::bigint IS NULL OR EXISTS (
         SELECT 1 FROM post_category pc WHERE pc.post_id = p.post_id AND pc.category_id = $6::bigint
       ))
-    ORDER BY ${PUBLISHED} DESC, p.post_id DESC
+    ORDER BY ${top ? 'p.vote_count DESC, ' : ''}${PUBLISHED} DESC, p.post_id DESC
     LIMIT $5
-  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, titleLike, limit + 1, categoryId, authorLike, topicLike]);
+  `, params);
   const items = rows.slice(0, limit).map(({ sortKey, ...post }) => post); // sortKey chỉ dùng làm cursor
   const last = rows[limit - 1];
-  return { items, nextCursor: rows.length > limit ? `${last.sortKey}_${last.id}` : null };
+  return { items, nextCursor: rows.length > limit ? buildFeedCursor(last, sort) : null };
 }
 
 /** Bình luận public của 1 bài, mới nhất trước. viewerId để đánh dấu isOwner. */

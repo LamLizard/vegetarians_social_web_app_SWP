@@ -38,15 +38,6 @@
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
 .skCard { display: flex; flex-direction: column; gap: 12px; }
 
-/* Hình bát khi công thức chưa có ảnh bìa */
-.plate {
-  display: grid;
-  place-items: center;
-  height: 70%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
-}
 
 /* Chế độ kết quả */
 .crumbs { display: flex; align-items: center; gap: 8px; color: var(--v-muted); font-size: 14px; }

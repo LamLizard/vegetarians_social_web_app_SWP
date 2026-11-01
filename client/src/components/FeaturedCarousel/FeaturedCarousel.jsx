@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import Avatar from '../Avatar/Avatar';
-import DishBowl from '../DishBowl/DishBowl';
 import Photo from '../Photo/Photo';
 import { RecipeFacts } from '../RecipeView/RecipeView';
 import s from './FeaturedCarousel.module.css';
@@ -19,9 +18,8 @@ import s from './FeaturedCarousel.module.css';
  */
 export const SLIDE_MS = 7000;
 
-const Cover = ({ it, thumb }) => (it.thumbnailUrl
-  ? <Photo src={it.thumbnailUrl} className={s.photo} />
-  : <div className={s.fallback}><div className={thumb ? s.plateSm : s.plate}><DishBowl name={it.dishName} /></div></div>);
+// Khoi's code 01/11: bỏ hình bát DishBowl — chưa có ảnh thì Photo tự hiện nền lá xanh theo theme
+const Cover = ({ it }) => <Photo src={it.thumbnailUrl || undefined} className={s.photo} />;
 
 export default function FeaturedCarousel({ items, hrefOf, flagOf = () => undefined }) {
   const [active, setActive] = useState(0);

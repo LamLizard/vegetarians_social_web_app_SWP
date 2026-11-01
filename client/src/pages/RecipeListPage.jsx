@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Button from '../components/Button/Button';
 import Checkbox from '../components/Checkbox/Checkbox';
-import DishBowl from '../components/DishBowl/DishBowl';
 import EmptyState from '../components/EmptyState/EmptyState';
 import FeaturedCarousel from '../components/FeaturedCarousel/FeaturedCarousel';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
@@ -122,7 +121,6 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
       title={it.title}
       dishName={it.dishName}
       imageUrl={it.thumbnailUrl ?? undefined}
-      fallback={<div className={s.plate}><DishBowl name={it.dishName} /></div>}
       author={{ name: it.authorName, avatarUrl: it.authorAvatarUrl ?? undefined }}
       createdAt={it.moderatedAt}
       cookTimeMinutes={(it.prepTimeMinutes ?? 0) + (it.cookTimeMinutes ?? 0) || undefined}

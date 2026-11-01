@@ -9,7 +9,11 @@
   background: var(--v-header-bg);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
   backdrop-filter: blur(16px) saturate(150%);
+  transition: transform .28s var(--ac-ease-out);
 }
+/* Khoi's code (01/11/2026): cuộn xuống → trượt lên khỏi màn hình */
+.hidden { transform: translateY(-100%); }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }
 .inner {
   display: grid;
   grid-template-columns: var(--v-cols);
@@ -23,7 +27,7 @@
 .search {
   position: relative;
   display: flex;
-  grid-column: 2;
+  grid-column: var(--v-search-col, 2); /* Khoi's code 01/11: Bảng tin 2 cột → ô tìm ở cột 1 (styles/feed-theme.css) */
   align-items: center;
   gap: 10px;
   min-width: 0;

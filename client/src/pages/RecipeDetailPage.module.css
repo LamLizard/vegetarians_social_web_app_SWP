@@ -116,14 +116,6 @@
 .more { color: var(--v-accent-text); font-size: 14px; font-weight: 600; text-underline-offset: 3px; }
 .more:hover { color: var(--v-text); }
 .relatedGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-.plate {
-  display: grid;
-  place-items: center;
-  height: 70%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
-}
 @media (max-width: 767.98px) {
   .relatedGrid { grid-template-columns: minmax(0, 1fr); }
 }
