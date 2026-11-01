@@ -67,7 +67,7 @@ export default function FeaturedCarousel({ items, hrefOf, flagOf = () => undefin
               <span className={s.author}>{it.authorName}</span>
               {/* Lượt thích: chỉ hiện khi API có (chưa có bảng lượt thích) */}
               {it.likeCount != null && (
-                <span><i className="bi bi-hand-thumbs-up" aria-hidden="true" /> {it.likeCount}<span className="visually-hidden"> lượt thích</span></span>
+                <span><i className="bi bi-heart" aria-hidden="true" /> {it.likeCount}<span className="visually-hidden"> lượt thích</span></span>
               )}
             </div>
             <RecipeFacts cookTimeMinutes={time} servings={it.servings ?? undefined} calories={it.caloriesKcal ?? undefined} size="sm" />

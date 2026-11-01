@@ -108,7 +108,7 @@ export default function FeedLeftRail({ isGuest, plan, favorites, onLike, topics 
       <section className={s.box}>
         <div className={s.head}>
           <h2 className={s.title}>Công thức yêu thích</h2>
-          {favorites?.length > 3 && <a className={s.more} href="/recipes">Tất cả</a>}
+          {favorites?.length > 3 && <a className={s.more} href="/recipes?liked=1">Tất cả</a>}
         </div>
         {favorites == null && <div className={cx(s.sk, s.skList)} />}
         {favorites?.length > 0 && (

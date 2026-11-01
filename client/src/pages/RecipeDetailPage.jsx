@@ -222,7 +222,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                 <span>{r.authorName}</span>
               </span>
               <span className={s.when}>· {timeAgo(r.createdAt)}</span>
-              <VoteButton className={s.like} noun="công thức" voted={like.on} count={like.count} onToggle={toggleLike} />
+              <VoteButton className={s.like} noun="công thức" icon="heart" voted={like.on} count={like.count} onToggle={toggleLike} />
             </div>
 
             {/* 27/10: thông số quyết định "có nấu không" → lên ngay dưới tiêu đề, số to, chia đều bề ngang */}

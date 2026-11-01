@@ -22,6 +22,8 @@ import s from './RecipeListPage.module.css';
  * Khoi's code: Trang Công thức (/recipes) — port từ prototype (bố cục C, chốt 18/10/2026; khung Nổi bật 20/10/2026).
  *  Không tìm/lọc: khối đầu (khung chiếu 5 công thức mới duyệt) + mỗi danh mục 1 hàng 3 công thức mới nhất + "Xem tất cả".
  *  Có từ khoá hoặc chọn danh mục (/recipes?q=…&dm=…): kết quả phẳng dạng lưới, có chip danh mục.
+ *  01/11/2026: nút "Đã thích" (/recipes?liked=1) — chỉ công thức mình đã thả tim (recipe_like), kết hợp được với tìm/danh mục.
+ *   Lối vào: nút cạnh ô tìm · "Tất cả" ở khối Công thức yêu thích (cột trái Bảng tin).
  *  Mọi chế độ: thẻ có nguyên liệu trùng dị ứng (hồ sơ sức khỏe) → nhãn đỏ; công tắc "Ẩn món tôi dị ứng".
  *  Ai cũng xem được, kể cả khách (khách không có dị ứng → không hiện công tắc).
  *
@@ -45,22 +47,23 @@ const SORTS = [
 ];
 const href = (id) => `/recipes/${id}`;
 
-/** URL hiện tại → { q, dm } (dm = id danh mục dạng chuỗi) */
+/** URL hiện tại → { q, dm, liked } (dm = id danh mục dạng chuỗi · liked = chỉ công thức đã thích, Khoi's code 01/11) */
 const readQuery = () => {
   const p = new URLSearchParams(window.location.search);
-  return { q: p.get('q') ?? '', dm: p.get('dm') || null };
+  return { q: p.get('q') ?? '', dm: p.get('dm') || null, liked: p.get('liked') === '1' };
 };
-const toUrl = ({ q = '', dm = null } = {}) => {
+const toUrl = ({ q = '', dm = null, liked = false } = {}) => {
   const p = new URLSearchParams();
   if (q.trim()) p.set('q', q.trim());
   if (dm) p.set('dm', dm);
+  if (liked) p.set('liked', '1');
   const qs = p.toString();
   return qs ? `/recipes?${qs}` : '/recipes';
 };
 
 export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegister }) {
   const [query, setQuery] = useState(readQuery);
-  const { q, dm } = query;
+  const { q, dm, liked: likedOnly } = query;
   const [state, setState] = useState({ status: 'loading', items: [], categories: [] });
   const [text, setText] = useState(q);
   const [allergies, setAllergies] = useState([]);
@@ -80,7 +83,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
-  useEffect(() => { setText(q); setShown(PAGE); }, [q, dm]);
+  useEffect(() => { setText(q); setShown(PAGE); }, [q, dm, likedOnly]);
 
   const fetchIt = () => {
     setState({ status: 'loading', items: [], categories: [] });
@@ -110,7 +113,8 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   };
 
   const all = state.items.filter((it) => !(hideAllergen && allergenOf(it)));
-  const browsing = isGuest || (!q && !dm); // khách không tìm/lọc được → bỏ qua ?q= / ?dm= gõ tay trên URL
+  const browsing = isGuest || (!q && !dm && !likedOnly); // khách không tìm/lọc được → bỏ qua ?q= / ?dm= / ?liked= gõ tay trên URL
+  const likedTotal = all.filter((it) => it.likedByMe).length;
   const categories = state.categories;
 
   const card = (it) => (
@@ -144,6 +148,7 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
   const cat = categories.find((c) => c.id === dm);
   const key = plain(q);
   const results = all
+    .filter((it) => !likedOnly || it.likedByMe)
     .filter((it) => !dm || it.categoryIds.includes(dm))
     .filter((it) => !key || plain(`${it.title} ${it.dishName}`).includes(key))
     .sort(sort === 'likes' ? (a, b) => b.likeCount - a.likeCount || byNewest(a, b) : byNewest);
@@ -192,15 +197,27 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
               <SearchInput
                 value={text}
                 onChange={setText}
-                onSearch={(v) => go({ q: v, dm })}
+                onSearch={(v) => go({ q: v, dm, liked: likedOnly })}
                 size="lg"
                 label="Tìm công thức"
                 placeholder="Tìm theo tên món hoặc công thức, ví dụ: canh chua"
               />
             </div>
+            {/* Khoi's code 01/11: hàng dưới ô tìm — trái: chỉ xem công thức đã thả tim · phải: công tắc dị ứng */}
+            <div className={s.toolRow}>
+            <button
+              type="button"
+              className={`${s.likedBtn} ${likedOnly ? s.likedOn : ''}`}
+              aria-pressed={likedOnly}
+              onClick={() => go({ q, dm, liked: !likedOnly })}
+            >
+              <i className={`bi bi-heart${likedOnly ? '-fill' : ''}`} aria-hidden="true" />
+              Đã thích{state.status === 'ready' && <span className={s.likedCount}>{likedTotal}</span>}
+            </button>
             {allergyKeys.length > 0 && (
               <Checkbox switch checked={hideAllergen} onChange={setHideAllergen}>Ẩn món tôi dị ứng</Checkbox>
             )}
+            </div>
           </div>
         )}
 
@@ -260,25 +277,31 @@ export default function RecipeListPage({ user, accountMenu = [], onLogin, onRegi
             <nav className={s.crumbs} aria-label="Đường dẫn">
               <a href="/recipes" onClick={(e) => { e.preventDefault(); go(); }}>Công thức</a>
               <i className="bi bi-chevron-right" aria-hidden="true" />
-              <span aria-current="page">{cat ? cat.name : 'Kết quả tìm kiếm'}</span>
+              <span aria-current="page">{cat ? cat.name : q ? 'Kết quả tìm kiếm' : 'Đã thích'}</span>
             </nav>
             {categories.length > 0 && (
               <div className={s.chips} role="group" aria-label="Lọc theo danh mục">
-                <button type="button" className={`${s.chip} ${!dm ? s.chipOn : ''}`} aria-pressed={!dm} onClick={() => go({ q })}>Tất cả</button>
+                <button type="button" className={`${s.chip} ${!dm ? s.chipOn : ''}`} aria-pressed={!dm} onClick={() => go({ q, liked: likedOnly })}>Tất cả</button>
                 {categories.map((c) => (
-                  <button key={c.id} type="button" className={`${s.chip} ${dm === c.id ? s.chipOn : ''}`} aria-pressed={dm === c.id} onClick={() => go({ q, dm: c.id })}>{c.name}</button>
+                  <button key={c.id} type="button" className={`${s.chip} ${dm === c.id ? s.chipOn : ''}`} aria-pressed={dm === c.id} onClick={() => go({ q, dm: c.id, liked: likedOnly })}>{c.name}</button>
                 ))}
               </div>
             )}
             <div className={s.resultBar}>
               <h2 id="rl-results" className={s.count}>
-                {results.length} công thức{q ? <> cho “<b>{q}</b>”</> : null}{cat ? ` trong ${cat.name.toLowerCase()}` : ''}
+                {results.length} công thức{likedOnly ? ' đã thích' : ''}{q ? <> cho “<b>{q}</b>”</> : null}{cat ? ` trong ${cat.name.toLowerCase()}` : ''}
               </h2>
               <div className={s.sort}><Select label="Sắp xếp" options={SORTS} value={sort} onChange={setSort} size="sm" /></div>
             </div>
 
-            {results.length === 0 ? (
-              <EmptyState icon="search" title={q ? `Không có công thức khớp “${q}”` : 'Danh mục này chưa có công thức'}
+            {results.length === 0 && likedOnly && likedTotal === 0 ? (
+              // Khoi's code 01/11: chưa thả tim công thức nào
+              <EmptyState icon="heart" title="Bạn chưa thích công thức nào"
+                action={<Button variant="outline" onClick={() => go()}>Xem tất cả công thức</Button>}>
+                Mở một công thức rồi bấm trái tim để lưu lại nấu sau.
+              </EmptyState>
+            ) : results.length === 0 ? (
+              <EmptyState icon="search" title={q ? `Không có công thức khớp “${q}”` : likedOnly ? 'Chưa thích công thức nào trong danh mục này' : 'Danh mục này chưa có công thức'}
                 action={<Button variant="outline" onClick={() => { setHideAllergen(false); go(); }}>Xoá bộ lọc</Button>}>
                 Thử từ khoá khác, chọn danh mục khác{allergyKeys.length ? ' hoặc tắt “Ẩn món tôi dị ứng”' : ''}.
               </EmptyState>
