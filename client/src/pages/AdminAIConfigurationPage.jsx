@@ -5,6 +5,7 @@ import useAuth from '../hooks/useAuth';
 import { getAIConfig, updateAIConfig } from '../services/aiConfig.service';
 import AdminAIConfigurationSettings from './AdminAIConfigurationSettings';
 import AdminGroqUsage from './AdminGroqUsage';
+import AdminDeepseekUsage from './AdminDeepseekUsage';
 import styles from './AdminAIConfigurationPage.module.css';
 
 function configChanged(config, savedConfig) {
@@ -95,7 +96,7 @@ export default function AdminAIConfigurationPage() {
             onReload={() => setReload((value) => value + 1)} />
         </section>
         <section role="tabpanel" id={`${tabId}-usage-panel`} aria-labelledby={`${tabId}-usage-tab`} hidden={tab !== 'usage'}>
-          {tab === 'usage' && <AdminGroqUsage />}
+          {tab === 'usage' && <><AdminGroqUsage /><AdminDeepseekUsage /></>}
         </section>
       </section>
     </AdminLayout>
