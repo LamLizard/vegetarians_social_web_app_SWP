@@ -1,6 +1,7 @@
 // Mount tại /api/admin/moderation sau khi điểm tích hợp được duyệt.
 const express = require('express');
 const controller = require('../controllers/postModeration.controller');
+const postEditController = require('../controllers/postEditModeration.controller');
 const { requireAuth, requireAdmin } = require('../middlewares/auth');
 
 const router = express.Router();
@@ -9,6 +10,11 @@ router.use(requireAuth, requireAdmin);
 router.get('/posts', controller.listPosts);
 router.get('/posts/:postId', controller.getPost);
 router.patch('/posts/:postId', controller.decidePost);
+
+// Edit requests are moderated separately from new posts; rejection never marks the source post deleted.
+router.get('/post-edits', postEditController.listPending);
+router.get('/post-edits/:editRequestId', postEditController.getPending);
+router.patch('/post-edits/:editRequestId', postEditController.decide);
 
 // Tung's code: Kiểm duyệt theo case cho cả post và comment; vẫn nằm sau
 // requireAuth + requireAdmin, không cho Member gọi API quản trị trực tiếp.

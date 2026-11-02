@@ -207,6 +207,8 @@ function createPostModerationModel(database) {
         await notify(client, beforeComment.authorId, 'comment_removed', 'Bình luận đã bị xóa',
           'Bình luận của bạn đã bị xóa.', 'comment', beforeComment.id);
       } else if (decision.action === 'accept' && !isComment && beforePost.status !== 'deleted') {
+        // A removal decision cancels any pending edit before the source post is hidden.
+        await client.query('DELETE FROM public.post_edit_requests WHERE post_id = $1', [beforePost.id]);
         afterPost = await updatePost(client, beforePost.id, 'deleted', decision.note, admin);
         await audit(client, admin, 'REMOVE', 'post', beforePost.id, beforePost, afterPost, decision.note);
         await notify(client, beforePost.accountId, 'post_removed', 'Bài viết đã bị gỡ', decision.note, 'post', beforePost.id);

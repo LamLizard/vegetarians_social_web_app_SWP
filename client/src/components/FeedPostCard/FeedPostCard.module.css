@@ -1,63 +1,134 @@
-/* Thẻ bài của Bảng tin — chép từ prototype UI v2.1 (src/v2/components/PostCard.module.css).
-   Bỏ nút sao chép link (chưa có trang chi tiết bài theo URL). */
+/* Thẻ bài của Bảng tin.
+   Khoi's code 01/11/2026: theo prototype v4 (src/v4/components/PostCard.module.css) — ảnh tràn thẻ, hàng số liệu + 2 nút đều nhau.
+   (.tags / .tag / .tagBtn / .moreTags ở cuối file vẫn giữ: PostDetailContent của Tùng/Duy dùng lại.) */
 .card {
-  position: relative;
-  display: grid;
-  gap: 14px;
-  padding: 20px 20px 12px;
+  overflow: hidden;
   border: 1px solid var(--v-line);
-  border-radius: 22px;
+  border-radius: var(--ac-radius-surface, 20px);
   background: var(--v-surface);
-  box-shadow: var(--v-shadow);
-  transition: border-color .25s;
+  box-shadow: var(--ac-shadow);
+  transition: box-shadow .25s, border-color .25s;
 }
-.card:hover { border-color: var(--v-line-2); }
+.card:hover { border-color: color-mix(in srgb, var(--v-accent) 28%, var(--v-line)); box-shadow: var(--ac-shadow-hover, var(--ac-shadow)); }
 
-.head { display: flex; align-items: center; gap: 12px; }
+.head { display: flex; align-items: center; gap: 12px; padding: 16px 20px 0; }
 .who { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
-.who b { overflow: hidden; font-size: 0.95rem; white-space: nowrap; text-overflow: ellipsis; }
-.who span { display: inline-flex; align-items: center; gap: 6px; color: var(--v-muted); font-size: 0.8rem; }
-.dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .6; }
+.who b { overflow: hidden; color: var(--v-text); font-size: 0.97rem; text-overflow: ellipsis; white-space: nowrap; }
+.who small { display: flex; align-items: center; gap: 6px; color: var(--v-muted); font-size: 0.84rem; }
 .more {
   display: grid;
+  flex: none;
   place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
   color: var(--v-muted);
+  font-size: 1.1rem;
 }
-.more:hover, .more[aria-expanded="true"] { border-color: var(--v-line); background: var(--v-surface-2); color: var(--v-text); }
+.more:hover, .more[aria-expanded="true"] { background: var(--v-surface-2); color: var(--v-text); }
 
-.title { margin: 2px 0 0; font-size: 1.26rem; font-weight: 800; line-height: 1.3; letter-spacing: -0.025em; text-wrap: pretty; }
+.content { padding: 10px 20px 0; }
+.title { margin: 0 0 4px; font-size: 1.12rem; font-weight: 700; line-height: 1.45; letter-spacing: -0.01em; text-wrap: pretty; }
 /* Rê chuột: gạch chân chạy từ trái sang (không phát sáng) */
 .title a {
   color: var(--v-text);
   text-decoration: none;
-  background-image: linear-gradient(var(--v-accent), var(--v-accent));
-  background-repeat: no-repeat;
-  background-size: 0% 2px;
-  background-position: 0 100%;
-  transition: background-size .45s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 2px no-repeat;
+  transition: background-size .45s var(--ac-ease-out), color .2s;
 }
-.title a:hover { background-size: 100% 2px; }
-.quick .title { font-size: 1.42rem; font-weight: 600; line-height: 1.45; letter-spacing: -0.02em; }
-
+.title a:hover { background-size: 100% 2px; color: var(--v-accent-text); }
 .excerpt {
   display: -webkit-box;
-  margin: -4px 0 0;
+  margin: 0;
   overflow: hidden;
   color: var(--v-text-2);
   font-size: 0.97rem;
-  line-height: 1.65;
+  line-height: 1.6;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
+.topics { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 20px 0; }
+.topic {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--v-accent-soft);
+  color: var(--v-accent-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.topicBtn { transition: background-color .15s, color .15s; }
+.topicBtn:hover { background: var(--v-accent); color: var(--v-on-accent); }
+.topicMore { background: var(--v-surface-2); color: var(--v-muted); }
+
+.media { position: relative; display: block; overflow: hidden; margin-top: 14px; background: var(--v-surface-2); }
+.media :global(img) { transition: transform .6s var(--ac-ease-out); }
+.media:hover :global(img) { transform: scale(1.03); }
+.play { position: absolute; inset: 0; display: grid; place-items: center; }
+.play i {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  padding-left: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .92);
+  color: #14251A;
+  font-size: 1.9rem;
+  transition: transform .3s var(--ac-ease-out);
+}
+.media:hover .play i { transform: scale(1.08); }
+
+.stats { display: flex; align-items: center; gap: 8px; margin: 0 20px; padding: 12px 0; color: var(--v-muted); font-size: 0.88rem; }
+.voters { display: inline-flex; align-items: center; gap: 8px; }
+.hearts { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--ac-alert); color: #fff; font-size: 0.7rem; }
+.comments { margin-left: auto; padding: 0; border: 0; background: none; color: var(--v-muted); font-size: 0.88rem; }
+.comments:hover { color: var(--v-text); text-decoration: underline; }
+
+.bar { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 12px; padding: 6px 0 8px; border-top: 1px solid var(--v-line); }
+.act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--v-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  transition: background-color .15s, color .15s;
+}
+.act i { font-size: 1.12rem; }
+.act:hover { background: var(--v-surface-2); color: var(--v-text); }
+.act:active i { transform: scale(.88); }
+.liked, .liked:hover { color: var(--ac-alert); }
+.liked i { animation: pop .45s var(--ac-ease-out); }
+@keyframes pop { 40% { transform: scale(1.32); } }
+
+@media (max-width: 479.98px) {
+  .head { padding: 14px 16px 0; }
+  .content, .topics { padding-right: 16px; padding-left: 16px; }
+  .stats { margin: 0 16px; }
+  .bar { margin: 0 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title a, .media :global(img), .play i { transition: none; }
+  .media:hover :global(img), .media:hover .play i { transform: none; }
+  .liked i { animation: none; }
+}
+
+/* ---- Dùng chung với PostDetailContent (popup chi tiết của Tùng/Duy) — giữ nguyên tên lớp ---- */
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .moreTags { align-self: center; color: var(--v-muted); font-size: 0.76rem; font-weight: 700; }
-/* Khoi's code 29/10: chip chủ đề có icon dấu trang, nền trung tính (không dùng "#" → không nhầm hashtag) */
 .tag {
   display: inline-flex;
   align-items: center;
@@ -75,78 +146,3 @@
 .tagBtn:hover { border-color: var(--v-accent-line); background: var(--v-accent-soft); color: var(--v-accent-text); }
 .tagBtn:hover i { color: inherit; }
 .tagBtn:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }
-
-.media { display: block; margin-top: 2px; text-decoration: none; }
-.glare { display: block !important; width: 100% !important; height: auto !important; overflow: hidden; }
-.img { transition: transform .8s cubic-bezier(0.16, 1, 0.3, 1); }
-.media:hover .img { transform: scale(1.03); }
-.play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  width: 62px;
-  height: 62px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  background: rgba(8, 12, 9, 0.5);
-  color: #fff;
-  font-size: 2rem;
-  transform: translate(-50%, -50%);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  transition: transform .3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.play i { margin-left: 4px; }
-.media:hover .play { transform: translate(-50%, -50%) scale(1.08); }
-.badge {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  z-index: 2;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(8, 12, 9, 0.6);
-  color: #fff;
-  font-size: 0.76rem;
-  font-weight: 600;
-}
-
-.actions { display: flex; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--v-line); }
-.sparkWrap { display: inline-flex; }
-.sparkWrap > div { width: auto !important; height: auto !important; }
-.act {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--v-text-2);
-  font-size: 0.88rem;
-  font-weight: 600;
-  transition: background-color .2s, border-color .2s, color .2s;
-}
-.act i { font-size: 1.08rem; }
-.act:hover { border-color: var(--v-line); background: var(--v-surface-2); color: var(--v-text); }
-.n { color: var(--v-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
-.on, .on:hover { border-color: var(--v-accent-line); background: var(--v-accent-soft); color: var(--v-accent-text); }
-.on .n { color: var(--v-accent-text); }
-.on i { animation: pop .45s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes pop { 40% { transform: scale(1.3); } }
-@media (max-width: 479.98px) {
-  .card { padding: 16px 14px 10px; border-radius: 18px; }
-  .label { display: none; }
-  .title { font-size: 1.15rem; }
-}
-
-/* Người dùng tắt hiệu ứng trong hệ điều hành → bỏ phóng ảnh và nhún tim */
-@media (prefers-reduced-motion: reduce) {
-  .img, .title a { transition: none; }
-  .media:hover .img { transform: none; }
-  .on i { animation: none; }
-}

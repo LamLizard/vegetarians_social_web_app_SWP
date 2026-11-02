@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Avatar from '../components/Avatar/Avatar';
 import Button from '../components/Button/Button';
-import DishBowl from '../components/DishBowl/DishBowl';
 import EmptyState from '../components/EmptyState/EmptyState';
 import Notice from '../components/Notice/Notice';
 import NumberStepper from '../components/NumberStepper/NumberStepper';
@@ -223,7 +222,7 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                 <span>{r.authorName}</span>
               </span>
               <span className={s.when}>· {timeAgo(r.createdAt)}</span>
-              <VoteButton className={s.like} noun="công thức" voted={like.on} count={like.count} onToggle={toggleLike} />
+              <VoteButton className={s.like} noun="công thức" icon="heart" voted={like.on} count={like.count} onToggle={toggleLike} />
             </div>
 
             {/* 27/10: thông số quyết định "có nấu không" → lên ngay dưới tiêu đề, số to, chia đều bề ngang */}
@@ -317,7 +316,6 @@ export default function RecipeDetailPage({ recipeId, user, accountMenu = [], onL
                       title={it.title}
                       dishName={it.dishName}
                       imageUrl={it.thumbnailUrl ?? undefined}
-                      fallback={<div className={s.plate}><DishBowl name={it.dishName} /></div>}
                       author={{ name: it.authorName, avatarUrl: it.authorAvatarUrl ?? undefined }}
                       createdAt={it.moderatedAt}
                       cookTimeMinutes={(it.prepTimeMinutes ?? 0) + (it.cookTimeMinutes ?? 0) || undefined}

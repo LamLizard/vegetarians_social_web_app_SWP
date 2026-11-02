@@ -1,42 +1,62 @@
-/* Khoi's code: theo prototype UI v2 (src/v2/App.module.css → .tabs / .tab / .tabOn). */
-.tabs {
-  display: flex;
-  flex: 1;
-  gap: 2px;
-  min-width: 0;
-  padding: 4px;
-  border: 1px solid var(--v-line);
-  border-radius: 14px;
-  background: var(--v-surface);
-}
+/* Khoi's code: hàng lọc chủ đề Bảng tin.
+   01/11/2026: theo prototype v4 (src/v4/components/FeedTabs.module.css) — tab chữ + gạch chân xanh, nút sắp xếp bên phải. */
+.wrap { position: relative; display: flex; flex: 1; align-items: center; gap: 4px; min-width: 0; border-bottom: 1px solid var(--v-line); container: feedtabs / inline-size; }
+.tabs { display: flex; flex: 1; gap: 4px; min-width: 0; overflow: hidden; }
 .tab {
+  position: relative;
   display: inline-flex;
-  flex: 1 1 auto;
+  flex: none;
   align-items: center;
-  justify-content: center;
   gap: 4px;
-  min-width: 0;
-  height: 32px;
-  padding: 0 8px;
+  height: 46px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 10px;
-  background: transparent;
+  background: none;
   color: var(--v-muted);
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   font-weight: 600;
   white-space: nowrap;
-  transition: color .2s, background-color .2s;
+  transition: color .15s;
 }
-.tab:hover { color: var(--v-text); background: var(--v-surface-2); }
-.on, .on:hover { background: var(--v-accent); color: var(--v-on-accent); }
-.moreWrap { display: flex; flex: 1 1 auto; min-width: 0; }
-.more { width: 100%; }
-.moreLabel { overflow: hidden; text-overflow: ellipsis; }
+.tab i { font-size: 0.75rem; }
+.tab:hover { color: var(--v-text); }
+.on, .on:hover { color: var(--v-text); }
+.on::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  bottom: 0;
+  left: 14px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--v-accent);
+}
+.moreWrap { display: flex; flex: none; }
+.measure { position: absolute; top: 0; left: 0; display: flex; visibility: hidden; pointer-events: none; }
+.moreLabel { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 
-/* Điện thoại: chia 3 cột đều, không cuộn ngang */
-@media (max-width: 767.98px) {
-  .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tab { padding: 0 6px; }
+.sortWrap { display: flex; flex: none; }
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--v-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sort i { font-size: 0.75rem; }
+.sort:hover, .sort[aria-expanded="true"] { background: var(--v-surface-2); color: var(--v-text); }
+
+/* Cột bảng tin hẹp (laptop + sidebar mở) → tab sát lại để không bị cắt chữ (đặt sau rule .tab gốc) */
+@container feedtabs (max-width: 680px) {
+  .tab { padding: 0 10px; font-size: 0.9rem; }
+  .on::after { right: 10px; left: 10px; }
 }
 
 /* Khoi's code 29/10: menu "+N chủ đề" có ô lọc nhanh */

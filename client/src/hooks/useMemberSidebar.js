@@ -5,9 +5,16 @@ import { useEffect, useState } from 'react';
 export const MEMBER_NAV = [
   { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
   { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '/recipes' },
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
+  { key: 'meal-plan', label: 'Thực đơn AI', short: 'Thực đơn', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '/meal-plan' },
+  // Khoi's code (01/11/2026): lối vào trang chatbot /chatbot của Tùng (trước chỉ vào được bằng gõ đường dẫn).
+  // short = nhãn ngắn cho thanh tab dưới đáy điện thoại (6 ô trên màn 390px, nhãn dài bị xuống dòng).
+  { key: 'chatbot', label: 'Trợ lý Mầm', short: 'Mầm', icon: 'chat-heart', iconActive: 'chat-heart-fill', href: '/chatbot' },
   { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
 ];
+
+/** Khoi's code (01/11/2026): mục đang mở theo đường dẫn — cho trang không truyền activeKey (vd /chatbot). */
+export const navKeyOf = (path = window.location.pathname) =>
+  MEMBER_NAV.find((n) => (n.href === '/' ? path === '/' : path === n.href || path.startsWith(`${n.href}/`)))?.key;
 const COLLAPSE_KEY = 'anchay-feed-sidebar-collapsed';
 const MOBILE_QUERY = '(max-width: 767.98px)';
 const readCollapsed = () => {

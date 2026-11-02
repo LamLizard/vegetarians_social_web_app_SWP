@@ -1,9 +1,9 @@
 // Tùng — Sprint 2: BRIDGE-02A trang Shop/Profile dùng sidebar và mobile nav giống Bảng tin.
 import { useLayoutEffect } from 'react';
 import useAuth from '../hooks/useAuth';
-import useMemberSidebar, { MEMBER_NAV } from '../hooks/useMemberSidebar';
+import useMemberSidebar, { MEMBER_NAV, navKeyOf } from '../hooks/useMemberSidebar';
 import { useShopNavigation } from '../context/ShopNavigationContext';
-import { ROLE } from '../constants/domain';
+import { APP_NAME, ROLE } from '../constants/domain';
 import FeedSidebar from './FeedSidebar/FeedSidebar';
 // Duy's Code: Dùng cùng popup trên các trang thành viên ngoài Bảng tin.
 import MemberNotificationBell from './MemberNotificationBell/MemberNotificationBell';
@@ -18,13 +18,15 @@ export function MemberMobileNav({ activeKey }) {
       return <a key={item.key} href={item.href} className={`${styles.mobileItem} ${active ? styles.active : ''}`}
         aria-current={active ? 'page' : undefined}>
         <i className={`bi bi-${active && item.iconActive ? item.iconActive : item.icon}`} aria-hidden="true" />
-        <span>{item.label}</span>
+        <span>{item.short ?? item.label}</span>
       </a>;
     })}
   </nav>;
 }
 
-export default function MemberNavigationLayout({ children, activeKey }) {
+export default function MemberNavigationLayout({ children, activeKey: activeKeyProp }) {
+  // Khoi's code 01/11: trang không truyền activeKey (vd /chatbot) → tự sáng mục theo đường dẫn
+  const activeKey = activeKeyProp ?? navKeyOf();
   const { user } = useAuth();
   const { shopAction, accountMenu } = useShopNavigation();
   const sidebar = useMemberSidebar();
@@ -37,7 +39,7 @@ export default function MemberNavigationLayout({ children, activeKey }) {
     return () => { delete document.documentElement.dataset.feedV2; };
   }, []);
 
-  return <div className={`feed-v2-page ${styles.shell}`}>
+  return <div className={`feed-v2-page ${styles.shell}`} data-collapsed={!sidebar.isMobile && sidebar.collapsed ? '1' : '0'}>
     <FeedSidebar nav={MEMBER_NAV} activeKey={activeKey}
       user={user ? { name: user.fullName || user.email, avatarUrl: user.avatarUrl, roleLabel: ROLE[user.role] } : null}
       accountMenu={memberAccountMenu} shopAction={shopAction} notificationSlot={<MemberNotificationBell role={user?.role} />}
@@ -47,7 +49,7 @@ export default function MemberNavigationLayout({ children, activeKey }) {
     <div className={styles.main}>
       <header className={styles.mobileHeader}>
         <IconButton icon="list" label="Mở menu" onClick={() => sidebar.setDrawerOpen(true)} />
-        <a href="/">Ăn Chay</a>
+        <a href="/">{APP_NAME}</a>
       </header>
       <main className={styles.content}>{children}</main>
     </div>

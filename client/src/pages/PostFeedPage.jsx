@@ -4,38 +4,48 @@
 //  - Thành viên: lướt vô hạn, thích (toggle), bình luận, báo cáo bài & bình luận, tìm theo tiêu đề.
 //  - Chỉ hiện bài status 'public' và 'reported' (BE lọc).
 //
-// Giao diện theo prototype UI v2 (bảng 6 màu ở styles/theme.scss, bố cục ở styles/feed-theme.css).
-// Cột phải của prototype (Hoạt động, Quán chay, Sôi nổi) và thẻ Mầm gợi ý chưa có dữ liệu thật → ẩn (09/10/2026).
+// Giao diện theo prototype v4 (Prototype_UI_SWP/src/v4 — chốt 01/11/2026): 3 cột co giãn theo thanh bên
+// (lưới ở styles/feed-theme.css :root[data-feed-v4]), màu ở styles/theme.scss.
 //
 // Cây component:
 //   PostFeedPage
 //   ├── MemberLayout (khung chung: FeedSidebar + thanh tab điện thoại — components/MemberLayout)
-//   ├── FeedTopbar (ô tìm kiếm, thẳng cột giữa)
-//   ├── FeedGreeting (cột trái: lời chào)
-//   ├── FeedComposer (ô đăng nhanh → mở CreatePostModal) · FeedFilter (lọc theo danh mục)
+//   ├── FeedTopbar (ô tìm kiếm, thẳng cột giữa, tự ẩn khi cuộn xuống)
+//   ├── FeedLeftRail (cột trái: Calo hôm nay · Công thức yêu thích · Chủ đề hay dùng — khách: mời đăng nhập)
+//   ├── FeedTodayDishes ("Hôm nay ăn gì?": 4 công thức có ảnh thật, đổi theo ngày)
+//   ├── FeedComposer (ô đăng nhanh: chữ/Ảnh → Blog, Camera → Video) · FeedFilter (lọc theo danh mục)
 //   ├── Notice (khách) · SkeletonCard (đang tải) · EmptyState (trống / hết lượt khách)
 //   ├── FadeContent → FeedPostCard × N (hiện dần khi cuộn tới)
-//   ├── PostDetailModal ── YouTubeEmbed | Photo, VoteButton, CommentSection
-//   ├── CreatePostModal · ReportDialog
+//   ├── FeedPostViewer (xem bài cỡ lớn: ảnh/video | nội dung + CommentSection) — thay PostDetailModal 01/11
+//   ├── FeedRightRail (cột phải: Quán chay đang mở · Nổi bật tuần này · Hỏi Mầm)
+//   ├── FeedComposeDialog (Đăng bài, cùng luật CreatePostModal) · ReportDialog
 //   └── LoginPrompt
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Button, EmptyState, LoginPrompt, Notice,
   ReportDialog, SkeletonCard, Spinner, getYouTubeId, useToast,
 } from '../components';
 // Khoi's code: Đăng bài (Sprint 2) + hiện **đậm** *nghiêng* trong nội dung bài
-import CreatePostModal from '../components/CreatePostModal/CreatePostModal';
+// Khoi's code (01/11/2026): popup v4 riêng cho Bảng tin — CreatePostModal/PostDetailModal giữ nguyên cho trang của Duy
+import FeedComposeDialog from '../components/FeedComposeDialog/FeedComposeDialog';
 import { stripMarks } from '../components/PostRichText/PostRichText';
 import FeedComposer from '../components/FeedComposer/FeedComposer';
 import FeedFilter from '../components/FeedFilter/FeedFilter';
-import FeedGreeting from '../components/FeedGreeting/FeedGreeting';
+// Khoi's code (01/11/2026): bố cục v4 — bỏ FeedGreeting (lời chào), thêm 2 cột bên + dải Hôm nay ăn gì?
+import FeedLeftRail from '../components/FeedRails/FeedLeftRail';
+import FeedRightRail from '../components/FeedRails/FeedRightRail';
+import FeedTodayDishes from '../components/FeedTodayDishes/FeedTodayDishes';
 import FeedPostCard from '../components/FeedPostCard/FeedPostCard';
 import MemberLayout, { toPerson } from '../components/MemberLayout/MemberLayout';
-import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
+import FeedPostViewer from '../components/FeedPostViewer/FeedPostViewer';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
 import chatbotService from '../services/chatbot.service';
+import mealPlanService from '../services/meal-plan.service';
+import recipeService from '../services/recipe.service';
+import shopService from '../services/shop.service';
+import { localDateKey } from '../utils/dailyPick';
 // Tùng: I-AI-01 — chỉ create/comment dùng contract Moderation; feed/vote/report giữ service cũ.
 import postContentService from '../services/postContent.service';
 import styles from './PostFeedPage.module.css';
@@ -57,6 +67,15 @@ const scopeOf = (v) => SEARCH_SCOPES.find((o) => o.value === v) ?? SEARCH_SCOPES
 
 // Người dùng tắt hiệu ứng trong hệ điều hành → thẻ bài hiện ngay, không mờ dần
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Khoi's code (01/11/2026): thứ Hai của tuần này (giờ máy) — API Thực đơn AI nhận weekStart là thứ Hai
+const mondayKey = (now = new Date()) => {
+  const d = new Date(now);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return localDateKey(d);
+};
+const TOP_TOPICS = 6; // số chủ đề ở khối "Chủ đề hay dùng"
+const MAX_SHOP_PAGES = 12; // Khoi's code 01/11: chặn trên khi tải tất cả quán (9 quán/trang ≈ 108 quán)
 
 /**
  * @param {{id, fullName, avatarUrl?}|null} user   null = khách (lấy từ useAuth() ở App)
@@ -86,6 +105,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const [scope, setScope] = useState(() => scopeOf(initialParam('in')).value); // Khoi's code 28/10: phạm vi tìm (?in=)
   const searchScope = query ? scope : 'all'; // chưa tìm thì đổi phạm vi không cần tải lại bảng tin
   const [categoryId, setCategoryId] = useState(null); // Khoi's code: lọc theo danh mục (null = Tất cả)
+  const [sort, setSort] = useState('new'); // Khoi's code 01/11: 'new' Mới nhất · 'top' Nhiều tim
   const [feedRevision, setFeedRevision] = useState(0);
   const feedGenerationRef = useRef(0);
   const readyFeedRef = useRef(null);
@@ -116,8 +136,76 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   const requireLogin = () => setLoginOpen(true);
 
+  // ---------- Khoi's code (01/11/2026): bố cục v4 + dữ liệu 2 cột bên ----------
+  useLayoutEffect(() => {
+    document.documentElement.dataset.feedV4 = '';
+    return () => { delete document.documentElement.dataset.feedV4; };
+  }, []);
+  const [recipes, setRecipes] = useState(null);                       // GET /api/recipes (null = đang tải)
+  const [shops, setShops] = useState(null);                           // GET /api/shops tất cả các trang (chỉ thành viên)
+  const [plan, setPlan] = useState({ status: 'loading', today: null }); // Thực đơn AI hôm nay (chỉ đọc)
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setRecipes(null);
+    recipeService.listRecipes()
+      .then((res) => alive && setRecipes(res.items ?? []))
+      .catch(() => alive && setRecipes([]));
+    if (!isGuest) {
+      setShops(null);
+      // Khoi's code 01/11: lấy TẤT CẢ quán đã xác minh (API phân trang 9 quán/trang) → trang 1 cho biết totalPages, các trang còn lại tải song song
+      shopService.getShops({ page: 1 })
+        .then(async (first) => {
+          const pages = Math.min(first.totalPages ?? 1, MAX_SHOP_PAGES);
+          const rest = await Promise.all(
+            Array.from({ length: pages - 1 }, (_, i) => shopService.getShops({ page: i + 2 }).then((r) => r.items ?? []).catch(() => [])),
+          );
+          const seen = new Set();
+          const all = [first.items ?? [], ...rest].flat().filter((x) => !seen.has(x.id) && seen.add(x.id));
+          if (alive) setShops(all);
+        })
+        .catch(() => alive && setShops([]));
+      setPlan({ status: 'loading', today: null });
+      mealPlanService.getWeek(mondayKey())
+        .then(({ days = [] }) => {
+          if (!alive) return;
+          const today = days.find((d) => d.date === localDateKey())?.plan ?? null;
+          setPlan({ status: 'ready', today });
+        })
+        .catch(() => alive && setPlan({ status: 'error', today: null }));
+    }
+    return () => { alive = false; };
+  }, [isGuest, viewerContext]);
+
+  // Thả tim công thức ở cột bên = "Công thức yêu thích" (recipe_like). Cập nhật ngay, lỗi thì trả lại.
+  const toggleRecipeLike = async (recipe) => {
+    if (isGuest) { requireLogin(); return; }
+    const was = !!recipe.likedByMe;
+    const patch = (liked, delta) => setRecipes((list) => list?.map((r) => (r.id === recipe.id
+      ? { ...r, likedByMe: liked, likeCount: Math.max(0, (r.likeCount ?? 0) + delta), likesThisWeek: Math.max(0, (r.likesThisWeek ?? 0) + delta) }
+      : r)));
+    patch(!was, was ? -1 : 1);
+    try {
+      const res = was ? await recipeService.unlikeRecipe(recipe.id) : await recipeService.likeRecipe(recipe.id);
+      setRecipes((list) => list?.map((r) => (r.id === recipe.id ? { ...r, likedByMe: res.liked, likeCount: res.likeCount } : r)));
+    } catch (err) {
+      patch(was, was ? 1 : -1);
+      toast(err.message || 'Chưa lưu được, thử lại sau', { tone: 'alert' });
+    }
+  };
+
+  // Nút "Lên đầu trang" sau khi cuộn quá 900px
+  useEffect(() => {
+    const onScroll = () => setShowTop(window.scrollY > 900);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // ---------- Khoi's code: Đăng bài (Sprint 2) ----------
   const [createOpen, setCreateOpen] = useState(false);
+  // Khoi's code 01/11: loại bài mở sẵn + lần mở thứ mấy (hộp áp lại loại bài mỗi lần mở, nháp giữ nguyên)
+  const [compose, setCompose] = useState({ key: 0, type: 'blog', focus: undefined });
   const [categories, setCategories] = useState({ status: 'idle', items: [] }); // idle | loading | ready | error
 
   const loadCategories = async () => {
@@ -130,9 +218,12 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     }
   };
 
-  const openCreate = () => {
+  // Khoi's code 01/11: opts từ ô soạn bài — { type: 'blog'|'video', focus?: 'cover' }; nút "+ Đăng bài" ở sidebar = Blog
+  const openCreate = (opts) => {
     if (isGuest) { requireLogin(); return; }
     if (categories.status !== 'ready' && categories.status !== 'loading') loadCategories(); // tải tag 1 lần, lỗi thì lần mở sau tải lại
+    const { type = 'blog', focus } = opts?.type ? opts : {};
+    setCompose((c) => ({ key: c.key + 1, type, focus }));
     setCreateOpen(true);
   };
 
@@ -225,7 +316,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     setStatus('loading');
     (async () => {
       try {
-        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query, scope: searchScope, categoryId });
+        const res = isGuest ? await postService.getPreview() : await postService.getFeed({ q: query, scope: searchScope, categoryId, sort });
         if (!isCurrent()) return;
         readyFeedRef.current = { generation, context, cursor: isGuest ? null : res.nextCursor ?? null };
         setItems((current) => (isCurrent() ? res.items : current));
@@ -238,7 +329,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
       }
     })();
     return () => { ignore = true; };
-  }, [isGuest, query, searchScope, categoryId, reloadKey, feedRevision, viewerContext, isViewerCurrent]);
+  }, [isGuest, query, searchScope, categoryId, sort, reloadKey, feedRevision, viewerContext, isViewerCurrent]);
 
   // ---------- Lướt vô hạn ----------
   const loadMore = useCallback(async () => {
@@ -255,7 +346,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
     const isCurrentFeed = () => feedGenerationRef.current === generation && isViewerCurrent(context);
     setLoadingMore(true);
     try {
-      const res = await postService.getFeed({ cursor: nextCursor, q: query, scope: searchScope, categoryId });
+      const res = await postService.getFeed({ cursor: nextCursor, q: query, scope: searchScope, categoryId, sort });
       if (!isCurrent()) return;
       ready.cursor = res.nextCursor ?? null;
       setItems((list) => (isCurrentFeed() ? [...list, ...res.items] : list));
@@ -268,7 +359,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         setLoadingMore((current) => (isCurrentFeed() && !moreRequestRef.current ? false : current));
       }
     }
-  }, [nextCursor, status, loadingMore, query, searchScope, categoryId, toast, viewerContext, isViewerCurrent, renderFeedGeneration]);
+  }, [nextCursor, status, loadingMore, query, searchScope, categoryId, sort, toast, viewerContext, isViewerCurrent, renderFeedGeneration]);
 
   const sentinelRef = useRef(null);
   useEffect(() => {
@@ -348,6 +439,7 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
 
   // Khoi's code 29/10: hàng lọc xếp chủ đề theo số bài đang hiện (nhiều nhất trước) → 4 nút đầu là chủ đề hay dùng nhất
   const topicsByUse = [...categories.items].sort((a, b) => (b.postCount ?? 0) - (a.postCount ?? 0) || a.name.localeCompare(b.name, 'vi'));
+  const favorites = recipes?.filter((r) => r.likedByMe) ?? null; // Khoi's code 01/11: khối Công thức yêu thích
   // Bấm chip chủ đề trên thẻ bài / trong bài → lọc Bảng tin theo chủ đề đó, cuộn lên đầu
   const filterByTopic = (topic) => {
     if (isGuest) { requireLogin(); return; }
@@ -364,6 +456,11 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   const changeCategory = (id) => {
     if (id !== categoryId) invalidateFeed();
     setCategoryId(id);
+  };
+  // Khoi's code 01/11: Mới nhất ⇄ Nhiều tim → tải lại từ đầu
+  const changeSort = (value) => {
+    if (value !== sort) invalidateFeed();
+    setSort(value);
   };
   const clearSearch = () => {
     if (query) invalidateFeed();
@@ -394,21 +491,33 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         />
       )}
     >
-        {/* 3 cột (lưới --v-cols chung với thanh trên): lời chào | bảng tin | (cột phải để trống) */}
+        {/* Khoi's code (01/11/2026): 3 cột co giãn (lưới --v-cols chung với thanh trên): của bạn | bảng tin | khám phá */}
         <div className={styles.layout}>
-        <aside className={styles.left} aria-label="Lời chào">
-          <FeedGreeting user={toPerson(user)} />
-        </aside>
+        <div className={styles.left}>
+          <FeedLeftRail
+            isGuest={isGuest}
+            plan={plan}
+            favorites={favorites}
+            onLike={toggleRecipeLike}
+            topics={topicsByUse.filter((t) => t.postCount > 0).slice(0, TOP_TOPICS)}
+            activeTopicId={categoryId}
+            onTopic={(topic) => (topic ? filterByTopic(topic) : changeCategory(null))}
+            onLogin={onLogin}
+            onRegister={onRegister}
+          />
+        </div>
 
         <main className={styles.feed} aria-labelledby="feed-title">
+          {!query && <FeedTodayDishes recipes={recipes} />}
           {/* Khoi's code: ô đăng nhanh → mở hộp Đăng bài đầy đủ (Sprint 2) */}
           {!isGuest && !query && <FeedComposer user={toPerson(user)} onCompose={openCreate} />}
 
+          {/* Khoi's code 01/11: hàng chủ đề kiểu v4 (gạch chân + Thêm ▾ + Mới nhất/Nhiều tim); tiêu đề "Bảng tin" chỉ cho trình đọc màn hình */}
           <div className={styles.feedHead}>
-            <h1 id="feed-title" className={styles.feedTitle}>{query ? 'Kết quả tìm kiếm' : 'Bảng tin'}</h1>
+            <h1 id="feed-title" className={query ? styles.feedTitle : 'visually-hidden'}>{query ? 'Kết quả tìm kiếm' : 'Bảng tin'}</h1>
             {/* Khách chỉ xem 3 bài cố định → không có lọc */}
             {!isGuest && categories.status === 'ready' && categories.items.length > 0 && (
-              <FeedFilter options={topicsByUse} value={categoryId} onChange={changeCategory} />
+              <FeedFilter options={topicsByUse} value={categoryId} onChange={changeCategory} sort={sort} onSortChange={changeSort} />
             )}
           </div>
 
@@ -505,9 +614,25 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
             <p className={styles.end}>Bạn đã xem hết bài viết</p>
           )}
         </main>
+
+        <div className={styles.right}>
+          <FeedRightRail isGuest={isGuest} shops={shops} recipes={recipes} onLike={toggleRecipeLike} />
+        </div>
         </div>
 
-      <PostDetailModal
+      {/* Khoi's code (01/11/2026): Lên đầu trang — góc dưới phải, cột bên chừa sẵn 68px nên không đè */}
+      <button
+        type="button"
+        className={`${styles.toTop} ${showTop ? styles.toTopOn : ''}`}
+        onClick={() => window.scrollTo({ top: 0, behavior: reduceMotion() ? 'auto' : 'smooth' })}
+        aria-label="Lên đầu trang"
+        tabIndex={showTop ? 0 : -1}
+      >
+        <i className="bi bi-arrow-up" aria-hidden="true" />
+      </button>
+
+      {/* Khoi's code (01/11/2026): xem bài cỡ lớn (v4) — cùng props với PostDetailModal */}
+      <FeedPostViewer
         key={`${viewerId}:${openedPost?.id ?? ''}`}
         post={openedPost}
         toComments={opened?.toComments}
@@ -531,10 +656,14 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
         onClose={() => setReportTarget(null)}
       />
 
-      {/* Khoi's code: hộp Đăng bài (Sprint 2) */}
-      <CreatePostModal
+      {/* Khoi's code: hộp Đăng bài (Sprint 2) · 01/11/2026: giao diện v4, mở đúng loại bài theo nút vừa bấm */}
+      <FeedComposeDialog
         key={viewerId}
         open={createOpen}
+        openKey={compose.key}
+        initialType={compose.type}
+        focus={compose.focus}
+        user={toPerson(user)}
         onClose={() => setCreateOpen(false)}
         categories={categories}
         onRetryCategories={loadCategories}

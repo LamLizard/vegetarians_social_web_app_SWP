@@ -32,8 +32,9 @@ export const FEED_PAGE_SIZE = 5;
 // =====================================================================
 const real = {
   getPreview: () => apiFetch('/posts/preview'),
-  getFeed: ({ cursor, q, scope, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
+  getFeed: ({ cursor, q, scope, categoryId, sort, limit = FEED_PAGE_SIZE } = {}) => {
     const params = new URLSearchParams({ limit: String(limit) });
+    if (sort && sort !== 'new') params.set('sort', sort); // Khoi's code 01/11: 'top' = Nhiều tim
     if (cursor) params.set('cursor', cursor);
     if (q) params.set('q', q);
     if (q && scope && scope !== 'all') params.set('in', scope); // Khoi's code 28/10: phạm vi tìm (title · author · topic)
@@ -151,7 +152,7 @@ const mock = {
     return { items: mockPreview() };
   },
 
-  async getFeed({ cursor, q, scope = 'all', categoryId, limit = FEED_PAGE_SIZE } = {}) {
+  async getFeed({ cursor, q, scope = 'all', categoryId, sort = 'new', limit = FEED_PAGE_SIZE } = {}) {
     await wait();
     const keyword = (q ?? '').trim().toLowerCase();
     // Khoi's code 28/10: mock tìm theo phạm vi (bản thật bỏ dấu ở server)
@@ -165,10 +166,17 @@ const mock = {
       .filter((p) => VISIBLE.includes(p.status))
       .filter((p) => !keyword || hit(p))
       .filter((p) => !categoryId || p.categories.some((c) => c.id === categoryId))
-      .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
-      .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
-    const items = list.slice(0, limit).map(withVote);
-    return { items, nextCursor: list.length > limit ? items[items.length - 1].id : null };
+      .sort((a, b) => Number(b.id) - Number(a.id));            // mock: coi id tăng theo lúc đăng
+    if (sort === 'top') {
+      // Khoi's code 01/11: mock "Nhiều tim" — cursor = số bài đã bỏ qua
+      const ranked = list.map(withVote).sort((a, b) => b.voteCount - a.voteCount || Number(b.id) - Number(a.id));
+      const start = Number(cursor) || 0;
+      const items = ranked.slice(start, start + limit);
+      return { items, nextCursor: ranked.length > start + limit ? String(start + limit) : null };
+    }
+    const after = list.filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
+    const items = after.slice(0, limit).map(withVote);
+    return { items, nextCursor: after.length > limit ? items[items.length - 1].id : null };
   },
 
   async toggleVote(postId) {

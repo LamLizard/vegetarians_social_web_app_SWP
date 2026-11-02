@@ -24,7 +24,8 @@ import styles from './UserPostManagementPage.module.css';
 // Duy's Code: Bộ lọc khớp enum post_status_enum của database hiện tại.
 const STATUS_OPTIONS = [
   ['all', 'Tất cả trạng thái'], ['pending', 'Chờ duyệt'], ['public', 'Công khai'],
-  ['reported', 'Đang bị báo cáo'], ['deleted', 'Đã gỡ / đã xóa'],
+  ['edit_pending', 'Bài viết chờ cập nhật'],
+  ['deleted', 'Đã gỡ / đã xóa'],
 ];
 
 // Duy's Code: Trang cá nhân chỉ gọi API; quyền sở hữu luôn được xác thực lại ở server.
@@ -95,8 +96,8 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     const params = new URLSearchParams(window.location.search);
     const editResult = params.get('editResult');
     if (!editResult) return;
-    if (editResult === 'success') toast('Đã gửi bài chỉnh sửa, đang chờ duyệt', { tone: 'info' });
-    if (editResult === 'conflict') toast('Bài viết đã thay đổi trạng thái, không thể sửa', { tone: 'alert' });
+    if (editResult === 'success') toast('Đã gửi bản sửa. Bản sửa đang chờ quản trị viên duyệt.', { tone: 'info' });
+    if (editResult === 'conflict') toast('Bài viết hiện chưa thể chỉnh sửa hoặc xóa.', { tone: 'info' });
     params.delete('editResult');
     const query = params.toString();
     window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
@@ -156,7 +157,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
   }, [postId, result]);
 
   // Duy's Code: Server chỉ cho sửa public và xóa pending/public; UI đồng bộ để tránh thao tác không hợp lệ.
-  const canDelete = (post) => ['pending', 'public'].includes(post.status);
+  const canDelete = (post) => ['pending', 'public', 'reported'].includes(post.status);
 
   // Duy's Code: Cập nhật số liệu ở card và popup cùng lúc sau like/bình luận.
   const patchPost = useCallback((id, patch) => {
@@ -227,7 +228,9 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
       setDeleting(null);
       setReloadKey((key) => key + 1);
     } catch (err) {
-      toast(err.message || 'Không thể xóa bài viết.', { tone: 'alert' });
+      const unavailable = deleting.status === 'reported';
+      toast(unavailable ? 'Bài viết hiện chưa thể chỉnh sửa hoặc xóa.' : err.message || 'Không thể xóa bài viết.',
+        { tone: unavailable ? 'info' : 'alert' });
     } finally { setSaving(false); }
   };
 
@@ -270,7 +273,8 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                   {(() => {
                     const displayStatus = getMyPostDisplayStatus(post);
                     const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
-                    const badgeStatus = displayStatus === 'removed' || displayStatus === 'deleted' ? 'deleted' : displayStatus;
+                    const badgeStatus = displayStatus === 'reported' ? 'public'
+                      : displayStatus === 'removed' || displayStatus === 'deleted' ? 'deleted' : displayStatus;
                     const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối' : 'Quản trị viên từ chối')
                       : displayStatus === 'removed' ? 'Đã gỡ' : displayStatus === 'deleted' ? 'Đã xóa' : undefined;
                     return <StatusBadge entity="post" status={badgeStatus} label={label} toneOverride={redStatus ? 'bad' : undefined} size="sm" />;
@@ -294,9 +298,15 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
                 author={{ name: user?.fullName || user?.email, avatarUrl: user?.avatarUrl }} createdAt={post.createdAt}
                 voteCount={post.voteCount} commentCount={post.commentCount} viewCount={post.viewCount}
                 titleOnlyOpen onOpen={() => openPost(post)} titleLinkClassName={styles.titleLink}
-                isOwner onEdit={canEdit(post) ? () => window.location.assign(`/posts/${encodeURIComponent(post.id)}/edit`) : undefined}
+                isOwner onEdit={canEdit(post) ? () => {
+                  if (post.hasPendingEdit && post.status !== 'reported') {
+                    toast('Bản sửa đang chờ quản trị viên duyệt. Bài viết hiện tại vẫn công khai.', { tone: 'info' });
+                    return;
+                  }
+                  window.location.assign(`/posts/${encodeURIComponent(post.id)}/edit`);
+                } : undefined}
                 onDelete={canDelete(post) ? () => setDeleting(post) : undefined} />
-              {post.status === 'reported' && <p className={styles.policy}>Bài đang được xem xét theo báo cáo nên tạm thời không thể sửa hoặc xóa.</p>}
+              {post.hasPendingEdit && <p className={styles.policy}>Bản sửa đang chờ quản trị viên duyệt. Bài viết hiện tại vẫn công khai.</p>}
             </article>
           ))}
         </div>}

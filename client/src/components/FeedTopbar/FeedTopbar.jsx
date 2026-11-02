@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import Menu from '../Menu/Menu';
 import s from './FeedTopbar.module.css';
 
@@ -15,6 +16,7 @@ import s from './FeedTopbar.module.css';
  * @param {{value: string, label: string, icon: string, hint?: string}[]} [scopes]
  *        Khoi's code 28/10: có → nút chọn phạm vi tìm ở đầu ô tìm (vd Tất cả · Tiêu đề · Tác giả · Chủ đề). Không truyền → như cũ.
  * @param {string} [scope] · @param {(v: string) => void} [onScopeChange]
+ * Khoi's code (01/11/2026): tự ẩn khi cuộn xuống, hiện lại khi cuộn lên (mọi trang dùng thanh này).
  */
 export default function FeedTopbar({
   value,
@@ -30,8 +32,35 @@ export default function FeedTopbar({
   onScopeChange,
 }) {
   const current = scopes?.find((o) => o.value === scope) ?? scopes?.[0];
+
+  // Khoi's code (01/11/2026): cuộn xuống → ẩn thanh (thêm chỗ đọc bài), cuộn lên → hiện lại.
+  // Báo cho trang qua <html data-head-hidden> để cột bên dính sát mép trên (styles/feed-theme.css).
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y > last + 6 && y > 140) setHidden(true);
+        else if (y < last - 6 || y < 80) setHidden(false);
+        last = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (hidden) root.dataset.headHidden = ''; else delete root.dataset.headHidden;
+    return () => { delete root.dataset.headHidden; };
+  }, [hidden]);
+
   return (
-    <header className={`${s.bar} ${hideSearch ? s.noSearch : ''}`}>
+    <header className={`${s.bar} ${hideSearch ? s.noSearch : ''} ${hidden ? s.hidden : ''}`}>
       <div className={s.inner}>
         <button type="button" className={s.menuBtn} onClick={onOpenMenu} aria-label="Mở menu">
           <i className="bi bi-list" aria-hidden="true" />

@@ -91,24 +91,6 @@
 :global([data-theme="dark"]) .flag { color: var(--v-bg); }
 
 
-/* Chưa có ảnh: bát minh hoạ trên nền vàng mơ (giống RecipeCard) */
-.fallback {
-  display: grid;
-  grid-template-rows: 100%;
-  place-items: center;
-  height: 100%;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--v-marigold) 18%, var(--v-surface));
-}
-.plate, .plateSm {
-  display: grid;
-  place-items: center;
-  height: 64%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
-}
-.plateSm { height: 80%; }
 
 /* ---------- Danh sách bên phải ---------- */
 .list { display: grid; grid-auto-rows: 1fr; gap: 8px; margin: 0; padding: 0; list-style: none; }

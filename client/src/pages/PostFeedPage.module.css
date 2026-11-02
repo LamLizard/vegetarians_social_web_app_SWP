@@ -4,6 +4,8 @@
    (Hoạt động, Quán chay, Sôi nổi, Mầm gợi ý chưa có dữ liệu thật → ẩn, 09/10/2026). */
 /* Khung (.shell, .main, thanh tab dưới đáy) đã chuyển sang components/MemberLayout (11/10/2026) */
 
+/* Khoi's code (01/11/2026): 3 cột co giãn theo thanh bên (bố cục v4) — cỡ cột do --v-cols (styles/feed-theme.css).
+   Cột bên dính khi cuộn: xem FeedRails.module.css (.rail). */
 .layout {
   display: grid;
   grid-template-columns: var(--v-cols);
@@ -13,11 +15,10 @@
   margin-inline: auto;
   padding: 24px 0 96px;
 }
-.left {
-  position: sticky;
-  top: 88px;
-}
-.feed { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.left, .right { align-self: stretch; min-width: 0; } /* stretch → cột cao bằng bảng tin, .rail bên trong dính được suốt trang */
+.left { grid-column: 1; }
+.feed { grid-column: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.right { grid-column: 3; }
 
 .list { display: grid; gap: 18px; }
 
@@ -57,15 +58,46 @@
   border-block: 1px solid var(--ac-border);
 }
 
-/* ---------- Màn hẹp ---------- */
-/* Vùng chính < 800px: còn 1 cột, lời chào nằm trên bảng tin */
-@container feedmain (max-width: 799.98px) {
-  .layout { grid-template-columns: minmax(0, 680px); justify-content: center; gap: 20px; }
-  .left { position: static; }
+/* ---------- Màn hẹp (Khoi's code 01/11: theo chỗ trống THẬT của vùng chính, cùng mốc với feed-theme.css) ---------- */
+/* < 1260px: bỏ cột trái → 2 cột bảng tin | khám phá */
+@container feedmain (max-width: 1259.98px) {
+  .left { display: none; }
+  .feed { grid-column: 1; }
+  .right { grid-column: 2; }
 }
+/* < 996px: chỉ còn bảng tin */
+@container feedmain (max-width: 995.98px) {
+  .layout { gap: 20px; }
+  .right { display: none; }
+}
+
+/* ---------- Lên đầu trang ---------- */
+.toTop {
+  position: fixed;
+  z-index: 1030;
+  right: 18px;
+  bottom: 14px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--v-line);
+  border-radius: 50%;
+  background: var(--v-surface);
+  color: var(--v-text);
+  font-size: 1.05rem;
+  box-shadow: var(--ac-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity .2s, transform .2s, border-color .15s, color .15s;
+}
+.toTopOn { opacity: 1; pointer-events: auto; transform: none; }
+.toTop:hover { border-color: var(--v-accent); color: var(--v-accent-text); }
 
 /* ---------- Điện thoại ---------- */
 @media (max-width: 767.98px) {
   .layout { width: calc(100% - 24px); padding: 16px 0 120px; }
+  .toTop { bottom: calc(92px + env(safe-area-inset-bottom)); right: 14px; } /* trên thanh tab nổi */
   .feedHead { flex-direction: column; align-items: stretch; gap: 8px; }
 }

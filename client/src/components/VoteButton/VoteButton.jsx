@@ -13,18 +13,20 @@ import styles from './VoteButton.module.css';
  * @param {'sm'|'md'} [size='md']
  * @param {boolean} [disabled]  vd bài đang chờ duyệt
  * @param {string} [noun='bài viết']  Khoi's code: đọc cho trình đọc màn hình, vd 'công thức'
+ * @param {'thumbs'|'heart'} [icon='thumbs']  Khoi's code 01/11: 'heart' = trái tim đỏ (trang Công thức, đồng bộ với Bảng tin)
  */
-export default function VoteButton({ voted = false, count = 0, onToggle, size = 'md', disabled, noun = 'bài viết', className }) {
+export default function VoteButton({ voted = false, count = 0, onToggle, size = 'md', disabled, noun = 'bài viết', icon = 'thumbs', className }) {
+  const glyph = icon === 'heart' ? 'heart' : 'hand-thumbs-up';
   return (
     <button
       type="button"
-      className={cx(styles.vote, voted && styles.on, size === 'sm' && styles.sm, className)}
+      className={cx(styles.vote, voted && styles.on, size === 'sm' && styles.sm, icon === 'heart' && styles.heart, className)}
       aria-pressed={voted}
       aria-label={`${voted ? 'Bỏ thích' : 'Thích'} ${noun}, ${count} lượt thích`}
       onClick={onToggle}
       disabled={disabled}
     >
-      <i className={`bi bi-${voted ? 'hand-thumbs-up-fill' : 'hand-thumbs-up'}`} aria-hidden="true" />
+      <i className={`bi bi-${voted ? `${glyph}-fill` : glyph}`} aria-hidden="true" />
       <span className={styles.count} aria-hidden="true">{formatCount(count)}</span>
     </button>
   );
