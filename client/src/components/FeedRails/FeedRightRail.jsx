@@ -2,7 +2,7 @@
 //  1. Quán chay đang mở — GET /api/shops (TẤT CẢ các trang, xem PostFeedPage); giờ mở cửa tính ở ./shopStatus.js,
 //     tự tính lại mỗi phút. Xếp: đang mở → sắp mở lại sớm nhất → chưa có giờ.
 //  2. Nổi bật tuần này  — nhiều lượt thích 7 ngày nhất (likesThisWeek, giống khung Nổi bật trang Công thức)
-//  3. Hỏi Mầm           — lối vào trang chatbot /chatbot
+//  3. Hỏi Mầm           — lối vào trang chatbot: bấm câu gợi ý → /chatbot?ask=<câu> (điền sẵn vào ô chat, Enter là gửi)
 // Khách: chỉ có "Hỏi Mầm" (danh sách quán cần đăng nhập).
 import { useEffect, useMemo, useState } from 'react';
 import Photo from '../Photo/Photo';
@@ -124,10 +124,10 @@ export default function FeedRightRail({ isGuest, shops, recipes, onLike }) {
             <small>Trợ lý cho những bữa ăn chay của bạn</small>
           </div>
         </div>
-        {/* Bấm câu hỏi → mở trang Mầm (chưa điền sẵn câu: trang chatbot của Tùng chưa nhận câu hỏi từ link) */}
+        {/* Bấm câu hỏi → mở trang Mầm, câu được điền sẵn vào ô chat (ChatbotPage đọc ?ask=) */}
         <div className={s.asks}>
           {ASK_EXAMPLES.map((q) => (
-            <a key={q} className={s.ask} href="/chatbot">
+            <a key={q} className={s.ask} href={`/chatbot?ask=${encodeURIComponent(q)}`}>
               <span>{q}</span>
               <i className="bi bi-arrow-up-right" aria-hidden="true" />
             </a>
