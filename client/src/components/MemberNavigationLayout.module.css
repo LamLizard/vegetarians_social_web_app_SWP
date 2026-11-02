@@ -23,4 +23,7 @@
     font-size: .66rem; font-weight: 600; text-decoration: none; }
   .mobileItem i { font-size: 1.2rem; }
   .active { color: var(--v-accent-text); }
+  /* Khoi's code 01/11: nút "+ Đăng bài" giữa thanh tab — giống .mCreate của MemberLayout */
+  .mobileCreate { justify-self: center; display: grid; place-items: center; width: 48px; height: 44px; border: 0;
+    border-radius: 14px; background: var(--v-accent); color: var(--v-on-accent); font-size: 1.25rem; }
 }

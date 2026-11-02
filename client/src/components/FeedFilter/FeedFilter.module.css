@@ -32,7 +32,9 @@
   background: var(--v-accent);
 }
 .moreWrap { display: flex; flex: none; }
-.measure { position: absolute; top: 0; left: 0; display: flex; visibility: hidden; pointer-events: none; }
+/* Khoi's code 01/11: rộng 0 + cắt tràn — không thì hàng đo ẩn vẫn nới bề ngang trang (390px → 448px, đẩy thanh tab điện thoại ra ngoài màn hình) */
+.measure { position: absolute; top: 0; left: 0; display: flex; width: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+.measure > * { flex: none; white-space: nowrap; }
 .moreLabel { max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 
 .sortWrap { display: flex; flex: none; }

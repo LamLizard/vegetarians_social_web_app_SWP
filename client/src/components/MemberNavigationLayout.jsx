@@ -12,18 +12,25 @@ import IconButton from './IconButton/IconButton';
 import '../styles/feed-theme.css';
 import styles from './MemberNavigationLayout.module.css';
 
-export function MemberMobileNav({ activeKey }) {
+// Khoi's code (01/11/2026): onCreate → nút "+ Đăng bài" ở giữa thanh tab (như Bảng tin / MemberLayout)
+export function MemberMobileNav({ activeKey, onCreate }) {
   return <nav className={styles.mobileNav} aria-label="Điều hướng nhanh">
-    {MEMBER_NAV.map(item => {
+    {MEMBER_NAV.map((item, index) => {
       const active = item.key === activeKey;
-      return <a key={item.key} href={item.href} className={`${styles.mobileItem} ${active ? styles.active : ''}`}
+      const link = <a key={item.key} href={item.href} className={`${styles.mobileItem} ${active ? styles.active : ''}`}
         aria-current={active ? 'page' : undefined}>
         <i className={`bi bi-${active && item.iconActive ? item.iconActive : item.icon}`} aria-hidden="true" />
         <span>{item.short ?? item.label}</span>
       </a>;
+      return onCreate && index === 2
+        ? [<button key="create" type="button" className={styles.mobileCreate} onClick={onCreate} aria-label="Đăng bài"><i className="bi bi-plus-lg" aria-hidden="true" /></button>, link]
+        : link;
     })}
   </nav>;
 }
+
+// Khoi's code (01/11/2026): "+ Đăng bài" ở trang ngoài Bảng tin → về Bảng tin và mở hộp Đăng bài
+const openComposeOnFeed = () => window.location.assign('/?compose=1');
 
 export default function MemberNavigationLayout({ children, activeKey: activeKeyProp }) {
   // Khoi's code 01/11: trang không truyền activeKey (vd /chatbot) → tự sáng mục theo đường dẫn
@@ -58,6 +65,7 @@ function NonMemberNavigationLayout({ children, activeKey, user, accountMenu, sho
     <FeedSidebar nav={MEMBER_NAV} activeKey={activeKey}
       user={user ? { name: user.fullName || user.email, avatarUrl: user.avatarUrl, roleLabel: ROLE[user.role] } : null}
       accountMenu={memberAccountMenu} shopAction={shopAction} notificationSlot={<MemberNotificationBell role={user?.role} />}
+      onCreate={user ? openComposeOnFeed : undefined} /* Khoi's code 01/11: đồng nhất với Bảng tin */
       collapsed={!sidebar.isMobile && sidebar.collapsed} onToggle={sidebar.toggleCollapsed}
       mobileOpen={sidebar.isMobile && sidebar.drawerOpen} onCloseMobile={() => sidebar.setDrawerOpen(false)}
       onLogin={() => window.location.assign('/login')} onRegister={() => window.location.assign('/register')} />
@@ -68,6 +76,6 @@ function NonMemberNavigationLayout({ children, activeKey, user, accountMenu, sho
       </header>
       <main className={styles.content}>{children}</main>
     </div>
-    <MemberMobileNav activeKey={activeKey} />
+    <MemberMobileNav activeKey={activeKey} onCreate={user ? openComposeOnFeed : undefined} />
   </div>;
 }
