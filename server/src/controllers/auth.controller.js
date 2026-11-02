@@ -27,6 +27,11 @@ const reply = (res, status, payload) => res.status(status).json(payload);
 const normalizeEmail = (value) => String(value ?? '').trim().toLowerCase();
 const generateOtp = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 
+// Render free chặn outbound SMTP (port 25/465/587) nên không gửi được mail OTP.
+// MAIL_FALLBACK_LOG=1 (chỉ dùng cho demo/không có email provider): giữ OTP lại và ghi
+// mã vào log máy chủ, thay vì xoá OTP + trả 500 để người dùng không đăng ký được.
+const mailFallbackToLog = () => String(process.env.MAIL_FALLBACK_LOG || '') === '1';
+
 function getRetryAfterSeconds(lastSentAt) {
   if (!lastSentAt) return 0;
   const msPassed = Date.now() - new Date(lastSentAt).getTime();
@@ -84,6 +89,15 @@ async function register(req, res) {
       await sendRegisterOtpEmail(email, otpValue);
     } catch (mailError) {
       console.error('[auth.register.mail]', mailError?.message || mailError);
+      if (mailFallbackToLog()) {
+        console.warn(`[auth.register.otp-fallback] email=${email} otp=${otpValue}`);
+        return reply(res, 200, {
+          message: 'Mã xác minh đã được tạo (chưa gửi được email, xem log máy chủ).',
+          expiresInSeconds: 300,
+          retryAfterSeconds: 60,
+          mailSent: false,
+        });
+      }
       await authModel.deleteRegistrationOtp(email);
       return reply(res, 500, { message: MSG.mailFailed });
     }
@@ -184,6 +198,15 @@ async function resendRegisterOtp(req, res) {
       await sendRegisterOtpEmail(email, otpValue);
     } catch (mailError) {
       console.error('[auth.resendRegisterOtp.mail]', mailError?.message || mailError);
+      if (mailFallbackToLog()) {
+        console.warn(`[auth.resendRegisterOtp.otp-fallback] email=${email} otp=${otpValue}`);
+        return reply(res, 200, {
+          message: 'Mã xác minh mới đã được tạo (chưa gửi được email, xem log máy chủ).',
+          expiresInSeconds: 300,
+          retryAfterSeconds: 60,
+          mailSent: false,
+        });
+      }
       await authModel.deleteRegistrationOtp(email);
       return reply(res, 500, { message: MSG.mailFailed });
     }
