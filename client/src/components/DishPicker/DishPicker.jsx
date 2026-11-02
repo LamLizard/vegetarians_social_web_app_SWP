@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import Field from '../Field/Field';
 import HighlightChip from '../HighlightChip/HighlightChip';
 import { searchDishes } from '../../utils/dishMatch';
@@ -13,17 +13,22 @@ import s from './DishPicker.module.css';
  *
  * @param {{type:'existing', dish:object} | {type:'proposed', name:string} | null} value
  * @param {(value) => void} onChange
+ * @param {(text: string) => void} [onDraftTextChange]   chữ đang gõ chưa chọn
  * @param {object[]} dishes   bảng dish (có status)
  */
-export default function DishPicker({ value, onChange, dishes, error, label = 'Tên món', required }) {
+export default function DishPicker({ value, onChange, onDraftTextChange, dishes, error, label = 'Tên món', required }) {
   const id = useId();
   const listId = `${id}-list`;
   const inputRef = useRef(null);
+  const onDraftTextChangeRef = useRef(onDraftTextChange);
+  onDraftTextChangeRef.current = onDraftTextChange;
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   // -1 = chưa chọn dòng nào bằng phím mũi tên → Enter sẽ đề xuất đúng chữ đã gõ
   const [active, setActive] = useState(-1);
   const [note, setNote] = useState('');
+
+  useEffect(() => () => { onDraftTextChangeRef.current?.(''); }, []);
 
   const typed = text.trim();
   const { options, exact } = useMemo(() => searchDishes(dishes, typed), [dishes, typed]);
@@ -40,6 +45,7 @@ export default function DishPicker({ value, onChange, dishes, error, label = 'T�
       onChange({ type: 'proposed', name: typed.slice(0, 200) });
       setNote('');
     }
+    onDraftTextChange?.('');
     setOpen(false);
   };
 
@@ -71,6 +77,7 @@ export default function DishPicker({ value, onChange, dishes, error, label = 'T�
     const prev = value?.type === 'existing' ? value.dish.name : value?.name ?? '';
     onChange(null);
     setText(prev);
+    onDraftTextChange?.(prev);
     setOpen(true);
     setActive(-1);
     requestAnimationFrame(() => inputRef.current?.select());
@@ -123,7 +130,7 @@ export default function DishPicker({ value, onChange, dishes, error, label = 'T�
           placeholder="Gõ để tìm món, ví dụ: Đậu hũ sốt cà"
           value={text}
           maxLength={200}
-          onChange={(e) => { setText(e.target.value); setOpen(true); setActive(-1); }}
+          onChange={(e) => { setText(e.target.value); onDraftTextChange?.(e.target.value); setOpen(true); setActive(-1); }}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
           onKeyDown={onKeyDown}

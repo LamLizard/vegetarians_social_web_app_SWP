@@ -6,6 +6,7 @@
 // Trang nào dùng khung này cũng có nền chấm + biến bố cục của styles/feed-theme.css (<html data-feed-v2>).
 import { useEffect, useLayoutEffect, useState } from 'react';
 import FeedSidebar from '../FeedSidebar/FeedSidebar';
+import FeedTopbar from '../FeedTopbar/FeedTopbar';
 // Duy's Code: Chuông thông báo được gắn vào sidebar chung của thành viên.
 import MemberNotificationBell from '../MemberNotificationBell/MemberNotificationBell';
 import { ROLE } from '../../constants/domain';
@@ -66,7 +67,8 @@ export default function MemberLayout({
     return () => { delete document.documentElement.dataset.feedV2; };
   }, []);
 
-  const create = onCreate && !isGuest ? () => { setDrawerOpen(false); onCreate(); } : undefined;
+  const createAction = onCreate ?? (user?.role === 'member' ? () => window.location.assign('/?compose=1') : undefined);
+  const create = createAction && !isGuest ? () => { setDrawerOpen(false); createAction(); } : undefined;
   // Duy's Code: Giữ liên kết Bài của tôi trong menu tài khoản mà không lặp mục đã được truyền vào.
   const memberAccountMenu = user && !accountMenu.some((item) => item.href === '/me/posts')
     ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }, ...accountMenu]
@@ -92,7 +94,9 @@ export default function MemberLayout({
       />
 
       <div className={`feed-v2-main ${s.main}`}>
-        {renderTopbar?.({ openMenu: () => setDrawerOpen(true) })}
+        {renderTopbar
+          ? renderTopbar({ openMenu: () => setDrawerOpen(true) })
+          : user?.role === 'member' && <FeedTopbar hideSearch onOpenMenu={() => setDrawerOpen(true)} />}
         {children}
       </div>
 

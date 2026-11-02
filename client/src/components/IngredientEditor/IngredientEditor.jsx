@@ -22,6 +22,8 @@ import styles from './IngredientEditor.module.css';
  *
  * @param {{key: string, name: string, amount: number|null, unit: string}[]} value  tạo dòng mới bằng newIngredientRow()
  * @param {(rows) => void} onChange
+ * @param {(draft: Record<string, {nameText: string, amountText: string}>) => void} [onDraftChange]
+ * @param {boolean} [preserveDraftAmountOnBlur=false]   giữ chữ số lượng đã gõ khi rời ô
  * @param {string[]} [suggestions]      tên nguyên liệu gợi ý (ingredient.name) — ô tên vẫn gõ tự do
  * @param {string[]} [catalog]   Khoi's code: có prop này → ô tên thành Ô CHỌN từ kho (IngredientPicker), không gõ tự do.
  *        Không có trong kho → chọn "Đề xuất nguyên liệu mới", dòng đó có thêm `proposed: true`.
@@ -32,12 +34,15 @@ import styles from './IngredientEditor.module.css';
  * @param {string} [label='Nguyên liệu'] · [hint] · [error] · [required] · [disabled]
  */
 export default function IngredientEditor({
-  value = [], onChange, suggestions = [], catalog, rowErrors = [], rowNotes = [], max = 40,
+  value = [], onChange, onDraftChange, preserveDraftAmountOnBlur = false, suggestions = [], catalog, rowErrors = [], rowNotes = [], max = 40,
   label = 'Nguyên liệu', hint, error, required, disabled, className,
 }) {
   const id = useId();
   const nameListId = `${id}-names`;
   const [amountText, setAmountText] = useState({});
+  const draftRef = useRef({});
+  const onDraftChangeRef = useRef(onDraftChange);
+  onDraftChangeRef.current = onDraftChange;
   const nameRefs = useRef({});
   const amountRefs = useRef({});
   const focusKey = useRef(null);
@@ -45,6 +50,41 @@ export default function IngredientEditor({
   const fallback = useRef(null);
   if (!fallback.current) fallback.current = newIngredientRow();
   const rows = value.length ? value : [fallback.current];
+
+  const updateDraft = (key, patch) => {
+    const next = { ...draftRef.current };
+    const item = { nameText: '', amountText: '', ...next[key], ...patch };
+    if (item.nameText || item.amountText) next[key] = item;
+    else delete next[key];
+    draftRef.current = next;
+    onDraftChangeRef.current?.(next);
+  };
+
+  const removeDraft = (key) => {
+    if (!Object.hasOwn(draftRef.current, key)) return;
+    const next = { ...draftRef.current };
+    delete next[key];
+    draftRef.current = next;
+    onDraftChangeRef.current?.(next);
+  };
+
+  useEffect(() => {
+    const keys = new Set(value.map((row) => row.key));
+    const next = Object.fromEntries(Object.entries(draftRef.current).filter(([key]) => keys.has(key)));
+    if (Object.keys(next).length !== Object.keys(draftRef.current).length) {
+      draftRef.current = next;
+      onDraftChangeRef.current?.(next);
+    }
+    setAmountText((current) => {
+      const entries = Object.entries(current).filter(([key]) => keys.has(key));
+      return entries.length === Object.keys(current).length ? current : Object.fromEntries(entries);
+    });
+  }, [value]);
+
+  useEffect(() => () => {
+    draftRef.current = {};
+    onDraftChangeRef.current?.({});
+  }, []);
 
   useEffect(() => {
     if (focusKey.current && nameRefs.current[focusKey.current]) {
@@ -64,6 +104,8 @@ export default function IngredientEditor({
 
   const remove = (key) => {
     const i = rows.findIndex((r) => r.key === key);
+    removeDraft(key);
+    setAmountText(({ [key]: unused, ...rest }) => { void unused; return rest; });
     if (rows.length === 1) {
       const row = newIngredientRow();
       focusKey.current = row.key;
@@ -106,7 +148,8 @@ export default function IngredientEditor({
                 <div className={styles.name}>
                   <IngredientPicker
                     name={r.name} proposed={!!r.proposed} catalog={catalog} taken={takenBy(r.key)}
-                    onPick={(v) => update(r.key, v)} onDone={() => amountRefs.current[r.key]?.focus()}
+                    onPick={(v) => update(r.key, v)} onDraftTextChange={(text) => updateDraft(r.key, { nameText: text })}
+                    onDone={() => amountRefs.current[r.key]?.focus()}
                     tone={err?.name ? undefined : note?.tone} invalid={!!err?.name}
                     inputRef={(el) => { nameRefs.current[r.key] = el; }}
                     ariaLabel={`Tên nguyên liệu ${n}`} disabled={disabled}
@@ -128,14 +171,24 @@ export default function IngredientEditor({
                 inputMode="decimal" value={amountText[r.key] ?? (r.amount == null ? '' : formatAmount(r.amount))}
                 placeholder={noAmount ? '' : '0'} aria-label={`Số lượng nguyên liệu ${n}`}
                 aria-invalid={err?.amount ? true : undefined} disabled={disabled || noAmount}
-                onChange={(e) => { const text = e.target.value; setAmountText((t) => ({ ...t, [r.key]: text })); update(r.key, { amount: parseAmount(text) }); }}
-                onBlur={() => setAmountText(({ [r.key]: unused, ...rest }) => { void unused; return rest; })}
+                onChange={(e) => { const text = e.target.value; setAmountText((t) => ({ ...t, [r.key]: text })); updateDraft(r.key, { amountText: text }); update(r.key, { amount: parseAmount(text) }); }}
+                onBlur={() => {
+                  if (preserveDraftAmountOnBlur) return;
+                  setAmountText(({ [r.key]: unused, ...rest }) => { void unused; return rest; });
+                  updateDraft(r.key, { amountText: '' });
+                }}
                 onKeyDown={(e) => onEnter(e, i)}
               />
               <div className={styles.unit}>
                 <UnitPicker
                   value={r.unit} disabled={disabled} ariaLabel={`Đơn vị nguyên liệu ${n}`} invalid={!!err?.unit}
-                  onChange={(unit) => update(r.key, isNoAmountUnit(unit) ? { unit, amount: null } : { unit })}
+                  onChange={(unit) => {
+                    if (preserveDraftAmountOnBlur && isNoAmountUnit(unit)) {
+                      setAmountText(({ [r.key]: unused, ...rest }) => { void unused; return rest; });
+                      updateDraft(r.key, { amountText: '' });
+                    }
+                    update(r.key, isNoAmountUnit(unit) ? { unit, amount: null } : { unit });
+                  }}
                   onEnter={() => onEnter({ key: 'Enter', preventDefault() {} }, i)}
                 />
               </div>

@@ -156,7 +156,8 @@ export default function UserPostEditPage({ postId, user, accountMenu = [], shopA
   const hasPendingEdit = editStateAvailable && Boolean(editState.pendingEdit);
 
   return (
-    <MemberLayout user={user} accountMenu={accountMenu} shopAction={shopAction}>
+    <MemberLayout user={user} accountMenu={accountMenu} shopAction={shopAction}
+      onCreate={() => requestNavigation('/?compose=1')}>
       <main className="container py-4" onInputCapture={() => setDirty(true)} onChangeCapture={() => setDirty(true)}>
         <PageHeader title="Sửa bài viết" description="Chỉ bài viết công khai mới đủ điều kiện gửi bản sửa."
           breadcrumb={[{ label: 'Bảng tin', href: '/' }, { label: 'Bài của tôi', href: MY_POSTS_PATH }, { label: 'Sửa bài' }]}

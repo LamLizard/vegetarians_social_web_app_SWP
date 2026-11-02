@@ -165,10 +165,11 @@ function serializeGroup(group) {
     costState: !costKnown ? 'unknown' : costUnknown || group.inFlight ? 'partial' : 'known' };
 }
 
-function getUsage(date, now = new Date()) {
+function buildUsage(date, now, moderationOnly) {
   if (!allowedDate(date, now)) throw new RangeError('Invalid usage date');
   prune(now);
-  const rawGroups = [...(days.get(date)?.values() ?? [])];
+  const rawGroups = [...(days.get(date)?.values() ?? [])]
+    .filter((group) => !moderationOnly || group.kind === 'comment' || group.kind === 'post');
   const totals = newGroup(null, null);
   for (const group of rawGroups) {
     for (const field of ['attempts', 'errors', 'usageKnown', 'usageUnknown', 'inFlight',
@@ -190,15 +191,24 @@ function getUsage(date, now = new Date()) {
       message: 'Số liệu chỉ từ tiến trình hiện tại và có thể chưa đầy đủ.' },
     totals: totalValues,
     groups: rawGroups.map(serializeGroup),
-    limits: Object.keys(MODEL_PRICES).map((model) => {
+    limits: Object.keys(MODEL_PRICES).filter((model) => !moderationOnly || model === 'openai/gpt-oss-20b').map((model) => {
       const snapshot = snapshots.get(model);
       return snapshot ? { model, observedAt: snapshot.observedAt, requestsPerDay: snapshot.requestsPerDay,
         tokensPerMinute: snapshot.tokensPerMinute }
         : { model, observedAt: null, requestsPerDay: null, tokensPerMinute: null };
     }),
-    prices: Object.entries(MODEL_PRICES).map(([model, price]) => ({ model, sourceUrl: price.sourceUrl,
+    prices: Object.entries(MODEL_PRICES).filter(([model]) => !moderationOnly || model === 'openai/gpt-oss-20b')
+      .map(([model, price]) => ({ model, sourceUrl: price.sourceUrl,
       observedOn: '2026-10-28', basis: 'public_list_price_estimate', currency: 'USD' })),
   };
 }
 
-module.exports = { begin, vietnamDate, allowedDate, getUsage };
+function getUsage(date, now = new Date()) {
+  return buildUsage(date, now, false);
+}
+
+function getModerationUsage(date, now = new Date()) {
+  return buildUsage(date, now, true);
+}
+
+module.exports = { begin, vietnamDate, allowedDate, getUsage, getModerationUsage };
