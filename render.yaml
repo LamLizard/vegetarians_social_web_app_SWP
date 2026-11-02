@@ -1,0 +1,62 @@
+# Blueprint Render cho BE (Express). Tạo bằng: Dashboard → New → Blueprint → chọn repo này.
+services:
+  - type: web
+    name: greenbowl-api
+    runtime: node
+    rootDir: server
+    plan: free
+    region: singapore
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # ---- Bắt buộc, điền trong Dashboard (sync:false = không lưu vào repo) ----
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_URL
+        sync: false
+      # ---- Cloudinary (avatar) ----
+      - key: CLOUDINARY_AVATAR_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_AVATAR_API_KEY
+        sync: false
+      - key: CLOUDINARY_AVATAR_API_SECRET
+        sync: false
+      - key: CLOUDINARY_AVATAR_UPLOAD_PRESET
+        sync: false
+      # ---- Cloudinary (ảnh bìa bài viết/công thức) — bỏ trống thì dùng bộ avatar ----
+      - key: CLOUDINARY_POST_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_POST_API_KEY
+        sync: false
+      - key: CLOUDINARY_POST_API_SECRET
+        sync: false
+      # ---- Email OTP ----
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # ---- Chatbot / AI (thiếu key thì tính năng AI tự tắt, server vẫn chạy) ----
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CHATBOT_REQUEST_HMAC_KEY
+        sync: false
