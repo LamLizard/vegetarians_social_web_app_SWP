@@ -1,20 +1,17 @@
-import ClickSpark from '../reactbits/ClickSpark';
-import GlareHover from '../reactbits/GlareHover';
 import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import Photo from '../Photo/Photo';
 import cx from '../cx';
 import { POST_TYPE } from '../../constants/domain';
 import { formatCount, timeAgo } from '../../utils/format';
-import { useTheme } from '../../utils/theme';
 import s from './FeedPostCard.module.css';
 
 /**
- * Thẻ bài của Bảng tin (theo prototype UI v2.1, src/v2/components/PostCard.jsx).
- *  - GlareHover: vệt loé chéo rất nhẹ qua ảnh khi rê chuột
- *  - ClickSpark: bấm Thích → bắn tia lá (màu theo Sáng/Tối)
- *  - Bài không ảnh, không trích đoạn (hỏi nhanh) → tiêu đề to như 1 status
- * Component KHÔNG gọi API: trang truyền dữ liệu + hàm xử lý.
+ * Thẻ bài của Bảng tin.
+ * Khoi's code 01/11/2026: giao diện theo prototype v4 (src/v4/components/PostCard.jsx) — kiểu Facebook / X:
+ *   tác giả → tiêu đề + trích đoạn → chủ đề → ẢNH TRÀN THẺ → số liệu (tim · bình luận) → hàng nút Thích · Bình luận.
+ *   Bỏ hiệu ứng loé sáng (GlareHover) và tia lá (ClickSpark) của bản v2; tim chỉ nảy nhẹ khi Thích.
+ * Component KHÔNG gọi API: trang truyền dữ liệu + hàm xử lý. Props giữ nguyên như bản v2.
  *
  * @param {'blog'|'video'} postType
  * @param {string} title · @param {string} [excerpt]
@@ -23,7 +20,8 @@ import s from './FeedPostCard.module.css';
  * @param {string} [youtubeVideoId]     bài video → tự lấy ảnh bìa YouTube
  * @param {{name, avatarUrl?}} author
  * @param {string} createdAt            ISO, hiện "2 giờ trước"
- * @param {{id, name}[]} [categories]   hiện tối đa 3
+ * @param {{id, name}[]} [categories]   chủ đề, hiện tối đa 3 + "+N"
+ * @param {(topic: {id, name}) => void} [onTopicClick]  có → bấm chip chủ đề để lọc Bảng tin
  * @param {number} voteCount · commentCount · @param {boolean} voted
  * @param {boolean} [reported]          người xem đã báo cáo → menu hiện "Đã báo cáo" (không bấm được)
  * @param {() => void} onVote · onOpen · onComment
@@ -32,32 +30,31 @@ import s from './FeedPostCard.module.css';
 export default function FeedPostCard({
   postType = 'blog', title, excerpt, href = '#', thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, voted = false, reported = false,
-  onVote, onOpen, onComment, onReport,
+  onVote, onOpen, onComment, onReport, onTopicClick,
 }) {
-  const [theme] = useTheme();
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
   const cover = postType === 'video' && youtubeVideoId
     ? `https://i.ytimg.com/vi/${youtubeVideoId}/hqdefault.jpg`
     : thumbnailUrl;
-  const isQuick = !excerpt && !cover;
   // Giữ thẻ <a> (Ctrl+click, trình đọc màn hình vẫn đúng) nhưng mở bài tại chỗ
   const open = (e) => { e.preventDefault(); onOpen?.(); };
 
   const menuItems = reported
     ? [{ icon: 'flag-fill', label: 'Đã báo cáo', hint: 'Admin đang xem xét', disabled: true }]
-    : onReport ? [{ icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', onClick: onReport }] : [];
+    : onReport ? [{ icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', tone: 'alert', onClick: onReport }] : [];
 
   return (
-    <article className={cx(s.card, isQuick && s.quick)}>
+    <article className={s.card}>
       <header className={s.head}>
-        <Avatar name={author.name} src={author.avatarUrl} size={40} />
+        <Avatar name={author.name} src={author.avatarUrl} size={44} />
         <div className={s.who}>
           <b>{author.name}</b>
-          <span>
+          <small>
             <time dateTime={createdAt}>{timeAgo(createdAt)}</time>
-            <i className={s.dot} aria-hidden="true" />
-            <i className={`bi bi-${type.icon}`} aria-hidden="true" /> {type.label}
-          </span>
+            <span aria-hidden="true">·</span>
+            <i className={`bi bi-${type.icon}`} aria-hidden="true" />
+            {type.label}
+          </small>
         </div>
         {menuItems.length > 0 && (
           <Menu
@@ -71,62 +68,58 @@ export default function FeedPostCard({
         )}
       </header>
 
-      <h2 className={s.title}><a href={href} onClick={open}>{title}</a></h2>
-      {excerpt && <p className={s.excerpt}>{excerpt}</p>}
+      <div className={s.content}>
+        <h2 className={s.title}><a href={href} onClick={open}>{title}</a></h2>
+        {excerpt && <p className={s.excerpt}>{excerpt}</p>}
+      </div>
 
       {categories.length > 0 && (
-        <div className={s.tags}>
-          {categories.slice(0, 3).map((c) => <span key={c.id} className={s.tag}>#{c.name}</span>)}
-          {categories.length > 3 && <span className={s.moreTags}>+{categories.length - 3}</span>}
+        // Chủ đề = chip có icon dấu trang (không dùng "#" → không nhầm hashtag); bấm → lọc Bảng tin theo chủ đề đó
+        <div className={s.topics} aria-label="Chủ đề">
+          {categories.slice(0, 3).map((c) => (onTopicClick ? (
+            <button key={c.id} type="button" className={cx(s.topic, s.topicBtn)} onClick={() => onTopicClick(c)} aria-label={`Xem bài cùng chủ đề ${c.name}`}>
+              <i className="bi bi-bookmark" aria-hidden="true" />{c.name}
+            </button>
+          ) : (
+            <span key={c.id} className={s.topic}><i className="bi bi-bookmark" aria-hidden="true" />{c.name}</span>
+          )))}
+          {categories.length > 3 && (
+            <span className={cx(s.topic, s.topicMore)} title={categories.slice(3).map((c) => c.name).join(', ')}>+{categories.length - 3}</span>
+          )}
         </div>
       )}
 
       {cover && (
         <a href={href} onClick={open} className={s.media} tabIndex={-1} aria-hidden="true">
-          <GlareHover
-            width="100%"
-            height="auto"
-            background="transparent"
-            borderRadius="18px"
-            borderColor="var(--v-line)"
-            glareColor="#ffffff"
-            glareOpacity={0.14}
-            glareAngle={-35}
-            glareSize={260}
-            transitionDuration={800}
-            className={s.glare}
-          >
-            <Photo src={cover} ratio="16/10" className={s.img} />
-            {postType === 'video' && (
-              <>
-                <span className={s.play}><i className="bi bi-play-fill" /></span>
-                <span className={s.badge}><i className="bi bi-youtube" /> Video</span>
-              </>
-            )}
-          </GlareHover>
+          <Photo src={cover} alt="" ratio="16/9" />
+          {postType === 'video' && <span className={s.play}><i className="bi bi-play-fill" /></span>}
         </a>
       )}
 
-      <footer className={s.actions}>
-        <span className={s.sparkWrap}>
-          <ClickSpark sparkColor={theme === 'dark' ? '#9CCB86' : '#3E7A47'} sparkSize={9} sparkRadius={22} sparkCount={10} duration={450}>
-            <button
-              type="button"
-              className={cx(s.act, voted && s.on)}
-              aria-pressed={voted}
-              aria-label={`${voted ? 'Bỏ thích' : 'Thích'} (${voteCount} lượt thích)`}
-              onClick={onVote}
-            >
-              <i className={`bi bi-${voted ? 'heart-fill' : 'heart'}`} aria-hidden="true" />
-              <span className={s.label}>Thích</span>
-              <span className={s.n}>{formatCount(voteCount)}</span>
-            </button>
-          </ClickSpark>
-        </span>
+      <div className={s.stats}>
+        {voteCount > 0 ? (
+          <span className={s.voters}>
+            <span className={s.hearts} aria-hidden="true"><i className="bi bi-heart-fill" /></span>
+            {voted ? (voteCount > 1 ? `Bạn và ${formatCount(voteCount - 1)} người khác` : 'Bạn') : formatCount(voteCount)}
+          </span>
+        ) : <span>Hãy là người đầu tiên thích</span>}
+        <button type="button" className={s.comments} onClick={onComment}>{formatCount(commentCount)} bình luận</button>
+      </div>
+
+      <footer className={s.bar}>
+        <button
+          type="button"
+          className={cx(s.act, voted && s.liked)}
+          aria-pressed={voted}
+          aria-label={`${voted ? 'Bỏ thích' : 'Thích'} (${voteCount} lượt thích)`}
+          onClick={onVote}
+        >
+          <i className={`bi bi-heart${voted ? '-fill' : ''}`} aria-hidden="true" />
+          <span>Thích</span>
+        </button>
         <button type="button" className={s.act} onClick={onComment} aria-label={`Bình luận (${commentCount})`}>
           <i className="bi bi-chat" aria-hidden="true" />
-          <span className={s.label}>Bình luận</span>
-          <span className={s.n}>{formatCount(commentCount)}</span>
+          <span>Bình luận</span>
         </button>
       </footer>
     </article>

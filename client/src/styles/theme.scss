@@ -12,7 +12,7 @@ $success:   #2F7A4B;
 $info:      #2F6F7E;
 $warning:   $ac-highlight;
 $danger:    $ac-alert;
-$light:     #F2EDE0;
+$light:     #EEF4EF; // cũ #F2EDE0
 $dark:      $ac-ink;
 
 $color-contrast-dark:  $ac-ink;
@@ -35,7 +35,7 @@ $border-radius:    $ac-radius;
 $border-radius-sm: 6px;
 $border-radius-lg: $ac-radius-lg;
 $enable-shadows:   false;
-$box-shadow-sm:    0 1px 2px rgba(42, 38, 32, .06);
+$box-shadow-sm:    0 1px 2px rgba(16, 48, 28, .06);
 
 $btn-font-weight:        600;
 $btn-padding-x:          1rem;
@@ -43,7 +43,7 @@ $input-bg:               $ac-card;
 $input-border-color:     $ac-border-strong;
 $input-focus-border-color: $ac-matcha;
 $input-btn-focus-color:  rgba($ac-moss, .22);
-$input-placeholder-color: #A39A8A;
+$input-placeholder-color: #8A9A8F;
 
 $card-bg:            $ac-card;
 $card-border-color:  $ac-border;
@@ -72,8 +72,8 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-border-strong: #{$ac-border-strong};
   --ac-track: #{$ac-track};
   --ac-tip-bg: #{$ac-tip-bg};
-  --ac-field-bg: #F5F0E4;   // nền ô tìm kiếm, ô nhập (= bề mặt 2)
-  --ac-tag-bg: #E7EEDF;     // nền Tag nội dung (= rêu nền nhạt)
+  --ac-field-bg: #F1F6F1;   // nền ô tìm kiếm, ô nhập (= bề mặt 2) · cũ #F5F0E4
+  --ac-tag-bg: #E7F7EC;     // nền Chủ đề nội dung (xanh lá rất nhạt) · cũ #E7EEDF
 
   --ac-highlight: #{$ac-highlight};
   --ac-alert: #{$ac-alert};
@@ -111,25 +111,28 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-on-accent: #{$ac-card};     // chữ trên nền rêu / matcha
   --ac-on-highlight: #{$ac-ink};   // chữ trên nền vàng cúc – luôn tối
   --ac-alert-line: #E7B9AC;
-  --ac-ok-soft: #EEF5EF;
-  --ac-ok-line: #C7DEC9;
-  --ac-info-soft: #F4F1E8;
-  --ac-hover-soft: #F5F8F1;
-  --ac-elevated: #F5F0E4;          // menu, hộp thoại, thẻ nổi (= bề mặt 2)
-  --ac-shadow: 0 1px 2px rgba(42, 38, 32, .05), 0 8px 24px -12px rgba(42, 38, 32, .18);
+  --ac-ok-soft: #EEF7F0;
+  --ac-ok-line: #BFE3CB;
+  --ac-info-soft: #F1F6F1;
+  --ac-hover-soft: #F1F6F1;
+  --ac-elevated: #FFFFFF;          // menu, hộp thoại, thẻ nổi · cũ #F5F0E4 (giờ trắng + bóng mềm)
+  // Khoi's code (01/11): bóng mềm nhiều lớp ngả xanh của v4 (cũ: nâu rgba(42,38,32))
+  --ac-shadow: 0 1px 2px rgba(16, 48, 28, .04), 0 4px 12px rgba(16, 48, 28, .05), 0 16px 32px -12px rgba(16, 48, 28, .08);
+  --ac-shadow-hover: 0 1px 2px rgba(16, 48, 28, .05), 0 8px 20px rgba(16, 48, 28, .08), 0 24px 44px -16px rgba(16, 48, 28, .14);
+  --ac-shadow-sm: 0 1px 2px rgba(16, 48, 28, .04), 0 2px 8px rgba(16, 48, 28, .04);
 
   // Token gom lại từ các giá trị trước đây viết cứng trong component (GIỮ NGUYÊN giá trị màu)
   --ac-focus-ring: rgba(61, 90, 61, .35);          // viền focus bàn phím
   --ac-on-alert: #fff;                              // chữ trên nền đất nung (số thông báo)
-  --ac-backdrop: rgba(42, 38, 32, .45);             // nền tối sau hộp thoại
-  --ac-shadow-lg: 0 18px 48px rgba(42, 38, 32, .22);   // hộp thoại
-  --ac-shadow-md: 0 12px 32px rgba(42, 38, 32, .16);   // menu thả xuống
-  --ac-photo-fallback: linear-gradient(135deg, #DCE7D2 0%, #B9CFAE 55%, #8FB083 100%);
-  --ac-photo-fallback-icon: rgba(255, 255, 255, .7);
-  --ac-overlay-bg: rgba(42, 38, 32, .78);        // nhãn đè lên ảnh (kcal trên ảnh món)
+  --ac-backdrop: rgba(8, 20, 13, .55);              // nền tối sau hộp thoại
+  --ac-shadow-lg: 0 24px 60px rgba(6, 20, 12, .28);    // hộp thoại
+  --ac-shadow-md: 0 12px 28px rgba(10, 30, 18, .16);   // menu thả xuống
+  --ac-photo-fallback: linear-gradient(135deg, #E7F0E7 0%, #D3E4D6 100%);
+  --ac-photo-fallback-icon: rgba(21, 128, 61, .4);
+  --ac-overlay-bg: rgba(20, 37, 26, .78);        // nhãn đè lên ảnh (kcal trên ảnh món)
   --ac-on-overlay: #fff;
   --ac-skeleton: #{$ac-track};
-  --ac-skeleton-shine: rgba(255, 253, 248, .6);
+  --ac-skeleton-shine: rgba(255, 255, 255, .6);
   // Toast luôn "đảo màu": nền tối trên giao diện sáng
   --ac-toast-bg: #{$ac-ink};
   --ac-toast-fg: #{$ac-cream};
@@ -137,7 +140,7 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-toast-info: #C9D9BF;
   --ac-toast-bad: #F2A48E;
   // Logo + khung trang (giữ đúng màu bản app-an-chay-ui_1)
-  --ac-logo-leaf: #CFE3BF;
+  --ac-logo-leaf: #D9F5E1;
   --ac-logo-vein: #{$ac-moss};
   --ac-bar-bg: color-mix(in srgb, var(--ac-cream) 82%, transparent);   // thanh trên mờ kính
   --ac-create-bg: #{$ac-ink};                                         // nút "Đăng bài" trên dock
@@ -149,7 +152,7 @@ $form-check-input-checked-border-color: $ac-moss;
   // các tên --v-* sẽ được đổi dần sang --ac-* khi gộp component (xem .claude/design/DECISIONS.md).
   --v-bg: var(--ac-cream);
   --v-surface: var(--ac-card);
-  --v-surface-2: var(--ac-elevated);
+  --v-surface-2: var(--ac-field-bg); // Khoi's code 01/11: elevated giờ là trắng → nền phụ lấy field-bg (cũ var(--ac-elevated))
   --v-surface-3: var(--ac-tip-bg);
   --v-line: var(--ac-border);
   --v-line-2: var(--ac-border-strong);
@@ -160,36 +163,36 @@ $form-check-input-checked-border-color: $ac-moss;
   --v-marigold: var(--ac-highlight);
   --v-ai-grad: var(--ac-highlight);
   // Chưa có tên --ac-* tương ứng → giá trị riêng cho Sáng (Tối ở khối dưới)
-  --v-text-2: #4A443B;
-  --v-dot: rgba(42, 38, 32, 0.05);
-  --v-header-bg: rgba(251, 247, 238, 0.88);
-  --v-shadow: 0 1px 2px rgba(42, 38, 32, 0.04), 0 14px 32px -26px rgba(42, 38, 32, 0.3);
-  --v-shadow-pop: 0 18px 48px -18px rgba(42, 38, 32, 0.22);
-  --v-accent-hover: #324B32;
-  --v-accent-text: #3D5A3D;
-  --v-accent-line: #BFD0B6;
+  --v-text-2: #2F4036;
+  --v-dot: rgba(20, 37, 26, 0.05);
+  --v-header-bg: rgba(255, 255, 255, 0.96);
+  --v-shadow: var(--ac-shadow);
+  --v-shadow-pop: 0 18px 48px -18px rgba(16, 48, 28, 0.22);
+  --v-accent-hover: #116B33;
+  --v-accent-text: #0F5A2E;
+  --v-accent-line: #B7DFC4;
   --v-on-accent: #FFFFFF;
   --v-ai-glow: 0 0 0 3px rgba(249, 166, 32, 0.22);
 }
 
-// ---- Chế độ Tối – NỀN lấy đúng bộ nền tối của client (feed-theme.css: đen ngả xanh lá, chốt 09/10/2026);
-//      chữ + rêu + vàng cúc + đất nung vẫn theo bảng 6 màu ----
+// ---- Chế độ Tối – Khoi's code (01/11/2026): bảng tối của prototype v4 (xanh lá tươi trên nền than ngả xanh).
+//      Giá trị cũ ghi ở cuối dòng. ----
 // Bật bằng <html data-theme="dark">. Component chỉ cần dùng var(--ac-…) là tự đổi.
 :root[data-theme="dark"] {
-  --ac-moss: #8FB083;          // rêu sáng – dùng làm chữ/link được trên nền tối
-  --ac-matcha: #7FA372;
-  --ac-cream: #0A0E0B;          // nền trang (client --v-bg)
-  --ac-card: #111713;           // thẻ (client --v-surface)
-  --ac-elevated: #172019;       // rê chuột, ô nhập, menu (client --v-surface-2)
-  --ac-ink: #FBF7EE;
-  --ac-muted: #A69E8F;
-  --ac-border: #1F2A22;
-  --ac-border-strong: #2E3C32;
+  --ac-moss: #22C55E;          // xanh lá sáng – nút + chữ/link trên nền tối · cũ #8FB083
+  --ac-matcha: #4ADE80;        // cũ #7FA372
+  --ac-cream: #0E1512;          // nền trang · cũ #0A0E0B
+  --ac-card: #141E18;           // thẻ · cũ #111713
+  --ac-elevated: #18241D;       // menu, hộp thoại · cũ #172019
+  --ac-ink: #EAF2EC;            // cũ #FBF7EE
+  --ac-muted: #94A69B;          // cũ #A69E8F
+  --ac-border: #26332B;         // cũ #1F2A22
+  --ac-border-strong: #34443A;  // cũ #2E3C32
   --ac-track: #223027;
-  --ac-tip-bg: #1D2820;         // mục đang chọn (client --v-surface-3)
-  --ac-field-bg: #172019;
-  --ac-tag-bg: rgba(143, 176, 131, 0.14);
-  --ac-on-accent: #0E1611;
+  --ac-tip-bg: rgba(34, 197, 94, 0.14); // mục đang chọn · cũ #1D2820
+  --ac-field-bg: #18241D;       // cũ #172019
+  --ac-tag-bg: rgba(34, 197, 94, 0.14);
+  --ac-on-accent: #07220F;      // chữ trên nút xanh · cũ #0E1611
 
   --ac-alert: #E07A5F;
   --ac-alert-soft: rgba(224, 122, 95, 0.12);
@@ -208,8 +211,10 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-warn-bg: #3A2E12;    --ac-warn-fg: #F2C46B;
   --ac-bad-bg: #3A1D16;     --ac-bad-fg: #EFA08B;
   --ac-neutral-bg: #242E27; --ac-neutral-fg: #B8C2B3;
-  --ac-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px -12px rgba(0, 0, 0, .6);
-  --ac-focus-ring: rgba(143, 176, 131, .45);
+  --ac-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -10px rgba(0, 0, 0, .45);
+  --ac-shadow-hover: 0 1px 2px rgba(0, 0, 0, .35), 0 14px 36px -12px rgba(0, 0, 0, .6);
+  --ac-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
+  --ac-focus-ring: rgba(74, 222, 128, .45);
   --ac-backdrop: rgba(0, 0, 0, .6);
   --ac-shadow-lg: 0 18px 48px rgba(0, 0, 0, .55);
   --ac-shadow-md: 0 12px 32px rgba(0, 0, 0, .45);
@@ -217,26 +222,26 @@ $form-check-input-checked-border-color: $ac-moss;
   --ac-toast-bg: #E8EDE3;
   --ac-toast-fg: #0E1611;
   --ac-toast-ok: #1D5E38;
-  --ac-toast-info: #3D5A3D;
+  --ac-toast-info: #15803D;
   --ac-toast-bad: #8E3520;
-  --ac-logo-leaf: #1B2A20;
-  --ac-logo-vein: #CFE3BF;
+  --ac-logo-leaf: #0B2A17;
+  --ac-logo-vein: #8FE3AC;
   --ac-create-bg: #E8EDE3;
   --ac-create-fg: #0E1611;
-  --ac-photo-fallback: linear-gradient(135deg, #1B2B20 0%, #24392A 55%, #2F4A35 100%);
-  --ac-photo-fallback-icon: rgba(143, 176, 131, 0.45);
+  --ac-photo-fallback: linear-gradient(135deg, #18241D 0%, #22322A 100%);
+  --ac-photo-fallback-icon: rgba(74, 222, 128, 0.35);
   color-scheme: dark;
 
   // Tầng --v-*: giá trị Tối cho các tên chưa có --ac-* tương ứng
-  --v-text-2: #DCD5C6;
+  --v-text-2: #C9D6CD;
   --v-dot: rgba(255, 255, 255, 0.05);
-  --v-header-bg: rgba(10, 14, 11, 0.82);
-  --v-shadow: 0 1px 0 rgba(0, 0, 0, 0.35), 0 16px 40px -28px rgba(0, 0, 0, 0.9);
+  --v-header-bg: rgba(20, 30, 24, 0.96);
+  --v-shadow: var(--ac-shadow);
   --v-shadow-pop: 0 18px 48px -18px rgba(0, 0, 0, 0.8);
-  --v-accent-hover: #A3C197;
-  --v-accent-text: #A7C49B;
-  --v-accent-line: rgba(143, 176, 131, 0.35);
-  --v-on-accent: #0A0E0B;
+  --v-accent-hover: #16A34A;
+  --v-accent-text: #8FE3AC;
+  --v-accent-line: rgba(34, 197, 94, 0.35);
+  --v-on-accent: #07220F;
   --v-ai-glow: 0 0 0 3px rgba(249, 166, 32, 0.18);
 
   // Cầu nối sang biến của Bootstrap
@@ -244,10 +249,10 @@ $form-check-input-checked-border-color: $ac-moss;
   --bs-body-color: var(--ac-ink);
   --bs-secondary-color: var(--ac-muted);
   --bs-border-color: var(--ac-border);
-  --bs-link-color: #8DB580;
-  --bs-link-color-rgb: 141, 181, 128;
-  --bs-link-hover-color: #A9CC9D;
-  --bs-link-hover-color-rgb: 169, 204, 157;
+  --bs-link-color: #4ADE80;
+  --bs-link-color-rgb: 74, 222, 128;
+  --bs-link-hover-color: #86EFAC;
+  --bs-link-hover-color-rgb: 134, 239, 172;
   --bs-heading-color: var(--ac-ink);
   --bs-emphasis-color: var(--ac-ink);
   --bs-form-invalid-color: #F19A82;
@@ -258,10 +263,10 @@ $form-check-input-checked-border-color: $ac-moss;
     border-color: var(--ac-border-strong);
     color: var(--ac-ink);
   }
-  .form-control::placeholder { color: #7D8A78; }
+  .form-control::placeholder { color: #7F9286; }
   .form-control:focus, .form-select:focus { background-color: var(--ac-field-bg); color: var(--ac-ink); }
   .form-check-input { background-color: var(--ac-field-bg); border-color: var(--ac-border-strong); }
-  .form-check-input:checked { background-color: #5E8A55; border-color: #5E8A55; }
+  .form-check-input:checked { background-color: #22C55E; border-color: #22C55E; }
   .btn-light {
     --bs-btn-bg: var(--ac-tip-bg);
     --bs-btn-border-color: var(--ac-tip-bg);
@@ -273,21 +278,26 @@ $form-check-input-checked-border-color: $ac-moss;
     --bs-btn-active-color: var(--ac-ink);
   }
   .btn-outline-primary {
-    --bs-btn-color: #A9CC9D;
-    --bs-btn-border-color: #4F6E4B;
-    --bs-btn-hover-bg: #253A28;
-    --bs-btn-hover-border-color: #8DB580;
-    --bs-btn-hover-color: #D6E8CF;
-    --bs-btn-active-bg: #2D4630;
-    --bs-btn-active-color: #D6E8CF;
+    --bs-btn-color: #86EFAC;
+    --bs-btn-border-color: #2F6B45;
+    --bs-btn-hover-bg: rgba(34, 197, 94, .14);
+    --bs-btn-hover-border-color: #22C55E;
+    --bs-btn-hover-color: #BBF7D0;
+    --bs-btn-active-bg: rgba(34, 197, 94, .22);
+    --bs-btn-active-color: #BBF7D0;
   }
   .btn-primary {
-    --bs-btn-bg: #4E7A4A;
-    --bs-btn-border-color: #4E7A4A;
-    --bs-btn-hover-bg: #5E8A55;
-    --bs-btn-hover-border-color: #5E8A55;
-    --bs-btn-disabled-bg: #34503A;
-    --bs-btn-disabled-border-color: #34503A;
+    --bs-btn-color: #07220F;
+    --bs-btn-bg: #22C55E;
+    --bs-btn-border-color: #22C55E;
+    --bs-btn-hover-color: #07220F;
+    --bs-btn-hover-bg: #16A34A;
+    --bs-btn-hover-border-color: #16A34A;
+    --bs-btn-active-color: #07220F;
+    --bs-btn-active-bg: #15803D;
+    --bs-btn-disabled-color: #07220F;
+    --bs-btn-disabled-bg: #1F5A35;
+    --bs-btn-disabled-border-color: #1F5A35;
   }
 }
 

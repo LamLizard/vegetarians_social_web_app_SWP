@@ -4,3 +4,14 @@
 .search { position: relative; max-width: 280px; }
 .search i { position: absolute; top: 50%; left: 0.7rem; transform: translateY(-50%); color: var(--ac-muted); font-size: 0.8rem; }
 .search input { padding-left: 2rem; }
+
+/* Khoi's code 29/10: nhóm "Hay dùng" / "Tất cả (A–Z)" (chỉ khi truyền popularIds) */
+.groups { display: flex; flex-direction: column; gap: 0.75rem; }
+.group { display: flex; flex-direction: column; gap: 0.4rem; }
+.groupLabel { color: var(--ac-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.moreBtn {
+  padding: 0.3rem 0.7rem; border: 1px dashed var(--ac-border-strong); border-radius: var(--ac-radius);
+  background: transparent; color: var(--ac-muted); font-size: 0.85rem; font-weight: 600;
+}
+.moreBtn:hover:not(:disabled) { color: var(--ac-ink); border-style: solid; }
+.moreBtn:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 2px; }

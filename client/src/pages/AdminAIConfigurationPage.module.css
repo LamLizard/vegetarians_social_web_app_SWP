@@ -1,0 +1,27 @@
+/* Hallmark · v2.0.0 · redesign: full · shape: app screen · theme: project brand · signature: usage ledger */
+/* Critique: preserve the admin shell and controls while making usage and configuration distinct. */
+.page { max-width: 1120px; margin: 0 auto; display: grid; gap: 1.5rem; min-width: 0; }
+.header { padding-bottom: 1.15rem; border-bottom: 1px solid var(--ac-border); }
+.header h1 { margin: 0; color: var(--ac-ink); font-size: 1.8rem; overflow-wrap: break-word; min-width: 0; text-wrap: balance; }
+.header p { margin: .35rem 0 0; color: var(--ac-muted); }
+.settings { display: grid; gap: 1rem; }
+.form { margin-top: .25rem; padding-top: 1.35rem; border-top: 1px solid var(--ac-border); display: grid; }
+.form :global(button):active { transform: translateY(1px); }
+.form :global(button):disabled { color: var(--ac-muted); background: var(--ac-elevated); cursor: not-allowed; }
+.settingsHeader { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-bottom: 1.1rem; }
+.settingsHeader h2 { margin: 0; color: var(--ac-ink); font-size: 1.35rem; }
+.settingsHeader p, .setting p, .serviceStatus p { margin: .3rem 0 0; color: var(--ac-muted); font-size: .88rem; }
+.setting, .serviceStatus { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 1fr); align-items: start; gap: 1rem 2rem; padding: 1.1rem 0; border-top: 1px solid var(--ac-border); }
+.setting h3, .serviceStatus h3 { margin: 0; color: var(--ac-ink); font-size: 1rem; overflow-wrap: break-word; min-width: 0; }
+.settingControls { display: grid; gap: .8rem; min-width: 0; }
+.switch { min-height: 2.75rem; padding-left: 3.5rem; display: flex; align-items: center; }
+.switch:global(.form-switch) :global(.form-check-input) { flex: 0 0 3rem; width: 3rem; height: 1.5rem; margin: 0 .5rem 0 -3.5rem; cursor: pointer; }
+.switch:global(.form-switch) :global(.form-check-input):focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 2px; }
+.switch:global(.form-switch) :global(.form-check-input):disabled { cursor: not-allowed; }
+.serviceRows { display: grid; gap: .4rem; }
+.serviceRows p { margin: 0; overflow-wrap: anywhere; }
+.serviceRows strong { color: var(--ac-ink); }
+@media (max-width: 600px) {
+  .settingsHeader { align-items: start; flex-direction: column; }
+  .setting, .serviceStatus { grid-template-columns: minmax(0, 1fr); }
+}

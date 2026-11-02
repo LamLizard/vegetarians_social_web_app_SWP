@@ -19,7 +19,7 @@ const FALLBACK = { label: 'Thông báo', icon: 'bell', tone: 'neutral' };
  * @param {string} [title='Thông báo']
  */
 export default function NotificationList({
-  items = [], onItemClick, onMarkAllRead, loading = false, linkAs, title = 'Thông báo', className,
+  items = [], onItemClick, onMarkAllRead, onClose, loading = false, linkAs, title = 'Thông báo', className,
 }) {
   const unread = items.filter((n) => !n.isRead).length;
 
@@ -27,7 +27,10 @@ export default function NotificationList({
     <div className={cx(styles.box, className)}>
       <div className={styles.head}>
         <h2>{title}</h2>
-        {unread > 0 && onMarkAllRead && <button type="button" className={styles.link} onClick={onMarkAllRead}>Đánh dấu đã đọc</button>}
+        <div className={styles.actions}>
+          {onMarkAllRead && <button type="button" className={styles.link} disabled={unread === 0} onClick={onMarkAllRead}>Đánh dấu tất cả đã đọc</button>}
+          {onClose && <button type="button" className={styles.close} onClick={onClose} aria-label="Đóng thông báo"><i className="bi bi-x-lg" aria-hidden="true" /></button>}
+        </div>
       </div>
       {loading && [0, 1, 2].map((i) => (
         <div key={i} className={styles.item}><Skeleton shape="circle" width={38} /><div className={styles.text}><Skeleton lines={2} /></div></div>
@@ -42,7 +45,9 @@ export default function NotificationList({
             const [Tag, linkProps] = n.href ? getLink(linkAs, n.href) : ['button', { type: 'button' }];
             return (
               <li key={n.id}>
-                <Tag {...linkProps} className={cx(styles.item, !n.isRead && styles.unread)} onClick={async (event) => {
+                <Tag {...linkProps} className={cx(styles.item, n.href ? styles.clickable : styles.staticItem, !n.isRead && styles.unread)}
+                  title={!n.href ? 'Thông báo này không có trang đích.' : new Date(n.createdAt).toLocaleString('vi-VN')}
+                  onClick={async (event) => {
                   if (!onItemClick) return;
                   const result = onItemClick(n);
                   if (result && typeof result.then === 'function') {
@@ -55,9 +60,10 @@ export default function NotificationList({
                   <span className={styles.text}>
                     <b>{n.title}</b>
                     {n.content && <span className={styles.content}>{n.content}</span>}
-                    <small>{timeAgo(n.createdAt)}</small>
+                    <small><time dateTime={n.createdAt}>{timeAgo(n.createdAt)}</time></small>
                   </span>
                   {!n.isRead && <span className={styles.dot}><span className="visually-hidden">Chưa đọc</span></span>}
+                  {n.href && <i className={`bi bi-chevron-right ${styles.chevron}`} aria-hidden="true" />}
                 </Tag>
               </li>
             );

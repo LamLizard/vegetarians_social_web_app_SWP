@@ -35,7 +35,7 @@ function integer(value, fallback, maximum, label) {
 function parseListQuery(query, entity) {
   const statuses = entity === 'post'
     ? ['all', 'pending', 'public', 'reported', 'deleted']
-    : ['all', 'pending', 'accepted', 'rejected'];
+    : ['all', 'pending', 'accepted', 'rejected', 'auto_closed_deleted'];
   if (query.search !== undefined && (typeof query.search !== 'string' || query.search.length > 255)) {
     throw new ModerationError(400, 'Từ khóa tối đa 255 ký tự.');
   }

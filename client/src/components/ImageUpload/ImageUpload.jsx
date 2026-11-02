@@ -13,6 +13,7 @@ const TYPE_LABEL = { 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEB
  *
  * @param {string|string[]} value   link ảnh đã có (1 link, hoặc mảng khi multiple)
  * @param {(value: string|string[]) => void} onChange  nhận link mới (hoặc mảng link)
+ * @param {(state: {uploading: number, failed: number}) => void} [onPendingChange]  số ảnh đang tải/lỗi
  * @param {(file: File, opts: {onProgress: (percent: number) => void, signal: AbortSignal}) => Promise<string>} onUpload
  *        Tải 1 file lên, trả về link ảnh. Ví dụ Cloudinary xem .claude/skills/an-chay-ui/components/ImageUpload.md
  * @param {boolean} [multiple=false]  nhiều ảnh (ảnh bài blog)
@@ -23,13 +24,16 @@ const TYPE_LABEL = { 'image/jpeg': 'JPG', 'image/png': 'PNG', 'image/webp': 'WEB
  * @param {string} [label] · [hint] · [error] · [required] · [disabled]
  */
 export default function ImageUpload({
-  label, value, onChange, onUpload, multiple = false, max, maxSizeMB = 5,
+  label, value, onChange, onUpload, onPendingChange, multiple = false, max, maxSizeMB = 5,
   accept = 'image/jpeg,image/png,image/webp', ratio = '4/3', hint, error, required, disabled, id, className,
   showTooltips = false,
 }) {
   const limit = max ?? (multiple ? 5 : 1);
   const urls = multiple ? (value ?? []) : (value ? [value] : []);
   const [pending, setPending] = useState([]); // { key, name, preview, progress, status: 'uploading'|'error', message, file }
+  const pendingRef = useRef([]);
+  const pendingChangeRef = useRef(onPendingChange);
+  pendingChangeRef.current = onPendingChange;
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef(null);
   const controllers = useRef(new Map());
@@ -40,21 +44,37 @@ export default function ImageUpload({
   // Dọn link xem trước và huỷ upload dở khi rời trang
   useEffect(() => () => {
     controllers.current.forEach((c) => c.abort());
+    controllers.current.clear();
+    if (pendingRef.current.length) {
+      pendingRef.current = [];
+      pendingChangeRef.current?.({ uploading: 0, failed: 0 });
+    }
   }, []);
 
   const typeNames = accept.split(',').map((t) => TYPE_LABEL[t.trim()] ?? t.trim()).join(', ');
   const autoHint = `${typeNames}, tối đa ${maxSizeMB}MB${limit > 1 ? `, tối đa ${limit} ảnh` : ''}`;
   const slotsLeft = limit - urls.length - pending.filter((p) => p.status === 'uploading').length;
 
-  const patch = (key, data) => setPending((list) => list.map((p) => (p.key === key ? { ...p, ...data } : p)));
+  const countPending = (items) => ({
+    uploading: items.filter((item) => item.status === 'uploading').length,
+    failed: items.filter((item) => item.status === 'error').length,
+  });
+  const updatePending = (change) => {
+    const previous = pendingRef.current;
+    const next = change(previous);
+    pendingRef.current = next;
+    setPending(next);
+    const before = countPending(previous);
+    const after = countPending(next);
+    if (before.uploading !== after.uploading || before.failed !== after.failed) pendingChangeRef.current?.(after);
+  };
+  const patch = (key, data) => updatePending((list) => list.map((p) => (p.key === key ? { ...p, ...data } : p)));
   const drop = (key) => {
-    setPending((list) => {
-      const item = list.find((p) => p.key === key);
-      if (item?.preview) URL.revokeObjectURL(item.preview);
-      return list.filter((p) => p.key !== key);
-    });
+    const item = pendingRef.current.find((p) => p.key === key);
+    if (item?.preview) URL.revokeObjectURL(item.preview);
     controllers.current.get(key)?.abort();
     controllers.current.delete(key);
+    updatePending((list) => list.filter((p) => p.key !== key));
   };
 
   const upload = async (key, file) => {
@@ -64,18 +84,20 @@ export default function ImageUpload({
     try {
       let url;
       if (onUpload) {
-        url = await onUpload(file, { onProgress: (p) => patch(key, { progress: Math.round(p) }), signal: ctrl.signal });
+        url = await onUpload(file, { onProgress: (p) => {
+          if (!ctrl.signal.aborted && controllers.current.get(key) === ctrl) patch(key, { progress: Math.round(p) });
+        }, signal: ctrl.signal });
       } else {
         if (import.meta.env?.DEV) console.warn('[ImageUpload] Chưa truyền onUpload → dùng link tạm của trình duyệt (chỉ để thử).');
         url = URL.createObjectURL(file);
       }
-      if (ctrl.signal.aborted) return;
+      if (ctrl.signal.aborted || controllers.current.get(key) !== ctrl) return;
       const next = multiple ? [...latest.current, url] : url;
       latest.current = multiple ? next : [url]; // 2 ảnh xong cùng lúc không đè nhau
       onChange?.(next);
       drop(key);
     } catch (err) {
-      if (ctrl.signal.aborted) return;
+      if (ctrl.signal.aborted || controllers.current.get(key) !== ctrl) return;
       patch(key, { status: 'error', message: err?.message || 'Tải ảnh lên không thành công' });
     }
   };
@@ -85,7 +107,7 @@ export default function ImageUpload({
     if (!files.length) return;
     if (!multiple) {
       // Chế độ 1 ảnh: ảnh mới thay ảnh cũ
-      pending.forEach((p) => drop(p.key));
+      pendingRef.current.forEach((p) => drop(p.key));
     }
     const room = multiple ? slotsLeft : 1;
     files.slice(0, Math.max(room, 0)).forEach((file) => {
@@ -93,11 +115,11 @@ export default function ImageUpload({
       const isImage = file.type.startsWith('image/');
       const item = { key, name: file.name, preview: isImage ? URL.createObjectURL(file) : null, file };
       if (!accept.split(',').map((t) => t.trim()).includes(file.type)) {
-        setPending((l) => [...l, { ...item, status: 'error', message: `Chỉ nhận ảnh ${typeNames}` }]);
+        updatePending((l) => [...l, { ...item, status: 'error', message: `Chỉ nhận ảnh ${typeNames}` }]);
       } else if (file.size > maxSizeMB * 1024 * 1024) {
-        setPending((l) => [...l, { ...item, status: 'error', message: `Ảnh lớn hơn ${maxSizeMB}MB (${(file.size / 1048576).toFixed(1)}MB)` }]);
+        updatePending((l) => [...l, { ...item, status: 'error', message: `Ảnh lớn hơn ${maxSizeMB}MB (${(file.size / 1048576).toFixed(1)}MB)` }]);
       } else {
-        setPending((l) => [...l, { ...item, status: 'uploading', progress: 0 }]);
+        updatePending((l) => [...l, { ...item, status: 'uploading', progress: 0 }]);
         upload(key, file);
       }
     });

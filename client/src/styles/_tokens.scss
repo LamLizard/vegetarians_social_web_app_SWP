@@ -1,19 +1,23 @@
 // =====================================================================
-//  DESIGN TOKENS — App Ăn Chay (theme A "Vườn Nhà" + điểm nhấn theme C)
-//  Muốn đổi màu cả app: CHỈ sửa file này.
+//  DESIGN TOKENS — App Ăn Chay
+//  Muốn đổi màu cả app: CHỈ sửa file này (+ khối Tối trong theme.scss).
+//  Khoi's code (01/11/2026): đổi sang bảng màu "xanh lá tươi" của prototype v4
+//  (Prototype_UI_SWP/src/v4/v4.css). Tên biến giữ nguyên → mọi trang tự đổi màu.
+//  Màu cũ ghi ở cuối mỗi dòng để dễ quay lại.
 // =====================================================================
 
-// ---- NỀN – Theme A (khoảng 90% giao diện) ----
-$ac-moss:          #3D5A3D;  // xanh rêu – màu chính (nút, tab đang chọn, link)
-$ac-matcha:        #7A9B6E;  // xanh matcha – màu phụ (viền focus, icon)
-$ac-cream:         #FBF7EE;  // kem ngà – nền trang
-$ac-card:          #FFFDF8;  // ngà nhạt – nền thẻ
-$ac-ink:           #2A2620;  // nâu đen – chữ chính
-$ac-muted:         #6F675A;  // nâu xám – chữ phụ
-$ac-border:        #E8E0D0;  // viền mảnh
-$ac-border-strong: #CFC4AE;  // viền nút phụ
-$ac-track:         #EFE8DA;  // nền thanh tiến độ
-$ac-tip-bg:        #E7EEDF;  // nền hộp gợi ý, mục đang chọn (xanh rêu rất nhạt)
+// ---- NỀN (khoảng 90% giao diện) ----
+// Tên biến giữ từ bản cũ (moss, cream…) để không phải sửa hàng trăm chỗ dùng; giá trị là bảng mới.
+$ac-moss:          #15803D;  // xanh lá – màu chính (nút, tab đang chọn, link) · trắng trên nền này 5.0:1 · cũ #3D5A3D
+$ac-matcha:        #3E9B5C;  // xanh lá nhạt – màu phụ (viền focus, icon) · cũ #7A9B6E
+$ac-cream:         #F6FAF5;  // nền trang – trắng ngả xanh rất nhạt · cũ #FBF7EE
+$ac-card:          #FFFFFF;  // nền thẻ · cũ #FFFDF8
+$ac-ink:           #14251A;  // chữ chính – đen ngả xanh · cũ #2A2620
+$ac-muted:         #5B6B60;  // chữ phụ · 5.5:1 trên nền trang · cũ #6F675A
+$ac-border:        #E3ECE4;  // viền mảnh · cũ #E8E0D0
+$ac-border-strong: #C9D7CC;  // viền nút phụ, ô nhập · cũ #CFC4AE
+$ac-track:         #EAF1EB;  // nền thanh tiến độ · cũ #EFE8DA
+$ac-tip-bg:        #E7F7EC;  // nền hộp gợi ý, mục đang chọn (xanh lá rất nhạt) · cũ #E7EEDF
 
 // ---- ĐIỂM NHẤN – lấy từ Theme C (dưới 10% diện tích, tối đa 1 chỗ mỗi khu vực) ----
 $ac-highlight:     #F9A620;  // vàng cúc – "AI gợi ý", "MỚI". CHỈ làm nền, chữ luôn là $ac-ink
@@ -30,7 +34,7 @@ $ac-fiber:         #7B4B94;  // chất xơ – tím khoai lang
 $ac-ok-bg:      #E3F0E6;  $ac-ok-fg:      #1D5E38;
 $ac-warn-bg:    #FCEBC7;  $ac-warn-fg:    #6E4A00;
 $ac-bad-bg:     #F6DDD6;  $ac-bad-fg:     #8E3520;
-$ac-neutral-bg: #EFEAE0;  $ac-neutral-fg: #5A5347;
+$ac-neutral-bg: #EDF2EE;  $ac-neutral-fg: #4A5A4F; // cũ #EFEAE0 / #5A5347
 
 // ---- CHỮ ----
 $ac-font-body: 'Be Vietnam Pro', system-ui, -apple-system, 'Segoe UI', sans-serif;

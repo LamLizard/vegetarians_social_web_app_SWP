@@ -15,7 +15,7 @@ async function listForAccount(accountId) {
     pool.query(`
       SELECT notification_id::text AS id, type, title, content, is_read AS "isRead",
         created_at AS "createdAt",
-        metadata->>'href' AS href
+        ref_type::text AS "refType", ref_id::text AS "refId", metadata
       FROM public.notification
       WHERE account_id = $1
       ORDER BY created_at DESC, notification_id DESC

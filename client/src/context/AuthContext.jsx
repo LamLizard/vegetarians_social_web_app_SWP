@@ -44,6 +44,17 @@ export function AuthProvider({ children }) {
     apiFetch('/health').catch(() => {});
   }, []);
 
+  // Khoi's code: bấm Back/Forward, trình duyệt có thể lấy lại NGUYÊN trang cũ từ bộ nhớ (bfcache) mà không chạy lại app
+  // → vừa đăng nhập xong bấm Back thấy lại trang khách (hoặc vừa đăng xuất bấm Back thấy lại trang thành viên).
+  // Phiên trong localStorage khác phiên trang đó đang hiển thị → tải lại trang để vẽ đúng.
+  useEffect(() => {
+    const onPageShow = (e) => {
+      if (e.persisted && localStorage.getItem(AUTH_TOKEN_KEY) !== token) window.location.reload();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, [token]);
+
   useEffect(() => {
     let active = true;
 

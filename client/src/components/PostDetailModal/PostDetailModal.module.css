@@ -1,0 +1,25 @@
+/* Duy's Code: Nội dung popup luôn cuộn trong dialog, media không vượt khung. */
+.dialog { max-width: 800px; max-height: 90vh; }
+.detail { display: grid; gap: 1rem; min-width: 0; }
+.loading { display: grid; gap: 1rem; min-height: 280px; }
+.detailHead { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.authorInfo { display: grid; min-width: 0; }
+.authorInfo b { overflow-wrap: anywhere; }
+.muted { color: var(--ac-muted); font-size: .85rem; }
+.content { min-width: 0; color: var(--ac-ink); line-height: 1.65; overflow-wrap: anywhere; }
+.content p { margin: 0 0 .75rem; }
+.content p:last-child { margin-bottom: 0; }
+.media { display: block; width: 100%; max-width: 100%; max-height: 65vh; object-fit: contain; }
+.detailActions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; padding: .5rem 0; border-block: 1px solid var(--ac-border); }
+.metrics { display: flex; flex-wrap: wrap; gap: .85rem; color: var(--ac-muted); font-size: .86rem; }
+.metrics span { white-space: nowrap; }
+.metrics i { margin-right: .15rem; }
+/* Duy's Code: Ba trạng thái kết thúc dùng đúng cùng cặp token danger. */
+.statusBanner { display: grid; gap: .2rem; padding: .75rem .9rem; border-left: 4px solid var(--ac-bad-fg); border-radius: .35rem .75rem .75rem .35rem; background: var(--ac-bad-bg); color: var(--ac-bad-fg); overflow-wrap: anywhere; }
+.statusBanner b { font-weight: 750; }
+
+@media (max-width: 767.98px) {
+  .dialog { max-width: none; }
+  .media { max-height: 48vh; }
+  .detailActions { align-items: flex-start; }
+}

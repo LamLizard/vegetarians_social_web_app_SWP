@@ -10,6 +10,8 @@ import Modal from '../components/Modal/Modal';
 import Photo from '../components/Photo/Photo';
 import Select from '../components/Select/Select';
 import shopImageUploadService from '../services/shopImageUpload.service';
+// Tùng — Sprint 3: editor lịch mới tách riêng, bảo toàn helper và editor cũ.
+import ShopScheduleEditor from './ShopScheduleEditor';
 import styles from './ShopFormFields.module.css';
 
 export const SHOP_DAY_LABELS = ['Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy', 'Chủ nhật'];
@@ -55,7 +57,7 @@ export function shopSchedulesEqual(left, right) {
 
 export function validateShopSchedule(schedule) {
   const errors = {};
-  if (!schedule.some(day => !day.isClosed)) errors.schedule = 'Chọn ít nhất một ngày mở cửa.';
+  // Tùng — user cho phép tuần nghỉ toàn bộ; vẫn kiểm tra đầy đủ ca của ngày mở.
   schedule.forEach(day => {
     if (day.isClosed) return;
     const key = `schedule.${day.dayOfWeek}`;
@@ -173,7 +175,8 @@ function ScheduleCopyDialog({ source, disabled, onClose, onCopy }) {
   </Modal>;
 }
 
-export function ShopScheduleFields({ value, onChange, errors = {}, disabled = false, savedSchedule, allowCopy = false, showHeading = true }) {
+// Tùng — Sprint 3: giữ nguyên body cũ để bảo toàn code, hai page dùng wrapper mới bên dưới.
+export function LegacyShopScheduleFields({ value, onChange, errors = {}, disabled = false, savedSchedule, allowCopy = false, showHeading = true }) {
   const [copyDay, setCopyDay] = useState(null);
   const update = (dayOfWeek, patch) => onChange(value.map(day => day.dayOfWeek === dayOfWeek ? { ...day, ...patch } : day));
   const updateSlot = (day, index, patch) => update(day.dayOfWeek, { slots: day.slots.map((slot, current) => current === index ? { ...slot, ...patch } : slot) });
@@ -215,6 +218,11 @@ export function ShopScheduleFields({ value, onChange, errors = {}, disabled = fa
       onChange(value.map(day => targets.includes(day.dayOfWeek) ? { ...day, isClosed: false, slots: source.slots.map(slot => ({ ...slot })) } : day));
     }} />}
   </fieldset>;
+}
+
+// Tùng — Sprint 3: giữ props công khai và inject helper, tránh import vòng từ editor.
+export function ShopScheduleFields(props) {
+  return <ShopScheduleEditor {...props} dayLabels={SHOP_DAY_LABELS} validateSchedule={validateShopSchedule} schedulesEqual={shopSchedulesEqual} />;
 }
 
 function displayTime(value) {

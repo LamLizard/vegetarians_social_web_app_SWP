@@ -1,7 +1,7 @@
 // Khoi's code: API danh sách tag (category) cho form Đăng bài.
 const categoryModel = require('../models/category.model');
 
-/** GET /api/categories → { items: [{ id, name }] } */
+/** GET /api/categories → { items: [{ id, name, postCount }] } — postCount: số bài đang hiện (Khoi's code 29/10) */
 async function getCategories(req, res) {
   try {
     res.json({ items: await categoryModel.findActive() });

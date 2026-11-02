@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import IconButton from '../IconButton/IconButton';
 import Menu from '../Menu/Menu';
 import NotificationList from '../NotificationList/NotificationList';
 import { getMyNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/notification.service';
+import getNotificationTarget from '../../utils/getNotificationTarget';
+import cx from '../cx';
 import styles from './MemberNotificationBell.module.css';
 
-export default function MemberNotificationBell({ side = 'right' }) {
+export default function MemberNotificationBell({ side = 'right', role = 'member', collapsed = false }) {
   const [items, setItems] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -14,11 +15,11 @@ export default function MemberNotificationBell({ side = 'right' }) {
   const refresh = useCallback(async () => {
     try {
       const result = await getMyNotifications();
-      setItems(result.items);
+      setItems(result.items.map((item) => ({ ...item, href: getNotificationTarget(item, role) })));
       setUnreadCount(result.unreadCount);
       setLoaded(true);
     } catch { /* keep the notification control usable during temporary network failures */ }
-  }, []);
+  }, [role]);
 
   useEffect(() => {
     refresh();
@@ -50,28 +51,45 @@ export default function MemberNotificationBell({ side = 'right' }) {
     } catch { /* the next poll will reconcile server state */ }
   };
 
+  // Duy's Code: Trigger đổi theo trạng thái rail, vẫn giữ một nút accessible duy nhất.
   return (
     <Menu
       side={side}
-      width={390}
-      className={styles.menu}
-      renderTrigger={(props) => <IconButton
-        variant="ghost"
-        icon={unreadCount ? 'bell-fill' : 'bell'}
-        badge={unreadCount}
-        label={`Thông báo${unreadCount ? ` (${unreadCount} chưa đọc)` : ''}`}
-        {...props}
-        onClick={(event) => { props.onClick(event); open(); }}
-      />}
+      width={380}
+      className={styles.triggerWrap}
+      panelClassName={styles.menu}
+      portal
+      role="dialog"
+      ariaLabel="Thông báo"
+      mobileSheet
+      renderTrigger={(props) => (
+        <button
+          type="button"
+          {...props}
+          className={cx(styles.trigger, collapsed ? styles.compactTrigger : styles.expandedTrigger)}
+          aria-label="Thông báo"
+          title={collapsed ? 'Thông báo' : undefined}
+          onClick={(event) => { props.onClick(event); open(); }}
+        >
+          <i className={`bi bi-${unreadCount ? 'bell-fill' : 'bell'}`} aria-hidden="true" />
+          {!collapsed && <span className={styles.triggerLabel}>Thông báo</span>}
+          {unreadCount > 0 && <span className={cx(styles.badge, collapsed && styles.compactBadge)} aria-hidden="true">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>}
+        </button>
+      )}
     >
-      <div className={styles.list}>
+      {(close) => <div className={styles.list}>
         <NotificationList
           items={items}
           loading={loading}
-          onItemClick={markRead}
+          onClose={close}
+          onItemClick={async (item) => {
+            await markRead(item);
+          }}
           onMarkAllRead={markAllRead}
         />
-      </div>
+      </div>}
     </Menu>
   );
 }

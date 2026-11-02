@@ -20,5 +20,12 @@
 .on, .on:hover:not(:disabled) { background: var(--ac-tag-bg); color: var(--ac-moss); border-color: var(--ac-border); }
 .on i { transform: scale(1.12); }
 
+/* Khoi's code 01/11: kiểu trái tim (Công thức) — đỏ như nút Thích của Bảng tin, tim nảy khi bấm */
+.heart:hover:not(:disabled) i { color: var(--ac-alert); }
+.heart.on, .heart.on:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ac-alert) 30%, var(--ac-border)); background: var(--ac-alert-soft); color: var(--ac-alert); }
+.heart.on i { animation: heartPop .45s var(--ac-ease-out); }
+@keyframes heartPop { 40% { transform: scale(1.32); } }
+@media (prefers-reduced-motion: reduce) { .heart.on i { animation: none; } }
+
 .sm { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
 .sm i { font-size: 0.9rem; }
