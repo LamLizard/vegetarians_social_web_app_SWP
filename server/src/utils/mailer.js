@@ -1,5 +1,8 @@
 const nodemailer = require('nodemailer');
 
+// Render **free** chặn outbound tới port 25/465/587 (SMTP) nên nodemailer treo tới
+// connectionTimeout mặc định 120s. Đặt timeout ngắn để request fail nhanh, báo lỗi rõ.
+const MAIL_TIMEOUT_MS = Number(process.env.MAIL_TIMEOUT_MS || 8000);
 let transporter = null;
 
 function getSmtpConfig() {
@@ -24,19 +27,51 @@ function getTransporter() {
       port,
       secure,
       auth: { user, pass },
+      connectionTimeout: MAIL_TIMEOUT_MS,
+      greetingTimeout: MAIL_TIMEOUT_MS,
+      socketTimeout: MAIL_TIMEOUT_MS * 2,
     });
   }
 
   return transporter;
 }
 
+/**
+ * Gửi qua HTTP API (Resend) — chạy được trên Render free vì dùng HTTPS 443.
+ * Bật bằng RESEND_API_KEY (key thật bắt đầu bằng "re_"). Trả {ok, reason} thay vì throw.
+ */
+async function sendViaResend({ from, to, subject, html }) {
+  const key = String(process.env.RESEND_API_KEY || '').trim();
+  if (!/^re_[A-Za-z0-9]{8,}$/.test(key)) {
+    return { ok: false, reason: 'chưa cấu hình RESEND_API_KEY hợp lệ' };
+  }
+
+  try {
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+      signal: AbortSignal.timeout(MAIL_TIMEOUT_MS * 2),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return { ok: false, reason: `resend HTTP ${response.status} ${body.slice(0, 140)}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: `resend ${error.message}` };
+  }
+}
+
 async function sendRegisterOtpEmail(to, otp) {
   const email = String(to ?? '').trim();
   if (!email) throw new Error('Email người nhận không hợp lệ.');
 
-  const config = getSmtpConfig();
-  const from = process.env.MAIL_FROM || config.user;
-
+  // SMTP có thể không cấu hình được (Render free chặn port SMTP) — không throw ở đây,
+  // nhánh Resend bên dưới vẫn còn cơ hội gửi.
+  let config = null;
+  try { config = getSmtpConfig(); } catch { config = null; }
+  const from = process.env.MAIL_FROM || config?.user || 'onboarding@resend.dev';
   const html = `
     <div style="font-family: Arial, sans-serif; color: #1b2a1d; line-height: 1.6;">
       <p>Xin chào,</p>
@@ -49,12 +84,28 @@ async function sendRegisterOtpEmail(to, otp) {
     </div>
   `;
 
-  return getTransporter().sendMail({
-    from,
-    to: email,
-    subject: '[Vegetarian Social] Mã xác minh đăng ký của bạn',
-    html,
-  });
+  const subject = '[Vegetarian Social] Mã xác minh đăng ký của bạn';
+
+  // 1) HTTPS API trước — chạy được trên Render free (chỉ chặn port SMTP, không chặn 443).
+  const viaApi = await sendViaResend({ from, to: email, subject, html });
+  if (viaApi.ok) return { via: 'resend' };
+
+  // 2) SMTP — chỉ thành công trên instance trả phí / khi chạy local.
+  let smtpError = null;
+  if (config) {
+    try {
+      await getTransporter().sendMail({ from, to: email, subject, html });
+      return { via: 'smtp' };
+    } catch (error) {
+      smtpError = error;
+    }
+  }
+
+  const failure = new Error(
+    `Không gửi được email: ${viaApi.reason}; smtp: ${smtpError ? smtpError.message : 'chưa cấu hình'}`,
+  );
+  failure.code = 'MAIL_SEND_FAILED';
+  throw failure;
 }
 
 module.exports = { sendRegisterOtpEmail };
