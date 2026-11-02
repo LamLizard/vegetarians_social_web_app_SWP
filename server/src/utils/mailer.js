@@ -63,6 +63,39 @@ async function sendViaResend({ from, to, subject, html }) {
   }
 }
 
+/**
+ * Gửi qua Brevo HTTPS API — free 300 mail/ngày, chạy được trên Render free (443).
+ * Bật bằng BREVO_API_KEY (key v3, bắt đầu bằng "xkeysib-"). Sender phải là địa chỉ
+ * đã verify trong Brevo (Settings → Senders), nếu không Brevo trả 400.
+ */
+async function sendViaBrevo({ from, to, subject, html }) {
+  const key = String(process.env.BREVO_API_KEY || '').trim();
+  if (!key.startsWith('xkeysib-')) {
+    return { ok: false, reason: 'chưa cấu hình BREVO_API_KEY' };
+  }
+
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': key, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { email: from, name: process.env.MAIL_SENDER_NAME || 'Green Bowl' },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+      signal: AbortSignal.timeout(MAIL_TIMEOUT_MS * 2),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return { ok: false, reason: `brevo HTTP ${response.status} ${body.slice(0, 160)}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: `brevo ${error.message}` };
+  }
+}
+
 async function sendRegisterOtpEmail(to, otp) {
   const email = String(to ?? '').trim();
   if (!email) throw new Error('Email người nhận không hợp lệ.');
@@ -86,11 +119,15 @@ async function sendRegisterOtpEmail(to, otp) {
 
   const subject = '[Vegetarian Social] Mã xác minh đăng ký của bạn';
 
-  // 1) HTTPS API trước — chạy được trên Render free (chỉ chặn port SMTP, không chặn 443).
+  // 1) Brevo HTTPS (ưu tiên — free 300/ngày, sender đã verify).
+  const viaBrevo = await sendViaBrevo({ from, to: email, subject, html });
+  if (viaBrevo.ok) return { via: 'brevo' };
+
+  // 2) HTTPS API khác (Resend) — chạy được trên Render free (chỉ chặn port SMTP).
   const viaApi = await sendViaResend({ from, to: email, subject, html });
   if (viaApi.ok) return { via: 'resend' };
 
-  // 2) SMTP — chỉ thành công trên instance trả phí / khi chạy local.
+  // 3) SMTP — chỉ thành công trên instance trả phí / khi chạy local.
   let smtpError = null;
   if (config) {
     try {
@@ -102,7 +139,7 @@ async function sendRegisterOtpEmail(to, otp) {
   }
 
   const failure = new Error(
-    `Không gửi được email: ${viaApi.reason}; smtp: ${smtpError ? smtpError.message : 'chưa cấu hình'}`,
+    `Không gửi được email: ${viaBrevo.reason}; ${viaApi.reason}; smtp: ${smtpError ? smtpError.message : 'chưa cấu hình'}`,
   );
   failure.code = 'MAIL_SEND_FAILED';
   throw failure;
