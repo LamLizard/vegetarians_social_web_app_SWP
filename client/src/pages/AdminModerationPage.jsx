@@ -9,12 +9,14 @@ import {
 } from '../components';
 import useAuth from '../hooks/useAuth';
 import postModerationService from '../services/postModeration.service';
+import AdminPostEditQueue from './AdminPostEditQueue';
 import AdminModerationDetails from './AdminModerationDetails';
 import { PostModerationStatus, ReportModerationStatus } from './postModerationPresentation';
 import styles from './AdminModerationPage.module.css';
 
 const TABS = [
   { key: 'post', label: 'Duyệt bài viết', icon: 'journal-text' },
+  { key: 'post-edits', label: 'Bản sửa chờ duyệt', icon: 'pencil-square' },
   { key: 'report', label: 'Báo cáo bài viết', icon: 'flag' },
   // Tung's code: Giữ key report cho link dashboard; thêm tab comment riêng.
   { key: 'comment-report', label: 'Báo cáo bình luận', icon: 'chat-left-text' },
@@ -26,7 +28,8 @@ const POST_STATUSES = [
 ];
 const REPORT_STATUSES = [
   { value: 'pending', label: 'Chờ xử lý' }, { value: 'accepted', label: 'Đã chấp nhận' },
-  { value: 'rejected', label: 'Đã từ chối' }, { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'rejected', label: 'Đã từ chối' }, { value: 'auto_closed_deleted', label: 'Tự đóng do bình luận đã xóa' },
+  { value: 'all', label: 'Tất cả trạng thái' },
 ];
 const POST_TYPES = [
   { value: 'all', label: 'Blog và Video' }, { value: 'blog', label: 'Blog' }, { value: 'video', label: 'Video' },
@@ -86,7 +89,7 @@ export default function AdminModerationPage() {
   }, []);
 
   useEffect(() => {
-    if (!isAdmin) return undefined;
+    if (!isAdmin || query.tab === 'post-edits') return undefined;
     const controller = new AbortController();
     let active = true;
     setLoading(true);
@@ -105,7 +108,7 @@ export default function AdminModerationPage() {
   }, [query, reload, isAdmin]);
 
   useEffect(() => {
-    if (!selected || !isAdmin) return undefined;
+    if (!selected || !isAdmin || query.tab === 'post-edits') return undefined;
     const controller = new AbortController();
     let active = true;
     setDetailLoading(true);
@@ -117,7 +120,7 @@ export default function AdminModerationPage() {
       .catch(err => { if (active && err.name !== 'AbortError') setDetailError(err); })
       .finally(() => { if (active) setDetailLoading(false); });
     return () => { active = false; controller.abort(); };
-  }, [selected, detailReload, isAdmin]);
+  }, [selected, detailReload, isAdmin, query.tab]);
 
   const changeFilters = (patch) => setQuery(current => ({ ...current, ...patch, page: 1 }));
   const changeTab = (tab) => {
@@ -154,7 +157,7 @@ export default function AdminModerationPage() {
       let message = decision.entity === 'post'
         ? (decision.action === 'approve' ? 'Đã duyệt bài viết.' : 'Đã từ chối bài viết; bài chuyển sang Đã xóa.')
         : decision.targetType === 'comment'
-          ? (decision.action === 'accept' ? 'Đã xử lý nhóm báo cáo và xóa bình luận.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
+          ? (decision.action === 'accept' ? 'Đã xóa bình luận và tự đóng báo cáo.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
           : (decision.action === 'accept' ? 'Đã xử lý nhóm báo cáo và gỡ bài.' : 'Đã từ chối gỡ bài theo nhóm báo cáo này.');
       if (decision.entity === 'case' && decision.targetType === 'post' && decision.action === 'reject') {
         if (result.postStatus === 'deleted') message += ' Bài đã xóa được giữ nguyên.';
@@ -204,7 +207,9 @@ export default function AdminModerationPage() {
   const canRemove = target && (isCommentCase ? ['public', 'hidden', 'deleted'] : ['public', 'reported', 'deleted']).includes(target.status);
   const handleLogout = () => { logout(); window.location.assign('/'); };
   const columns = query.tab === 'post' ? [
-    { key: 'title', header: 'Bài viết', primary: true },
+    { key: 'title', header: 'Bài viết', primary: true,
+      render: row => <span>{row.title}{row.aiModerationOrigin === 'provider_unavailable' && <small> · AI chưa kiểm tra</small>}
+        {row.aiModerationOrigin === 'ai_disabled' && <small> · AI đang tắt</small>}</span> },
     { key: 'postType', header: 'Loại', render: row => row.postType === 'video' ? 'Video' : 'Blog', width: 85 },
     { key: 'authorName', header: 'Tác giả', render: row => (
       <span className={styles.metadata}><Avatar name={row.authorName || row.authorEmail} src={row.authorAvatarUrl} size={28} />
@@ -238,8 +243,9 @@ export default function AdminModerationPage() {
   return (
     <AdminLayout activeKey="moderation" title="Quản lý bài viết" user={user} onLogout={handleLogout}>
       <PageHeader title="Quản lý bài viết" description="Duyệt bài blog/video và xử lý nhóm báo cáo bài viết, bình luận."
-        actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={loading}>Tải lại</Button>} />
+        actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={query.tab !== 'post-edits' && loading}>Tải lại</Button>} />
       <Tabs items={TABS} value={query.tab} onChange={changeTab} label="Chọn danh sách quản trị bài viết" />
+      {query.tab === 'post-edits' ? <AdminPostEditQueue refreshKey={reload} /> : <>
       <Panel className="my-3" title="Bộ lọc" icon="funnel">
         <div className={styles.filters}>
           <div className={styles.search}>
@@ -315,6 +321,7 @@ export default function AdminModerationPage() {
         reason={config?.reason ? { label: config.reason, required: true } : false}
         message={<>{config?.message}{actionError && <><br /><strong role="alert" className="text-danger">Chưa lưu được quyết định: {actionError}</strong></>}</>}
         onConfirm={confirmDecision} onCancel={() => { if (!saveInFlight.current) setDecision(null); }} />
+      </>}
     </AdminLayout>
   );
 }

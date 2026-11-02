@@ -63,7 +63,7 @@ async function getMine(req, res) {
  * → 201 { message, recipe, ingredients }  (công thức 'pending')
  */
 async function createRecipe(req, res) {
-  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true, requireNutrition: true });
   await assertPlayableVideo(input);
   const { recipe, ingredients } = await recipeModel.createRecipe(req.account.id, input);
   res.status(201).json({ message: 'Công thức đã được gửi và đang chờ duyệt.', recipe, ingredients });
@@ -84,10 +84,26 @@ async function getMineDetail(req, res) {
 }
 
 /** GET /api/recipes/:recipeId — Khoi's code: xem công thức đã duyệt, ai cũng gọi được (kể cả khách) */
+/** GET /api/recipes — Khoi's code: trang Công thức, ai cũng xem được → { items, categories } (có token → likedByMe) */
+async function getPublicList(req, res) {
+  res.json(await recipeModel.findPublicList(req.account?.id ?? null));
+}
+
+/** POST / DELETE /api/recipes/:recipeId/like — Khoi's code: thích / bỏ thích → { liked, likeCount } */
+const setLike = (liked) => async (req, res) => {
+  res.json(await recipeModel.setRecipeLike(parseRecipeId(req.params.recipeId), req.account.id, liked));
+};
+
 async function getPublicDetail(req, res) {
-  const recipe = await recipeModel.findPublicDetail(parseRecipeId(req.params.recipeId));
+  const recipe = await recipeModel.findPublicDetail(parseRecipeId(req.params.recipeId), req.account?.id ?? null);
   if (!recipe) throw new RecipeError(404, 'Không tìm thấy công thức, hoặc công thức chưa được duyệt.');
   res.json(recipe);
+}
+
+async function getAvailable(req, res) {
+  const query = String(req.query.q ?? '').normalize('NFC').trim();
+  if ([...query].length > 200) throw new RecipeInputError('Từ khóa tìm kiếm không được vượt quá 200 ký tự.');
+  res.json({ items: await recipeModel.findAvailableRecipes(query) });
 }
 
 /**
@@ -96,7 +112,7 @@ async function getPublicDetail(req, res) {
  */
 async function resubmitRecipe(req, res) {
   const recipeId = parseRecipeId(req.params.recipeId);
-  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true });
+  const input = parseRecipeInput(req.body, { cloudName: POST_CLOUD_NAME, requireMeta: true, strictUnits: true, requireNutrition: true });
   await assertPlayableVideo(input);
   const { recipe, ingredients } = await recipeModel.resubmitRecipe(req.account.id, recipeId, input);
   res.json({ message: 'Đã gửi lại công thức, đang chờ duyệt.', recipe, ingredients });
@@ -152,6 +168,10 @@ module.exports = {
   createRecipe: handle(createRecipe),
   getMineDetail: handle(getMineDetail),
   getPublicDetail: handle(getPublicDetail),
+  getPublicList: handle(getPublicList),
+  getAvailable: handle(getAvailable),
+  likeRecipe: handle(setLike(true)),
+  unlikeRecipe: handle(setLike(false)),
   resubmitRecipe: handle(resubmitRecipe),
   getPendingAdmin: handle(getPendingAdmin),
   getAllAdmin: handle(getAllAdmin),

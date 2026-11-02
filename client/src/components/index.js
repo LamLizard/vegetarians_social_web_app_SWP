@@ -58,6 +58,7 @@ export { default as PostComposer, COMPOSER_PROMPTS } from './PostComposer/PostCo
 // ---- Đợt 4 · Món, công thức, quán ------------------------------------
 export { default as DishCard } from './DishCard/DishCard';
 export { default as RecipeCard } from './RecipeCard/RecipeCard';
+export { default as FeaturedCarousel } from './FeaturedCarousel/FeaturedCarousel'; // Khoi's code
 export { RecipeFacts, IngredientList, RecipeSteps } from './RecipeView/RecipeView';
 export { default as IngredientEditor } from './IngredientEditor/IngredientEditor';
 export { default as UnitPicker } from './UnitPicker/UnitPicker'; // Khoi's code: ô chọn đơn vị nguyên liệu
@@ -75,6 +76,7 @@ export { default as AiProgress, MEAL_PLAN_STEPS } from './AiProgress/AiProgress'
 export { default as DayTabs, dayLabel } from './DayTabs/DayTabs';
 export { default as MealCard } from './MealCard/MealCard';
 export { default as CalorieSummary } from './CalorieSummary/CalorieSummary';
+export { default as NutritionRing } from './NutritionRing/NutritionRing';
 export { default as StatCard } from './StatCard/StatCard';
 export { default as DataTable } from './DataTable/DataTable';
 export { default as NotificationList } from './NotificationList/NotificationList';

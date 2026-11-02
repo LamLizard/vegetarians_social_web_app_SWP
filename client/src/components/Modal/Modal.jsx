@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import cx from '../cx';
 import styles from './Modal.module.css';
 
@@ -18,25 +19,61 @@ import styles from './Modal.module.css';
  * Muốn hỏi "Bạn chắc chắn...?" thì dùng ConfirmDialog, không tự dựng lại.
  */
 export default function Modal({
-  open, onClose, title, description, size = 'md', placement = 'center', footer, dismissible = true, className, children,
+  open, onClose, title, description, size = 'md', placement = 'center', footer, dismissible = true,
+  portal = false, lockScroll = false, className, children,
 }) {
   const ref = useRef(null);
+  const previousFocus = useRef(null);
+  const scrollStyles = useRef(null);
   const titleId = useId();
   const descId = useId();
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (!open) {
+      if (dialog.open) dialog.close();
+      return undefined;
+    }
+    const scrollbarWidth = portal && lockScroll
+      ? Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+      : 0;
+    if (!dialog.open) {
+      previousFocus.current = document.activeElement;
+      dialog.showModal();
+    }
+    // Duy's Code: Portal detail dialog khóa cuộn mà bù lại scrollbar để giữ nguyên bề ngang trang.
+    if (portal && lockScroll && !scrollStyles.current) {
+      const body = document.body;
+      const root = document.documentElement;
+      scrollStyles.current = { bodyOverflow: body.style.overflow, bodyPaddingRight: body.style.paddingRight, rootOverflow: root.style.overflow };
+      body.style.overflow = 'hidden';
+      root.style.overflow = 'hidden';
+      if (scrollbarWidth > 0) {
+        const currentPadding = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+        body.style.paddingRight = `${currentPadding + scrollbarWidth}px`;
+      }
+    }
+    return () => {
+      if (dialog.open) dialog.close();
+      if (scrollStyles.current) {
+        document.body.style.overflow = scrollStyles.current.bodyOverflow;
+        document.body.style.paddingRight = scrollStyles.current.bodyPaddingRight;
+        document.documentElement.style.overflow = scrollStyles.current.rootOverflow;
+        scrollStyles.current = null;
+      }
+      if (portal && previousFocus.current?.isConnected) previousFocus.current.focus({ preventScroll: true });
+    };
+  }, [open, portal, lockScroll]);
 
   const requestClose = () => { if (dismissible) onClose?.(); };
 
-  return (
+  const dialog = (
     <dialog
       ref={ref}
-      className={cx(styles.dialog, styles[size], placement === 'left' && styles.left, className)}
+      className={cx(styles.dialog, styles[size], placement === 'left' && styles.left, portal && styles.portalLayer, className)}
+      role="dialog"
+      aria-modal={open ? 'true' : undefined}
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
       onCancel={(e) => { e.preventDefault(); requestClose(); }}
@@ -57,4 +94,8 @@ export default function Modal({
       )}
     </dialog>
   );
+  // Duy's Code: Opt-in React Portal cho popup chi tiết, không đổi nơi render các modal hiện có.
+  return portal
+    ? (open && typeof document !== 'undefined' ? createPortal(dialog, document.body) : null)
+    : dialog;
 }

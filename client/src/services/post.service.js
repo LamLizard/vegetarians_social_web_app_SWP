@@ -3,7 +3,7 @@
 //
 // Hợp đồng API (BE làm đúng như vậy):
 //   GET  /posts/preview                  → { items: Post[] }             khách, 3 bài cố định
-//   GET  /posts?cursor=&limit=&q=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
+//   GET  /posts?cursor=&limit=&q=&in=&categoryId= → { items: Post[], nextCursor }  thành viên, lướt vô hạn,
 //                                           mới ĐĂNG nhất trước (publishedAt); cursor là chuỗi BE tự tạo, FE chỉ gửi lại
 //   POST /posts/:id/vote                  → { voted, voteCount }           toggle
 //   GET  /posts/:id/comments              → { items: Comment[] }
@@ -32,10 +32,12 @@ export const FEED_PAGE_SIZE = 5;
 // =====================================================================
 const real = {
   getPreview: () => apiFetch('/posts/preview'),
-  getFeed: ({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) => {
+  getFeed: ({ cursor, q, scope, categoryId, sort, limit = FEED_PAGE_SIZE } = {}) => {
     const params = new URLSearchParams({ limit: String(limit) });
+    if (sort && sort !== 'new') params.set('sort', sort); // Khoi's code 01/11: 'top' = Nhiều tim
     if (cursor) params.set('cursor', cursor);
     if (q) params.set('q', q);
+    if (q && scope && scope !== 'all') params.set('in', scope); // Khoi's code 28/10: phạm vi tìm (title · author · topic)
     if (categoryId) params.set('categoryId', categoryId); // Khoi's code: lọc theo danh mục (Sprint 2)
     return apiFetch(`/posts?${params}`);
   },
@@ -46,6 +48,23 @@ const real = {
   }),
   // Khoi's code: Đăng bài (Sprint 2)
   createPost: (data) => apiFetch('/posts', { method: 'POST', body: JSON.stringify(data) }),
+  // Duy's Code: API quản lý nội dung thuộc về tài khoản hiện tại; server lấy account từ token.
+  // Duy's Code: postId phục vụ deep link từ notification, không thể bỏ qua account scope của backend.
+  getMyPosts: ({ status = 'all', type = 'all', page = 1, postId } = {}) => {
+    const params = new URLSearchParams({ status, type, page: String(page) });
+    if (postId) params.set('postId', postId);
+    return apiFetch(`/posts/mine?${params}`);
+  },
+  getMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`),
+  updateMyPost: async (id, data) => {
+    const result = await apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+    if (result?.post?.status !== 'pending' || String(result.post.id) !== String(id)
+      || typeof result.replayed !== 'boolean') {
+      throw new Error('Chưa xác nhận được kết quả lưu bài. Vui lòng tải lại.');
+    }
+    return result;
+  },
+  deleteMyPost: (id) => apiFetch(`/posts/mine/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getCategories: () => apiFetch('/categories'),
   // Khoi's code: video YouTube có phát được trên trang mình không (hooks/useYouTubeCheck.js)
   checkYouTube: (url, { signal } = {}) => apiFetch('/posts/youtube-check', {
@@ -133,17 +152,31 @@ const mock = {
     return { items: mockPreview() };
   },
 
-  async getFeed({ cursor, q, categoryId, limit = FEED_PAGE_SIZE } = {}) {
+  async getFeed({ cursor, q, scope = 'all', categoryId, sort = 'new', limit = FEED_PAGE_SIZE } = {}) {
     await wait();
     const keyword = (q ?? '').trim().toLowerCase();
+    // Khoi's code 28/10: mock tìm theo phạm vi (bản thật bỏ dấu ở server)
+    const topic = keyword.startsWith('#') || scope === 'topic' ? keyword.replace(/^#+/, '').trim() : null;
+    const hit = (p) => (topic
+      ? (p.categories ?? []).some((c) => c.name.toLowerCase().includes(topic))
+      : (scope !== 'author' && p.title.toLowerCase().includes(keyword))
+        || (scope !== 'title' && (p.author?.fullName ?? '').toLowerCase().includes(keyword))
+        || (scope === 'all' && (p.categories ?? []).some((c) => c.name.toLowerCase().includes(keyword))));
     const list = posts
       .filter((p) => VISIBLE.includes(p.status))
-      .filter((p) => !keyword || p.title.toLowerCase().includes(keyword))
+      .filter((p) => !keyword || hit(p))
       .filter((p) => !categoryId || p.categories.some((c) => c.id === categoryId))
-      .sort((a, b) => Number(b.id) - Number(a.id))             // mock: coi id tăng theo lúc đăng
-      .filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
-    const items = list.slice(0, limit).map(withVote);
-    return { items, nextCursor: list.length > limit ? items[items.length - 1].id : null };
+      .sort((a, b) => Number(b.id) - Number(a.id));            // mock: coi id tăng theo lúc đăng
+    if (sort === 'top') {
+      // Khoi's code 01/11: mock "Nhiều tim" — cursor = số bài đã bỏ qua
+      const ranked = list.map(withVote).sort((a, b) => b.voteCount - a.voteCount || Number(b.id) - Number(a.id));
+      const start = Number(cursor) || 0;
+      const items = ranked.slice(start, start + limit);
+      return { items, nextCursor: ranked.length > start + limit ? String(start + limit) : null };
+    }
+    const after = list.filter((p) => !cursor || Number(p.id) < Number(cursor)); // cursor = id bài cuối trang trước
+    const items = after.slice(0, limit).map(withVote);
+    return { items, nextCursor: after.length > limit ? items[items.length - 1].id : null };
   },
 
   async toggleVote(postId) {
@@ -201,7 +234,8 @@ Object.assign(mock, {
   },
   async getCategories() {
     await wait();
-    return { items: Object.values(CAT) };
+    // Khoi's code 29/10: postCount giống API thật (số bài đang hiện có chủ đề này)
+    return { items: Object.values(CAT).map((c) => ({ ...c, postCount: posts.filter((p) => VISIBLE.includes(p.status) && p.categories.some((x) => x.id === c.id)).length })) };
   },
   async uploadImage(file, { onProgress } = {}) {
     await wait();

@@ -49,9 +49,9 @@ function parseThumbnailUrl(value, cloudName) {
 
 /** ["3","7",3] → ["3","7"]: số nguyên dương, bỏ trùng, giữ chuỗi để không mất độ chính xác BIGINT */
 function parseCategoryIds(value) {
-  if (!Array.isArray(value) || value.length === 0) throw new PostInputError('Chọn ít nhất 1 tag cho bài viết.');
+  if (!Array.isArray(value) || value.length === 0) throw new PostInputError('Chọn ít nhất 1 chủ đề cho bài viết.');
   const ids = value.map((v) => String(v ?? '').trim());
-  if (ids.some((s) => !/^[1-9]\d{0,17}$/.test(s))) throw new PostInputError('Tag không hợp lệ.');
+  if (ids.some((s) => !/^[1-9]\d{0,17}$/.test(s))) throw new PostInputError('Chủ đề không hợp lệ.');
   return [...new Set(ids)];
 }
 

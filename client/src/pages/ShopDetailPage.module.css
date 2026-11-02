@@ -1,17 +1,13 @@
-/* Lam's code: Giao diện detail dùng hệ token chung, không đổi shell/sidebar của Shop Explore. */
-.shell { --feed-w: 1160px; display: flex; align-items: flex-start; }
-.main { flex: 1; min-width: 0; }
-
+/* Shop detail content uses the shared MemberLayout shell. */
 .content {
   display: grid;
   gap: 20px;
-  width: min(var(--feed-w), calc(100% - 48px));
+  width: min(1160px, calc(100% - 48px));
   margin-inline: auto;
   padding: 12px 0 180px;
 }
 
 .headerRow { display: flex; align-items: center; gap: 10px; min-height: 42px; min-width: 0; }
-.mobileMenuButton { display: none; }
 .backLink { color: var(--ac-moss); font-weight: 700; text-decoration: none; white-space: nowrap; }
 .backLink:hover, .backLink:focus-visible { text-decoration: underline; }
 .breadcrumbSlash { color: var(--ac-muted); }
@@ -121,7 +117,6 @@
 @media (max-width: 767.98px) {
   .content { width: calc(100% - 24px); gap: 16px; padding: 4px 0 120px; }
   .headerRow { gap: 8px; min-height: 40px; }
-  .mobileMenuButton { display: inline-flex; }
   .breadcrumbName, .breadcrumbSlash { display: none; }
   .hero { min-height: 228px; border-radius: 20px; }
   .heroBody { right: 14px; bottom: 14px; left: 14px; }

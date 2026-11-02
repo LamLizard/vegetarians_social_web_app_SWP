@@ -2,8 +2,9 @@
 import { apiFetch } from './api';
 
 const adminService = {
-  getDashboard() {
-    return apiFetch('/admin/dashboard');
+  /** Khoi's code 30/10: range = 'today' | '7d' | '30d' */
+  getDashboard(range = '7d') {
+    return apiFetch(`/admin/dashboard?range=${encodeURIComponent(range)}`);
   },
   getAlerts(page = 1) {
     return apiFetch(`/admin/dashboard/alerts?page=${page}`);

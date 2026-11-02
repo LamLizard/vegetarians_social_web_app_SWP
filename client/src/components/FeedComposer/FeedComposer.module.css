@@ -1,32 +1,55 @@
-/* Khoi's code: theo prototype UI v2 (src/v2/components/Hero.module.css → .composer). */
-.composer {
+/* Khoi's code: ô đăng nhanh đầu Bảng tin.
+   01/11/2026: theo prototype v4 (src/v4/components/Composer.module.css) — 1 hàng: avatar · ô nhập giả · Ảnh · Video. */
+.card {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 100%;
-  padding: 8px 8px 8px 12px;
-  border: 1px solid var(--v-line-2);
-  border-radius: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--v-line);
+  border-radius: var(--ac-radius-surface, 20px);
   background: var(--v-surface);
-  color: var(--v-muted);
-  text-align: left;
-  box-shadow: var(--v-shadow);
-  transition: border-color .2s;
+  box-shadow: var(--ac-shadow-sm);
 }
-.composer:hover { border-color: var(--v-accent-line); }
-.composer:active { transform: scale(0.995); }
-.placeholder { flex: 1; min-width: 0; overflow: hidden; font-size: 1rem; white-space: nowrap; text-overflow: ellipsis; }
-.tools { display: flex; gap: 12px; padding-right: 4px; color: var(--v-muted); font-size: 1rem; }
-.post {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
+.ph {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
   padding: 0 16px;
-  border-radius: 12px;
-  background: var(--v-accent);
-  color: var(--v-on-accent);
-  font-size: 0.875rem;
-  font-weight: 700;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--v-surface-2);
+  color: var(--v-muted);
+  font-size: 0.95rem;
+  text-align: left;
+  transition: border-color .15s, color .15s;
 }
-@media (max-width: 767.98px) { .tools { display: none; } }
+.ph:hover { border-color: var(--v-line-2); color: var(--v-text-2); }
+.ph span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.short { display: none !important; }
+.sep { flex: none; width: 1px; height: 26px; background: var(--v-line); }
+.ic {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  font-size: 1.2rem;
+  transition: background-color .15s, transform .15s;
+}
+.ic:hover { background: var(--v-surface-2); transform: translateY(-1px); }
+.photo { color: var(--v-accent); }
+.video { color: var(--ac-alert); }
+
+@media (max-width: 767.98px) {
+  .card { gap: 6px; padding: 10px 12px; border-radius: 16px; }
+  .ph { padding: 0 14px; font-size: 0.92rem; }
+  .ic { width: 36px; }
+  .sep { display: none; }
+  .long { display: none !important; }
+  .short { display: block !important; }
+}
+@media (prefers-reduced-motion: reduce) { .ic { transition: none; } .ic:hover { transform: none; } }

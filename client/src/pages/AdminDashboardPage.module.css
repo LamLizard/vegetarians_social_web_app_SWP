@@ -1,0 +1,93 @@
+/* Khoi's code 30/10/2026: Tổng quan khu quản trị — phương án B */
+.page { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1rem; }
+.title { margin: 0; font-size: clamp(1.45rem, 2.4vw, 1.9rem); font-weight: 800; letter-spacing: -0.03em; }
+.desc { margin: 0.2rem 0 0; color: var(--ac-muted); }
+
+/* Chọn kỳ: Hôm nay · 7 ngày · 30 ngày */
+.range { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--ac-border); border-radius: var(--ac-radius); background: var(--ac-card); }
+.range button { padding: 0.35rem 0.85rem; border: 0; border-radius: calc(var(--ac-radius) - 3px); background: none; color: var(--ac-muted); font-size: 0.85rem; font-weight: 600; }
+.range button:hover { color: var(--ac-ink); }
+.range button:focus-visible { outline: 2px solid var(--ac-focus-ring); outline-offset: 1px; }
+.range .rangeOn, .range .rangeOn:hover { background: var(--ac-tag-bg); color: var(--ac-moss); }
+
+.kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.75rem; }
+.pendingCard { border-width: 1px; }
+.vs { color: var(--ac-muted); }
+.up, .down, .flat { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
+.up { color: var(--ac-ok-fg); }
+.down { color: var(--ac-bad-fg); }
+.flat { color: var(--ac-muted); font-weight: 600; }
+
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: stretch; }
+.row > * { margin: 0; } /* 2 khung cao bằng nhau; biểu đồ giãn theo */
+.fill { display: flex; flex-direction: column; }
+.fill > div:last-child { flex: 1; }
+.note { margin: 0 0 0.75rem; color: var(--ac-muted); font-size: 0.82rem; }
+.row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.pad { padding: 1rem; }
+
+/* Biểu đồ cột */
+.chart { display: flex; flex-direction: column; height: 100%; margin: 0; }
+.bars { display: flex; flex: 1; align-items: flex-end; gap: 6px; min-height: 170px; padding: 0 2px; border-bottom: 1px solid var(--ac-border); }
+.day { display: flex; flex: 1; align-items: flex-end; justify-content: center; gap: 2px; min-width: 0; height: 100%; }
+.day span { flex: 1; max-width: 18px; min-height: 2px; border-radius: 4px 4px 0 0; }
+.barPost { background: var(--ac-moss); }
+.barReport { background: var(--ac-alert); }
+.axis { display: flex; gap: 6px; padding: 6px 2px 0; }
+.axis span { flex: 1; min-width: 0; color: var(--ac-muted); font-size: 0.72rem; text-align: center; white-space: nowrap; }
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.75rem; color: var(--ac-muted); font-size: 0.85rem; }
+.legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.legend b { color: var(--ac-ink); }
+.dotPost, .dotReport { width: 10px; height: 10px; border-radius: 3px; }
+.dotPost { background: var(--ac-moss); }
+.dotReport { background: var(--ac-alert); }
+
+/* Vòng tròn theo thời gian chờ */
+.ageWrap { display: flex; align-items: center; gap: 1rem; }
+.donut { display: grid; flex: none; place-items: center; width: 120px; height: 120px; border-radius: 50%; }
+.donutHole { display: grid; place-items: center; width: 78px; height: 78px; border-radius: 50%; background: var(--ac-card); text-align: center; line-height: 1.1; }
+.donutHole b { font-size: 1.35rem; }
+.donutHole span { color: var(--ac-muted); font-size: 0.68rem; }
+.ageList { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; font-size: 0.85rem; }
+.ageList li { display: flex; align-items: center; gap: 0.45rem; }
+.ageList i { width: 10px; height: 10px; border-radius: 3px; }
+.ageList b { margin-left: auto; padding-left: 0.75rem; }
+.types { display: grid; margin: 0.9rem 0 0.75rem; padding: 0.4rem 0 0; border-top: 1px solid var(--ac-border); list-style: none; }
+.types a { display: flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0.25rem; border-radius: var(--ac-radius-sm); color: var(--ac-ink); font-size: 0.88rem; text-decoration: none; }
+.types a:hover { background: var(--ac-hover-soft); }
+.types a:focus-visible { outline: 2px solid var(--ac-focus-ring); }
+.types i { color: var(--ac-muted); }
+.types span { flex: 1; min-width: 0; }
+.countOn { color: var(--ac-ink); }
+.countOff { color: var(--ac-muted); font-weight: 500; }
+
+/* Danh sách 5 dòng (bài bị báo cáo · nhật ký) — không bảng, không cuộn ngang */
+.list { margin: 0; padding: 0; list-style: none; }
+.list li { display: flex; align-items: center; gap: 0.6rem; min-height: 52px; padding: 0.55rem 1rem; border-top: 1px solid var(--ac-border); }
+.list li:first-child { border-top: 0; }
+.ellipsis { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.muted { color: var(--ac-muted); }
+.time { flex: none; color: var(--ac-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.tagOk, .tagBad, .tagWarn, .tagNeutral { display: inline-block; flex: none; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+.tagOk { background: var(--ac-ok-bg); color: var(--ac-ok-fg); }
+.tagBad { background: var(--ac-bad-bg); color: var(--ac-bad-fg); }
+.tagWarn { background: var(--ac-warn-bg); color: var(--ac-warn-fg); }
+.tagNeutral { background: var(--ac-neutral-bg); color: var(--ac-neutral-fg); }
+
+@media (max-width: 1399.98px) {
+  .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pendingCard { grid-column: span 2; } /* 3 + 2 ô → hàng 2 không bị trống 1 ô */
+}
+@media (max-width: 1199.98px) {
+  .row, .row2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767.98px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pendingCard { grid-column: 1 / -1; }
+  .ageWrap { flex-wrap: wrap; }
+  /* Mobile: dòng nhật ký xuống 2 dòng thay vì cắt mất nhãn hành động; giờ xuống dưới */
+  .list li { flex-wrap: wrap; row-gap: 0.25rem; }
+  .list .ellipsis { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; }
+  .time { width: 100%; }
+}

@@ -6,19 +6,15 @@
 // Trang nào dùng khung này cũng có nền chấm + biến bố cục của styles/feed-theme.css (<html data-feed-v2>).
 import { useEffect, useLayoutEffect, useState } from 'react';
 import FeedSidebar from '../FeedSidebar/FeedSidebar';
+import FeedTopbar from '../FeedTopbar/FeedTopbar';
+// Duy's Code: Chuông thông báo được gắn vào sidebar chung của thành viên.
+import MemberNotificationBell from '../MemberNotificationBell/MemberNotificationBell';
 import { ROLE } from '../../constants/domain';
+import { MEMBER_NAV, navKeyOf } from '../../hooks/useMemberSidebar';
 import '../../styles/feed-theme.css';
 import s from './MemberLayout.module.css';
 
 // TODO: chuyển lên App khi nhóm có react-router
-// Theo wireframe Figma (prototype UI v2): 4 mục
-export const MEMBER_NAV = [
-  { key: 'feed', label: 'Bảng tin', icon: 'house', iconActive: 'house-fill', href: '/' },
-  { key: 'recipes', label: 'Công thức', icon: 'journal-richtext', href: '#' },
-  { key: 'meal-plan', label: 'Thực đơn AI', icon: 'calendar-week', iconActive: 'calendar-week-fill', href: '#' },
-  { key: 'shops', label: 'Quán chay', icon: 'shop', href: '/shops' },
-];
-
 /** user của BE ({ fullName }) → dạng component cần ({ name }) */
 export const toPerson = (u) => (u ? { name: u.fullName, avatarUrl: u.avatarUrl ?? null } : null);
 
@@ -45,18 +41,22 @@ const useIsMobile = () => {
 };
 
 /**
- * @param {string} [activeKey]   mục menu đang sáng ('feed'…); bỏ trống = không sáng mục nào (vd trang Tạo công thức)
+ * @param {string} [activeKey]   mục menu đang sáng ('feed'…); bỏ trống = tự sáng theo đường dẫn (navKeyOf) · '' = không sáng mục nào
  * @param {{id, fullName, role, avatarUrl?}|null} user   null = khách
  * @param {{icon?, label, onClick, tone?}[]} [accountMenu]
  * @param {object} [shopAction]   nút Hồ sơ quán / Đăng ký quán (ShopNavigationContext)
- * @param {() => void} [onCreate]   nút "+ Đăng bài" (thanh bên + thanh dưới điện thoại), chỉ khi đã đăng nhập
+ * @param {() => void} [onCreate]   nút "+ Đăng bài" (thanh bên + thanh dưới điện thoại), chỉ khi đã đăng nhập.
+ *   Bỏ trống = về Bảng tin và mở hộp Đăng bài (/?compose=1) — mọi trang thành viên đều có nút này như Bảng tin
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  * @param {({ openMenu }) => React.ReactNode} [renderTopbar]   thanh trên; openMenu mở ngăn kéo trên điện thoại
  */
 export default function MemberLayout({
-  activeKey, user, accountMenu = [], shopAction, onCreate, onLogin, onRegister, renderTopbar, children,
+  activeKey: activeKeyProp, user, accountMenu = [], shopAction, onCreate: onCreateProp, onLogin, onRegister, renderTopbar, children,
 }) {
   const isGuest = !user;
+  // Khoi's code (01/11/2026): đồng nhất thanh bên theo Bảng tin — trang không truyền thì vẫn có "+ Đăng bài" và mục đang mở tự sáng
+  const activeKey = activeKeyProp ?? navKeyOf();
+  const onCreate = onCreateProp ?? (() => window.location.assign('/?compose=1'));
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -71,16 +71,23 @@ export default function MemberLayout({
     return () => { delete document.documentElement.dataset.feedV2; };
   }, []);
 
-  const create = onCreate && !isGuest ? () => { setDrawerOpen(false); onCreate(); } : undefined;
+  const createAction = onCreate ?? (user?.role === 'member' ? () => window.location.assign('/?compose=1') : undefined);
+  const create = createAction && !isGuest ? () => { setDrawerOpen(false); createAction(); } : undefined;
+  // Duy's Code: Giữ liên kết Bài của tôi trong menu tài khoản mà không lặp mục đã được truyền vào.
+  const memberAccountMenu = user && !accountMenu.some((item) => item.href === '/me/posts')
+    ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }, ...accountMenu]
+    : accountMenu;
 
   return (
-    <div className={`feed-v2-page ${s.shell}`}>
+    // Khoi's code 01/11: data-collapsed → --nav-w (MemberLayout.module.css) chừa đúng chỗ cho thanh bên fixed
+    <div className={`feed-v2-page ${s.shell}`} data-collapsed={!isMobile && collapsed ? '1' : '0'}>
       <FeedSidebar
         nav={MEMBER_NAV}
         activeKey={activeKey}
         user={user && { ...toPerson(user), roleLabel: ROLE[user.role] }}
-        accountMenu={accountMenu}
+        accountMenu={memberAccountMenu}
         shopAction={shopAction}
+        notificationSlot={user ? <MemberNotificationBell role={user.role} /> : null}
         collapsed={!isMobile && collapsed}
         onToggle={toggleCollapsed}
         mobileOpen={isMobile && drawerOpen}
@@ -91,17 +98,19 @@ export default function MemberLayout({
       />
 
       <div className={`feed-v2-main ${s.main}`}>
-        {renderTopbar?.({ openMenu: () => setDrawerOpen(true) })}
+        {renderTopbar
+          ? renderTopbar({ openMenu: () => setDrawerOpen(true) })
+          : user?.role === 'member' && <FeedTopbar hideSearch onOpenMenu={() => setDrawerOpen(true)} />}
         {children}
       </div>
 
       {/* Điện thoại: thanh tab nổi dưới đáy */}
-      <nav className={`${s.mobileNav} ${create ? s.mobileNav5 : ''}`} aria-label="Điều hướng nhanh">
+      <nav className={s.mobileNav} aria-label="Điều hướng nhanh">
         {MEMBER_NAV.map((n, i) => {
           const on = n.key === activeKey;
           const link = (
             <a key={n.key} href={n.href} className={`${s.mItem} ${on ? s.mOn : ''}`} aria-current={on ? 'page' : undefined}>
-              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.label}</span>
+              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.short ?? n.label}</span>
             </a>
           );
           // Thành viên: nút Đăng bài nằm giữa thanh (theo prototype UI v2)

@@ -6,6 +6,7 @@ import useAuth from './hooks/useAuth';
 import AuthPage from './pages/AuthPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminMemberManagementPage from './pages/AdminMemberManagementPage';
+import AdminCategoryManagementPage from './pages/AdminCategoryManagementPage';
 import AdminDishCreatePage from './pages/AdminDishCreatePage';
 import AdminDishManagementPage from './pages/AdminDishManagementPage';
 import AdminRecipeVerifyPage from './pages/AdminRecipeVerifyPage';
@@ -25,13 +26,21 @@ import MemberNavigationLayout from './components/MemberNavigationLayout';
 
 // Tung's code: Trang duyệt bài viết và xử lý báo cáo, dùng chung phiên đăng nhập Admin.
 import AdminModerationPage from './pages/AdminModerationPage';
+import AdminAIConfigurationPage from './pages/AdminAIConfigurationPage';
+// Duy's Code: Trang thành viên quản lý bài của mình và form sửa bài riêng.
+import UserPostManagementPage from './pages/UserPostManagementPage';
+import UserPostEditPage from './pages/UserPostEditPage';
 
 // Khoi's code: Trang Bảng tin (ID01) — trang chủ của khách và thành viên.
 import PostFeedPage from './pages/PostFeedPage';
 // Khoi's code: Trang Tạo công thức (Sprint 2, dữ liệu giả tới khi nhóm sửa DB).
 import RecipeCreatePage from './pages/RecipeCreatePage';
+import RecipeListPage from './pages/RecipeListPage'; // Khoi's code: trang Công thức (/recipes)
 import RecipeDetailPage from './pages/RecipeDetailPage'; // Khoi's code: xem công thức đã duyệt
-
+import MealPlanPage from './pages/MealPlanPage';
+import ChatbotPage from './pages/ChatbotPage';
+// Tùng: đăng ký trang chi tiết riêng cho kết quả chatbot của member.
+import PostDetailPage from './pages/PostDetailPage';
 
 // Tùng — Sprint 2: provider nằm ngoài mọi nhánh page để trạng thái Shop không tách theo navbar.
 export default function App() {
@@ -62,18 +71,26 @@ function AppContent() {
   const path = window.location.pathname.replace(/\/$/, '') || '/';
   const isFeedPath = path === '/' || path === '/feed';
   const goTo = (url) => window.location.assign(url);
-  // Khoi's code: /recipes/123 → xem công thức đã duyệt (khách cũng xem được). /recipes/new KHÔNG khớp vì chỉ nhận số.
+  // Khoi's code: /recipes/123 → xem công thức đã duyệt (cần đăng nhập: khách mở link này → trang Đăng nhập, xong quay lại đúng công thức). /recipes/new KHÔNG khớp vì chỉ nhận số.
   const recipeViewId = /^\/recipes\/(\d+)$/.exec(path)?.[1];
 
   if (!isAuthenticated) {
+    if (path === '/chatbot') return <ChatbotPage key="guest" user={null} />;
     if (isFeedPath) return <PostFeedPage user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
-    if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={null} onLogin={() => goTo('/login')} onRegister={() => goTo('/register')} />;
+    // Khoi's code: ?next=/recipes → đăng nhập / đăng ký xong quay lại trang Công thức (thay vì về Bảng tin)
+    if (path === '/recipes') return <RecipeListPage user={null} onLogin={() => goTo('/login?next=/recipes')} onRegister={() => goTo('/register?next=/recipes')} />;
     const isAuthPath = path === '/login' || path === '/register';
     return (
       <AuthPage
         initialMode={path === '/register' ? 'register' : 'login'}
-        // Đăng nhập xong ở /login → đổi URL về trang chủ (không tải lại trang)
-        onAuthenticated={() => { if (isAuthPath) window.history.replaceState(null, '', '/'); }}
+        // Đăng nhập xong ở /login → đổi URL về trang chủ (không tải lại trang).
+        // Khoi's code: có ?next= (vd /login?next=/recipes) → về trang đó. Chỉ nhận đường dẫn nội bộ "/..." (chặn "//web-khac.com", "http://...": open redirect).
+        onAuthenticated={() => {
+          if (!isAuthPath) return;
+          const next = new URLSearchParams(window.location.search).get('next');
+          const safeNext = next && /^\/(?![/\\])/.test(next) ? next : '/';
+          window.history.replaceState(null, '', safeNext);
+        }}
       />
     );
   }
@@ -94,21 +111,33 @@ function AppContent() {
   );
   // Tùng — Sprint 2: đồng bộ sidebar cho Profile, không sửa form hoặc API hồ sơ của Duy.
   if (!isAdmin && path === '/profile') return <MemberNavigationLayout activeKey="profile"><UserProfilePage /></MemberNavigationLayout>; /* Duy's code: Chỉ User thường được mở trang hồ sơ tại /profile. */
+  // Duy's Code: Chỉ Member đã đăng nhập được vào danh sách/sửa bài của chính mình.
+  if (!isAdmin && path === '/me/posts') return <UserPostManagementPage user={user} accountMenu={accountMenu} shopAction={shopAction} />;
+  const editPostId = /^\/posts\/(\d+)\/edit$/.exec(path)?.[1];
+  if (!isAdmin && editPostId) return <UserPostEditPage postId={editPostId} user={user} accountMenu={accountMenu} shopAction={shopAction} />;
+  // Tùng: URL chi tiết yêu cầu member và không lấn route sửa bài hiện có.
+  const detailPostId = /^\/posts\/([1-9]\d{0,17})$/.exec(path)?.[1];
+  if (user?.role === 'member' && detailPostId) return <PostDetailPage postId={detailPostId} user={user} />;
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
   // Khoi's code: xem công thức đã duyệt — thành viên và Admin
   if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
+  if (path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
+  if (!isAdmin && path === '/meal-plan') return <MealPlanPage user={user} accountMenu={accountMenu} />;
+  if (!isAdmin && path === '/chatbot') return <ChatbotPage key={user.id} user={user} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */
   if (!isAdmin && path === '/shops') return (
+    // Duy's Code: Truyền cùng menu quán của App vào sidebar dùng chung.
     <ShopExplorePage
       user={user}
       accountMenu={accountMenu}
+      shopAction={shopAction}
     />
   );
   /* Lam's code: Trang Chi tiết quán (M-09) — thành viên đã đăng nhập. */
   if (!isAdmin && path.startsWith('/shops/')) {
     const shopId = path.split('/')[2];
-    return <ShopDetailPage shopId={shopId} user={user} accountMenu={accountMenu} />;
+    return <ShopDetailPage shopId={shopId} user={user} accountMenu={accountMenu} shopAction={shopAction} />;
   }
   // Khoi's code: Admin vẫn vào dashboard như cũ; muốn xem Bảng tin thì mở /feed
   if (isAdmin && path === '/feed') return feed;
@@ -121,6 +150,8 @@ function AppContent() {
   if (isAdmin && window.location.pathname.replace(/\/$/, '') === '/admin/moderation') {
     return <AdminModerationPage />;
   }
+  // Tùng: thêm trang cấu hình AI sau khi đã xác định đúng vai trò Admin.
+  if (isAdmin && path === '/admin/ai-configuration') return <AdminAIConfigurationPage />;
   // Duy's code: Nối hai trang quản lý Dish tới các URL Admin tương ứng.
   if (isAdmin && path === '/admin/dishes/create') return <AdminDishCreatePage />;
   if (isAdmin && path === '/admin/dishes') return <AdminDishManagementPage />;
@@ -128,6 +159,7 @@ function AppContent() {
   // Duy's Code : Giới hạn route duyệt nguyên liệu cho tài khoản Admin.
   if (isAdmin && path === '/admin/ingredients/verify') return <AdminIngredientVerifyPage />;
   if (isAdmin && path === '/admin/accounts') return <AdminMemberManagementPage />;
+  if (isAdmin && path === '/admin/categories') return <AdminCategoryManagementPage />;
   // Tung's code: Kết thúc điểm nối trang kiểm duyệt.
 
   // Quản trị viên → khu quản trị

@@ -1,2 +1,26 @@
-.menu { z-index: 1060; }
-.list { max-height: min(70vh, 560px); overflow: auto; }
+/* Duy's Code: Wrapper chỉ rộng theo rail cha và căn giữa icon chuông cố định 40px. */
+.triggerWrap { display: flex; justify-content: center; width: 100%; }
+/* Hàng chuông dùng cùng chiều cao, căn lề và kiểu chữ với hàng theme. */
+.trigger { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; height: 40px; padding: 0 12px; border: 0; border-radius: 11px; background: transparent; color: var(--v-muted); font-size: .92rem; font-weight: 600; text-align: left; transition: color .15s, background-color .15s; }
+.trigger:hover, .trigger[aria-expanded='true'] { background: var(--v-surface-2); color: var(--v-text); }
+.trigger:focus-visible { outline: 3px solid var(--ac-focus-ring); outline-offset: 1px; }
+.trigger > i { display: grid; flex: none; place-items: center; width: 20px; font-size: 1.12rem; }
+.expandedTrigger { white-space: nowrap; }
+.triggerLabel { overflow: hidden; flex: 1; text-overflow: ellipsis; }
+.badge { display: grid; flex: none; min-width: 22px; height: 20px; padding: 0 6px; place-items: center; border-radius: 10px; background: var(--ac-alert); color: var(--ac-on-alert); font-size: .68rem; font-weight: 700; line-height: 1; }
+.compactTrigger { justify-content: center; width: 40px; padding: 0; border-radius: 50%; }
+.compactBadge { position: absolute; top: -2px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px; border: 2px solid var(--v-surface); font-size: .62rem; }
+/* Portal panel: fixed ngoài sidebar, không có mũi nhọn. */
+.menu.menu { z-index: 1201; box-sizing: border-box; width: 380px !important; max-width: calc(100vw - 24px); max-height: min(70vh, 560px); overflow: hidden; padding: 0; border: 1px solid var(--ac-border-strong); border-radius: 16px; background: var(--ac-card); box-shadow: 0 8px 24px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .06); animation: panelEnter 150ms ease-out; }
+:global(html[data-theme='dark']) .menu.menu { border-color: var(--ac-border-strong); box-shadow: 0 8px 24px rgba(0, 0, 0, .38), 0 2px 6px rgba(0, 0, 0, .22); }
+
+@keyframes panelEnter { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .menu.menu { animation: none; }
+}
+
+@media (max-width: 767.98px) {
+  /* Sheet mobile đặt sát đáy, có lề đều và overlay. */
+  .menu.menu { top: auto; right: 12px; bottom: 12px; left: 12px; width: auto !important; max-width: none; max-height: min(70vh, 560px); border-radius: 16px; }
+}

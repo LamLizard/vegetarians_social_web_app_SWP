@@ -1,9 +1,13 @@
 /* Thanh bên trái của Bảng tin — theo prototype UI v2 (src/v2/components/Sidebar.module.css).
    Thêm so với prototype: khối Đăng nhập / Đăng ký cho khách; lối tắt tài khoản là <button>. */
+/* Khoi's code (01/11/2026): FIXED (trước: sticky trong hàng flex) → thu/mở chỉ đổi bề rộng thanh bên,
+   khung trang tự chừa chỗ bằng padding-left: var(--nav-w) (MemberLayout / MemberNavigationLayout). */
 .side {
-  --w: 252px;
-  position: sticky;
+  --w: 252px; /* = --nav-w của khung trang */
+  position: fixed;
   top: 0;
+  bottom: 0;
+  left: 0;
   z-index: 1050;
   display: flex;
   flex-direction: column;
@@ -161,6 +165,7 @@
 .drawerOpen { grid-template-rows: 1fr; }
 .drawerClip { min-height: 0; overflow: hidden; }
 .drawerInner { display: grid; gap: 2px; padding: 6px 6px 4px; border-bottom: 1px solid var(--v-line); }
+.sep { margin: 4px 6px; border: 0; border-top: 1px solid var(--v-line); opacity: 1; }
 .userRow {
   display: flex;
   align-items: center;

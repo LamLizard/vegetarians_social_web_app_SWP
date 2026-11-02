@@ -71,7 +71,7 @@ function parseSchedule(value) {
     return { dayOfWeek: day.dayOfWeek, isClosed: false,
       slots: slots.map(({ openTime, closeTime }) => ({ openTime, closeTime })) };
   });
-  if (result.every(day => day.isClosed)) invalid('schedule', 'Quán phải mở cửa ít nhất một ngày.');
+  // Tùng — user cho phép nghỉ cả tuần; bảy ngày/ca/giờ hợp lệ vẫn được kiểm tra ở trên.
   return result.sort((a, b) => a.dayOfWeek - b.dayOfWeek);
 }
 

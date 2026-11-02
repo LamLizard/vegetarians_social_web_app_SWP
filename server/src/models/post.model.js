@@ -7,6 +7,8 @@
 //  - Feed thành viên: bài mới ĐĂNG nhất trước = published_at (lúc Admin duyệt), không phải created_at.
 //  - Báo cáo 1 bài 'public' → bài chuyển 'reported' (vẫn hiện). Admin xử lý ở module của Tùng.
 const pool = require('../config/db');
+const { buildSearch, searchWhere } = require('../utils/postSearch'); // Khoi's code 28/10: tìm theo phạm vi, không dấu
+const { buildFeedCursor } = require('../utils/feedCursor'); // Khoi's code 01/11: cursor Mới nhất / Nhiều tim
 // Tung's code: Điểm nối Bảng tin của Khôi với module gom báo cáo theo case.
 const { getOrCreatePendingCase } = require('./reportCase.model');
 
@@ -115,23 +117,32 @@ const SORT_KEY = `(extract(epoch FROM ${PUBLISHED}) * 1000000)::bigint`;
  * @param {{ time: string, id: string } | null} cursor
  */
 // Khoi's code: categoryId (Sprint 2) — lọc bài có gắn danh mục đó (hàng nút lọc trên Bảng tin)
-async function findFeed({ viewerId, cursor = null, q = '', categoryId = null, limit = 10 }) {
-  const keyword = q ? `%${q.replace(/[\\%_]/g, '\\$&')}%` : null; // gõ "%" hay "_" không bị hiểu là ký tự đại diện
+// Khoi's code 28/10: scope = phạm vi tìm (all · title · author · topic), không phân biệt dấu — xem utils/postSearch.js
+// Khoi's code 01/11: sort = 'new' (Mới nhất, như trên) · 'top' (Nhiều tim: vote_count DESC, rồi mới nhất, rồi post_id DESC).
+//   'top' dùng cursor "<vote_count>_<micro giây>_<post_id>" → so sánh bộ 3 (vote_count, mốc, id).
+async function findFeed({ viewerId, cursor = null, q = '', scope = 'all', categoryId = null, limit = 10, sort = 'new' }) {
+  const { titleLike, authorLike, topicLike } = buildSearch(q, scope);
+  const top = sort === 'top';
+  const after = top
+    ? `($2::bigint IS NULL OR (p.vote_count, ${SORT_KEY}, p.post_id) < ($9::int, $2::bigint, $3::bigint))`
+    : `($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))`;
+  const params = [viewerId, cursor?.time ?? null, cursor?.id ?? null, titleLike, limit + 1, categoryId, authorLike, topicLike];
+  if (top) params.push(cursor?.votes ?? null);
   const { rows } = await pool.query(`
     SELECT ${POST_FIELDS}, ${SORT_KEY}::text AS "sortKey"
     ${FROM_POST}
     WHERE ${VISIBLE}
-      AND ($2::bigint IS NULL OR (${SORT_KEY}, p.post_id) < ($2::bigint, $3::bigint))
-      AND ($4::text IS NULL OR p.title ILIKE $4::text)
+      AND ${after}
+      AND ${searchWhere(4, 7, 8)}
       AND ($6::bigint IS NULL OR EXISTS (
         SELECT 1 FROM post_category pc WHERE pc.post_id = p.post_id AND pc.category_id = $6::bigint
       ))
-    ORDER BY ${PUBLISHED} DESC, p.post_id DESC
+    ORDER BY ${top ? 'p.vote_count DESC, ' : ''}${PUBLISHED} DESC, p.post_id DESC
     LIMIT $5
-  `, [viewerId, cursor?.time ?? null, cursor?.id ?? null, keyword, limit + 1, categoryId]);
+  `, params);
   const items = rows.slice(0, limit).map(({ sortKey, ...post }) => post); // sortKey chỉ dùng làm cursor
   const last = rows[limit - 1];
-  return { items, nextCursor: rows.length > limit ? `${last.sortKey}_${last.id}` : null };
+  return { items, nextCursor: rows.length > limit ? buildFeedCursor(last, sort) : null };
 }
 
 /** Bình luận public của 1 bài, mới nhất trước. viewerId để đánh dấu isOwner. */
@@ -308,7 +319,116 @@ async function createPost({ authorId, postType, title, content, thumbnailUrl, yo
   });
 }
 
+// Duy's Code: Member xem danh sách bài của chính mình; trạng thái deleted vẫn hiện để giữ lịch sử.
+async function findMyPosts({ accountId, status = 'all', postType = 'all', page = 1, limit = 20, postId = null }) {
+  const values = [accountId];
+  const filters = ['p.account_id = $1'];
+  if (status === 'pending') {
+    values.push(status);
+    filters.push(`p.status = $${values.length}`);
+  } else if (status === 'edit_pending') {
+    filters.push(`p.status = 'public' AND EXISTS (
+      SELECT 1 FROM public.post_edit_requests er WHERE er.post_id = p.post_id AND er.status = 'edited'
+    )`);
+  } else if (status === 'public') {
+    filters.push(`p.status IN ('public', 'reported')`);
+  } else if (status !== 'all') { values.push(status); filters.push(`p.status = $${values.length}`); }
+  if (postType !== 'all') { values.push(postType); filters.push(`p.post_type = $${values.length}`); }
+  // Duy's Code: ID chỉ là filter bổ sung; ownership vẫn luôn khóa theo account_id.
+  if (postId) { values.push(postId); filters.push(`p.post_id = $${values.length}`); }
+  const where = filters.join(' AND ');
+  const countResult = await pool.query(`SELECT count(*)::int AS total FROM post p WHERE ${where}`, values);
+  const totalItems = countResult.rows[0].total;
+  const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * limit;
+  const { rows } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
+      CASE WHEN p.status = 'deleted' THEN
+        CASE WHEN latest_admin_log.action IN ('REJECT', 'REMOVE') THEN latest_admin_log.reason
+          WHEN latest_admin_log.action IS NULL AND to_jsonb(p)->'creation_moderation'->>'outcome' = 'rejected'
+            THEN p.moderation_note ELSE NULL END
+        ELSE p.moderation_note END AS "moderationNote", p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt", p.published_at AS "publishedAt", p.deleted_at AS "deletedAt",
+      p.vote_count AS "voteCount", p.comment_count AS "commentCount", p.view_count AS "viewCount",
+      EXISTS (SELECT 1 FROM public.post_edit_requests er WHERE er.post_id = p.post_id AND er.status = 'edited') AS "hasPendingEdit",
+      (SELECT er.submitted_at FROM public.post_edit_requests er WHERE er.post_id = p.post_id AND er.status = 'edited' LIMIT 1) AS "pendingEditSubmittedAt",
+      json_build_object('id', a.account_id::text, 'fullName', a.full_name, 'avatarUrl', a.avatar_url) AS author,
+      EXISTS (SELECT 1 FROM post_vote v WHERE v.post_id = p.post_id AND v.account_id = $1::bigint) AS "isVoted",
+      latest_admin_log.action AS "moderationAction",
+      CASE WHEN p.status = 'deleted' AND latest_admin_log.action IN ('REJECT', 'REMOVE') THEN 'admin'
+        WHEN p.status = 'deleted' AND latest_admin_log.action IS NULL
+          AND to_jsonb(p)->'creation_moderation'->>'outcome' = 'rejected' THEN 'ai'
+        ELSE NULL END AS "moderationSource",
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
+        FROM post_category pc JOIN category c ON c.category_id = pc.category_id WHERE pc.post_id = p.post_id), '[]'::json) AS categories
+    FROM post p JOIN account a ON a.account_id = p.account_id
+    LEFT JOIN LATERAL (
+      SELECT al.action, al.reason
+      FROM admin_log al
+      WHERE al.target_type = 'post' AND al.target_id = p.post_id
+        AND (p.deleted_at IS NULL OR al.created_at <= p.deleted_at)
+      ORDER BY al.created_at DESC, al.admin_log_id DESC
+      LIMIT 1
+    ) latest_admin_log ON true
+    WHERE ${where}
+    ORDER BY p.created_at DESC, p.post_id DESC
+    LIMIT $${values.length + 1} OFFSET $${values.length + 2}
+  `, [...values, limit, offset]);
+  return { items: rows, page: currentPage, pageSize: limit, totalItems, totalPages };
+}
+
+// Duy's Code: Bảo đảm đọc bài sửa theo accountId; chỉ bài public mới cho phép thay đổi.
+async function findMyPost(accountId, postId) {
+  const { rows } = await pool.query(`
+    SELECT p.post_id::text AS id, p.post_type AS "postType", p.title, p.content,
+      p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl", p.status,
+      p.moderation_note AS "moderationNote",
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id::text, 'name', c.name) ORDER BY c.name)
+        FROM post_category pc JOIN category c ON c.category_id = pc.category_id WHERE pc.post_id = p.post_id), '[]'::json) AS categories,
+      er.post_edit_request_id::text AS "pendingEditId", er.submitted_at AS "pendingEditSubmittedAt"
+    FROM post p
+    LEFT JOIN public.post_edit_requests er ON er.post_id = p.post_id AND er.status = 'edited'
+    WHERE p.account_id = $1 AND p.post_id = $2
+  `, [accountId, postId]);
+  if (!rows[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
+  const post = rows[0];
+  const pendingEdit = post.pendingEditId
+    ? { id: post.pendingEditId, submittedAt: post.pendingEditSubmittedAt }
+    : null;
+  delete post.pendingEditId;
+  delete post.pendingEditSubmittedAt;
+  const editable = post.status === 'public' && pendingEdit === null;
+  return { ...post, editState: {
+    editable,
+    reason: editable ? null : pendingEdit ? 'pending_edit' : 'not_editable',
+    pendingEdit,
+  } };
+}
+
+// Duy's Code: Xóa mềm bài do chủ bài yêu cầu; không can thiệp bài đang có report hoặc đã được gỡ.
+async function deleteMyPost(accountId, postId) {
+  return transaction(async (client) => {
+    const { rows: owned } = await client.query(`
+      SELECT post_id::text AS id, status FROM public.post
+      WHERE post_id = $1 AND account_id = $2 FOR UPDATE
+    `, [postId, accountId]);
+    if (!owned[0]) throw new PostError(404, 'Không tìm thấy bài viết của bạn.');
+    if (!['pending', 'public'].includes(owned[0].status)) {
+      throw new PostError(409, 'Bài viết hiện chưa thể chỉnh sửa hoặc xóa.');
+    }
+    await client.query('DELETE FROM public.post_edit_requests WHERE post_id = $1', [postId]);
+    const { rows } = await client.query(`
+      UPDATE public.post SET status = 'deleted', deleted_at = now(), updated_at = now()
+      WHERE post_id = $1 AND account_id = $2 AND status IN ('pending', 'public')
+      RETURNING post_id::text AS id, status
+    `, [postId, accountId]);
+    return rows[0];
+  });
+}
+
 module.exports = {
   PostError, findPreview, findFeed, findComments, findBlockedKeyword, toggleVote, createComment, createReport,
-  createPost,
+  createPost, findMyPosts, findMyPost, deleteMyPost,
 };

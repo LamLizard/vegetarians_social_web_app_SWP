@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import Menu from '../Menu/Menu';
 import s from './FeedTopbar.module.css';
 
 /**
@@ -11,6 +13,10 @@ import s from './FeedTopbar.module.css';
  * @param {string} [searchLabel='Tìm bài viết']
  * @param {() => void} [onLogin]   chỉ truyền khi là khách
  * @param {boolean} [hideSearch]   Khoi's code: ẩn ô tìm kiếm (trang không cần). Máy tính: ẩn cả thanh; điện thoại: giữ nút ☰
+ * @param {{value: string, label: string, icon: string, hint?: string}[]} [scopes]
+ *        Khoi's code 28/10: có → nút chọn phạm vi tìm ở đầu ô tìm (vd Tất cả · Tiêu đề · Tác giả · Chủ đề). Không truyền → như cũ.
+ * @param {string} [scope] · @param {(v: string) => void} [onScopeChange]
+ * Khoi's code (01/11/2026): tự ẩn khi cuộn xuống, hiện lại khi cuộn lên (mọi trang dùng thanh này).
  */
 export default function FeedTopbar({
   value,
@@ -21,9 +27,40 @@ export default function FeedTopbar({
   searchLabel = 'Tìm bài viết',
   onLogin,
   hideSearch = false,
+  scopes,
+  scope,
+  onScopeChange,
 }) {
+  const current = scopes?.find((o) => o.value === scope) ?? scopes?.[0];
+
+  // Khoi's code (01/11/2026): cuộn xuống → ẩn thanh (thêm chỗ đọc bài), cuộn lên → hiện lại.
+  // Báo cho trang qua <html data-head-hidden> để cột bên dính sát mép trên (styles/feed-theme.css).
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    let last = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        if (y > last + 6 && y > 140) setHidden(true);
+        else if (y < last - 6 || y < 80) setHidden(false);
+        last = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (hidden) root.dataset.headHidden = ''; else delete root.dataset.headHidden;
+    return () => { delete root.dataset.headHidden; };
+  }, [hidden]);
+
   return (
-    <header className={`${s.bar} ${hideSearch ? s.noSearch : ''}`}>
+    <header className={`${s.bar} ${hideSearch ? s.noSearch : ''} ${hidden ? s.hidden : ''}`}>
       <div className={s.inner}>
         <button type="button" className={s.menuBtn} onClick={onOpenMenu} aria-label="Mở menu">
           <i className="bi bi-list" aria-hidden="true" />
@@ -35,6 +72,41 @@ export default function FeedTopbar({
           className={s.search}
           onSubmit={(e) => { e.preventDefault(); onSearch(value.trim()); }}
         >
+          {/* Khoi's code 28/10: chọn phạm vi tìm — luôn thấy đang tìm theo gì (phương án A) */}
+          {current && (
+            <>
+              <Menu
+                align="start"
+                width={240}
+                className={s.scopeWrap}
+                role="menu"
+                ariaLabel="Tìm theo"
+                renderTrigger={(p) => (
+                  <button type="button" className={s.scope} aria-label={`Tìm theo: ${current.label}`} {...p}>
+                    <i className={`bi bi-${current.icon} ${s.scopeIcon}`} aria-hidden="true" />
+                    <span className={s.scopeLabel}>{current.label}</span>
+                    <i className={`bi bi-chevron-down ${s.scopeChevron}`} aria-hidden="true" />
+                  </button>
+                )}
+              >
+                {(close) => scopes.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={o.value === current.value}
+                    className={`${s.scopeItem} ${o.value === current.value ? s.scopeItemOn : ''}`}
+                    onClick={() => { close(); onScopeChange?.(o.value); }}
+                  >
+                    <i className={`bi bi-${o.icon}`} aria-hidden="true" />
+                    <span>{o.label}{o.hint && <small>{o.hint}</small>}</span>
+                    {o.value === current.value && <i className={`bi bi-check2 ${s.scopeCheck}`} aria-hidden="true" />}
+                  </button>
+                ))}
+              </Menu>
+              <span className={s.scopeDivider} aria-hidden="true" />
+            </>
+          )}
           <i className="bi bi-search" aria-hidden="true" />
           <input
             type="search"

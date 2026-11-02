@@ -83,8 +83,8 @@ export async function removeAvatar() {
 }
 
 // Duy's code: Đọc hồ sơ sức khỏe của tài khoản đang đăng nhập.
-export async function getHealthProfile() {
-  return apiFetch('/users/me/health-profile');
+export async function getHealthProfile(options = {}) {
+  return apiFetch('/users/me/health-profile', options);
 }
 
 // Duy's code: Lưu dữ liệu sức khỏe đã được backend kiểm tra và tính toán.
