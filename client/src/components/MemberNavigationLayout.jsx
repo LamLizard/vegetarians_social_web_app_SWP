@@ -5,6 +5,7 @@ import useMemberSidebar, { MEMBER_NAV, navKeyOf } from '../hooks/useMemberSideba
 import { useShopNavigation } from '../context/ShopNavigationContext';
 import { APP_NAME, ROLE } from '../constants/domain';
 import FeedSidebar from './FeedSidebar/FeedSidebar';
+import MemberLayout from './MemberLayout/MemberLayout';
 // Duy's Code: Dùng cùng popup trên các trang thành viên ngoài Bảng tin.
 import MemberNotificationBell from './MemberNotificationBell/MemberNotificationBell';
 import IconButton from './IconButton/IconButton';
@@ -29,6 +30,20 @@ export default function MemberNavigationLayout({ children, activeKey: activeKeyP
   const activeKey = activeKeyProp ?? navKeyOf();
   const { user } = useAuth();
   const { shopAction, accountMenu } = useShopNavigation();
+
+  if (user?.role === 'member') {
+    return <MemberLayout user={{ ...user, fullName: user.fullName || user.email }}
+      activeKey={activeKey} accountMenu={accountMenu} shopAction={shopAction}>
+      <main className={styles.content}>{children}</main>
+    </MemberLayout>;
+  }
+
+  return <NonMemberNavigationLayout user={user} activeKey={activeKey} accountMenu={accountMenu} shopAction={shopAction}>
+    {children}
+  </NonMemberNavigationLayout>;
+}
+
+function NonMemberNavigationLayout({ children, activeKey, user, accountMenu, shopAction }) {
   const sidebar = useMemberSidebar();
   // Duy's Code: Tránh nhân đôi liên kết nếu consumer đã truyền mục này.
   const memberAccountMenu = !accountMenu.some((item) => item.href === '/me/posts')
