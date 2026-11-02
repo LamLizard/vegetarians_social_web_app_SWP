@@ -26,6 +26,34 @@
   .feed-v2-main > * { --v-cols: 200px minmax(0, 680px); --v-wrap: 912px; }
 }
 
+/* Khoi's code (01/11/2026): Bảng tin 3 cột CO GIÃN theo thanh bên (prototype v4, src/v4/v4.css .v4-grid).
+   PostFeedPage gắn <html data-feed-v4>. Mỗi cột có cỡ gốc trái 232 · giữa 620 · phải 296;
+   phần dư của vùng chính chia ĐỀU cho 3 cột (--fx) → thu/mở thanh bên thì cả 3 cột cùng giãn/co, không chừa khoảng trống.
+   Vùng chính < 1260px: bỏ cột trái · < 996px: chỉ còn bảng tin (PostFeedPage.module.css). Laptop 1536px + thanh bên mở vẫn đủ 3 cột. */
+:root[data-feed-v4] {
+  --v-wrap: 100%;
+  --fL: 232px;
+  --fF: 620px;
+  --fR: 296px;
+  --fx: max(0px, calc((100% - var(--fL) - var(--fF) - var(--fR) - 64px) / 3));
+  --v-cols: calc(var(--fL) + var(--fx)) calc(var(--fF) + var(--fx)) calc(var(--fR) + var(--fx));
+}
+@container feedmain (max-width: 1259.98px) {
+  :root[data-feed-v4] .feed-v2-main > * {
+    --v-wrap: 100%;
+    --fx: max(0px, calc((100% - var(--fF) - var(--fR) - 32px) / 2));
+    --v-cols: calc(var(--fF) + var(--fx)) calc(var(--fR) + var(--fx));
+    --v-search-col: 1;
+  }
+}
+@container feedmain (max-width: 995.98px) {
+  /* --v-wrap 680px → thanh trên và bảng tin cùng rộng 680px, cùng căn giữa */
+  :root[data-feed-v4] .feed-v2-main > * { --v-wrap: 680px; --v-cols: minmax(0, 1fr); --v-search-col: 1; }
+}
+/* Thanh trên tự ẩn khi cuộn xuống (FeedTopbar) → cột bên dính sát mép trên */
+:root { --feed-head-offset: 64px; }
+:root[data-head-hidden] { --feed-head-offset: 0px; }
+
 :root[data-feed-v2] ::selection { background: var(--v-accent-soft); }
 :root[data-feed-v2] :focus-visible { outline: 2px solid var(--v-accent); outline-offset: 2px; }
 

@@ -142,7 +142,12 @@ export default function FeedSidebar({
           {user && !collapsed && (
             <div className={s.accountBox}>
               <div className={cx(s.drawer, accountOpen && s.drawerOpen)} id="feed-account-links" inert={!accountOpen}>
-                <div className={s.drawerClip}><div className={s.drawerInner}>{[...links, ...danger].map(link)}</div></div>
+                {/* Khoi's code 01/11: Đăng xuất tách riêng bằng đường kẻ (như menu khi thu gọn) */}
+                <div className={s.drawerClip}><div className={s.drawerInner}>
+                  {links.map(link)}
+                  {links.length > 0 && danger.length > 0 && <hr className={s.sep} />}
+                  {danger.map(link)}
+                </div></div>
               </div>
               <button
                 type="button"

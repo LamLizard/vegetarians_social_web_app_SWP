@@ -80,7 +80,7 @@ export default function RecipeCard({
           <span className={styles.author}>{isOwner ? 'Bạn' : author.name}</span>
           {createdAt && <time dateTime={createdAt}>· {timeAgo(createdAt)}</time>}
           {ingredientCount != null && <span className={styles.ing}><i className="bi bi-basket" aria-hidden="true" /> {ingredientCount} nguyên liệu</span>}
-          {likeCount != null && <span className={styles.ing}><i className="bi bi-hand-thumbs-up" aria-hidden="true" /> {likeCount}<span className="visually-hidden"> lượt thích</span></span>}
+          {likeCount != null && <span className={styles.ing}><i className="bi bi-heart" aria-hidden="true" /> {likeCount}<span className="visually-hidden"> lượt thích</span></span>}
         </div>
       </div>
     </article>

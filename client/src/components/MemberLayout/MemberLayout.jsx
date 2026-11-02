@@ -73,7 +73,8 @@ export default function MemberLayout({
     : accountMenu;
 
   return (
-    <div className={`feed-v2-page ${s.shell}`}>
+    // Khoi's code 01/11: data-collapsed → --nav-w (MemberLayout.module.css) chừa đúng chỗ cho thanh bên fixed
+    <div className={`feed-v2-page ${s.shell}`} data-collapsed={!isMobile && collapsed ? '1' : '0'}>
       <FeedSidebar
         nav={MEMBER_NAV}
         activeKey={activeKey}
@@ -96,12 +97,12 @@ export default function MemberLayout({
       </div>
 
       {/* Điện thoại: thanh tab nổi dưới đáy */}
-      <nav className={`${s.mobileNav} ${create ? s.mobileNav5 : ''}`} aria-label="Điều hướng nhanh">
+      <nav className={s.mobileNav} aria-label="Điều hướng nhanh">
         {MEMBER_NAV.map((n, i) => {
           const on = n.key === activeKey;
           const link = (
             <a key={n.key} href={n.href} className={`${s.mItem} ${on ? s.mOn : ''}`} aria-current={on ? 'page' : undefined}>
-              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.label}</span>
+              <i className={`bi bi-${on && n.iconActive ? n.iconActive : n.icon}`} aria-hidden="true" /><span>{n.short ?? n.label}</span>
             </a>
           );
           // Thành viên: nút Đăng bài nằm giữa thanh (theo prototype UI v2)

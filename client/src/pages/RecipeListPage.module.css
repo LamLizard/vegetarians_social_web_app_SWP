@@ -21,6 +21,27 @@
 .tools { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 24px; }
 .search { min-width: 0; }
 .tools > :last-child:not(:first-child) { align-self: flex-end; } /* công tắc dị ứng */
+/* Khoi's code 01/11: hàng [Đã thích] ······ [Ẩn món tôi dị ứng] */
+.tools > .toolRow:last-child { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; align-self: stretch; }
+.likedBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--v-line);
+  border-radius: 999px;
+  background: var(--v-surface);
+  color: var(--v-text-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: border-color .15s, background-color .15s, color .15s;
+}
+.likedBtn i { color: var(--ac-alert); }
+.likedBtn:hover { border-color: color-mix(in srgb, var(--ac-alert) 40%, var(--v-line)); color: var(--v-text); }
+.likedOn, .likedOn:hover { border-color: color-mix(in srgb, var(--ac-alert) 35%, var(--v-line)); background: var(--ac-alert-soft); color: var(--ac-alert); }
+.likedCount { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--v-surface-2); color: var(--v-muted); font-size: 0.75rem; font-weight: 700; text-align: center; }
+.likedOn .likedCount { background: color-mix(in srgb, var(--ac-alert) 14%, transparent); color: var(--ac-alert); }
 
 .section { display: flex; flex-direction: column; gap: 16px; margin-top: 48px; }
 .section:first-of-type { margin-top: 32px; }
@@ -38,15 +59,6 @@
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
 .skCard { display: flex; flex-direction: column; gap: 12px; }
 
-/* Hình bát khi công thức chưa có ảnh bìa */
-.plate {
-  display: grid;
-  place-items: center;
-  height: 70%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--v-marigold) 34%, var(--v-surface));
-}
 
 /* Chế độ kết quả */
 .crumbs { display: flex; align-items: center; gap: 8px; color: var(--v-muted); font-size: 14px; }
