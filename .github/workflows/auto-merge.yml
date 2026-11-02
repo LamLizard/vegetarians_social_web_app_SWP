@@ -14,8 +14,11 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge (squash)
-        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
+      - name: Enable auto-merge (merge commit)
+        # Merge commit, KHÔNG squash: squash làm mất quan hệ lịch sử giữa nhánh
+        # tích hợp (dev/dev) và main → PR sau đó conflict add/add trên mọi file.
+        # KHÔNG --delete-branch: xoá dev/dev sau mỗi lần merge là mất nhánh tích hợp.
+        run: gh pr merge --auto --merge "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
