@@ -106,26 +106,6 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
 
   const setField = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const resetRegisterOtpState = () => {
-    setRegisterStep('form');
-    setOtp('');
-    setOtpInfo(null);
-    setResendLeft(0);
-    setNotice('');
-    setError('');
-  };
-
-  const resetForgotState = () => {
-    setForgotStep('email');
-    setResetToken('');
-    setOtp('');
-    setOtpInfo(null);
-    setResendLeft(0);
-    setNotice('');
-    setError('');
-    setForm((current) => ({ ...current, newPassword: '', confirmNewPassword: '' }));
-  };
-
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setError('');
