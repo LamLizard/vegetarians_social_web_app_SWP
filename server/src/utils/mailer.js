@@ -97,6 +97,27 @@ async function sendViaBrevo({ from, to, subject, html }) {
 }
 
 async function sendRegisterOtpEmail(to, otp) {
+  return sendOtpHtmlEmail({
+    to,
+    otp,
+    subject: '[Vegetarian Social] Mã xác minh đăng ký của bạn',
+    intro: 'Để hoàn tất đăng ký tài khoản trên <strong>Vegetarian Social</strong>, vui lòng nhập mã xác minh sau:',
+    note: 'Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.',
+  });
+}
+
+async function sendPasswordResetOtpEmail(to, otp) {
+  return sendOtpHtmlEmail({
+    to,
+    otp,
+    subject: '[Vegetarian Social] Mã xác minh đặt lại mật khẩu',
+    intro: 'Bạn vừa yêu cầu đặt lại mật khẩu cho tài khoản <strong>Vegetarian Social</strong>. Vui lòng nhập mã xác minh sau để tiếp tục:',
+    note: 'Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này — mật khẩu hiện tại vẫn giữ nguyên.',
+  });
+}
+
+/** Dựng HTML + gửi qua chuỗi Brevo → Resend → SMTP (dùng chung cho cả 2 loại OTP) */
+async function sendOtpHtmlEmail({ to, otp, subject, intro, note }) {
   const email = String(to ?? '').trim();
   if (!email) throw new Error('Email người nhận không hợp lệ.');
 
@@ -108,16 +129,14 @@ async function sendRegisterOtpEmail(to, otp) {
   const html = `
     <div style="font-family: Arial, sans-serif; color: #1b2a1d; line-height: 1.6;">
       <p>Xin chào,</p>
-      <p>Để hoàn tất đăng ký tài khoản trên <strong>Vegetarian Social</strong>, vui lòng nhập mã xác minh sau:</p>
+      <p>${intro}</p>
       <div style="margin: 18px 0; padding: 18px 20px; border-radius: 12px; background: #f4f7ef; text-align: center; font-size: 32px; font-weight: 700; letter-spacing: 10px; color: #1d4d2e;">
         ${otp}
       </div>
       <p>Mã có hiệu lực trong 5 phút.</p>
-      <p>Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>
+      <p>${note}</p>
     </div>
   `;
-
-  const subject = '[Vegetarian Social] Mã xác minh đăng ký của bạn';
 
   // 1) Brevo HTTPS (ưu tiên — free 300/ngày, sender đã verify).
   const viaBrevo = await sendViaBrevo({ from, to: email, subject, html });
@@ -145,4 +164,4 @@ async function sendRegisterOtpEmail(to, otp) {
   throw failure;
 }
 
-module.exports = { sendRegisterOtpEmail };
+module.exports = { sendRegisterOtpEmail, sendPasswordResetOtpEmail };

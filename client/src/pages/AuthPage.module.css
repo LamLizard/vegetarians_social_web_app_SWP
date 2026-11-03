@@ -23,6 +23,9 @@
 
 .auth-text-link { padding: 0; border: 0; background: none; color: var(--ac-moss); font-size: 0.9rem; font-weight: 700; }
 .auth-text-link:hover { text-decoration: underline; }
+/* Link phụ nằm dưới field (vd "Quên mật khẩu?") — dạt phải, sát field phía trên */
+.auth-helper-row { display: flex; justify-content: flex-end; margin-top: -0.35rem; }
+.auth-helper-row .auth-text-link { font-size: 0.84rem; }
 
 /* Form: các khối cách nhau 1rem (kit Field không tự có margin) */
 .auth-form { display: grid; gap: 1rem; }
