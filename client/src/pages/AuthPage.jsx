@@ -1,6 +1,9 @@
-// Trang Đăng nhập / Đăng ký (M-17) — 1 trang, 2 chế độ, KHÔNG dùng react-router.
+// Trang Đăng nhập / Đăng ký / Quên mật khẩu (M-17) — 1 trang, nhiều chế độ, KHÔNG dùng react-router.
 //   initialMode="login"    → chế độ Đăng nhập
 //   initialMode="register" → chế độ Đăng ký
+//   (chế độ "forgot" mở từ link "Quên mật khẩu?" trong form Đăng nhập)
+// Luồng Quên mật khẩu 3 bước, dùng lại đúng cơ chế OTP của luồng đăng ký:
+//   email → OTP (server cấp resetToken) → mật khẩu mới → vào thẳng trang chính.
 // Bố cục port từ template: trái = form · phải = panel "khu vườn" ảnh món chay trôi chậm.
 // Luồng gọi server giữ NGUYÊN: useAuth() → AuthContext → auth.service.js → api.js
 import { useEffect, useState } from 'react';
@@ -47,11 +50,32 @@ function strengthOf(password) {
   return Math.max(1, score);
 }
 
+const EMPTY_FORM = {
+  fullName: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  agree: false,
+  newPassword: '',
+  confirmNewPassword: '',
+};
+
 export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
-  const { login, register, verifyRegisterOtp, resendRegisterOtp } = useAuth();
-  const [mode, setMode] = useState(initialMode);
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', agree: false });
-  const [registerStep, setRegisterStep] = useState('form');
+  const {
+    login,
+    register,
+    verifyRegisterOtp,
+    resendRegisterOtp,
+    forgotPassword,
+    verifyResetOtp,
+    resendResetOtp,
+    resetPassword,
+  } = useAuth();
+  const [mode, setMode] = useState(initialMode); // login | register | forgot
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [registerStep, setRegisterStep] = useState('form'); // form | otp
+  const [forgotStep, setForgotStep] = useState('email'); // email | otp | password
+  const [resetToken, setResetToken] = useState('');
   const [otp, setOtp] = useState('');
   const [otpInfo, setOtpInfo] = useState(null);
   const [resendLeft, setResendLeft] = useState(0);
@@ -61,17 +85,24 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
   const [isOtpSubmitting, setIsOtpSubmitting] = useState(false);
 
   const isRegister = mode === 'register';
+  const isForgot = mode === 'forgot';
+  const registerOtpStep = isRegister && registerStep === 'otp';
+  const forgotOtpStep = isForgot && forgotStep === 'otp';
+  const forgotPasswordStep = isForgot && forgotStep === 'password';
+  const otpStep = registerOtpStep || forgotOtpStep;
+  // Bước OTP / mật khẩu mới là bước phụ: ẩn khối "hoặc … / tạo tài khoản" bên dưới.
+  const isFlowStep = otpStep || forgotPasswordStep;
   const otpEmail = otpInfo?.email || form.email.trim().toLowerCase();
 
   useEffect(() => {
-    if (!isRegister || registerStep !== 'otp' || resendLeft <= 0) return undefined;
+    if (!otpStep || resendLeft <= 0) return undefined;
 
     const timer = window.setInterval(() => {
       setResendLeft((current) => (current > 1 ? current - 1 : 0));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [isRegister, registerStep, resendLeft]);
+  }, [otpStep, resendLeft]);
 
   const setField = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -84,17 +115,30 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     setError('');
   };
 
+  const resetForgotState = () => {
+    setForgotStep('email');
+    setResetToken('');
+    setOtp('');
+    setOtpInfo(null);
+    setResendLeft(0);
+    setNotice('');
+    setError('');
+    setForm((current) => ({ ...current, newPassword: '', confirmNewPassword: '' }));
+  };
+
   const switchMode = (nextMode) => {
     setMode(nextMode);
     setError('');
     setNotice('');
-    if (nextMode !== 'register') {
-      resetRegisterOtpState();
-    } else {
+    setOtp('');
+    setOtpInfo(null);
+    setResendLeft(0);
+    if (nextMode === 'register') setRegisterStep('form');
+    else if (nextMode === 'forgot') setForgotStep('email');
+    else {
       setRegisterStep('form');
-      setOtp('');
-      setOtpInfo(null);
-      setResendLeft(0);
+      setForgotStep('email');
+      setResetToken('');
     }
   };
 
@@ -142,6 +186,33 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     }
   };
 
+  // ── Bước 1 của Quên mật khẩu: chỉ 1 ô email ──────────────────────────────
+  const submitForgotEmail = async (event) => {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+
+    const email = form.email.trim();
+    if (!EMAIL_RE.test(email)) return setError('Vui lòng nhập email hợp lệ.');
+
+    setIsSubmitting(true);
+    try {
+      const result = await forgotPassword(email);
+      const nextEmail = email.toLowerCase();
+      // Không set notice ở đây: bước OTP đã có dòng copy "Mã xác minh đã được gửi tới ..." (tránh lặp 2 lần).
+      setNotice('');
+      setOtpInfo({ email: nextEmail, retryAfterSeconds: result?.retryAfterSeconds ?? 60 });
+      setResendLeft(result?.retryAfterSeconds ?? 60);
+      setOtp('');
+      setForgotStep('otp');
+    } catch (forgotError) {
+      // Server trả 404 "Email chưa được đăng ký." khi email không có trong DB.
+      setError(forgotError.message || 'Không gửi được mã xác minh. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleOtpChange = (nextValue) => {
     const sanitized = nextValue.replace(/\D/g, '').slice(0, 6);
     setOtp(sanitized);
@@ -153,7 +224,9 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     setNotice('');
 
     try {
-      const result = await resendRegisterOtp(otpEmail);
+      const result = forgotOtpStep
+        ? await resendResetOtp(otpEmail)
+        : await resendRegisterOtp(otpEmail);
       setOtp('');
       setNotice('Đã gửi lại mã xác minh.');
       setOtpInfo((current) => ({ ...(current || { email: otpEmail }), email: otpEmail, retryAfterSeconds: result.retryAfterSeconds ?? 60 }));
@@ -175,6 +248,16 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
 
     setIsOtpSubmitting(true);
     try {
+      if (forgotOtpStep) {
+        // Đúng OTP → server cấp resetToken (hạn 10 phút) rồi mới cho đặt mật khẩu mới.
+        const result = await verifyResetOtp({ email: otpEmail, otp });
+        setResetToken(result.resetToken);
+        setNotice('');
+        setForm((current) => ({ ...current, newPassword: '', confirmNewPassword: '' }));
+        setForgotStep('password');
+        return;
+      }
+
       const result = await verifyRegisterOtp({ email: otpEmail, otp });
       onAuthenticated?.(result);
     } catch (otpError) {
@@ -184,10 +267,37 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     }
   };
 
+  // ── Bước 3: đặt mật khẩu mới, xong vào thẳng trang chính ─────────────────
+  const submitNewPassword = async (event) => {
+    event.preventDefault();
+    setError('');
+    setNotice('');
+
+    if (form.newPassword.length < 8 || form.newPassword.length > 20) {
+      return setError('Mật khẩu cần từ 8 đến 20 ký tự.');
+    }
+    if (form.newPassword.toLowerCase() === otpEmail) {
+      return setError('Mật khẩu không được trùng với email.');
+    }
+    if (form.newPassword !== form.confirmNewPassword) {
+      return setError('Mật khẩu nhập lại chưa khớp.');
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await resetPassword({ resetToken, password: form.newPassword });
+      onAuthenticated?.(result);
+    } catch (resetError) {
+      setError(resetError.message || 'Không đặt lại được mật khẩu. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const renderOtpStep = () => (
     <form className={styles['auth-otp']} onSubmit={handleOtpSubmit} noValidate>
       <div className={styles['auth-otp-header']}>
-        <p className={styles['auth-otp-kicker']}>Xác minh email</p>
+        <p className={styles['auth-otp-kicker']}>{forgotOtpStep ? 'Đặt lại mật khẩu' : 'Xác minh email'}</p>
         <p className={styles['auth-otp-copy']}>
           Mã xác minh đã được gửi tới <strong>{otpEmail}</strong>. Mã có hiệu lực 5 phút.
         </p>
@@ -213,7 +323,8 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
             type="button"
             variant="outline"
             onClick={() => {
-              setRegisterStep('form');
+              if (forgotOtpStep) setForgotStep('email');
+              else setRegisterStep('form');
               setError('');
               setNotice('');
               setOtp('');
@@ -235,6 +346,90 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
     </form>
   );
 
+  const renderNewPasswordStep = () => (
+    <form className={styles['auth-form']} onSubmit={submitNewPassword} noValidate>
+      <div className={styles['auth-otp-header']}>
+        <p className={styles['auth-otp-kicker']}>Mật khẩu mới</p>
+        <p className={styles['auth-otp-copy']}>
+          Đã xác minh <strong>{otpEmail}</strong>. Đặt mật khẩu mới để vào lại tài khoản ngay.
+        </p>
+      </div>
+
+      <div className={styles['auth-pw-group']}>
+        <PasswordField
+          label="Mật khẩu mới"
+          required
+          autoComplete="new-password"
+          hint="Từ 8 đến 20 ký tự; không được trùng với email."
+          value={form.newPassword}
+          onChange={setField('newPassword')}
+        />
+        {form.newPassword && <StrengthMeter value={form.newPassword} />}
+      </div>
+
+      <PasswordField
+        label="Nhập lại mật khẩu mới"
+        required
+        autoComplete="new-password"
+        value={form.confirmNewPassword}
+        onChange={setField('confirmNewPassword')}
+      />
+
+      <Button type="submit" size="lg" block loading={isSubmitting}>
+        Đặt lại mật khẩu &amp; vào trang chính
+      </Button>
+
+      <div className={styles['auth-otp-row']}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setError('');
+            setNotice('');
+            setResetToken('');
+            setForgotStep('email');
+          }}
+        >
+          ← Nhập lại email
+        </Button>
+      </div>
+    </form>
+  );
+
+  // Bước 1 của Quên mật khẩu: đúng 1 ô email
+  const renderForgotEmailStep = () => (
+    <form className={styles['auth-form']} onSubmit={submitForgotEmail} noValidate>
+      <TextField
+        label="Email"
+        type="email"
+        required
+        autoComplete="email"
+        placeholder="ten@gmail.com"
+        value={form.email}
+        onChange={setField('email')}
+      />
+
+      <Button type="submit" size="lg" block loading={isSubmitting}>
+        Gửi mã xác minh
+      </Button>
+
+      <div className={styles['auth-otp-row']}>
+        <button type="button" className={styles['auth-text-link']} onClick={() => switchMode('login')}>
+          ← Quay lại đăng nhập
+        </button>
+      </div>
+    </form>
+  );
+
+  const title = isForgot
+    ? (forgotPasswordStep ? 'Mật khẩu mới' : 'Quên mật khẩu?')
+    : (isRegister ? 'Tạo tài khoản' : 'Đăng nhập');
+  const subtitle = isForgot
+    ? (forgotPasswordStep
+      ? 'Đặt mật khẩu mới rồi vào thẳng trang chính 🌿'
+      : 'Nhập email đã đăng ký để nhận mã xác minh đặt lại mật khẩu.')
+    : (isRegister ? 'Miễn phí, chỉ mất chưa tới 1 phút.' : 'Chào mừng bạn quay lại với cộng đồng 🌿');
+
   return (
     <main className={styles['auth']}>
       <section className={styles['auth-form-side']}>
@@ -244,13 +439,15 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
         </div>
 
         <div className={styles['auth-form-card']}>
-          <h1 className={styles['auth-title']}>{isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}</h1>
-          <p className={styles['auth-sub']}>
-            {isRegister ? 'Miễn phí, chỉ mất chưa tới 1 phút.' : 'Chào mừng bạn quay lại với cộng đồng 🌿'}
-          </p>
+          <h1 className={styles['auth-title']}>{title}</h1>
+          <p className={styles['auth-sub']}>{subtitle}</p>
 
           {notice && (
-            <Notice tone="info" title={isRegister ? 'Xác minh email' : 'Thông báo'} className={styles['auth-notice']}>
+            <Notice
+              tone="info"
+              title={isForgot ? 'Đặt lại mật khẩu' : (isRegister ? 'Xác minh email' : 'Thông báo')}
+              className={styles['auth-notice']}
+            >
               {notice}
             </Notice>
           )}
@@ -258,14 +455,14 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
           {error && (
             <Notice
               tone="alert"
-              title={isRegister ? 'Chưa tạo được tài khoản' : 'Chưa đăng nhập được'}
+              title={isForgot ? 'Chưa đặt lại được mật khẩu' : (isRegister ? 'Chưa tạo được tài khoản' : 'Chưa đăng nhập được')}
               className={styles['auth-notice']}
             >
               {error}
             </Notice>
           )}
 
-          {isRegister && registerStep === 'otp' ? renderOtpStep() : (
+          {otpStep ? renderOtpStep() : forgotPasswordStep ? renderNewPasswordStep() : isForgot ? renderForgotEmailStep() : (
             <form className={styles['auth-form']} onSubmit={submit} noValidate>
               {isRegister && (
                 <TextField
@@ -301,6 +498,14 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
                 />
                 {isRegister && form.password && <StrengthMeter value={form.password} />}
               </div>
+
+              {!isRegister && (
+                <div className={styles['auth-helper-row']}>
+                  <button type="button" className={styles['auth-text-link']} onClick={() => switchMode('forgot')}>
+                    Quên mật khẩu?
+                  </button>
+                </div>
+              )}
 
               {isRegister && (
                 <PasswordField
@@ -342,7 +547,7 @@ export default function AuthPage({ initialMode = 'login', onAuthenticated }) {
             </form>
           )}
 
-          {!isRegister || registerStep !== 'otp' ? (
+          {!isFlowStep && !isForgot ? (
             <>
               <div className={styles['auth-divider']}><span>hoặc</span></div>
 
