@@ -103,6 +103,22 @@ export function AuthProvider({ children }) {
     return payload;
   }, [saveUser]);
 
+  // ── Quên mật khẩu: 2 bước đầu KHÔNG đụng phiên đăng nhập, chỉ bước 3 mở phiên mới ──
+  const forgotPassword = useCallback((email) => authService.forgotPassword(email), []);
+  const verifyResetOtp = useCallback((details) => authService.verifyResetOtp(details), []);
+  const resendResetOtp = useCallback((email) => authService.resendResetOtp(email), []);
+
+  /** Đặt mật khẩu mới xong → lưu token/user như login để vào thẳng trang chính */
+  const resetPassword = useCallback(async (details) => {
+    const payload = await authService.resetPassword(details);
+    const nextToken = getToken(payload);
+    if (!nextToken) throw new Error('Reset response did not include an access token.');
+    localStorage.setItem(AUTH_TOKEN_KEY, nextToken);
+    setToken(nextToken);
+    saveUser(getUser(payload));
+    return payload;
+  }, [saveUser]);
+
   const value = useMemo(() => ({
     user,
     token,
@@ -111,8 +127,12 @@ export function AuthProvider({ children }) {
     login,
     register,
     verifyRegisterOtp,
+    forgotPassword,
+    verifyResetOtp,
+    resendResetOtp,
+    resetPassword,
     logout,
-  }), [isCheckingSession, login, logout, register, token, user, verifyRegisterOtp]);
+  }), [forgotPassword, isCheckingSession, login, logout, register, resendResetOtp, resetPassword, token, user, verifyRegisterOtp, verifyResetOtp]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
