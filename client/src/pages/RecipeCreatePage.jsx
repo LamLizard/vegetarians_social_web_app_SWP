@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Avatar from '../components/Avatar/Avatar';
 import Button from '../components/Button/Button';
 import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
@@ -101,6 +101,19 @@ const emptyForm = () => ({
   steps: [''],
 });
 
+const hasInput = (value) => typeof value === 'string' ? value.trim().length > 0 : value != null;
+
+function hasCreateContent(form, dishText, ingredientDraft, failedUploads) {
+  return Boolean(form.dish)
+    || hasInput(dishText)
+    || ['title', 'description', 'thumbnail', 'youtube', 'servings', 'prep', 'cook', 'calories', ...NUTRIENTS.map((item) => item.key)]
+      .some((key) => hasInput(form[key]))
+    || form.ingredients.some((item) => hasInput(item.name) || hasInput(item.amount) || hasInput(item.unit))
+    || Object.values(ingredientDraft).some((item) => hasInput(item.nameText) || hasInput(item.amountText))
+    || form.steps.some(hasInput)
+    || failedUploads > 0;
+}
+
 /**
  * Khoi's code: công thức đã gửi (GET /recipes/mine/:id) → nội dung form để "Sửa và gửi lại".
  * Món cũ không còn trong danh sách món đang hoạt động → để trống, người dùng chọn lại.
@@ -167,6 +180,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [animalWords, setAnimalWords] = useState([]); // banned_keyword category 'animal'
   const [sentPage, setSentPage] = useState(1); // Khoi's code: tab Công thức đã gửi, mỗi trang SENT_PAGE_SIZE công thức
   const [form, setForm] = useState(emptyForm);
+  const formRef = useRef(form);
+  formRef.current = form;
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [checks, setChecks] = useState({}); // nameKey → { name, known, isAnimalDerived, keyword }
@@ -175,9 +190,54 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [snapshot, setSnapshot] = useState('');
   const [draft, setDraft] = useState(null); // form Tạo công thức đang gõ dở, trả lại khi thoát chế độ sửa
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmCreatePost, setConfirmCreatePost] = useState(false);
+  const createSubmitInFlightRef = useRef(false);
+  const createNavigationRef = useRef(false);
+  const dishDraftRef = useRef('');
+  const ingredientDraftRef = useRef({});
+  const imagePendingRef = useRef({ uploading: 0, failed: 0 });
+  const onDishDraftChange = useCallback((text) => { dishDraftRef.current = text; }, []);
+  const onIngredientDraftChange = useCallback((value) => { ingredientDraftRef.current = value; }, []);
+  const onImagePendingChange = useCallback((value) => { imagePendingRef.current = value; }, []);
   const [opening, setOpening] = useState(null); // id công thức đang tải để mở form sửa
   const [nutritionOpen, setNutritionOpen] = useState(true); // khối Dinh dưỡng gập/mở — 28/10: bắt buộc nên mở sẵn
   const dirty = !!editing && JSON.stringify(form) !== snapshot;
+
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (!event.persisted) return;
+      createNavigationRef.current = false;
+      setConfirmCreatePost(false);
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
+  const openPostComposer = () => {
+    if (createNavigationRef.current) return;
+    createNavigationRef.current = true;
+    window.location.assign('/?compose=1');
+  };
+
+  const requestCreatePost = () => {
+    if (createSubmitInFlightRef.current) {
+      toast('Vui lòng đợi gửi công thức hoàn tất.', { tone: 'info' });
+      return;
+    }
+    if (editing) {
+      openPostComposer();
+      return;
+    }
+    if (imagePendingRef.current.uploading > 0) {
+      toast('Vui lòng đợi tải ảnh hoàn tất.', { tone: 'info' });
+      return;
+    }
+    if (hasCreateContent(formRef.current, dishDraftRef.current, ingredientDraftRef.current, imagePendingRef.current.failed)) {
+      setConfirmCreatePost(true);
+      return;
+    }
+    openPostComposer();
+  };
 
   const loadDishes = async () => {
     setDishes((d) => ({ ...d, status: 'loading' }));
@@ -205,7 +265,14 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     recipeService.getAnimalWords().then(({ items }) => setAnimalWords(items)).catch(() => { /* không tải được: chỉ mất phần tô đỏ */ });
   }, []);
 
-  const set = (key) => (v) => setForm((f) => ({ ...f, [key]: v }));
+  const set = (key) => (v) => {
+    formRef.current = { ...formRef.current, [key]: v };
+    setForm((f) => ({ ...f, [key]: v }));
+  };
+  const replaceForm = (value) => {
+    formRef.current = value;
+    setForm(value);
+  };
   // Chỉ báo lỗi khi người dùng đã rời khỏi khối đó (không đỏ ngay lúc đang gõ)
   const leave = (key) => (e) => {
     if (!e.currentTarget.contains(e.relatedTarget)) setTouched((t) => (t[key] ? t : { ...t, [key]: true }));
@@ -320,7 +387,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
       const detail = await recipeService.getMyRecipe(r.id);
       const { form: f, dishLost } = formFromRecipe(detail, dishes.items);
       if (!editing) setDraft(form);
-      setForm(f);
+      replaceForm(f);
       setSnapshot(JSON.stringify(f));
       setEditing(detail);
       setTouched({});
@@ -336,7 +403,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
 
   const exitEdit = () => {
     setEditing(null);
-    setForm(draft ?? emptyForm());
+    replaceForm(draft ?? emptyForm());
     setDraft(null);
     setTouched({});
     setConfirmLeave(false);
@@ -347,7 +414,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const cancelEdit = () => (dirty ? setConfirmLeave(true) : exitEdit());
 
   const submit = async () => {
-    if (!canSend || submitting) return;
+    if (!canSend || submitting || createSubmitInFlightRef.current) return;
+    if (!editing) createSubmitInFlightRef.current = true;
     setSubmitting(true);
     try {
       const payload = {
@@ -369,13 +437,13 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
         const { recipe: updated } = await recipeService.resubmitRecipe(editing.id, payload);
         setRecipes((list) => list.map((r) => (r.id === updated.id ? updated : r)));
         setEditing(null);
-        setForm(draft ?? emptyForm());
+        replaceForm(draft ?? emptyForm());
         setDraft(null);
       } else {
         const { recipe: created } = await recipeService.createRecipe(payload);
         setRecipes((list) => [created, ...list]);
         setSentStatus('ready');
-        setForm(emptyForm());
+        replaceForm(emptyForm());
       }
       setTouched({});
       setTab('sent');
@@ -389,6 +457,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
         if (editing) loadSent(); // công thức không còn ở trạng thái Bị từ chối → cập nhật danh sách
       }
     } finally {
+      createSubmitInFlightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -408,7 +477,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     <MemberLayout
       user={user}
       accountMenu={accountMenu}
-      onCreate={() => window.location.assign('/?compose=1')}
+      onCreate={requestCreatePost}
       renderTopbar={topbar}
     >
     <div className={s.page}>
@@ -450,7 +519,7 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
               title="Công thức này nấu món gì?"
               hint="Một món có thể có nhiều công thức. Chọn món để công thức nằm đúng chỗ."
             >
-              <DishPicker value={form.dish} onChange={set('dish')} dishes={dishes.items} required />
+              <DishPicker value={form.dish} onChange={set('dish')} onDraftTextChange={onDishDraftChange} dishes={dishes.items} required />
               {dishWord && (
                 <p className={s.flag} role="status">
                   <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
@@ -491,7 +560,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 maxLength={1000}
                 placeholder="Vài câu giới thiệu: món này hợp bữa nào, vị ra sao…"
               />
-              <ImageUpload label="Ảnh bìa" value={form.thumbnail} onChange={set('thumbnail')} onUpload={postService.uploadImage} ratio="16/9" />
+              <ImageUpload label="Ảnh bìa" value={form.thumbnail} onChange={set('thumbnail')} onUpload={postService.uploadImage}
+                onPendingChange={onImagePendingChange} ratio="16/9" />
               <TextField
                 label="Video hướng dẫn trên YouTube"
                 type="url"
@@ -572,6 +642,8 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 label=""
                 value={form.ingredients}
                 onChange={set('ingredients')}
+                onDraftChange={onIngredientDraftChange}
+                preserveDraftAmountOnBlur={!editing}
                 catalog={ingredientNames}
                 hint={<>Gõ để tìm trong kho nguyên liệu. Không thấy thì chọn “+ Đề xuất nguyên liệu mới” ở cuối danh sách.<br />Đơn vị “ít”, “vừa đủ” không cần số lượng.</>}
                 error={touched.ingredients && ingWithAmount < 1 ? 'Cần ít nhất 1 nguyên liệu có số lượng' : undefined}
@@ -758,6 +830,16 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmCreatePost}
+        title="Rời trang tạo công thức?"
+        message="Thông tin công thức chưa lưu sẽ bị mất nếu bạn tiếp tục."
+        confirmLabel="Tiếp tục thoát"
+        cancelLabel="Ở lại"
+        onConfirm={openPostComposer}
+        onCancel={() => setConfirmCreatePost(false)}
+      />
 
       <ConfirmDialog
         open={confirmLeave}

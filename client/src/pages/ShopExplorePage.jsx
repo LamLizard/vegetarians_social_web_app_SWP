@@ -145,6 +145,7 @@ export default function ShopExplorePage({ user, accountMenu = [], shopAction }) 
                       hoursText={today.hoursText}
                       openState={openState}
                       showOpenState={shop.operatingStatus !== 'inactive'}
+                      preserveImageColor
                       dishCount={shop.dishCount}
                       href={`/shops/${shop.id}`}
                     />

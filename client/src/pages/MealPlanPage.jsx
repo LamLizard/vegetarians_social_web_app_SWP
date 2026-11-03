@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MemberLayout from '../components/MemberLayout/MemberLayout';
 import {
   Button,
@@ -54,6 +54,12 @@ function shortDate(date) {
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function formatDayLabel(value) {
+  const date = parseDateKey(value);
+  const weekdayIndex = (date.getDay() + 6) % 7;
+  return `${WEEKDAY_LABELS[weekdayIndex]} ${shortDate(date)}`;
+}
+
 function isoWeekNumber(date) {
   const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   utcDate.setUTCDate(utcDate.getUTCDate() + 4 - (utcDate.getUTCDay() || 7));
@@ -102,10 +108,6 @@ function normalizeItem(item = null) {
 
 function getItemForSlot(plan, slot) {
   return (plan?.items ?? []).find((item) => item.mealSlot === slot) ?? null;
-}
-
-function getEmptySlots(plan) {
-  return SLOT_ORDER.filter((slot) => !getItemForSlot(plan, slot));
 }
 
 function getWarning(item, allergies) {
@@ -313,6 +315,11 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const [healthProfile, setHealthProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRandomizingDays, setIsRandomizingDays] = useState(false);
+  const randomizingDaysRef = useRef(false);
+  const [randomDaysModalOpen, setRandomDaysModalOpen] = useState(false);
+  const [randomDaysSelection, setRandomDaysSelection] = useState([]);
+  const [randomDaysSelectionError, setRandomDaysSelectionError] = useState('');
   const [notice, setNotice] = useState({ tone: 'info', message: '' });
   const [picker, setPicker] = useState(null);
   const [query, setQuery] = useState('');
@@ -338,7 +345,6 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     ? targetCaloriesValue
     : null;
   const canEditSelectedDate = !isPastDate(selectedDate);
-  const emptySlots = getEmptySlots(selectedPlan);
   const caloriePercentage = targetCalories && totalCalories > 0 && selectedPlan?.items?.length
     ? (totalCalories / targetCalories) * 100
     : null;
@@ -418,6 +424,17 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const updateSelectedDayPlan = useCallback((updater) => {
     setDays((current) => current.map((day) => (day.date !== selectedDate ? day : { ...day, plan: updater(day.plan) })));
   }, [selectedDate]);
+
+  const updatePlanForDate = useCallback((date, updater) => {
+    setDays((current) => {
+      const existingDay = current.find((day) => day.date === date);
+      const nextDay = { date, plan: updater(existingDay?.plan ?? null) };
+      if (existingDay) {
+        return current.map((day) => (day.date === date ? nextDay : day));
+      }
+      return [...current, nextDay].sort((left, right) => left.date.localeCompare(right.date));
+    });
+  }, []);
 
   const ensurePlanForSelectedDate = useCallback(async () => {
     if (selectedPlan) return selectedPlan;
@@ -503,42 +520,109 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     }
   };
 
-  const handleRandomize = async () => {
-    if (!canEditSelectedDate || isSaving) return;
-    if (!targetCalories || emptySlots.length === 0) {
-      setNotice({ tone: 'alert', message: 'Không thể random bữa trống cho ngày này.' });
+  const openRandomDaysModal = () => {
+    setRandomDaysSelection([]);
+    setRandomDaysSelectionError('');
+    setRandomDaysModalOpen(true);
+  };
+
+  const handleRandomizeSelectedDays = async () => {
+    if (randomizingDaysRef.current || isSaving) return;
+
+    const selectedDays = Array.from({ length: 7 }, (_, index) => {
+      const date = dateKey(addDays(parseDateKey(weekStart), index));
+      return { date, label: formatDayLabel(date) };
+    }).filter(({ date }) => randomDaysSelection.includes(date));
+
+    if (selectedDays.length === 0) {
+      setRandomDaysSelectionError('Vui lòng chọn ít nhất một ngày để random.');
       return;
     }
 
+    const validDays = selectedDays.filter(({ date }) => !isPastDate(date));
+    const pastDays = selectedDays.filter(({ date }) => isPastDate(date));
+    if (validDays.length === 0) {
+      setRandomDaysSelectionError('Các ngày đã chọn đều đã qua. Hãy chọn ngày hiện tại hoặc tương lai.');
+      return;
+    }
+
+    randomizingDaysRef.current = true;
+    setIsRandomizingDays(true);
     setIsSaving(true);
-    setNotice({ tone: 'info', message: 'Đang chọn món…' });
+    setRandomDaysSelectionError('');
+    setNotice({ tone: 'info', message: `Đang random ${validDays.length} ngày…` });
+
+    const successfulDates = [];
+    const failedDates = pastDays.map(({ date, label }) => ({
+      date,
+      label,
+      message: 'Ngày đã qua không thể random.',
+    }));
 
     try {
-      const planToUse = selectedPlan ?? await ensurePlanForSelectedDate();
-      const response = await mealPlanService.randomize(planToUse.id);
-      const newItems = (response.items ?? []).map(normalizeItem).filter(Boolean);
-      updateSelectedDayPlan((currentPlan) => {
-        const itemsBySlot = new Map((currentPlan?.items ?? []).map((item) => [item.mealSlot, item]));
-        newItems.forEach((item) => {
-          if (SLOT_ORDER.includes(item.mealSlot)) itemsBySlot.set(item.mealSlot, item);
-        });
-        return {
-          ...(currentPlan ?? { id: planToUse.id, planDate: selectedDate, items: [] }),
-          id: planToUse.id,
-          planDate: selectedDate,
-          items: SLOT_ORDER.map((slot) => itemsBySlot.get(slot)).filter(Boolean),
-        };
-      });
-      setNotice({ tone: 'success', message: response.message || `Đã thêm ${newItems.length} món.` });
-      toast(response.message || `Đã thêm ${newItems.length} món.`);
-    } catch (error) {
-      setNotice({ tone: 'alert', message: error.message || 'Không thể random bữa trống.' });
-      toast(error.message || 'Không thể random bữa trống.', { tone: 'alert' });
+      for (const { date, label } of validDays) {
+        try {
+          let plan = days.find((day) => day.date === date)?.plan ?? null;
+          if (!plan) {
+            const response = await mealPlanService.createDay({ planDate: date, mealsPerDay: 3 });
+            if (!response.plan) throw new Error('Không tạo được thực đơn cho ngày này.');
+            plan = {
+              ...response.plan,
+              items: (response.plan.items ?? []).map(normalizeItem).filter(Boolean),
+            };
+            updatePlanForDate(date, () => plan);
+          }
+          if (!plan.id) throw new Error('Không tìm thấy mã thực đơn cho ngày này.');
+
+          const response = await mealPlanService.randomize(plan.id);
+          const newItems = (response.items ?? []).map(normalizeItem).filter(Boolean);
+          updatePlanForDate(date, (currentPlan) => {
+            const planToUpdate = currentPlan ?? plan;
+            const itemsBySlot = new Map((planToUpdate.items ?? []).map((item) => [item.mealSlot, item]));
+            newItems.forEach((item) => {
+              if (SLOT_ORDER.includes(item.mealSlot) && !itemsBySlot.has(item.mealSlot)) {
+                itemsBySlot.set(item.mealSlot, item);
+              }
+            });
+            return {
+              ...planToUpdate,
+              id: plan.id,
+              planDate: date,
+              items: SLOT_ORDER.map((slot) => itemsBySlot.get(slot)).filter(Boolean),
+            };
+          });
+          successfulDates.push(label);
+        } catch (error) {
+          failedDates.push({
+            date,
+            label,
+            message: error.message || 'Không thể random thực đơn cho ngày này.',
+          });
+        }
+      }
+
+      const successMessage = successfulDates.length
+        ? `Đã random thành công ${successfulDates.length} ngày: ${successfulDates.join(', ')}.`
+        : 'Không random thành công ngày nào.';
+      const failureMessage = failedDates.length
+        ? ` Thất bại: ${failedDates.map(({ label, message }) => `${label}: ${message}`).join('; ')}.`
+        : '';
+      const message = `${successMessage}${failureMessage}`;
+      setNotice({ tone: failedDates.length ? 'alert' : 'success', message });
+      toast(message, { tone: failedDates.length ? 'alert' : 'success' });
+      setRandomDaysModalOpen(false);
+      setRandomDaysSelection([]);
     } finally {
+      randomizingDaysRef.current = false;
+      setIsRandomizingDays(false);
       setIsSaving(false);
     }
   };
 
+  const randomWeekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = dateKey(addDays(parseDateKey(weekStart), index));
+    return { date, label: formatDayLabel(date), isPast: isPastDate(date) };
+  });
   const selectedItems = SLOT_ORDER.map((slot) => ({
     slot,
     item: getItemForSlot(selectedPlan, slot),
@@ -558,11 +642,11 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
               type="button"
               size="sm"
               variant="primary"
-              icon="shuffle"
-              disabled={!canEditSelectedDate || isSaving || !targetCalories || emptySlots.length === 0}
-              onClick={handleRandomize}
+              icon="calendar2-check"
+              disabled={isSaving}
+              onClick={openRandomDaysModal}
             >
-              Random bữa trống
+              Random món ăn theo ngày
             </Button>
           </div>
 
@@ -627,6 +711,72 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
         onQueryChange={setQuery}
         onChoose={handleChooseRecipe}
       />
+
+      <Modal
+        open={randomDaysModalOpen}
+        onClose={() => setRandomDaysModalOpen(false)}
+        title="Random thực đơn nhiều ngày"
+        description="Chọn các ngày trong tuần đang xem. Ngày đã qua không thể chọn."
+        size="md"
+        dismissible={!isRandomizingDays}
+        footer={(
+          <>
+            <Button
+              variant="subtle"
+              disabled={isRandomizingDays}
+              onClick={() => setRandomDaysModalOpen(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              icon="shuffle"
+              loading={isRandomizingDays}
+              disabled={isRandomizingDays}
+              onClick={handleRandomizeSelectedDays}
+            >
+              Random ngày đã chọn
+            </Button>
+          </>
+        )}
+      >
+        <div className={styles.randomDaysPanel}>
+          <div className={styles.randomDayList} aria-label="Chọn ngày random">
+            {randomWeekDays.map(({ date, label, isPast }) => {
+              const checkboxId = `random-day-${date}`;
+              return (
+                <label
+                  key={date}
+                  htmlFor={checkboxId}
+                  className={`${styles.randomDayOption} ${randomDaysSelection.includes(date) ? styles.randomDayOptionSelected : ''} ${isPast ? styles.randomDayOptionDisabled : ''}`}
+                >
+                  <input
+                    id={checkboxId}
+                    className={styles.randomDayCheckbox}
+                    type="checkbox"
+                    checked={randomDaysSelection.includes(date)}
+                    disabled={isPast || isRandomizingDays}
+                    onChange={() => {
+                      setRandomDaysSelection((current) => (
+                        current.includes(date)
+                          ? current.filter((entry) => entry !== date)
+                          : [...current, date]
+                      ));
+                      setRandomDaysSelectionError('');
+                    }}
+                  />
+                  <span className={styles.randomDayLabel}>
+                    <strong>{label}</strong>
+                    <span>{isPast ? 'Đã qua' : 'Có thể random'}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {randomDaysSelectionError ? (
+            <p className={styles.randomDaysError} role="alert">{randomDaysSelectionError}</p>
+          ) : null}
+        </div>
+      </Modal>
     </MemberLayout>
   );
 }

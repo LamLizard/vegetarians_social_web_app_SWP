@@ -17,12 +17,13 @@ const byName = (n) => n;
  * @param {string[]} catalog   tên trong bảng ingredient
  * @param {Set<string>} [taken]   tên (đã plain) đang dùng ở các dòng khác
  * @param {(v: {name: string, proposed: boolean}) => void} onPick   chọn xong (name '' = bỏ chọn để đổi)
+ * @param {(text: string) => void} [onDraftTextChange]   chữ đang gõ chưa chọn
  * @param {() => void} [onDone]   gọi sau khi chọn bằng bàn phím → chuyển sang ô số lượng
  * @param {'bad'|'warn'} [tone]   tô đỏ (nghi không chay) / viền đứt (đề xuất mới)
  * @param {(el) => void} [inputRef]   nhận phần tử để IngredientEditor focus
  */
 export default function IngredientPicker({
-  name, proposed = false, catalog, taken, onPick, onDone, tone, invalid, inputRef, ariaLabel, disabled,
+  name, proposed = false, catalog, taken, onPick, onDraftTextChange, onDone, tone, invalid, inputRef, ariaLabel, disabled,
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -47,6 +48,7 @@ export default function IngredientPicker({
     if (!row) return;
     onPick(row.kind === 'item' ? { name: row.name, proposed: false } : { name: typed.slice(0, 120), proposed: true });
     setText('');
+    onDraftTextChange?.('');
     setOpen(false);
     setActive(-1);
     if (viaKeyboard) requestAnimationFrame(() => onDone?.());
@@ -74,6 +76,7 @@ export default function IngredientPicker({
   // Bấm "Đổi" → về ô gõ, giữ chữ cũ để sửa nhanh
   const change = () => {
     setText(name);
+    onDraftTextChange?.(name);
     setOpen(true);
     setActive(-1);
     onPick({ name: '', proposed: false });
@@ -120,7 +123,7 @@ export default function IngredientPicker({
         value={text}
         maxLength={120}
         disabled={disabled}
-        onChange={(e) => { setText(e.target.value); setOpen(true); setActive(-1); }}
+        onChange={(e) => { setText(e.target.value); onDraftTextChange?.(e.target.value); setOpen(true); setActive(-1); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={onKeyDown}

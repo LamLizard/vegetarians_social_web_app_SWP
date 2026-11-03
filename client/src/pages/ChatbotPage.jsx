@@ -206,9 +206,13 @@ function ChatReplyText({ text }) {
   );
 }
 
+// Khoi's code (01/11/2026): mở từ khối "Hỏi Mầm" ở Bảng tin (/chatbot?ask=<câu hỏi>) → điền sẵn câu vào ô chat, chỉ cần Enter để gửi.
+const readAskParam = () => (new URLSearchParams(window.location.search).get('ask') ?? '').trim().slice(0, 10000);
+
 export default function ChatbotPage({ user }) {
   const { logout } = useAuthContext();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(readAskParam); // Khoi's code 01/11: '' khi không có ?ask=
+  const askFocusRef = useRef(Boolean(readAskParam())); // Khoi's code 01/11: còn chờ focus ô chat cho câu điền sẵn
   const [messages, setMessages] = useState([]);
   const [session, setSession] = useState(null);
   const [sessionReady, setSessionReady] = useState(false);
@@ -227,6 +231,22 @@ export default function ChatbotPage({ user }) {
   const actorToken = useRef(null);
   const textareaRef = useRef(null);
   const actor = user?.id ? `account:${user.id}` : 'guest';
+
+  // Khoi's code (01/11/2026): xoá ?ask= khỏi URL (tải lại trang không điền lại); ô chat bị khoá tới khi phiên sẵn sàng → lúc đó mới focus, con trỏ ở cuối câu
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('ask')) return;
+    params.delete('ask');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!askFocusRef.current || !enabled || !sessionReady || busy || !textarea) return;
+    askFocusRef.current = false;
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+  }, [enabled, sessionReady, busy]);
 
   const updateMessages = useCallback((update) => {
     const next = typeof update === 'function' ? update(messagesRef.current) : update;

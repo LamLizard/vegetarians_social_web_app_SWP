@@ -1,5 +1,9 @@
 // Tùng: adapter riêng cho chatbot để không ảnh hưởng kiểm duyệt Groq.
 const { recordProviderError, clearProviderError } = require('../models/aiConfig.model');
+const deepseekUsage = require('./deepseekUsage');
+
+// Tùng: chỉ bật thống kê sau khi adapter đã được nối, không ảnh hưởng luồng chat.
+try { deepseekUsage.activate(); } catch { /* Thống kê là best effort. */ }
 
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
 const MODEL = 'deepseek-flash';
@@ -39,17 +43,20 @@ function fitClassifierMessages(system, history, currentText, postSubject = null)
   throw failure('CONTEXT_BUDGET_EXCEEDED');
 }
 
-async function openCompletion(messages, { signal, deadlineAt, stream, maxTokens, json = false }) {
+async function openCompletion(messages, { signal, deadlineAt, stream, maxTokens, json = false, observation, kind }) {
   ensureActive(signal, deadlineAt);
   const key = process.env.DEEPSEEK_API_KEY?.trim();
   // Tùng: chỉ báo mã cấu hình thiếu, không ghi key hay nội dung request.
   if (!key) { recordProviderError('deepseek', 'UNAVAILABLE'); throw failure('DEEPSEEK_KEY_MISSING'); }
   try {
+    const body = JSON.stringify({ model: MODEL, messages, stream, max_tokens: maxTokens,
+      thinking: { type: 'disabled' }, ...(json ? { response_format: { type: 'json_object' } } : {}) });
+    // Tùng: chỉ tính lần thử ngay trước fetch, không ghi prompt hay key.
+    try { observation.current = deepseekUsage.begin(kind); } catch { /* Không chặn chat. */ }
     const response = await fetch(ENDPOINT, {
       method: 'POST', signal,
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, messages, stream, max_tokens: maxTokens,
-        thinking: { type: 'disabled' }, ...(json ? { response_format: { type: 'json_object' } } : {}) }),
+      body,
     });
     ensureActive(signal, deadlineAt);
     if (!response.ok) {
@@ -64,11 +71,17 @@ async function openCompletion(messages, { signal, deadlineAt, stream, maxTokens,
   }
 }
 
-async function classify(messages, signal, deadlineAt) {
-  const response = await openCompletion(messages, { signal, deadlineAt, stream: false, maxTokens: 1024, json: true });
+function observeUsage(observation, usage) {
+  try { observation.current?.usage(usage); } catch { /* Không chặn chat. */ }
+}
+
+async function classifyRequest(messages, signal, deadlineAt, observation) {
+  const response = await openCompletion(messages, { signal, deadlineAt, stream: false, maxTokens: 1024,
+    json: true, observation, kind: 'classifier' });
   try {
     ensureActive(signal, deadlineAt);
     const result = await response.json();
+    observeUsage(observation, result?.usage);
     ensureActive(signal, deadlineAt);
     const choice = result?.choices?.[0];
     if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string'
@@ -81,9 +94,22 @@ async function classify(messages, signal, deadlineAt) {
   }
 }
 
+async function classify(messages, signal, deadlineAt) {
+  const observation = { current: null };
+  let failed = true;
+  try {
+    const result = await classifyRequest(messages, signal, deadlineAt, observation);
+    failed = false;
+    return result;
+  } finally {
+    try { observation.current?.finish(failed); } catch { /* Không chặn chat. */ }
+  }
+}
+
 // Tùng: giữ partial khi vượt giới hạn và chỉ coi stop là câu trả lời hoàn tất.
-async function streamAnswer(messages, { signal, deadlineAt, onDelta, maxPoints = MAX_POINTS }) {
-  const response = await openCompletion(messages, { signal, deadlineAt, stream: true, maxTokens: 4096 });
+async function streamAnswerRequest(messages, { signal, deadlineAt, onDelta, maxPoints = MAX_POINTS }, observation) {
+  const response = await openCompletion(messages, { signal, deadlineAt, stream: true, maxTokens: 4096,
+    observation, kind: 'answer' });
   if (!response.body) throw failure();
   const reader = response.body.getReader();
   const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -110,6 +136,8 @@ async function streamAnswer(messages, { signal, deadlineAt, onDelta, maxPoints =
         if (!data) continue;
         if (data === '[DONE]') { doneMarker = true; break; }
         const parsed = JSON.parse(data);
+        // Tùng: usage có thể nằm ở frame cuối, kể cả frame không có choice.
+        observeUsage(observation, parsed?.usage);
         const choice = parsed?.choices?.[0];
         if (!choice) continue;
         if (choice.finish_reason) finishReason = choice.finish_reason;
@@ -139,6 +167,18 @@ async function streamAnswer(messages, { signal, deadlineAt, onDelta, maxPoints =
     throw error.code ? error : failure('PROVIDER_RESPONSE_INVALID');
   } finally {
     void reader.cancel().catch(() => {});
+  }
+}
+
+async function streamAnswer(messages, options) {
+  const observation = { current: null };
+  let failed = true;
+  try {
+    const result = await streamAnswerRequest(messages, options, observation);
+    failed = !result.complete;
+    return result;
+  } finally {
+    try { observation.current?.finish(failed); } catch { /* Không chặn chat. */ }
   }
 }
 

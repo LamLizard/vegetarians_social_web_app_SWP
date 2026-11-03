@@ -6,10 +6,11 @@
 // Trang nào dùng khung này cũng có nền chấm + biến bố cục của styles/feed-theme.css (<html data-feed-v2>).
 import { useEffect, useLayoutEffect, useState } from 'react';
 import FeedSidebar from '../FeedSidebar/FeedSidebar';
+import FeedTopbar from '../FeedTopbar/FeedTopbar';
 // Duy's Code: Chuông thông báo được gắn vào sidebar chung của thành viên.
 import MemberNotificationBell from '../MemberNotificationBell/MemberNotificationBell';
 import { ROLE } from '../../constants/domain';
-import { MEMBER_NAV } from '../../hooks/useMemberSidebar';
+import { MEMBER_NAV, navKeyOf } from '../../hooks/useMemberSidebar';
 import '../../styles/feed-theme.css';
 import s from './MemberLayout.module.css';
 
@@ -40,18 +41,22 @@ const useIsMobile = () => {
 };
 
 /**
- * @param {string} [activeKey]   mục menu đang sáng ('feed'…); bỏ trống = không sáng mục nào (vd trang Tạo công thức)
+ * @param {string} [activeKey]   mục menu đang sáng ('feed'…); bỏ trống = tự sáng theo đường dẫn (navKeyOf) · '' = không sáng mục nào
  * @param {{id, fullName, role, avatarUrl?}|null} user   null = khách
  * @param {{icon?, label, onClick, tone?}[]} [accountMenu]
  * @param {object} [shopAction]   nút Hồ sơ quán / Đăng ký quán (ShopNavigationContext)
- * @param {() => void} [onCreate]   nút "+ Đăng bài" (thanh bên + thanh dưới điện thoại), chỉ khi đã đăng nhập
+ * @param {() => void} [onCreate]   nút "+ Đăng bài" (thanh bên + thanh dưới điện thoại), chỉ khi đã đăng nhập.
+ *   Bỏ trống = về Bảng tin và mở hộp Đăng bài (/?compose=1) — mọi trang thành viên đều có nút này như Bảng tin
  * @param {() => void} [onLogin] · [onRegister]   chỉ dùng khi là khách
  * @param {({ openMenu }) => React.ReactNode} [renderTopbar]   thanh trên; openMenu mở ngăn kéo trên điện thoại
  */
 export default function MemberLayout({
-  activeKey, user, accountMenu = [], shopAction, onCreate, onLogin, onRegister, renderTopbar, children,
+  activeKey: activeKeyProp, user, accountMenu = [], shopAction, onCreate: onCreateProp, onLogin, onRegister, renderTopbar, children,
 }) {
   const isGuest = !user;
+  // Khoi's code (01/11/2026): đồng nhất thanh bên theo Bảng tin — trang không truyền thì vẫn có "+ Đăng bài" và mục đang mở tự sáng
+  const activeKey = activeKeyProp ?? navKeyOf();
+  const onCreate = onCreateProp ?? (() => window.location.assign('/?compose=1'));
   const isMobile = useIsMobile();
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -66,7 +71,8 @@ export default function MemberLayout({
     return () => { delete document.documentElement.dataset.feedV2; };
   }, []);
 
-  const create = onCreate && !isGuest ? () => { setDrawerOpen(false); onCreate(); } : undefined;
+  const createAction = onCreate ?? (user?.role === 'member' ? () => window.location.assign('/?compose=1') : undefined);
+  const create = createAction && !isGuest ? () => { setDrawerOpen(false); createAction(); } : undefined;
   // Duy's Code: Giữ liên kết Bài của tôi trong menu tài khoản mà không lặp mục đã được truyền vào.
   const memberAccountMenu = user && !accountMenu.some((item) => item.href === '/me/posts')
     ? [{ icon: 'journal-text', label: 'Bài của tôi', href: '/me/posts' }, ...accountMenu]
@@ -92,7 +98,9 @@ export default function MemberLayout({
       />
 
       <div className={`feed-v2-main ${s.main}`}>
-        {renderTopbar?.({ openMenu: () => setDrawerOpen(true) })}
+        {renderTopbar
+          ? renderTopbar({ openMenu: () => setDrawerOpen(true) })
+          : user?.role === 'member' && <FeedTopbar hideSearch onOpenMenu={() => setDrawerOpen(true)} />}
         {children}
       </div>
 

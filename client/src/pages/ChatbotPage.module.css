@@ -49,7 +49,7 @@
 .messageBot { display: flex; align-items: flex-end; gap: var(--mam-space-xs); width: min(100%, 880px); margin-inline: auto; }
 .messageUser { width: min(100%, 880px); margin-inline: auto; }
 .messageAvatar { flex: none; width: 34px; height: 34px; margin-bottom: 2px; }
-.messageBody { flex: 1; min-width: 0; }
+.messageBody { position: relative; flex: 1; min-width: 0; }
 .botBubble > span:first-child { display: none; }
 .replyText { white-space: normal; }
 .replyText p, .replyText ul, .replyText ol, .replyText h3 { margin: 0; }

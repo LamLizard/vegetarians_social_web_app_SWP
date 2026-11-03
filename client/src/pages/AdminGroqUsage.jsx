@@ -2,12 +2,12 @@ import { useEffect, useId, useState } from 'react';
 import Button from '../components/Button/Button';
 import Notice from '../components/Notice/Notice';
 import StatCard from '../components/StatCard/StatCard';
-import { getGroqUsage } from '../services/groqUsage.service';
+import { getGroqModerationUsage } from '../services/groqUsage.service';
 import styles from './AdminGroqUsage.module.css';
 
 const DAY_MS = 86400000;
 const UPDATE_MS = 30000;
-const KIND_LABELS = { comment: 'Bình luận', post: 'Bài viết', chatbot: 'Chatbot' };
+const KIND_LABELS = { comment: 'Bình luận', post: 'Bài viết' };
 
 function vietnamDate(value = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh',
@@ -34,7 +34,6 @@ function money(value) {
 
 function modelLabel(value) {
   if (value === 'openai/gpt-oss-20b') return 'GPT-OSS 20B';
-  if (value === 'openai/gpt-oss-120b') return 'GPT-OSS 120B';
   return value;
 }
 
@@ -94,13 +93,16 @@ export default function AdminGroqUsage() {
       pending = true;
       request = new AbortController();
       try {
-        const result = await getGroqUsage({ date, signal: request.signal });
+        const result = await getGroqModerationUsage({ date, signal: request.signal });
         if (active && !request.signal.aborted) {
           setData(result);
           setError('');
         }
       } catch (err) {
-        if (active && !request.signal.aborted) setError(err?.message || 'Không thể tải thống kê Groq.');
+        if (active && !request.signal.aborted) {
+          setData(null);
+          setError(err?.message || 'Không thể tải thống kê Groq.');
+        }
       } finally {
         if (active) setLoading(false);
         pending = false;
@@ -127,14 +129,16 @@ export default function AdminGroqUsage() {
 
   const totals = data?.totals;
   const showValues = data && data.coverage.state !== 'unknown';
+  const tokenAvailable = showValues && (totals.usageKnown > 0
+    || (data.coverage.state === 'observed' && totals.usageUnknown === 0 && totals.inFlight === 0));
   const estimateHint = totals?.costState === 'partial' ? 'Ước tính chưa đầy đủ' : 'Theo giá niêm yết, không phải hóa đơn';
 
   return (
     <section className={styles.usage} aria-labelledby={`${id}-title`}>
       <div className={styles.heading}>
         <div>
-          <h2 id={`${id}-title`}>Mức sử dụng Groq</h2>
-          <p>Theo dõi lượt gọi, token và hạn mức gần nhất.</p>
+          <h2 id={`${id}-title`}>Groq · Kiểm duyệt</h2>
+          <p>Theo dõi lượt gọi kiểm duyệt, token và hạn mức gần nhất.</p>
         </div>
         <div className={styles.controls}>
           <div className={styles.dateField}>
@@ -162,14 +166,14 @@ export default function AdminGroqUsage() {
             <Notice>Có lượt gọi chưa có số token hoặc đang xử lý; tổng hiển thị có thể chưa đầy đủ.</Notice>
           )}
           <div className={styles.stats}>
-            <StatCard label="Tổng token" value={showValues ? amount(totals.totalTokens) : 'Chưa có'} hint="Đầu vào và đầu ra" />
-            <StatCard label="Lượt gọi" value={showValues ? amount(totals.attempts) : 'Chưa có'} hint="Lần thử gọi Groq" />
+            <StatCard label="Tổng token" value={tokenAvailable ? amount(totals.totalTokens) : 'Chưa có'} hint="Đầu vào và đầu ra đã ghi nhận" />
+            <StatCard label="Lượt gọi" value={showValues ? amount(totals.attempts) : 'Chưa có'} hint="Lần thử kiểm duyệt Groq" />
             <StatCard label="Lỗi" value={showValues ? amount(totals.errors) : 'Chưa có'} hint="Lỗi trong lượt gọi" />
             <StatCard label="Chi phí ước tính" value={showValues ? money(totals.estimatedUsd) : 'Chưa có'} hint={estimateHint} />
           </div>
 
           <div className={styles.detailHeader}>
-            <div><h3>Hạn mức gần nhất</h3><p>Do Groq trả về trong lần gọi gần nhất; số liệu có thể đã cũ.</p></div>
+            <div><h3>Hạn mức gần nhất</h3><p>Snapshot theo model do Groq trả về; không chỉ riêng kiểm duyệt và có thể đã cũ.</p></div>
           </div>
           <div className={styles.limits}>
             {data.limits.map((entry) => <Limit key={entry.model} entry={entry} generatedAt={data.generatedAt} />)}
@@ -186,8 +190,8 @@ export default function AdminGroqUsage() {
                 <tbody>{data.groups.map((group) => (
                   <tr key={`${group.model}-${group.kind}`}>
                     <td>{KIND_LABELS[group.kind] || group.kind}</td><td>{modelLabel(group.model)}</td>
-                    <td>{amount(group.attempts)}</td><td>{amount(group.promptTokens)}</td>
-                    <td>{amount(group.completionTokens)}</td><td>{amount(group.errors)}</td>
+                    <td>{amount(group.attempts)}</td><td>{group.usageKnown ? amount(group.promptTokens) : 'Chưa có'}</td>
+                    <td>{group.usageKnown ? amount(group.completionTokens) : 'Chưa có'}</td><td>{amount(group.errors)}</td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -195,8 +199,7 @@ export default function AdminGroqUsage() {
           ) : <p className={styles.empty}>Chưa ghi nhận lượt gọi nào trong khoảng dữ liệu hiện có.</p>}
           <p className={styles.note}>
             Chi phí dùng giá niêm yết tham khảo ngày 28/10/2026, có thể khác chi phí thực tế.{' '}
-            <a href="https://console.groq.com/docs/model/openai/gpt-oss-20b" target="_blank" rel="noreferrer">Giá 20B</a>{' và '}
-            <a href="https://console.groq.com/docs/model/openai/gpt-oss-120b" target="_blank" rel="noreferrer">giá 120B</a>.
+            <a href="https://console.groq.com/docs/model/openai/gpt-oss-20b" target="_blank" rel="noreferrer">Giá 20B</a>.
           </p>
         </>
       )}
