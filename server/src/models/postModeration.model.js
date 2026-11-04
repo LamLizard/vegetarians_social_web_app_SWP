@@ -1,13 +1,4 @@
 const { ModerationError, getPostDecision, canRestorePost } = require('../utils/postModeration');
-// Khoi's code: cảnh báo đồ động vật trong bài (banned_keyword category 'animal') — chỉ để Admin xem, không chặn.
-const { animalWarnings } = require('../utils/animalWords');
-const { getKeywords } = require('./bannedKeyword.model');
-
-const postWarnings = (post, keywords) => animalWarnings([
-  { field: 'title', label: 'Tiêu đề', text: post.title },
-  { field: 'content', label: 'Nội dung', text: post.content },
-], keywords);
-
 const POST_FIELDS = `
   p.post_id AS id, p.account_id AS "accountId", p.post_type AS "postType",
   p.title, p.content, p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl",
@@ -277,8 +268,8 @@ function createPostModerationModel(database) {
       ORDER BY p.created_at ASC, p.post_id ASC
       LIMIT $${values.length + 1} OFFSET $${values.length + 2}
     `, [...values, query.limit, (page - 1) * query.limit]);
-    const keywords = await getKeywords('animal', pool);
-    const items = rows.map((row) => ({ ...row, animalWarnings: postWarnings(row, keywords) }));
+    // Tùng: bỏ cảnh báo animal ở duyệt bài, giữ mảng cho client hiện có.
+    const items = rows.map((row) => ({ ...row, animalWarnings: [] }));
     return { items, page, pageSize: query.limit, totalItems, totalPages };
   }
 
@@ -311,9 +302,8 @@ function createPostModerationModel(database) {
         WHERE target_type = 'post' AND target_id = $1 GROUP BY status`, [id]),
       history('post', id, database),
     ]);
-    const keywords = await getKeywords('animal', database);
     return { ...rows[0], categories: categories.rows, reportCounts: reports.rows, history: events,
-      animalWarnings: postWarnings(rows[0], keywords) };
+      animalWarnings: [] };
   }
 
   // Tung's code: Một dòng/case. Cùng FROM/WHERE cho count và dữ liệu để bộ lọc,

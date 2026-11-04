@@ -165,7 +165,6 @@
 .noteBad { color: var(--ac-bad-fg); font-weight: 500; }
 
 /* Khoi's code: cảnh báo đồ động vật dưới ô tên món / tên công thức — không phải lỗi, vẫn gửi được */
-.flag { display: flex; gap: 0.4rem; align-items: baseline; margin: 0.4rem 0 0; color: var(--ac-bad-fg); font-size: 0.8rem; font-weight: 500; }
 
 /* Khoi's code: khối "Dinh dưỡng" (28/10: bắt buộc 5 ô) — mở/gập theo chiều dọc (grid-template-rows 0fr → 1fr) */
 .nutri { border: 1px solid var(--v-line); border-radius: var(--ac-radius-surface); }

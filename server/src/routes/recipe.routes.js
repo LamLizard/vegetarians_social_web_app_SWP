@@ -1,7 +1,7 @@
 // Khoi's code: Bảng chỉ đường trang Tạo công thức — KHÔNG viết logic ở đây.
 // Gắn ở app.js:  app.use('/api/recipes', require('./src/routes/recipe.routes'));
 //
-//  Ai cũng gọi được:  GET  /  (trang Công thức: khách chỉ nhận 3 công thức nhiều tim nhất, thành viên nhận tất cả đã duyệt)  ·  GET  /dishes  ·  GET /ingredients  ·  GET /animal-words        (tên món/nguyên liệu không phải dữ liệu riêng tư)
+//  Ai cũng gọi được:  GET  /  (trang Công thức: khách chỉ nhận 3 công thức nhiều tim nhất, thành viên nhận tất cả đã duyệt)  ·  GET  /dishes  ·  GET /ingredients        (tên món/nguyên liệu không phải dữ liệu riêng tư)
 //  Cần đăng nhập:     GET /:recipeId (xem chi tiết công thức đã duyệt)  ·  POST / DELETE /:recipeId/like (thích / bỏ thích)  ·  POST /ingredients/check  ·  GET /mine  ·  POST /  (gửi công thức → 'pending')
 //                     GET /mine/:recipeId  ·  PUT /:recipeId  (Sửa và gửi lại công thức bị từ chối → 'pending')
 // Phần Admin duyệt công thức (Duy) đặt ở route admin riêng, không nằm ở đây.
@@ -16,7 +16,7 @@ const optionalAuth = (req, res, next) => (req.headers.authorization ? requireAut
 
 router.get('/dishes', recipeController.getDishes);
 router.get('/ingredients', recipeController.getIngredients);
-router.get('/animal-words', recipeController.getAnimalWords); // Khoi's code: banned_keyword category 'animal'
+// Khoi's code 04/11: bỏ route /animal-words (nhóm bỏ bảng banned_keyword)
 router.get('/available', optionalAuth, recipeController.getAvailable);
 router.post('/ingredients/check', requireAuth, recipeController.checkIngredients);
 router.get('/mine', requireAuth, recipeController.getMine);
