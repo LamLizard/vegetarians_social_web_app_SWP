@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Pagination, Panel, Spinner } from '../components';
 import useAuth from '../hooks/useAuth';
 import {
   decideIngredientProposal,
-  getBannedKeywords,
   getIngredientProposalHistory,
   getPendingIngredientProposals,
 } from '../services/ingredientProposal.service';
@@ -13,7 +12,6 @@ import styles from './AdminIngredientVerifyPage.module.css';
 const INGREDIENT_PAGES = [
   { key: 'allergy', label: 'Dị ứng', icon: 'heart-pulse', description: 'Nguyên liệu được khai báo trong hồ sơ dị ứng, cần xem xét ưu tiên.' },
   { key: 'recipe', label: 'Nguyên liệu công thức', icon: 'basket', description: 'Nguyên liệu mới thành viên dùng trong công thức, cần phân loại trước khi duyệt Recipe.' },
-  { key: 'keywords', label: 'Banned Keyword', icon: 'incognito', description: 'Tra cứu các từ khóa đang được hệ thống dùng để cảnh báo hoặc kiểm tra nội dung.' },
   { key: 'history', label: 'Lịch sử duyệt', icon: 'clock-history', description: 'Các quyết định duyệt nguyên liệu được ghi trong admin_log.' },
 ];
 
@@ -42,10 +40,6 @@ export default function AdminIngredientVerifyPage() {
   const [classification, setClassification] = useState({});
   // Duy's Code: Giữ đường dẫn Recipe nguồn để Admin tiếp tục xử lý sau khi từ chối nguyên liệu.
   const [resolvedRecipeLinks, setResolvedRecipeLinks] = useState([]);
-  const [keywords, setKeywords] = useState([]);
-  const [keywordsLoading, setKeywordsLoading] = useState(false);
-  const [keywordsError, setKeywordsError] = useState('');
-  const [keywordQuery, setKeywordQuery] = useState('');
   const [history, setHistory] = useState({ items: [], page: 1, pageSize: 20, totalItems: 0, totalPages: 1 });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
@@ -59,15 +53,6 @@ export default function AdminIngredientVerifyPage() {
     finally { setLoading(false); }
   }, []);
 
-  // Duy's Code: Banned Keyword chỉ đọc bảng hiện có, không tạo hoặc sửa dữ liệu từ trang này.
-  const loadKeywords = useCallback(async () => {
-    setKeywordsLoading(true);
-    setKeywordsError('');
-    try { setKeywords(await getBannedKeywords()); }
-    catch (e) { setKeywordsError(e.message); }
-    finally { setKeywordsLoading(false); }
-  }, []);
-
   // Duy's Code: Lịch sử dùng phân trang trên admin_log hiện có.
   const loadHistory = useCallback(async (page = 1) => {
     setHistoryLoading(true);
@@ -77,16 +62,19 @@ export default function AdminIngredientVerifyPage() {
     finally { setHistoryLoading(false); }
   }, []);
 
-  // Duy's Code: Tải số liệu của cả bốn tab lúc vào trang để badge không hiện 0 giả trước khi mở tab.
+  // Duy's Code: Tải số liệu của các trang con lúc vào trang để badge không hiện 0 giả trước khi mở tab.
   useEffect(() => {
     load();
-    loadKeywords();
     loadHistory(1);
-  }, [load, loadHistory, loadKeywords]);
+  }, [load, loadHistory]);
 
   // Duy's Code: Hỗ trợ mở tab bằng URL và đồng bộ khi người dùng dùng nút Back/Forward.
   useEffect(() => {
     const syncPage = () => setActivePage(getPageFromUrl());
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested && !PAGE_KEYS.has(requested)) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     window.addEventListener('popstate', syncPage);
     return () => window.removeEventListener('popstate', syncPage);
   }, []);
@@ -99,7 +87,6 @@ export default function AdminIngredientVerifyPage() {
 
   // Duy's Code: Nút tải lại gọi đúng nguồn dữ liệu của trang con đang mở.
   const refreshPage = () => {
-    if (activePage === 'keywords') return loadKeywords();
     if (activePage === 'history') return loadHistory(history.page);
     return load();
   };
@@ -228,10 +215,6 @@ export default function AdminIngredientVerifyPage() {
   };
 
   const activeTab = INGREDIENT_PAGES.find((item) => item.key === activePage) || INGREDIENT_PAGES[0];
-  const keywordRows = useMemo(() => {
-    const query = keywordQuery.trim().toLocaleLowerCase('vi');
-    return keywords.filter((item) => !query || [item.keyword, item.normalizedKeyword, item.category].some((value) => String(value || '').toLocaleLowerCase('vi').includes(query)));
-  }, [keywordQuery, keywords]);
 
   const historyStatus = (entry) => ({
     approved: 'Đã thêm vào kho', rejected: 'Bị từ chối', removed: 'Đã ẩn yêu cầu',
@@ -245,20 +228,19 @@ export default function AdminIngredientVerifyPage() {
       <div className={styles.page}>
         <PageHeader
           title="Duyệt nguyên liệu"
-          description="Xử lý dị ứng, nguyên liệu đề xuất trong công thức, tra cứu Banned Keyword và xem lịch sử quyết định."
+          description="Xử lý dị ứng, nguyên liệu đề xuất trong công thức và xem lịch sử quyết định."
           actions={<Button variant="outline" icon="arrow-clockwise" onClick={refreshPage}
-            disabled={loading || keywordsLoading || historyLoading}>Tải lại</Button>}
+            disabled={loading || historyLoading}>Tải lại</Button>}
         />
 
         <ErrorDialog error={error} title="Không thể xử lý đề xuất nguyên liệu" />
 
-        {/* Duy's Code: Điều hướng 4 trang con, đồng thời hiện số lượng cần xử lý trên từng hàng đợi. */}
+        {/* Duy's Code: Điều hướng các trang con, đồng thời hiện số lượng cần xử lý trên từng hàng đợi. */}
         <nav className={styles.pageNav} role="tablist" aria-label="Các trang quản lý nguyên liệu">
           {INGREDIENT_PAGES.map((tab) => {
             const count = tab.key === 'allergy' ? (loading ? '…' : allergyItems.length)
               : tab.key === 'recipe' ? (loading ? '…' : recipeItems.length)
-                : tab.key === 'keywords' ? (keywordsLoading ? '…' : keywordsError ? '!' : keywords.length)
-                  : historyLoading ? '…' : historyError ? '!' : history.totalItems;
+                : historyLoading ? '…' : historyError ? '!' : history.totalItems;
             return <button key={tab.key} id={`ingredient-tab-${tab.key}`} type="button" role="tab" aria-selected={activePage === tab.key}
               className={activePage === tab.key ? styles.activePage : ''} onClick={() => selectPage(tab.key)}>
               <i className={`bi bi-${tab.icon}`} aria-hidden="true" />
@@ -312,27 +294,6 @@ export default function AdminIngredientVerifyPage() {
                   </Button>)}</div>
                 </Notice>}
                 <EmptyState icon="basket" title="Không có nguyên liệu công thức chờ duyệt" description="Các đề xuất mới từ Recipe sẽ xuất hiện tại đây." />
-              </>)}
-
-          {activePage === 'keywords' && (keywordsLoading
-            ? <div className={styles.loading}><Spinner label="Đang tải Banned Keyword…" showLabel /></div>
-            : keywordsError
-              ? <ErrorDialog error={keywordsError} title="Không tải được Banned Keyword" onRetry={loadKeywords} />
-              : <>
-                <div className={styles.keywordToolbar}>
-                  <p>{keywords.length} từ khóa trong bảng hiện có</p>
-                  <input className="form-control" value={keywordQuery} onChange={(event) => setKeywordQuery(event.target.value)}
-                    placeholder="Tìm từ khóa hoặc phân loại" aria-label="Tìm Banned Keyword" />
-                </div>
-                {keywordRows.length
-                  ? <div className={styles.keywordTableWrap}><table className={styles.keywordTable}>
-                    <thead><tr><th>Từ khóa</th><th>Dạng chuẩn hóa</th><th>Phân loại</th></tr></thead>
-                    <tbody>{keywordRows.map((item) => <tr key={item.id}>
-                      <td>{item.keyword}</td><td>{item.normalizedKeyword}</td>
-                      <td><span className={styles.keywordCategory}>{item.category || 'Không có phân loại trong dữ liệu'}</span></td>
-                    </tr>)}</tbody>
-                  </table></div>
-                  : <EmptyState icon="incognito" title="Không tìm thấy từ khóa" description={keywordQuery ? 'Thử từ khóa khác.' : 'Bảng Banned Keyword chưa có dữ liệu.'} />}
               </>)}
 
           {activePage === 'history' && (historyLoading
