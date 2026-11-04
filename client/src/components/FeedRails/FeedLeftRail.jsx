@@ -49,6 +49,8 @@ function CalorieBlock({ plan }) {
   }
   const total = items.reduce((t, m) => t + (Number(m.caloriesKcal) || 0), 0);
   const target = Number(plan.today.targetCaloriesKcal) || 0;
+  // Một bữa có thể có nhiều món → đếm theo bữa, không theo số món.
+  const mealCount = new Set(items.map((item) => item.mealSlot)).size;
   return (
     <section className={s.box}>
       <div className={s.head}>
@@ -59,13 +61,13 @@ function CalorieBlock({ plan }) {
         <CalorieRing value={total} target={target} />
         <div className={s.ringSide}>
           <span>Theo thực đơn</span>
-          <b>{items.length} bữa</b>
+          <b>{mealCount} bữa · {items.length} món</b>
           {target > 0 && <span>{total <= target ? `Còn ${target - total} kcal` : `Vượt ${total - target} kcal`}</span>}
         </div>
       </div>
       <ul className={s.meals}>
-        {items.map((m) => (
-          <li key={m.mealSlot} className={s.meal}>
+        {items.map((m, index) => (
+          <li key={m.id ?? `${m.mealSlot}-${index}`} className={s.meal}>
             <span className={s.mealLabel}>{SLOT_LABEL[m.mealSlot] ?? m.mealSlot}</span>
             <span className={s.mealDish}>{m.recipeName}</span>
             <span className={s.mealKcal}>{m.caloriesKcal ?? '–'}</span>
