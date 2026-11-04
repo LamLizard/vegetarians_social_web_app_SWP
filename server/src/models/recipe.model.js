@@ -4,7 +4,8 @@
 // Model không kiểm tra dữ liệu form — việc đó ở utils/recipeInput.js.
 const pool = require('../config/db');
 const { lockMealPlanWriter } = require('../utils/mealPlanWriteLock');
-const { findAnimalWord, animalWarnings } = require('../utils/animalWords');
+// Khoi's code 04/11: findAnimalWord không dùng nữa (bỏ banned_keyword). animalWarnings + getKeywords còn ở listAdminRecipes (phần Admin của Duy).
+const { animalWarnings } = require('../utils/animalWords');
 const { getKeywords } = require('./bannedKeyword.model');
 
 /** Lỗi nghiệp vụ có mã HTTP — controller trả nguyên message cho FE */
@@ -65,9 +66,9 @@ async function findIngredientNames(query = '') {
 /**
  * Soi từng tên nguyên liệu (giữ đúng thứ tự):
  *  - known: tên có trong kho ingredient (so không phân biệt hoa/thường)
- *  - isAnimalDerived: kho đánh dấu có nguồn gốc động vật
- *  - keyword: tên CHƯA có trong kho mà chứa từ động vật (vd "cá" trong "chả cá chay") — từ lấy ở banned_keyword (category 'animal')
- *             — CHỈ cảnh báo, Admin xem lại. Có trong kho rồi thì tin isAnimalDerived, không soi tên.
+ *  - isAnimalDerived: kho đánh dấu có nguồn gốc động vật — CHỈ cảnh báo, Admin xem lại
+ * Khoi's code (04/11/2026): bỏ soi tên theo từ khoá động vật — nhóm bỏ bảng banned_keyword.
+ *   Nguyên liệu mới (chưa có trong kho) không còn cảnh báo theo tên; Admin vẫn duyệt từng nguyên liệu mới.
  * @param {import('pg').Pool|import('pg').PoolClient} db
  * @param {string[]} names  đã làm sạch (recipeInput)
  */
@@ -87,13 +88,11 @@ async function inspectIngredients(db, names) {
     ) i ON true
     ORDER BY n.ord
   `, [names]);
-  const keywords = await getKeywords('animal', db);
   return rows.map((r, idx) => ({
     name: names[idx],
     ingredientId: r.ingredientId,
     known: r.ingredientId !== null,
     isAnimalDerived: r.isAnimalDerived,
-    keyword: r.ingredientId === null ? findAnimalWord(names[idx], keywords) : null,
   }));
 }
 
@@ -343,8 +342,7 @@ async function listAdminRecipes(includeHistory = false) {
   }));
 }
 
-/** Từ động vật (banned_keyword category 'animal') — trang Tạo công thức soi tên món, tên công thức ngay khi gõ */
-const findAnimalWords = () => getKeywords('animal');
+// Khoi's code (04/11/2026): bỏ findAnimalWords (GET /api/recipes/animal-words) — nhóm bỏ bảng banned_keyword.
 const listPendingForAdmin = () => listAdminRecipes(false);
 const listAllAdminRecipes = () => listAdminRecipes(true);
 
@@ -629,7 +627,6 @@ async function resubmitRecipe(authorId, recipeId, input) {
 }
 
 module.exports = {
-  findAnimalWords,
   RecipeError, findActiveDishes, findIngredientNames, checkIngredients, findMine, createRecipe,
   findMineDetail, resubmitRecipe, findPublicDetail, findAvailableRecipes, findPublicList, setRecipeLike,
   listPendingForAdmin, listAllAdminRecipes, decideRecipe,

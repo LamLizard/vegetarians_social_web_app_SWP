@@ -8,9 +8,10 @@
 //      ingredientCount, proposedIngredientCount }
 //  MyRecipeDetail (Khoi's code, mở lại form "Sửa và gửi lại"): MyRecipe + { instructions,
 //      ingredients: [{ name, amount, unit, proposed }] }   proposed = nguyên liệu đề xuất, chưa có trong kho
-//  IngredientCheck: { name, known, isAnimalDerived, keyword }
+//  IngredientCheck: { name, known, isAnimalDerived }
 //    known = false  → chưa có trong kho nguyên liệu, gửi kèm công thức cho Admin duyệt
-//    isAnimalDerived / keyword → nghi không chay: tô đỏ, KHÔNG chặn gửi (Admin xem lại)
+//    isAnimalDerived → kho ghi nguồn gốc động vật: tô đỏ, KHÔNG chặn gửi (Admin xem lại)
+//    Khoi's code 04/11: bỏ cảnh báo theo từ khoá + getAnimalWords (nhóm bỏ bảng banned_keyword)
 // =====================================================================
 import { apiFetch } from './api';
 
@@ -50,9 +51,6 @@ const recipeService = {
   getIngredientNames: () => apiFetch('/recipes/ingredients'),
   // Duy's Code : Tìm ingredient theo từ khóa để người dùng chọn dị ứng có sẵn.
   searchIngredientNames: (query, { signal } = {}) => apiFetch(`/recipes/ingredients?q=${encodeURIComponent(query)}`, { signal }),
-
-  /** Khoi's code: từ chỉ đồ động vật (banned_keyword category 'animal') → { items: string[] } */
-  getAnimalWords: () => apiFetch('/recipes/animal-words'),
 
   /** Soi tên nguyên liệu → { items: IngredientCheck[] } (cùng thứ tự, đã bỏ trùng/rỗng) */
   checkIngredients: (names, { signal } = {}) => apiFetch('/recipes/ingredients/check', {
