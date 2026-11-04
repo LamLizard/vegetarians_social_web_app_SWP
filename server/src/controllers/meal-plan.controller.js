@@ -2,6 +2,9 @@ const mealPlanModel = require('../models/meal-plan.model');
 
 const MEAL_SLOTS = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
+const MAX_HOUSEHOLD_SIZE = 10;
+const MIN_PERSON_TARGET = 500;
+const MAX_PERSON_TARGET = 8000;
 
 class MealPlanInputError extends Error {}
 
@@ -61,6 +64,39 @@ function getRecipeIdFromBody(body) {
   return recipeId;
 }
 
+/** householdSize: không gửi → giữ cấu hình đang lưu của thực đơn. */
+function readHouseholdSize(body) {
+  const raw = body?.householdSize ?? body?.household_size;
+  if (raw === undefined || raw === null || raw === '') return null;
+
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > MAX_HOUSEHOLD_SIZE) {
+    throw new MealPlanInputError(`Số người phải là số nguyên từ 1 đến ${MAX_HOUSEHOLD_SIZE}.`);
+  }
+  return value;
+}
+
+/** personTargets: mảng kcal của từng người, phải khớp householdSize. */
+function readPersonTargets(body, householdSize) {
+  const raw = body?.personTargets ?? body?.person_targets;
+  if (raw === undefined || raw === null) return null;
+  if (!Array.isArray(raw)) {
+    throw new MealPlanInputError('Mục tiêu calo từng người phải là một mảng số.');
+  }
+  if (householdSize === null) {
+    throw new MealPlanInputError('Cần chọn số người trước khi nhập mục tiêu calo từng người.');
+  }
+  if (raw.length !== householdSize) {
+    throw new MealPlanInputError('Số mục tiêu calo phải khớp với số người.');
+  }
+
+  const targets = raw.map((entry) => Number(entry));
+  if (targets.some((entry) => !Number.isInteger(entry) || entry < MIN_PERSON_TARGET || entry > MAX_PERSON_TARGET)) {
+    throw new MealPlanInputError(`Mục tiêu calo mỗi người phải từ ${MIN_PERSON_TARGET} đến ${MAX_PERSON_TARGET} kcal.`);
+  }
+  return targets;
+}
+
 async function getCurrent(req, res) {
   const weekStart = validateWeekStart(req.query.weekStart ?? req.query.planDate ?? req.query.date);
   const days = await mealPlanModel.getWeekPlan(req.account.id, weekStart);
@@ -82,6 +118,17 @@ async function create(req, res) {
   res.status(201).json({ plan });
 }
 
+/** Thêm món vào bữa — một bữa được phép nhiều món. */
+async function appendItem(req, res) {
+  const planId = validateId(req.params.planId ?? req.params.id, 'Mã thực đơn');
+  const mealSlot = normalizeMealSlot(req.body?.mealSlot ?? req.body?.meal_slot ?? req.params.mealSlot);
+  const recipeId = validateId(getRecipeIdFromBody(req.body), 'Mã công thức');
+
+  const item = await mealPlanModel.addDailyPlanItem(req.account.id, planId, mealSlot, recipeId);
+  res.status(201).json({ item });
+}
+
+/** Đặt lại bữa bằng đúng 1 món (giữ contract cũ của PUT). */
 async function saveItem(req, res) {
   const planId = validateId(req.params.planId ?? req.params.id, 'Mã thực đơn');
   const mealSlot = normalizeMealSlot(req.params.mealSlot);
@@ -92,16 +139,37 @@ async function saveItem(req, res) {
   res.json({ item });
 }
 
+/**
+ * DELETE .../items/:target
+ *   target là tên bữa (breakfast/lunch/dinner/snack) → xoá cả bữa (route cũ)
+ *   target là số (item_id) → xoá đúng 1 món
+ */
 async function deleteItem(req, res) {
   const planId = validateId(req.params.planId ?? req.params.id, 'Mã thực đơn');
-  const mealSlot = normalizeMealSlot(req.params.mealSlot);
-  await mealPlanModel.deleteDailyPlanItem(req.account.id, planId, mealSlot);
+  const target = String(req.params.itemId ?? req.params.mealSlot ?? '');
+
+  if (MEAL_SLOTS.has(target)) {
+    await mealPlanModel.deleteDailyPlanItem(req.account.id, planId, target);
+  } else {
+    const itemId = validateId(target, 'Mã món');
+    await mealPlanModel.deletePlanItem(req.account.id, planId, itemId);
+  }
+
   res.status(204).end();
 }
 
 async function randomize(req, res) {
   const planId = validateId(req.params.planId ?? req.params.id, 'Mã thực đơn');
-  const payload = await mealPlanModel.randomizePlanItems(req.account.id, planId);
+  const householdSize = readHouseholdSize(req.body);
+  const personTargets = readPersonTargets(req.body, householdSize);
+  const rawReplace = req.body?.replace ?? req.body?.replaceExisting;
+  const replace = rawReplace === true || rawReplace === 'true';
+
+  const payload = await mealPlanModel.randomizePlanItems(req.account.id, planId, {
+    householdSize,
+    personTargets,
+    replace,
+  });
   res.json(payload);
 }
 
@@ -109,6 +177,7 @@ module.exports = {
   getCurrent: handle(getCurrent),
   getWeek: handle(getWeek),
   create: handle(create),
+  appendItem: handle(appendItem),
   saveItem: handle(saveItem),
   deleteItem: handle(deleteItem),
   randomize: handle(randomize),
