@@ -13,7 +13,7 @@ const BASE_COLUMNS = {
   post: ['post_id','account_id','post_type','title','content','thumbnail_url','youtube_url','status',
     'moderation_note','moderated_by','moderated_at','published_at','deleted_at','created_at','comment_count'],
   comment: ['comment_id','post_id','author_id','content','status','created_at'],
-  banned_keyword: ['keyword_id','keyword','normalized_keyword','category'],
+  banned_keyword: ['keyword_id','keyword','category'],
   account: ['account_id','full_name','avatar_url'], category: ['category_id','is_active'],
   post_category: ['post_id','category_id'], notification: ['account_id','type','title','content','ref_type','ref_id'],
 };
@@ -67,7 +67,7 @@ async function ensureSchema(db) {
   }
   const category = columns.find((c) => c.table_name === 'banned_keyword' && c.column_name === 'category');
   if (!category || !['S', 'E'].includes(category.typcategory)
-      || (category.typcategory === 'E' && !['spam', 'animal'].every((label) => category.labels.includes(label)))) {
+      || (category.typcategory === 'E' && !category.labels.includes('spam'))) {
     throw schemaNotReady();
   }
   const { rows: indexes } = await db.query(`

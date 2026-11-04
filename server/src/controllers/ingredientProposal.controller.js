@@ -24,11 +24,6 @@ const listPending = handle(async (_req, res) => {
   res.json({ items: await model.listPending() });
 });
 
-// Duy's Code: Cấp dữ liệu Banned Keyword đang được dùng, chỉ đọc bảng có sẵn.
-const listBannedKeywords = handle(async (_req, res) => {
-  res.json({ items: await model.listBannedKeywords() });
-});
-
 // Duy's Code: Lấy lịch sử quyết định nguyên liệu từ admin_log theo trang.
 const listHistory = handle(async (req, res) => {
   const requestedPage = Number.parseInt(req.query.page, 10);
@@ -53,4 +48,4 @@ const decide = handle(async (req, res) => {
   res.json({ message: 'Đã cập nhật đề xuất nguyên liệu.', proposal });
 });
 
-module.exports = { submit, listMine, listPending, listBannedKeywords, listHistory, decide };
+module.exports = { submit, listMine, listPending, listHistory, decide };

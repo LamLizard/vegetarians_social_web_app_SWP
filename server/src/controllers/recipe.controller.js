@@ -37,14 +37,11 @@ async function getIngredients(req, res) {
   res.json({ items: await recipeModel.findIngredientNames(req.query.q ?? '') });
 }
 
-/** GET /api/recipes/animal-words → { items: ["nước mắm", "cá", ...] } — Khoi's code: từ động vật để FE tô đỏ khi gõ */
-async function getAnimalWords(req, res) {
-  res.json({ items: await recipeModel.findAnimalWords() });
-}
+// Khoi's code (04/11/2026): bỏ GET /api/recipes/animal-words — nhóm bỏ bảng banned_keyword.
 
 /**
  * POST /api/recipes/ingredients/check { names: string[] }
- * → { items: [{ name, known, isAnimalDerived, keyword }] } — form dùng để báo "chưa có trong kho" và tô đỏ.
+ * → { items: [{ name, known, isAnimalDerived }] } — form dùng để báo "chưa có trong kho" và tô đỏ (kho ghi nguồn gốc động vật).
  */
 async function checkIngredients(req, res) {
   const names = parseCheckNames(req.body?.names);
@@ -162,7 +159,6 @@ async function linkRecipeDish(req, res) {
 module.exports = {
   getDishes: handle(getDishes),
   getIngredients: handle(getIngredients),
-  getAnimalWords: handle(getAnimalWords),
   checkIngredients: handle(checkIngredients),
   getMine: handle(getMine),
   createRecipe: handle(createRecipe),

@@ -1,18 +1,20 @@
-﻿.page {
+﻿/* Meal Plan — thực đơn theo ngày: một bữa nhiều món, random theo số người.
+   Chỉ dùng token sẵn có (--v-*, --ac-*) để không lệch theme với các trang khác. */
+
+.page {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.85rem;
   width: 100%;
-  height: 100%;
-  min-height: 0;
-  padding: 1rem 1.15rem 0.75rem;
+  padding: 1rem 1.15rem 6rem;
   box-sizing: border-box;
 }
 
+/* ---------- Tiêu đề trang ---------- */
 .pageHeader {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
@@ -21,71 +23,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-}
-
-.randomDaysPanel {
-  display: grid;
-  gap: 0.75rem;
-}
-
-.randomDayList {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.randomDayOption {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-  padding: 0.7rem;
-  border: 1px solid var(--v-line);
-  border-radius: 12px;
-  background: var(--v-surface);
-  cursor: pointer;
-}
-
-.randomDayOption:focus-within {
-  outline: 3px solid var(--ac-focus-ring);
-  outline-offset: 2px;
-}
-
-.randomDayOptionSelected {
-  border-color: var(--v-accent);
-  background: var(--v-surface-3);
-}
-
-.randomDayOptionDisabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.randomDayCheckbox {
-  flex: 0 0 auto;
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--v-accent);
-}
-
-.randomDayLabel {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.12rem;
-  color: var(--v-text);
-  font-size: 0.84rem;
-}
-
-.randomDayLabel span {
-  color: var(--v-muted);
-  font-size: 0.74rem;
-}
-
-.randomDaysError {
-  margin: 0;
-  color: var(--ac-bad-fg);
-  font-size: 0.88rem;
+  flex-wrap: wrap;
 }
 
 .headerEyebrow {
@@ -99,19 +37,33 @@
 
 .pageHeader h1 {
   margin: 0;
-  font-size: clamp(1.6rem, 2vw, 2rem);
+  font-size: clamp(1.5rem, 2vw, 1.9rem);
   line-height: 1.2;
+  color: var(--v-text);
 }
 
 .summaryStrip {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
   color: var(--v-muted);
   font-size: 0.8rem;
 }
 
+.householdChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+/* ---------- Chọn tuần ---------- */
 .weekPicker {
   display: grid;
   gap: 0.55rem;
@@ -139,8 +91,15 @@
   border-radius: 9px;
   background: var(--v-surface-2);
   color: var(--v-text);
-  font-size: 1.4rem;
+  font-size: 0.95rem;
   line-height: 1;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.weekArrow:hover:not(:disabled) {
+  border-color: var(--v-accent);
+  color: var(--v-accent-text);
 }
 
 .weekArrow:disabled {
@@ -156,14 +115,14 @@
 
 .weekDays {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.35rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+  min-width: 0;
 }
 
 .weekDay {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  place-items: center;
   gap: 0.1rem;
   padding: 0.35rem 0.2rem;
   border: 1px solid transparent;
@@ -171,11 +130,33 @@
   background: transparent;
   color: var(--v-muted);
   font-size: 0.72rem;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.weekDay:hover {
+  background: var(--v-surface-2);
 }
 
 .weekDay strong {
   color: var(--v-text);
   font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.weekDayName {
+  font-weight: 600;
+}
+
+.weekDayDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.weekDayDotOn {
+  background: var(--v-accent);
 }
 
 .weekDaySelected {
@@ -188,126 +169,270 @@
   color: var(--v-accent-text);
 }
 
-.calorieSummary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: fit-content;
-  padding: 0.5rem 0.8rem;
-  border: 1px solid var(--v-line);
-  border-radius: 999px;
-  background: var(--v-surface);
-  font-size: 0.8rem;
-  color: var(--v-muted);
-}
-
-.calorieSummary strong {
-  font-size: 1.2rem;
-  color: var(--v-text);
-}
-
-.mealRows {
+/* ---------- Tổng calo ---------- */
+.calorieCard {
   display: grid;
-  flex: 1;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
-  min-height: 0;
+  gap: 0.45rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--v-line);
+  border-radius: 16px;
+  background: var(--v-surface);
+}
+
+.calorieMain {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.calorieNow {
+  color: var(--v-text);
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.calorieTarget {
+  color: var(--v-muted);
+  font-size: 0.78rem;
+}
+
+.calorieTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--v-surface-3);
   overflow: hidden;
 }
 
-.mealRow {
-  display: grid;
-  grid-template-columns: 104px 72px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-  min-height: 0;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--v-line);
-  border-radius: 14px;
-  background: var(--v-surface);
+.calorieFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--v-accent);
+  transition: width 300ms ease;
 }
 
-.mealRowEmpty {
-  border-style: dashed;
-  background: color-mix(in srgb, var(--v-surface) 85%, transparent);
+.calorieFillOver {
+  background: var(--v-marigold);
 }
 
-.slot {
+.calorieMeta {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: var(--v-muted);
+  font-size: 0.74rem;
+}
+
+.calorieSplit {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: 0;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--v-line);
+  color: var(--v-muted);
+  font-size: 0.74rem;
+}
+
+.calorieSplit i {
+  color: var(--v-accent-text);
+  font-size: 0.8rem;
+}
+
+.calorieSplit strong {
   color: var(--v-text);
-  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Bốn bữa ---------- */
+.slotGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.slotCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid var(--v-line);
+  border-radius: 16px;
+  background: var(--v-surface);
+  transition: border-color 160ms ease;
+}
+
+.slotCard:hover {
+  border-color: var(--v-line-2);
+}
+
+.slotCardEmpty {
+  border-style: dashed;
+}
+
+.slotHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.slotTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--v-text);
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
-.slot i {
+.slotTitle i {
   color: var(--v-accent-text);
   font-size: 1rem;
 }
 
-.thumbnail,
-.recipeThumb {
+.slotStats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--v-muted);
+  font-size: 0.74rem;
+}
+
+.slotCount {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--v-surface-3);
+  color: var(--v-accent-text);
+  font-weight: 600;
+}
+
+.slotKcal {
+  font-variant-numeric: tabular-nums;
+}
+
+.slotEmptyHint {
+  color: var(--v-muted);
+  font-size: 0.74rem;
+}
+
+.slotHint {
+  margin: 0;
+  color: var(--v-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.dishList {
   display: grid;
+  gap: 0.3rem;
+  max-height: 236px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.dishRow {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.dishLink {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.25rem;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.dishLink:hover {
+  background: var(--v-surface-2);
+}
+
+.dishLink:hover .dishName {
+  color: var(--v-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dishLink:hover .dishGo {
+  opacity: 1;
+}
+
+.dishThumb {
+  display: grid;
+  flex: 0 0 auto;
   place-items: center;
-  width: 72px;
-  height: 62px;
+  width: 52px;
+  height: 46px;
   overflow: hidden;
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--v-surface-3);
   color: var(--v-muted);
 }
 
-.thumbnail img,
-.recipeThumb img {
+.dishThumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.thumbnailEmpty i,
-.recipeThumb i {
-  font-size: 1.35rem;
+.thumbEmpty i {
+  font-size: 1.2rem;
 }
 
-.mealInfo {
+.dishText {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1rem;
   min-width: 0;
-  overflow: hidden;
 }
 
-.recipeName {
+.dishName {
   overflow: hidden;
   color: var(--v-text);
-  font-size: 0.91rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.description {
-  overflow: hidden;
-  color: var(--v-muted);
-  font-size: 0.78rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mealFacts {
+.dishMeta {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.4rem;
   color: var(--v-muted);
   font-size: 0.72rem;
 }
 
-.nutritionTag {
+.dishKcal {
+  font-variant-numeric: tabular-nums;
+}
+
+.dishTag {
   max-width: 110px;
   overflow: hidden;
-  padding: 0.12rem 0.45rem;
+  padding: 0.05rem 0.4rem;
   border-radius: 999px;
   background: var(--v-surface-3);
   color: var(--v-accent-text);
@@ -315,7 +440,10 @@
   white-space: nowrap;
 }
 
-.allergyWarning {
+.dishWarning {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   overflow: hidden;
   color: var(--ac-bad-fg);
   font-size: 0.7rem;
@@ -323,25 +451,35 @@
   white-space: nowrap;
 }
 
-.rowActions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.35rem;
+.dishGo {
+  flex: 0 0 auto;
+  color: var(--v-muted);
+  font-size: 0.78rem;
+  opacity: 0;
+  transition: opacity 160ms ease;
 }
 
-.removeButton {
+.dishRemove {
   display: grid;
+  flex: 0 0 auto;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border: 0;
-  border-radius: 10px;
-  background: var(--v-surface-3);
-  color: var(--v-text);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--v-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
 }
 
-.removeButton:disabled {
+.dishRemove:hover:not(:disabled) {
+  background: var(--v-surface-3);
+  color: var(--ac-bad-fg);
+}
+
+.dishRemove:disabled {
   opacity: 0.42;
   cursor: not-allowed;
 }
@@ -351,6 +489,16 @@
   font-size: 0.9rem;
 }
 
+.lockedHint {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--v-muted);
+  font-size: 0.8rem;
+}
+
+/* ---------- Modal chọn công thức ---------- */
 .pickerPanel {
   display: flex;
   flex-direction: column;
@@ -361,9 +509,9 @@
 .recipeResults {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  max-height: 360px;
-  overflow: auto;
+  gap: 0.5rem;
+  max-height: 380px;
+  overflow-y: auto;
 }
 
 .pickerMessage {
@@ -374,72 +522,319 @@
 
 .recipeItem {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) auto;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.45rem 0.35rem;
+  gap: 0.65rem;
+  padding: 0.5rem;
   border: 1px solid var(--v-line);
   border-radius: 12px;
   background: var(--v-surface);
+  transition: border-color 160ms ease;
+}
+
+.recipeItem:hover {
+  border-color: var(--v-line-2);
+}
+
+.recipeThumb {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--v-surface-3);
+  color: var(--v-muted);
+}
+
+.recipeThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recipeThumb i {
+  font-size: 1.2rem;
 }
 
 .recipeText {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 0.15rem;
-  overflow: hidden;
+  gap: 0.12rem;
 }
 
-.recipeText strong {
+.recipeTitleLink {
   overflow: hidden;
   color: var(--v-text);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.recipeTitleLink:hover {
+  color: var(--v-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .recipeText small {
   overflow: hidden;
   color: var(--v-muted);
+  font-size: 0.76rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .recipeText span {
   color: var(--v-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Modal random ---------- */
+.randomPanel {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.fieldset {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0;
+  color: var(--v-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.legendHint {
+  color: var(--v-muted);
   font-size: 0.74rem;
+  font-weight: 500;
+}
+
+.randomDayList {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.randomDayOption {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--v-line);
+  border-radius: 12px;
+  background: var(--v-surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.randomDayOption:hover {
+  border-color: var(--v-line-2);
+}
+
+.randomDayOption:focus-within {
+  outline: 3px solid var(--ac-focus-ring);
+  outline-offset: 2px;
+}
+
+.randomDayOptionSelected {
+  border-color: var(--v-accent);
+  background: var(--v-surface-3);
+}
+
+.randomDayOptionDisabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.randomDayCheckbox {
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--v-accent);
+  cursor: pointer;
+}
+
+.randomDayCheckbox:disabled {
+  cursor: not-allowed;
+}
+
+.randomDayLabel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: var(--v-text);
+  font-size: 0.78rem;
+}
+
+.randomDayLabel span {
+  color: var(--v-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sameTargetBlock {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px dashed var(--v-line);
+  border-radius: 12px;
+}
+
+.personList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.personRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.personLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--v-text);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.personLabel i {
+  color: var(--v-muted);
+  font-size: 0.8rem;
+}
+
+.personInputWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--v-line);
+  border-radius: 9px;
+  background: var(--v-surface-2);
+}
+
+.personInputWrap:focus-within {
+  outline: 2px solid var(--ac-focus-ring);
+  outline-offset: 1px;
+}
+
+.personInput {
+  width: 4.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--v-text);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  outline: none;
+  cursor: text;
+}
+
+.personInput:disabled {
+  color: var(--v-muted);
+  cursor: not-allowed;
+}
+
+.personUnit {
+  color: var(--v-muted);
+  font-size: 0.7rem;
+}
+
+.randomHint {
+  display: block;
+  margin: 0;
+  color: var(--v-muted);
+  font-size: 0.78rem;
+}
+
+.randomHint i {
+  margin-right: 0.25rem;
+}
+
+.randomHint strong {
+  color: var(--v-text);
+}
+
+.randomSummary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  background: var(--v-surface-3);
+  color: var(--v-text);
+  font-size: 0.8rem;
+}
+
+.randomSummary strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.randomDaysError {
+  margin: 0;
+  color: var(--ac-bad-fg);
+  font-size: 0.82rem;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .slotGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 767.98px) {
   .page {
-    padding: 0.8rem 0.7rem 0.7rem;
+    padding: 0.8rem 0.7rem 6rem;
   }
 
-  .headerRow {
-    flex-direction: column;
-    align-items: flex-start;
+  .weekDays {
+    grid-template-columns: repeat(7, minmax(2.6rem, 1fr));
+    overflow-x: auto;
   }
 
-  .mealRow {
-    grid-template-columns: 86px 56px minmax(0, 1fr);
-    gap: 0.5rem;
+  .randomDayList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
 
-  @media (max-width: 420px) {
-    .randomDayList {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .rowActions {
-    grid-column: 2 / -1;
-    justify-content: flex-end;
-  }
-
-  .thumbnail,
-  .recipeThumb {
-    width: 56px;
-    height: 52px;
+@media (prefers-reduced-motion: reduce) {
+  .dishLink,
+  .dishRemove,
+  .weekDay,
+  .weekArrow,
+  .slotCard,
+  .recipeItem,
+  .randomDayOption,
+  .calorieFill {
+    transition: none;
   }
 }
