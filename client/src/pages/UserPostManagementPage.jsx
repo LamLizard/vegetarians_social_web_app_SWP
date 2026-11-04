@@ -7,9 +7,7 @@ import MemberLayout from '../components/MemberLayout/MemberLayout';
 import Notice from '../components/Notice/Notice';
 import PageHeader from '../components/PageHeader/PageHeader';
 import Pagination from '../components/Pagination/Pagination';
-import PostCard from '../components/PostCard/PostCard';
 import Skeleton from '../components/Skeleton/Skeleton';
-import StatusBadge from '../components/StatusBadge/StatusBadge';
 import { useToast } from '../components/Toast/Toast';
 import PostDetailModal from '../components/PostDetailModal/PostDetailModal';
 import postService from '../services/post.service';
@@ -18,15 +16,27 @@ import {
   findNotificationPost, getMyPostListOptions, getNotificationPostId, removeNotificationPostId,
   resolveNotificationPost, shouldLoadNotificationPost,
 } from '../utils/userPostManagementNavigation';
-import { getYouTubeId } from '../utils/validate';
+import MyPostRow from './MyPostRow';
+import MyPostTabs from './MyPostTabs';
 import styles from './UserPostManagementPage.module.css';
 
 // Duy's Code: Bộ lọc khớp enum post_status_enum của database hiện tại.
-const STATUS_OPTIONS = [
-  ['all', 'Tất cả trạng thái'], ['pending', 'Chờ duyệt'], ['public', 'Công khai'],
-  ['edit_pending', 'Bài viết chờ cập nhật'],
-  ['deleted', 'Đã gỡ / đã xóa'],
+const STATUS_TABS = [
+  { value: 'all', label: 'Tất cả' },
+  { value: 'public', label: 'Công khai' },
+  { value: 'pending', label: 'Chờ duyệt' },
+  { value: 'edit_pending', label: 'Chờ cập nhật' },
+  { value: 'deleted', label: 'Đã gỡ / đã xóa' },
 ];
+
+const normalizeSearch = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi');
+
+function sortMyPosts(posts, sort) {
+  return [...posts].sort((left, right) => {
+    const difference = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+    return sort === 'oldest' ? difference : -difference;
+  });
+}
 
 // Duy's Code: Trang cá nhân chỉ gọi API; quyền sở hữu luôn được xác thực lại ở server.
 export default function UserPostManagementPage({ user, accountMenu = [], shopAction }) {
@@ -42,6 +52,8 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
   const handledTarget = useRef(null);
   const [status, setStatus] = useState('all');
   const [type, setType] = useState('all');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('newest');
   const [page, setPage] = useState(1);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +97,7 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
     setLoading(true);
     setError('');
     postService.getMyPosts(getMyPostListOptions({ status, type, page }))
-      .then((data) => { if (active) { setResult(data); setPage(data.page); } })
+      .then((data) => { if (active) { setResult({ ...data, requestedStatus: status, requestedType: type }); setPage(data.page); } })
       .catch((err) => { if (active) setError(err.message || 'Không tải được bài viết.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
@@ -228,13 +240,15 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
       setDeleting(null);
       setReloadKey((key) => key + 1);
     } catch (err) {
-      const unavailable = deleting.status === 'reported';
+      const unavailable = deleting.status === 'reported' || [403, 404, 409].includes(err.status);
       toast(unavailable ? 'Bài viết hiện chưa thể chỉnh sửa hoặc xóa.' : err.message || 'Không thể xóa bài viết.',
         { tone: unavailable ? 'info' : 'alert' });
     } finally { setSaving(false); }
   };
 
   const posts = result?.items ?? [];
+  const normalizedSearch = normalizeSearch(search.trim());
+  const visiblePosts = sortMyPosts(posts.filter((post) => !normalizedSearch || normalizeSearch(post.title).includes(normalizedSearch)), sort);
   return (
     <MemberLayout user={user} activeKey="" accountMenu={accountMenu} shopAction={shopAction}>
       <main className={styles.page}>
@@ -242,12 +256,14 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
           breadcrumb={[{ label: 'Bảng tin', href: '/' }, { label: 'Bài của tôi' }]}
           actions={<Button icon="plus-lg" onClick={() => window.location.assign('/?compose=1')}>Viết bài</Button>} />
 
-        <section className={styles.filters} aria-label="Lọc bài viết">
+        <MyPostTabs tabs={STATUS_TABS} value={status} onChange={(nextStatus) => {
+          clearNotificationTarget(); setStatus(nextStatus); setPage(1);
+        }} />
+
+        <section className={styles.filters} aria-label="Tìm và sắp xếp bài viết">
           <label className={styles.filter}>
-            <span>Trạng thái</span>
-            <select className="form-select" value={status} onChange={(event) => { clearNotificationTarget(); setStatus(event.target.value); setPage(1); }}>
-              {STATUS_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
+            <span>Tìm theo tiêu đề</span>
+            <input className="form-control" type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm bài viết..." />
           </label>
           <label className={styles.filter}>
             <span>Loại bài</span>
@@ -255,61 +271,42 @@ export default function UserPostManagementPage({ user, accountMenu = [], shopAct
               <option value="all">Blog và Video</option><option value="blog">Blog</option><option value="video">Video</option>
             </select>
           </label>
-          {result && <span className={styles.count}>{result.totalItems} bài viết</span>}
+          <label className={styles.filter}>
+            <span>Sắp xếp</span>
+            <select className="form-select" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="newest">Mới nhất</option><option value="oldest">Cũ nhất</option>
+            </select>
+          </label>
+          {result?.requestedStatus === status && result?.requestedType === type && <span className={styles.count}>
+            {normalizedSearch ? `${visiblePosts.length} kết quả trên trang` : `${result.totalItems} bài viết`}
+          </span>}
+          <p className={styles.limitNote}>Tìm kiếm và sắp xếp chỉ áp dụng trên trang dữ liệu hiện tại.</p>
         </section>
 
         {error && <Notice tone="alert" title="Không tải được bài viết" action={{ label: 'Thử lại', onClick: () => setReloadKey((key) => key + 1) }}>{error}</Notice>}
         {loading && <div className={styles.skeletons} aria-label="Đang tải bài viết"><Skeleton lines={3} /><Skeleton lines={3} /><Skeleton lines={3} /></div>}
-        {!loading && !error && posts.length === 0 && (
-          <EmptyState icon="journal-plus" title="Chưa có bài viết phù hợp" action={<Button onClick={() => window.location.assign('/?compose=1')}>Viết bài đầu tiên</Button>}>
-            Bài bạn gửi sẽ xuất hiện ở đây cùng trạng thái xử lý.
-          </EmptyState>
-        )}
-        {!loading && !error && posts.length > 0 && <div className={styles.list}>
-          {posts.map((post) => (
-            <article className={`${styles.item} ${postId === String(post.id) ? styles.targetPost : ''}`} data-post-id={post.id} key={post.id}>
-              <div className={styles.itemHead}>
-                <div className={styles.labels}>
-                  {(() => {
-                    const displayStatus = getMyPostDisplayStatus(post);
-                    const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
-                    const badgeStatus = displayStatus === 'reported' ? 'public'
-                      : displayStatus === 'removed' || displayStatus === 'deleted' ? 'deleted' : displayStatus;
-                    const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối' : 'Quản trị viên từ chối')
-                      : displayStatus === 'removed' ? 'Đã gỡ' : displayStatus === 'deleted' ? 'Đã xóa' : undefined;
-                    return <StatusBadge entity="post" status={badgeStatus} label={label} toneOverride={redStatus ? 'bad' : undefined} size="sm" />;
-                  })()}
-                  <span className={styles.type}>{post.postType === 'video' ? 'Video' : 'Blog'}</span>
-                  <time dateTime={post.createdAt}>{new Date(post.createdAt).toLocaleDateString('vi-VN')}</time>
-                </div>
-                {(() => {
-                  const displayStatus = getMyPostDisplayStatus(post);
-                  const redStatus = ['rejected', 'removed', 'deleted'].includes(displayStatus);
-                  if (!redStatus && !post.moderationNote) return null;
-                  const label = displayStatus === 'rejected' ? (post.moderationSource === 'ai' ? 'AI từ chối bài viết' : 'Quản trị viên từ chối bài viết')
-                    : displayStatus === 'removed' ? 'Bài viết đã bị gỡ'
-                      : displayStatus === 'deleted' ? 'Bài viết đã bị xóa' : 'Ghi chú kiểm duyệt';
-                  const message = getMyPostModerationMessage(post);
-                  return <p className={redStatus ? styles.removedNote : styles.note}><b>{label}</b>{message && `: ${message}`}</p>;
-                })()}
-              </div>
-              <PostCard layout="row" postType={post.postType} title={post.title} excerpt={post.content}
-                thumbnailUrl={post.thumbnailUrl} youtubeVideoId={getYouTubeId(post.youtubeUrl ?? '')} categories={post.categories}
-                author={{ name: user?.fullName || user?.email, avatarUrl: user?.avatarUrl }} createdAt={post.createdAt}
-                voteCount={post.voteCount} commentCount={post.commentCount} viewCount={post.viewCount}
-                titleOnlyOpen onOpen={() => openPost(post)} titleLinkClassName={styles.titleLink}
-                isOwner onEdit={canEdit(post) ? () => {
-                  if (post.hasPendingEdit && post.status !== 'reported') {
+        <div id="my-post-panel" role="tabpanel" aria-labelledby={`my-post-tab-${status}`}>
+          {!loading && !error && visiblePosts.length === 0 && (
+            <EmptyState icon={normalizedSearch ? 'search' : 'journal-plus'} title={normalizedSearch ? 'Không tìm thấy bài viết phù hợp trên trang này' : 'Chưa có bài viết nào ở mục này.'}
+              action={!normalizedSearch ? <Button onClick={() => window.location.assign('/?compose=1')}>Viết bài</Button> : undefined}>
+              {normalizedSearch ? 'Thử từ khóa khác hoặc chuyển trang để tìm thêm.' : undefined}
+            </EmptyState>
+          )}
+          {!loading && !error && visiblePosts.length > 0 && <div className={styles.list}>
+            {visiblePosts.map((post) => (
+              <MyPostRow key={post.id} post={post} highlighted={postId === String(post.id)} onOpen={() => openPost(post)}
+                canEdit={canEdit(post)} canDelete={canDelete(post)}
+                onEdit={() => {
+                  if (post.hasPendingEdit) {
                     toast('Bản sửa đang chờ quản trị viên duyệt. Bài viết hiện tại vẫn công khai.', { tone: 'info' });
                     return;
                   }
                   window.location.assign(`/posts/${encodeURIComponent(post.id)}/edit`);
-                } : undefined}
-                onDelete={canDelete(post) ? () => setDeleting(post) : undefined} />
-              {post.hasPendingEdit && <p className={styles.policy}>Bản sửa đang chờ quản trị viên duyệt. Bài viết hiện tại vẫn công khai.</p>}
-            </article>
-          ))}
-        </div>}
+                }}
+                onDelete={() => setDeleting(post)} />
+            ))}
+          </div>}
+        </div>
         {!loading && !error && result && <Pagination page={result.page} totalPages={result.totalPages}
           totalItems={result.totalItems} pageSize={result.pageSize} itemLabel="bài viết" onChange={setPage} />}
       </main>

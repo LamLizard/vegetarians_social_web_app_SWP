@@ -98,17 +98,6 @@ async function listPending() {
   return rows.map((row) => ({ ...row, name: formatIngredientName(row.name) }));
 }
 
-// Duy's Code: Đọc danh sách Banned Keyword từ bảng hiện có; lấy category an toàn nếu schema đang có thuộc tính đó.
-async function listBannedKeywords() {
-  const { rows } = await pool.query(`
-    SELECT bk.keyword_id::text AS id, bk.keyword, bk.normalized_keyword AS "normalizedKeyword",
-      to_jsonb(bk)->>'category' AS category
-    FROM public.banned_keyword bk
-    ORDER BY category NULLS LAST, bk.normalized_keyword, bk.keyword_id
-  `);
-  return rows;
-}
-
 // Duy's Code: Phân trang lịch sử duyệt từ admin_log, không tạo bảng lưu lịch sử riêng.
 async function listHistory(page = 1, pageSize = 20) {
   const countResult = await pool.query(`
@@ -218,4 +207,4 @@ async function decide(rawName, sourceType, adminId, action, note = '', classific
   } finally { client.release(); }
 }
 
-module.exports = { IngredientProposalError, submit, listMine, listPending, listBannedKeywords, listHistory, decide };
+module.exports = { IngredientProposalError, submit, listMine, listPending, listHistory, decide };
