@@ -44,6 +44,19 @@ async function touchLastLogin(accountId) {
   await pool.query('UPDATE account SET last_login_at = NOW() WHERE account_id = $1', [accountId]);
 }
 
+/** Ghi mật khẩu mới (chuỗi đã bcrypt) — dùng cho luồng Quên mật khẩu */
+async function updatePassword(accountId, passwordHash) {
+  const { rows } = await pool.query(
+    `UPDATE account
+     SET password_hash = $2, updated_at = NOW()
+     WHERE account_id = $1
+     RETURNING account_id AS id`,
+    [accountId, passwordHash],
+  );
+
+  return rows[0] ?? null;
+}
+
 /** Bản ghi → user trả cho FE: đúng 7 field, KHÔNG bao giờ có password_hash */
 function toPublicAccount(row) {
   if (!row) return null;
@@ -58,4 +71,4 @@ function toPublicAccount(row) {
   };
 }
 
-module.exports = { findByEmail, findById, create, touchLastLogin, toPublicAccount };
+module.exports = { findByEmail, findById, create, touchLastLogin, updatePassword, toPublicAccount };

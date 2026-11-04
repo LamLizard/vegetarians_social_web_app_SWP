@@ -24,6 +24,16 @@ const mealPlanService = {
     return this.createDay({ planDate: weekStart, mealsPerDay: 3 }, options);
   },
 
+  /** Thêm 1 món vào bữa, giữ nguyên các món đã có (1 bữa nhiều món). */
+  addItem(planId, mealSlot, recipeId, { signal } = {}) {
+    return apiFetch(`${ROOT}/${encodeURIComponent(planId)}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ mealSlot, recipeId }),
+      signal,
+    });
+  },
+
+  /** Đặt lại bữa bằng đúng 1 món (thay thế toàn bộ bữa). */
   updateItem(planId, mealSlot, recipeId, { signal } = {}) {
     return apiFetch(`${ROOT}/${encodeURIComponent(planId)}/items/${encodeURIComponent(mealSlot)}`, {
       method: 'PUT',
@@ -36,6 +46,15 @@ const mealPlanService = {
     return this.updateItem(planId, mealSlot, recipeId, { signal });
   },
 
+  /** Xoá 1 món theo item_id. */
+  removeItem(planId, itemId, { signal } = {}) {
+    return apiFetch(`${ROOT}/${encodeURIComponent(planId)}/items/${encodeURIComponent(itemId)}`, {
+      method: 'DELETE',
+      signal,
+    });
+  },
+
+  /** Xoá cả bữa. */
   deleteItem(planId, mealSlot, { signal } = {}) {
     return apiFetch(`${ROOT}/${encodeURIComponent(planId)}/items/${encodeURIComponent(mealSlot)}`, {
       method: 'DELETE',
@@ -43,9 +62,17 @@ const mealPlanService = {
     });
   },
 
-  randomize(planId, { signal } = {}) {
+  /**
+   * Random món cho các bữa còn trống.
+   * @param {object} [options]
+   * @param {number} [options.householdSize] số người ăn
+   * @param {number[]} [options.personTargets] kcal mục tiêu của từng người
+   * @param {boolean} [options.replace] xoá món hiện có trước khi random
+   */
+  randomize(planId, { signal, ...options } = {}) {
     return apiFetch(`${ROOT}/${encodeURIComponent(planId)}/randomize`, {
       method: 'POST',
+      body: JSON.stringify(options),
       signal,
     });
   },
