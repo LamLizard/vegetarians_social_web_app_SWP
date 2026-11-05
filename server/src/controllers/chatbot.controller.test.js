@@ -135,6 +135,29 @@ test('turnV3 khách: câu ngoài phạm vi bị từ chối vẫn tính lượt'
   assert.equal(done.data.refunded, undefined);
   assert.equal(done.data.quota.used, 1);
   assert.equal(frames.find((frame) => frame.name === 'error'), undefined);
+  // Khoi's code (05/11/2026): câu từ chối ngoài phạm vi là hằng cố định ở controller.
+  const text = frames.filter((frame) => frame.name === 'delta').map((frame) => frame.data.text).join('');
+  assert.equal(text, 'Mình chỉ hỗ trợ câu hỏi về ăn chay, món chay, dinh dưỡng và cách dùng Green Bowl nhé.');
+});
+
+test('turnV3: câu mixed chỉ có một câu từ chối, không nối hai câu', async () => {
+  stubModel();
+  const mixed = classifierJson({ scope: 'mixed', allowedParts: ['Gợi ý món chay'] });
+  let call = 0;
+  deepseek.classify = async () => { call += 1; return call === 1 ? mixed : '{"verdict":"allow"}'; };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Món chay gợi ý: canh bí đỏ.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody({ text: 'Gợi ý món chay và tính 25 nhân 17' }) }), res);
+
+  const frames = events(res);
+  assert.ok(frames.find((frame) => frame.name === 'done'));
+  assert.equal(releases.length, 0);
+  const text = frames.filter((frame) => frame.name === 'delta').map((frame) => frame.data.text).join('');
+  assert.match(text, /^Món chay gợi ý: canh bí đỏ\./);
+  assert.equal((text.match(/Mình chỉ hỗ trợ/g) || []).length, 1);
 });
 
 test('turnV3 khách: IP hết lượt → trả lại lượt thiết bị vừa trừ và trả 429', async () => {

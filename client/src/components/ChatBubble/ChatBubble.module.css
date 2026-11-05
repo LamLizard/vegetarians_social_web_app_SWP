@@ -75,3 +75,11 @@
   .typing i:nth-child(3) { animation-delay: .3s; }
 }
 @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+/* Khoi's code (05/11/2026): bảng GFM cuộn ngang trong bong bóng + code inline + tiêu đề. */
+.rich h3 { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.4; }
+.inlineCode { padding: 0.08em 0.34em; border-radius: 6px; background: var(--ac-field-bg); color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; }
+.tableWrap { max-width: 100%; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
+.table th, .table td { padding: 0.35rem 0.6rem; border: 1px solid var(--ac-border); text-align: left; vertical-align: top; }
+.table th { background: var(--ac-field-bg); font-weight: 700; white-space: nowrap; }

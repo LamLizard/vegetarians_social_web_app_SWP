@@ -19,6 +19,11 @@ if (!process.env.CHATBOT_REQUEST_HMAC_KEY?.trim()) {
 const CLEANUP_INTERVAL_MS = 60000;
 let cleanupTimer = null;
 let cleanupRunning = false;
+// Khoi's code (05/11/2026): gom câu báo cố định về một nguồn; ngoài phạm vi ≠ chưa trả lời được.
+const REPLY_OUTSIDE = 'Mình chỉ hỗ trợ câu hỏi về ăn chay, món chay, dinh dưỡng và cách dùng Green Bowl nhé.';
+const REPLY_UNKNOWN = 'Mình chưa trả lời được câu này. Bạn thử hỏi lại ngắn gọn, tập trung vào món chay hoặc dinh dưỡng nhé.';
+const REPLY_SCOPE_NOTE = 'Mình chỉ hỗ trợ phần câu hỏi liên quan đến ăn chay, món chay, dinh dưỡng và cách dùng Green Bowl nhé.';
+
 const MESSAGES = {
   INVALID_INPUT: [400, 'Dữ liệu câu hỏi không hợp lệ.'],
   QUOTA_EXCEEDED: [429, 'Bạn đã hết lượt trong ngày.'],
@@ -289,7 +294,7 @@ async function turnV3(req, res) {
       if (!res.destroyed && !res.writableEnded) res.end();
     };
     if (isStandaloneArithmetic(input.text)) {
-      finishFixed('Mình chỉ hỗ trợ câu hỏi về ăn chay và cách dùng website nhé.');
+      finishFixed(REPLY_OUTSIDE);
       return undefined;
     }
     // Tùng: phân biệt ý định theo ngữ cảnh để không nhầm hỏi món với tìm bài.
@@ -297,7 +302,7 @@ async function turnV3(req, res) {
     const classifierMessages = deepseek.fitClassifierMessages(CLASSIFIER_SYSTEM, input.history, input.text, input.postContext?.subject ?? null);
     const classifierData = JSON.parse(classifierMessages[1].content);
     if (classifierData.history.length !== input.history.length) {
-      finishFixed('Mình chưa đủ ngữ cảnh để xử lý. Bạn hãy hỏi rõ hoặc tách từng câu nhé.');
+      finishFixed(REPLY_UNKNOWN);
       return undefined;
     }
     if (expired()) return undefined;
@@ -307,8 +312,7 @@ async function turnV3(req, res) {
     const scoped = parseScopedV3Intent(classifierResult, input.text);
     if (expired()) return undefined;
     if (scoped.scope === 'outside' || scoped.scope === 'uncertain') {
-      finishFixed(scoped.scope === 'outside' ? 'Mình chỉ hỗ trợ câu hỏi về ăn chay và cách dùng website nhé.'
-        : 'Mình chưa xác định được yêu cầu phù hợp. Bạn hãy hỏi rõ hoặc tách từng câu nhé.');
+      finishFixed(scoped.scope === 'outside' ? REPLY_OUTSIDE : REPLY_UNKNOWN);
       return undefined;
     }
     const intent = scoped.intent;
@@ -423,7 +427,8 @@ async function turnV3(req, res) {
       emitText(answerText);
     }
     if (expired()) return undefined;
-    if (scoped.scope === 'mixed') emitText('\n\nMình chỉ hỗ trợ phần câu hỏi liên quan đến ăn chay và cách dùng website nhé.');
+    // Khoi's code (05/11/2026): chỉ thêm ghi chú khi câu trả lời đã có nội dung (không nối 2 câu từ chối).
+    if (scoped.scope === 'mixed' && answerNeeded && pendingPoints) emitText(`\n\n${REPLY_SCOPE_NOTE}`);
     const visibleContent = pendingEvents.map(({ event, payload }) => (event === 'delta'
       ? { text: payload.text }
       : { title: payload.item?.title, excerpt: payload.item?.excerpt }));
@@ -433,7 +438,7 @@ async function turnV3(req, res) {
     // Tùng: không kiểm với lịch sử bị cắt mà giả định đã đủ ngữ cảnh.
     const verifierData = JSON.parse(verifierMessages[1].content);
     if (verifierData.history.length !== input.history.length) {
-      finishFixed('Mình chưa đủ ngữ cảnh để xử lý an toàn. Bạn hãy hỏi rõ hoặc tách từng câu nhé.');
+      finishFixed(REPLY_UNKNOWN);
       return undefined;
     }
     if (expired()) return undefined;
@@ -444,7 +449,7 @@ async function turnV3(req, res) {
     try { verdict = JSON.parse(verdictRaw); } catch { verdict = null; }
     if (!validKeys(verdict, ['verdict']) || Object.keys(verdict).length !== 1
       || !['allow', 'reject', 'uncertain'].includes(verdict.verdict) || verdict.verdict !== 'allow') {
-      finishFixed('Mình chưa thể xử lý yêu cầu này. Bạn hãy hỏi rõ hoặc tách từng câu nhé.');
+      finishFixed(REPLY_UNKNOWN);
       return undefined;
     }
     for (const { event, payload } of pendingEvents) {

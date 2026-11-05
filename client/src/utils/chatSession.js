@@ -1,6 +1,11 @@
 const PREFIX = 'vegetarian-chat-session-v1:';
 const V2_PREFIX = 'vegetarian-chat-session-v2:';
 
+// Khoi's code (05/11/2026): khách lưu lịch sử trong sessionStorage (đóng tab là mất, F5/Lùi vẫn còn);
+// thành viên vẫn lưu localStorage để đăng xuất mới xoá.
+const LEGACY_GUEST_KEYS = ['vegetarian-chat-guest-quota-v1', 'vegetarian-chat-guest-quota-v2'];
+const storageFor = (scope) => (String(scope).startsWith('account:') ? localStorage : sessionStorage);
+
 // Tùng: chỉ lưu chủ đề và ID đã hiện, không biến metadata thành quyền đọc bài.
 function validPostDiscovery(entries) {
   return Array.isArray(entries) && entries.every((entry) => (
@@ -47,8 +52,14 @@ function validPostContext(context) {
 export function readChatSession(scope) {
   if (!scope) return null;
   // Tùng: ưu tiên history mới, giữ nguyên record v1 để không mất dữ liệu cũ.
-  const v2 = localStorage.getItem(V2_PREFIX + scope);
-  const raw = v2 ?? localStorage.getItem(PREFIX + scope);
+  const store = storageFor(scope);
+  if (store === sessionStorage) {
+    // Khoi's code (05/11/2026): bản ghi khách kiểu cũ nằm ở localStorage thì bỏ, không đọc lại.
+    localStorage.removeItem(PREFIX + scope);
+    localStorage.removeItem(V2_PREFIX + scope);
+  }
+  const v2 = store.getItem(V2_PREFIX + scope);
+  const raw = v2 ?? store.getItem(PREFIX + scope);
   if (!raw) return null;
   const value = JSON.parse(raw);
   if (!value || (v2 !== null && value.version !== 2) || typeof value.token !== 'string' || value.token.length > 1024
@@ -57,7 +68,7 @@ export function readChatSession(scope) {
     || (value.postContext !== undefined && !validPostContext(value.postContext))
     || !Array.isArray(value.messages)
     || !value.messages.every((message) => (
-      ['user', 'bot'].includes(message.sender) && typeof message.content === 'string'
+      ['user', 'bot', 'system'].includes(message.sender) && typeof message.content === 'string'
       && Array.from(message.content).length <= 10000
       && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(message.content)
       && (message.limited === undefined || (message.sender === 'bot' && typeof message.limited === 'boolean'))
@@ -83,13 +94,35 @@ export function writeChatSession(scope, token, messages, flowToken, postDiscover
   // Tùng: lưu UI history đầy đủ; giới hạn 10 cặp chỉ áp dụng khi gửi model.
   if (postDiscovery !== undefined && !validPostDiscovery(postDiscovery)) throw new Error('Phiên trò chuyện không hợp lệ.');
   if (postContext !== undefined && !validPostContext(postContext)) throw new Error('Phiên trò chuyện không hợp lệ.');
-  localStorage.setItem(V2_PREFIX + scope, JSON.stringify({ version: 2, token, messages,
+  storageFor(scope).setItem(V2_PREFIX + scope, JSON.stringify({ version: 2, token, messages,
     ...(flowToken ? { flowToken } : {}), ...(postDiscovery !== undefined ? { postDiscovery } : {}),
     ...(postContext !== undefined ? { postContext } : {}) }));
 }
 
 export function clearChatSession(scope) {
-  if (scope) localStorage.removeItem(PREFIX + scope);
+  if (!scope) return;
+  // Khoi's code (05/11/2026): xoá cả bản v1, bản v2 và bản ghi pending của tài khoản.
+  for (const store of [localStorage, sessionStorage]) {
+    store.removeItem(PREFIX + scope);
+    store.removeItem(V2_PREFIX + scope);
+  }
+  if (String(scope).startsWith('account:')) localStorage.removeItem(CHAT_PENDING_PREFIX + String(scope).slice(8));
+}
+
+// Khoi's code (05/11/2026): đăng xuất → xoá mọi dấu vết chat đã lưu trên trình duyệt (cả khách).
+export function clearAllChatData() {
+  const prefixes = [PREFIX, V2_PREFIX, CHAT_PENDING_PREFIX];
+  // Khoi's code (05/11/2026): giữ deviceId của khách — server dùng nó để đếm lượt, không phải lịch sử chat.
+  const standalone = LEGACY_GUEST_KEYS;
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      for (let i = store.length - 1; i >= 0; i -= 1) {
+        const key = store.key(i);
+        if (!key) continue;
+        if (prefixes.some((prefix) => key.startsWith(prefix)) || standalone.includes(key)) store.removeItem(key);
+      }
+    } catch { /* trình duyệt chặn lưu trữ */ }
+  }
 }
 
 // Tùng: bỏ helper planner không còn consumer, giữ nguyên record local cũ.
