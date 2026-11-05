@@ -23,7 +23,7 @@ function guestBody(overrides = {}) {
 function classifierRaw(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
-    needsWebsiteGuide: false, postMode: 'none', postOrder: 'none', nearTerms: [],
+    needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
     scope: 'allowed', allowedParts: [], ...overrides,
   });
 }
@@ -140,6 +140,14 @@ test('parseScopedV3Intent: mixed mà đoạn không có trong câu gốc → unc
   const whole = parseScopedV3Intent(classifierRaw({ scope: 'mixed', allowedParts: [text] }), text);
   assert.equal(whole.scope, 'uncertain');
   assert.equal(whole.allowedText, null);
+});
+
+test('parseScopedV3Intent: needsGreenBowlData nhận giá trị hợp lệ, giá trị lạ → throw', () => {
+  const result = parseScopedV3Intent(classifierRaw({ needsGreenBowlData: 'recipes' }), 'Gợi ý món chay');
+  assert.equal(result.intent.needsGreenBowlData, 'recipes');
+  assert.equal(parseScopedV3Intent(classifierRaw(), 'chào').intent.needsGreenBowlData, 'none');
+  assert.throws(() => parseScopedV3Intent(classifierRaw({ needsGreenBowlData: 'posts' }), 'chào'),
+    (error) => error.code === 'MODEL_UNAVAILABLE');
 });
 
 test('parseScopedV3Intent: JSON thiếu khoá → throw MODEL_UNAVAILABLE', () => {

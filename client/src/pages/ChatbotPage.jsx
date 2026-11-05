@@ -10,6 +10,7 @@ import Notice from '../components/Notice/Notice';
 import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
 import { useToast } from '../components/Toast/Toast';
 import ChatDiscoveryResult from './ChatDiscoveryResult';
+import ChatResultCards from './ChatResultCards';
 import { AI_NAME } from '../constants/domain';
 import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
@@ -358,6 +359,7 @@ export default function ChatbotPage({ user }) {
     let reply = '';
     let pendingPostText = '';
     let resultCard;
+    let resultCards;
     const active = () => {
       if (performance.now() - startedAt >= 20000) { timedOut = true; controller.abort(); }
       if (localStorage.getItem(AUTH_TOKEN_KEY) !== turnToken || actorToken.current !== turnToken) controller.abort();
@@ -445,6 +447,12 @@ export default function ChatbotPage({ user }) {
         },
         onResult: (value) => {
           if (!active()) return;
+          // Khoi's code (05/11/2026): thẻ công thức/quán thật của Green Bowl.
+          if (value.kind === 'recipes' || value.kind === 'shops') {
+            resultCards = value;
+            updateTurn({ cards: value });
+            return;
+          }
           if (!value.search) {
             postContextRef.current = { ...postContextRef.current, state: 'unknown' };
             resultCard = value;
@@ -482,7 +490,7 @@ export default function ChatbotPage({ user }) {
       if (pendingPostText) throw new Error('Không thể hiển thị bài viết; kết quả chưa xác định.');
       const nextMessages = updateMessages((current) => current.map((message) => (
         message.turnId === turnId ? { ...message, status: 'complete',
-          ...(message.sender === 'bot' ? { content: reply, result: resultCard, limited: response.limited } : {}) } : message
+          ...(message.sender === 'bot' ? { content: reply, result: resultCard, cards: resultCards, limited: response.limited } : {}) } : message
       )));
       saveSession(response.session, scope, deviceId, nextMessages);
       if (response.quota?.day === clockDay(serverClock.current)) { quotaFromServer = true; setQuota(response.quota); }
@@ -634,6 +642,7 @@ export default function ChatbotPage({ user }) {
                           </button>
                         )}
                         {message.sender === 'bot' && message.result && <ChatDiscoveryResult result={message.result} />}
+                        {message.sender === 'bot' && message.cards && <ChatResultCards cards={message.cards} />}
                         {message.sender === 'bot' && message.limited && <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>}
                         {message.sender === 'bot' && message.status === 'failed' && <div className={styles.messageNotice}>
                           <p>{message.error}</p>

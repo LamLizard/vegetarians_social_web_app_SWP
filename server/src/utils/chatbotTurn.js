@@ -90,7 +90,7 @@ function parseScopedV3Intent(raw, text) {
   let value;
   try { value = JSON.parse(raw); } catch { throw invalid(); }
   const keys = ['intent', 'subject', 'hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide',
-    'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts'];
+    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts'];
   if (!validKeys(value, keys) || Object.keys(value).length !== keys.length
     || !['allowed', 'outside', 'mixed', 'uncertain'].includes(value.scope)
     || !Array.isArray(value.allowedParts) || value.allowedParts.length > 8) throw invalid();

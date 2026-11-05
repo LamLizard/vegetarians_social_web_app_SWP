@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const chatbotModel = require('../models/chatbot.model');
 const aiConfig = require('../models/aiConfig.model');
 const healthModel = require('../models/health-profile.model');
+const chatContextModel = require('../models/chatContext.model');
 const deepseek = require('../utils/deepseek');
 const { issueSimpleSession } = require('../utils/chatSessionToken');
 const controller = require('./chatbot.controller');
@@ -27,7 +28,7 @@ const day = vietnamDay(Date.now());
 function classifierJson(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
-    needsWebsiteGuide: false, postMode: 'none', postOrder: 'none', nearTerms: [],
+    needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
     scope: 'allowed', allowedParts: [], ...overrides,
   });
 }
@@ -95,6 +96,9 @@ function stubModel({ plan } = {}) {
       resetAt: new Date(`${day}T17:00:00.000Z`), day };
   };
   aiConfig.getConfig = async () => ({ chatbot: { enabled: true } });
+  chatContextModel.findRecipesForChat = async () => [];
+  chatContextModel.findOpenShops = async () => [];
+  chatContextModel.findTodayMealPlan = async () => null;
 }
 
 test('turnV3 khách: lỗi provider chưa gửi chữ → hoàn cả lượt thiết bị và IP', async () => {
@@ -217,4 +221,55 @@ test('turnV3: hồ sơ vô lý và cờ alreadyWarned được gửi cho model',
   assert.equal(data.alreadyWarned, true);
   assert.equal(captured[0].content.includes('Không in dữ liệu kỹ thuật'), true);
   assert.equal(events(res).find((frame) => frame.name === 'done') !== undefined, true);
+});
+
+test('turnV3: dữ liệu Green Bowl có thật → thẻ kết quả + dữ liệu vào prompt', async () => {
+  stubModel();
+  chatContextModel.findRecipesForChat = async (keywords, options) => {
+    assert.deepEqual(options, { limit: 3, excludeAllergies: [] });
+    assert.ok(keywords.includes('đậu'));
+    return [{ id: '40', title: 'Đậu hũ sốt cà chua', dishName: 'Đậu hũ', thumbnailUrl: 'https://x/y.png',
+      caloriesKcal: 300, minutes: 25, likeCount: 1 }];
+  };
+  let call = 0;
+  deepseek.classify = async () => { call += 1; return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  let captured = null;
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta('Bạn thử món Đậu hũ sốt cà chua nhé.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody({ text: 'Gợi ý món từ đậu hũ' }) }), res);
+
+  const frames = events(res);
+  const card = frames.find((frame) => frame.name === 'result');
+  assert.ok(card);
+  assert.equal(card.data.kind, 'recipes');
+  assert.equal(card.data.items.length, 1);
+  assert.equal(card.data.items[0].title, 'Đậu hũ sốt cà chua');
+  assert.ok(frames.find((frame) => frame.name === 'done'));
+  const data = JSON.parse(captured[captured.length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.equal(data.greenBowl.kind, 'recipes');
+  assert.equal(data.greenBowl.items[0].id, '40');
+  assert.equal(captured[0].content.includes('Ưu tiên gợi ý công thức/quán trong dữ liệu Green Bowl'), true);
+});
+
+test('turnV3: lỗi DB khi lấy dữ liệu Green Bowl → vẫn trả lời, không có thẻ', async () => {
+  stubModel();
+  chatContextModel.findOpenShops = async () => { throw new Error('DB_DOWN'); };
+  let call = 0;
+  deepseek.classify = async () => { call += 1; return call === 1 ? classifierJson({ needsGreenBowlData: 'shops' }) : '{"verdict":"allow"}'; };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Mình gợi ý bạn ghé quán chay gần nhà.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody() }), res);
+
+  const frames = events(res);
+  assert.ok(frames.find((frame) => frame.name === 'done'));
+  assert.equal(frames.some((frame) => frame.name === 'result'), false);
+  assert.equal(releases.length, 0);
 });

@@ -58,6 +58,33 @@ async function streamSimpleTurn(input, { signal, onAccepted, onDelta, onResult, 
   }
 }
 
+// Khoi's code (05/11/2026): chỉ hiện thẻ khi server trả đúng hình dạng dữ liệu Green Bowl.
+const RESULT_ID = /^[1-9]\d{0,17}$/;
+const isResultId = (value) => typeof value === 'string' && RESULT_ID.test(value);
+const isOptionalNumber = (value) => value === null || value === undefined || Number.isFinite(value);
+const isRecipeCard = (item) => Boolean(item) && isResultId(item.id) && typeof item.title === 'string' && Boolean(item.title.trim())
+  && (item.thumbnailUrl == null || (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl.length <= 2048))
+  && isOptionalNumber(item.caloriesKcal) && isOptionalNumber(item.minutes);
+const isShopCard = (item) => Boolean(item) && isResultId(item.id) && typeof item.name === 'string' && Boolean(item.name.trim())
+  && typeof item.statusText === 'string' && item.statusText.length <= 120 && typeof item.isOpen === 'boolean'
+  && (item.address == null || (typeof item.address === 'string' && item.address.length <= 500));
+const isCardList = (items, check) => Array.isArray(items) && items.length > 0 && items.length <= 3 && items.every(check);
+
+function validResult(payload) {
+  if (payload.kind === 'post') {
+    return payload.item && (payload.search === undefined || (payload.search && typeof payload.search === 'object'
+      && !Array.isArray(payload.search) && Object.keys(payload.search).length === 2
+      && Object.keys(payload.search).every((key) => ['subject', 'matchKind'].includes(key))
+      && typeof payload.search.subject === 'string' && payload.search.subject.trim()
+      && Array.from(payload.search.subject).length <= 10000
+      && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(payload.search.subject)
+      && ['exact', 'near'].includes(payload.search.matchKind)));
+  }
+  if (payload.kind === 'recipes') return isCardList(payload.items, isRecipeCard);
+  if (payload.kind === 'shops') return isCardList(payload.items, isShopCard);
+  return false;
+}
+
 // Tùng: mỗi thao tác gửi chỉ fetch một lần và đối chiếu turnId trước khi cập nhật UI.
 async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onUnauthorized } = {}) {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
@@ -104,14 +131,7 @@ async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onUn
             && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(payload.searchSubject)))) {
           onDelta?.(payload.text, payload.purpose, payload.searchSubject);
         }
-        else if (name === 'result' && accepted && payload.kind === 'post' && payload.item
-          && (payload.search === undefined || (payload.search && typeof payload.search === 'object'
-            && !Array.isArray(payload.search) && Object.keys(payload.search).length === 2
-            && Object.keys(payload.search).every((key) => ['subject', 'matchKind'].includes(key))
-            && typeof payload.search.subject === 'string' && payload.search.subject.trim()
-            && Array.from(payload.search.subject).length <= 10000
-            && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(payload.search.subject)
-            && ['exact', 'near'].includes(payload.search.matchKind)))) onResult?.(payload);
+        else if (name === 'result' && accepted && validResult(payload)) onResult?.(payload);
         else if (name === 'done' && accepted && payload.session && payload.limited === false) result = payload;
         else if (name === 'error' && accepted) throw new ApiError(payload.message || 'Trợ lý chưa hoàn tất.', 503, payload);
         else throw new Error('Phản hồi lượt không hợp lệ.');
