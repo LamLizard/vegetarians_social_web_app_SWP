@@ -2,6 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { excludeAllergens, plain } = require('./chatContext.model');
+const { groupScheduleRows } = require('./shop.model');
+const { shopOpenInfo, shopStatusText } = require('../utils/shopOpen');
 
 test('plain: bỏ dấu tiếng Việt giống fold() của postSearch', () => {
   assert.equal(plain('Đậu hũ sốt cà chua'), 'dau hu sot ca chua');
@@ -25,4 +27,24 @@ test('excludeAllergens: bỏ công thức có nguyên liệu trùng dị ứng (
 test('excludeAllergens: chỉ xét nguyên liệu, không loại theo tiêu đề', () => {
   const items = [{ id: '1', title: 'Đậu hũ sốt cà', ingredientNames: ['Cà chua'] }];
   assert.deepEqual(excludeAllergens(items, ['đậu hũ']).map((item) => item.id), ['1']);
+});
+
+test('lịch quán: dạng phẳng SQL trả về → gom theo ngày đúng như API quán', () => {
+  // ĐÚNG dạng json_agg của findOpenShops: mỗi ca một object phẳng.
+  const rows = [
+    { dayOfWeek: 1, isClosed: false, openTime: '08:00', closeTime: '11:30' },
+    { dayOfWeek: 1, isClosed: false, openTime: '17:00', closeTime: '21:00' },
+    { dayOfWeek: 2, isClosed: true, openTime: null, closeTime: null },
+  ];
+  const schedule = groupScheduleRows(rows);
+  assert.deepEqual(schedule, [
+    { dayOfWeek: 1, isClosed: false, slots: [{ openTime: '08:00', closeTime: '11:30' }, { openTime: '17:00', closeTime: '21:00' }] },
+    { dayOfWeek: 2, isClosed: true, slots: [] },
+  ]);
+  // 09:00 thứ Hai (02/11/2026) → đang trong ca sáng
+  assert.equal(shopStatusText(shopOpenInfo(schedule, new Date('2026-11-02T02:00:00Z'))), 'Mở đến 11:30');
+  assert.equal(shopStatusText(shopOpenInfo(schedule, new Date('2026-11-02T11:00:00Z'))), 'Mở đến 21:00');
+  assert.equal(shopStatusText(shopOpenInfo(schedule, new Date('2026-11-02T05:30:00Z'))), 'Đóng cửa · mở lúc 17:00');
+  // quán chưa có lịch → câu "Chưa cập nhật giờ" (không phải đang mở)
+  assert.equal(shopStatusText(shopOpenInfo(groupScheduleRows([]), new Date('2026-11-02T02:00:00Z'))), 'Chưa cập nhật giờ');
 });

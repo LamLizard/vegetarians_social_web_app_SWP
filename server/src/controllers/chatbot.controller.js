@@ -279,8 +279,11 @@ async function turnV3(req, res) {
     if (!expired() && !res.destroyed && !res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify({ turnId, ...payload })}\n\n`);
   };
   let partial = false;
-  // Khoi's code (08/11/2026): nội dung bot cuối cùng client thấy — dùng để ký lịch sử khi 'done'.
-  let botText = '';
+  // Khoi's code (08/11/2026): reply/postBuffer mô phỏng đúng cách client ghép nội dung hiển thị
+  // (dùng để ký lịch sử và để tách đoạn bằng dòng trống).
+  let reply = '';
+  let postBuffer = '';
+  let segmentOpen = false;
   let historyScope = null;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
@@ -291,7 +294,6 @@ async function turnV3(req, res) {
   let pendingBytes = 0;
   const queueEvent = (event, payload) => {
     const text = event === 'delta' ? payload.text : '';
-    if (text) botText += text; // Khoi's code (08/11/2026): cộng dồn nội dung sẽ hiển thị
     if ((event === 'delta' && !validText(text, true)) || pendingEvents.length >= 16) {
       throw Object.assign(new Error('CONTEXT_BUDGET_EXCEEDED'), { code: 'CONTEXT_BUDGET_EXCEEDED' });
     }
@@ -305,18 +307,26 @@ async function turnV3(req, res) {
     pendingEvents.push({ event, payload });
   };
   const emitText = (text) => queueEvent('delta', { text });
-  const sendText = (text) => {
+  // Khoi's code (08/11/2026): chỉ cộng nội dung TẠI ĐÚNG chỗ ghi 'delta' ra stream, theo thứ tự phát;
+  // delta 'post-found' client giữ lại và nối khi nhận 'result' có search; đoạn mới cách nhau một dòng trống.
+  const writeDelta = (text, extra = {}, endSegment = false) => {
+    const post = extra.purpose === 'post-found';
+    const visible = post ? reply + postBuffer : reply;
+    const value = (!segmentOpen && visible && !text.startsWith('\n')) ? `\n\n${text}` : text;
+    if (post) postBuffer += value;
+    else reply += value;
+    segmentOpen = !endSegment;
     partial = true;
-    botText += text; // Khoi's code (08/11/2026): cộng dồn nội dung sẽ hiển thị
-    outputPoints += Array.from(text).length;
-    emit('delta', { text });
+    outputPoints += Array.from(value).length;
+    emit('delta', { ...extra, text: value });
   };
+  const sendText = (text) => writeDelta(text);
   // Khoi's code (08/11/2026): ký đúng cặp (câu hỏi, nội dung bot cuối cùng) tại thời điểm phát 'done'.
   const historyEntryFor = () => {
     const at = Date.now();
     try {
       if (!historyScope) historyScope = historyScopeFor(req.account, input.deviceId);
-      return { turnId, at, sig: signTurn({ scope: historyScope, turnId, at, userText: input.text, botText }) };
+      return { turnId, at, sig: signTurn({ scope: historyScope, turnId, at, userText: input.text, botText: reply }) };
     } catch { return undefined; }
   };
   // Khoi's code (05/11/2026): lượt đã chốt thì không hoàn; lưới an toàn cho lượt bị ngắt khi chưa gửi chữ nào.
@@ -331,9 +341,17 @@ async function turnV3(req, res) {
     emit('accepted', { session, quotaDay, ...(quota ? { quota } : {}) });
     const finishFixed = (message) => {
       if (expired() || res.destroyed || res.writableEnded) return;
-      // Khoi's code (08/11/2026): client chỉ thấy câu cố định này (buffer chưa gửi) → ký đúng nó.
-      botText = message;
-      sendText(message);
+      // Khoi's code (08/11/2026): đã stream rồi thì thu hồi cả bong bóng; chưa stream thì gửi câu cố định.
+      if (reply) {
+        reply = message;
+        postBuffer = '';
+        segmentOpen = false;
+        emit('retract', { text: message });
+      } else {
+        postBuffer = '';
+        segmentOpen = false;
+        sendText(message);
+      }
       if (expired() || res.destroyed || res.writableEnded) return;
       settled = true;
       const entry = historyEntryFor();
@@ -374,7 +392,7 @@ async function turnV3(req, res) {
         && normalize(input.postContext.subject) === normalize(intent.subject)
         && ['continue', 'reference'].includes(intent.postMode);
       if (!postRequested || (intent.subject && !inAllowed && !inContext) || (!intent.subject && intent.postMode === 'new')) {
-        finishFixed('Mình chưa xác định được phần tìm bài. Bạn hãy tách từng câu hỏi nhé.');
+        finishFixed('Mình chưa rõ bạn muốn tìm bài về chủ đề gì. Bạn ghi rõ chủ đề giúp mình nhé.');
         return undefined;
       }
       intent.nearTerms = [];
@@ -445,7 +463,6 @@ async function turnV3(req, res) {
         }
       }
     }
-    if (intent.intent === 'post' && answerNeeded && pendingPoints && !expired()) emitText('\n\n');
     // Khoi's code (05/11/2026): đọc hồ sơ trước để vừa cá nhân hoá vừa lọc dị ứng cho dữ liệu Green Bowl.
     let health = null;
     let healthState = 'not_requested';
@@ -542,29 +559,23 @@ async function turnV3(req, res) {
     if (!validKeys(verdict, ['verdict']) || Object.keys(verdict).length !== 1
       || !['allow', 'reject', 'uncertain'].includes(verdict.verdict) || verdict.verdict !== 'allow') {
       // Khoi's code (07/11/2026): đã stream thì thu hồi toàn bộ bong bóng, không nối thêm câu từ chối.
-      if (streamedAnswer) {
-        pendingEvents.length = 0;
-        settled = true;
-        emit('retract', { text: REPLY_UNKNOWN });
-        // Khoi's code (08/11/2026): client thay cả bong bóng bằng câu từ chối → ký đúng câu đó.
-        botText = REPLY_UNKNOWN;
-        const retractEntry = historyEntryFor();
-        emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,
-          ...(retractEntry ? { historyEntry: retractEntry } : {}),
-          ...(refunded ? { refunded: true } : {}), ...(quota ? { quota } : {}) });
-        if (!res.destroyed && !res.writableEnded) res.end();
-        return undefined;
-      }
+      // Khoi's code (08/11/2026): đã stream thì finishFixed tự phát 'retract' (thu hồi cả bong bóng).
+      if (streamedAnswer) pendingEvents.length = 0;
       finishFixed(REPLY_UNKNOWN);
       return undefined;
     }
+    segmentOpen = false;
     for (const { event, payload } of pendingEvents) {
       if (expired() || res.destroyed || res.writableEnded) return undefined;
       if (event === 'delta') {
-        partial = true;
-        outputPoints += Array.from(payload.text).length;
-      }
-      emit(event, payload);
+        const extra = payload.purpose ? { purpose: payload.purpose,
+          ...(payload.searchSubject ? { searchSubject: payload.searchSubject } : {}) } : {};
+        writeDelta(payload.text, extra, true);
+      } else if (event === 'result') {
+        // Khoi's code (08/11/2026): client nối phần 'post-found' đang giữ vào ngay khi nhận thẻ có search.
+        if (payload.search) { reply += postBuffer; postBuffer = ''; }
+        emit('result', payload);
+      } else emit(event, payload);
     }
     if (expired()) return undefined;
     settled = true;

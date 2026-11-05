@@ -423,3 +423,73 @@ test('turnV3: lịch sử thiếu chữ ký (bản cũ) → 409 HISTORY_INVALID'
   assert.equal(res.body.code, 'HISTORY_INVALID');
   assert.equal(admits.length, 0);
 });
+
+// Khoi's code (08/11/2026): ghép text đúng như ChatbotPage để chữ ký phải khớp nội dung hiển thị.
+function composeClientText(frames) {
+  let text = '';
+  let pending = '';
+  for (const frame of frames) {
+    if (frame.name === 'delta') {
+      if (frame.data.purpose === 'post-found') pending += frame.data.text;
+      else text += frame.data.text;
+    }
+    if (frame.name === 'result' && frame.data.search) { text += pending; pending = ''; }
+    if (frame.name === 'retract') { text = frame.data.text; pending = ''; }
+  }
+  return text;
+}
+
+test('turnV3 khách "tìm bài + hỏi thêm": câu đăng nhập cách câu trả lời một dòng, chữ ký khớp', async () => {
+  stubModel();
+  let call = 0;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1
+      ? classifierJson({ intent: 'post', postMode: 'new', postOrder: 'votes', subject: 'đậu hũ', hasOtherAllowedQuestion: true })
+      : '{"verdict":"allow"}';
+  };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Đậu hũ ');
+    options.onDelta('rất bổ.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody() }), res);
+
+  const frames = events(res);
+  const text = composeClientText(frames);
+  assert.equal(text, 'Đậu hũ rất bổ.\n\nBạn hãy đăng nhập để tìm bài viết nhé.');
+  const entry = frames.find((frame) => frame.name === 'done').data.historyEntry;
+  assert.deepEqual(verifyHistory({ history: [{ sender: 'user', content: 'Gợi ý món chay' },
+    { sender: 'bot', content: text, turnId: entry.turnId, at: entry.at, sig: entry.sig }],
+    scope: historyScopeFor(null, DEVICE_ID) }), { ok: true });
+});
+
+test('turnV3 member "tìm bài + hỏi thêm": thứ tự ghép text khớp chữ ký', async () => {
+  stubModel();
+  const chatDiscoveryModel = require('../models/chatDiscovery.model');
+  chatDiscoveryModel.findChatPosts = async () => ({ kind: 'post', matchKind: 'exact', items: [
+    { id: '129', title: 'Đậu hũ sốt cà chua', voteCount: 5 }] });
+  let call = 0;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1
+      ? classifierJson({ intent: 'post', postMode: 'new', postOrder: 'votes', subject: 'đậu hũ', hasOtherAllowedQuestion: true })
+      : '{"verdict":"allow"}';
+  };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Món này hợp cho bữa tối.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'tìm bài đậu hũ và gợi ý bữa tối' }) }), res);
+
+  const frames = events(res);
+  const text = composeClientText(frames);
+  assert.ok(text.startsWith('Món này hợp cho bữa tối.\n\nMình tìm được 1 bài'), text);
+  const entry = frames.find((frame) => frame.name === 'done').data.historyEntry;
+  assert.deepEqual(verifyHistory({ history: [{ sender: 'user', content: 'tìm bài đậu hũ và gợi ý bữa tối' },
+    { sender: 'bot', content: text, turnId: entry.turnId, at: entry.at, sig: entry.sig }],
+    scope: historyScopeFor({ id: 7 }, undefined) }), { ok: true });
+});

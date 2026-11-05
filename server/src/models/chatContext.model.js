@@ -1,6 +1,8 @@
 const pool = require('../config/db');
 const { fold, VI_FROM, VI_TO } = require('../utils/postSearch');
 const { shopOpenInfo, shopStatusText } = require('../utils/shopOpen');
+// Khoi's code (08/11/2026): gom lịch theo ngày bằng đúng helper mà API quán đang dùng.
+const { groupScheduleRows } = require('./shop.model');
 
 // Khoi's code (05/11/2026): dữ liệu thật của Green Bowl cho câu trả lời (chỉ SELECT).
 const RECIPE_SCAN_LIMIT = 30; // quét rộng rồi lọc dị ứng ở JS, vẫn giữ tối đa `limit` kết quả
@@ -75,7 +77,8 @@ async function findOpenShops({ limit = 3, now = new Date() } = {}) {
   `);
   return rows
     .map((row) => {
-      const info = shopOpenInfo(row.schedule ?? [], now);
+      // Khoi's code (08/11/2026): SQL trả lịch dạng phẳng (mỗi ca một dòng) → gom theo ngày như API quán.
+      const info = shopOpenInfo(groupScheduleRows(row.schedule ?? []), now);
       return { id: row.id, name: row.name, address: row.address, avatarUrl: row.avatarUrl,
         isOpen: info.isOpen, closeAt: info.closeAt, statusText: shopStatusText(info),
         minutesToOpen: Number.isFinite(info.minutesToOpen) ? info.minutesToOpen : null };

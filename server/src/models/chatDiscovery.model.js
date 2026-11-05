@@ -114,35 +114,35 @@ async function findBestMatch(account, kind, phrase) {
   return { kind, item: best };
 }
 
-// Khoi's code (05/11/2026): tách từ khoá thành từ (bỏ dấu câu, bỏ trùng) — "đậu hủ" và "hũ đậu" cùng ra 2 từ.
-const MAX_SEARCH_WORDS = 5;
-
-function splitSearchWords(text) {
-  return [...new Set(String(text ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length >= 2))].slice(0, MAX_SEARCH_WORDS);
-}
-
-/**
- * Điều kiện SQL cho một cụm từ: mỗi TỪ phải xuất hiện (AND) ở tiêu đề / tác giả / chủ đề / nội dung.
- * Dùng buildSearch + searchWhere của postSearch (không dấu) và tham số bắt đầu từ startIndex.
- * @returns {{ words: string[], sql: string, values: (string|null)[] }}
- */
-function buildChatPostFilter(text, startIndex = 1) {
-  const words = splitSearchWords(text);
+// Khoi's code (08/11/2026): bài chỉ khớp khi TIÊU ĐỀ hoặc NỘI DUNG chứa đúng cụm chủ đề (bỏ dấu bằng fold);
+// xếp hạng: khớp tiêu đề > khớp nội dung > số lượt thích/bình luận > mới hơn.
+function buildPhraseFilter(phrases, startIndex = 1) {
   const values = [];
-  const clauses = words.map((word, index) => {
-    const { titleLike, authorLike, topicLike } = buildSearch(word);
-    const base = startIndex + index * 3;
-    values.push(titleLike, authorLike, topicLike);
-    return `(${searchWhere(base, base + 1, base + 2)} OR ${fold('p.content')} LIKE ${fold(`$${base}::text`)})`;
-  });
-  return { words, sql: clauses.join(' AND '), values };
+  const titleParts = [];
+  const contentParts = [];
+  let position = 0;
+  for (const phrase of Array.isArray(phrases) ? phrases : [phrases]) {
+    const { titleLike } = buildSearch(phrase);
+    if (!titleLike) continue;
+    const base = startIndex + position * 2;
+    position += 1;
+    titleParts.push(`${fold('p.title')} LIKE ${fold(`$${base}::text`)}`);
+    contentParts.push(`${fold('p.content')} LIKE ${fold(`$${base + 1}::text`)}`);
+    values.push(titleLike, titleLike);
+  }
+  if (!values.length) return { sql: '', rank: '', values };
+  return {
+    sql: `(${[...titleParts, ...contentParts].join(' OR ')})`,
+    rank: `(CASE WHEN (${titleParts.join(' OR ')}) THEN 2 WHEN (${contentParts.join(' OR ')}) THEN 1 ELSE 0 END)`,
+    values,
+  };
 }
 
 // Tùng: tìm ứng viên post cho chat mà không thay các caller tìm kiếm hiện hữu.
 // Kết quả chưa xác nhận tính phù hợp với chế độ ăn; caller v3 phải nêu mức chưa chắc.
 // Khoi's code (05/11/2026): lọc + xếp hạng + LIMIT 3 trong SQL, bỏ randomInt; nearTerms chỉ là dự phòng.
 const CHAT_POST_LIMIT = 3;
+
 
 async function findChatPosts(account, { subject, seenIds, order, nearTerms }) {
   if (account?.role !== 'member' || !account.id) {
@@ -156,10 +156,8 @@ async function findChatPosts(account, { subject, seenIds, order, nearTerms }) {
     || !Array.isArray(nearTerms) || nearTerms.length > 8 || !nearTerms.every(validTerm)) {
     throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
   }
-  if (!splitSearchWords(subject).length) throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
-
   const field = order === 'comments' ? 'p.comment_count' : 'p.vote_count';
-  const run = async (filter, filterValues) => {
+  const run = async ({ sql, rank, values }) => {
     const { rows } = await pool.query(`
       SELECT p.post_id::text AS id, p.post_type AS type, p.title, p.content,
         p.thumbnail_url AS "thumbnailUrl", COALESCE(p.vote_count, 0)::int AS "voteCount",
@@ -169,19 +167,21 @@ async function findChatPosts(account, { subject, seenIds, order, nearTerms }) {
       FROM public.post p JOIN public.account a ON a.account_id = p.account_id
       WHERE p.status IN ('public', 'reported')
         AND NOT (p.post_id::text = ANY($1::text[]))
-        AND (${filter})
-      ORDER BY COALESCE(${field}, 0) DESC, COALESCE(p.published_at, p.created_at) DESC, p.post_id DESC
+        AND (${sql})
+      ORDER BY ${rank} DESC, COALESCE(${field}, 0) DESC, COALESCE(p.published_at, p.created_at) DESC, p.post_id DESC
       LIMIT ${CHAT_POST_LIMIT}
-    `, [seenIds, ...filterValues]);
+    `, [seenIds, ...values]);
     return rows;
   };
 
-  const primary = buildChatPostFilter(subject, 2);
-  let rows = await run(primary.sql, primary.values);
+  const primary = buildPhraseFilter([subject], 2);
+  if (!primary.sql) throw Object.assign(new Error('INVALID_INPUT'), { code: 'INVALID_INPUT' });
+  let rows = await run(primary);
   let matchKind = 'exact';
+  // Khoi's code (08/11/2026): không có bài chứa cụm chủ đề → thử cụm gần nghĩa, vẫn phải chứa ĐÚNG cụm đó.
   if (!rows.length && nearTerms.length) {
-    const near = buildChatPostFilter(nearTerms.join(' '), 2);
-    if (near.words.length) { rows = await run(near.sql, near.values); matchKind = 'near'; }
+    const near = buildPhraseFilter(nearTerms, 2);
+    if (near.sql) { rows = await run(near); matchKind = 'near'; }
   }
 
   const items = rows
@@ -200,4 +200,4 @@ async function findChatPosts(account, { subject, seenIds, order, nearTerms }) {
 }
 
 module.exports = { findPostForModal, findPostForMemberDetail, findBestMatch, findChatPosts,
-  splitSearchWords, buildChatPostFilter };
+  buildPhraseFilter };
