@@ -395,15 +395,18 @@ async function turnV3(req, res) {
           if (expired()) return undefined;
           if (postUnavailable) emitText('Mình tạm thời không thể tìm bài viết.');
           else if (result?.status === 'rank_unknown') emitText('Mình chưa xác định được thứ hạng vì thiếu số liệu tương tác.');
-          else if (!result) {
+          else if (!result?.items?.length) {
             const text = `Mình chưa tìm thấy bài nào${same && context?.seenIds.length ? ' khác' : ''} trong phạm vi tìm kiếm về “${intent.subject}”.`;
             queueEvent('delta', { text, searchSubject: intent.subject });
           }
           else {
-            const matchKind = result.item.matchKind;
-            const text = `${matchKind === 'near' ? 'Mình tìm được một bài có ý gần' : 'Mình tìm được bài'} “${result.item.title}”. Mình chưa chắc bài phù hợp yêu cầu món chay; bạn xem nội dung để cân nhắc nhé.`;
+            // Khoi's code (05/11/2026): nêu số bài tìm được (tối đa 3), thứ tự do SQL xếp, không random.
+            const { items, matchKind } = result;
+            const titles = items.map((item) => `“${item.title}”`).join(', ');
+            const head = matchKind === 'near' ? 'Mình tìm được bài có ý gần' : `Mình tìm được ${items.length} bài`;
+            const text = `${head}: ${titles}. Mình chưa chắc ${items.length > 1 ? 'các bài' : 'bài'} phù hợp yêu cầu món chay; bạn xem nội dung để cân nhắc nhé.`;
             queueEvent('delta', { text, purpose: 'post-found' });
-            queueEvent('result', { ...result, search: { subject: intent.subject, matchKind } });
+            queueEvent('result', { kind: 'post', items, matchKind, search: { subject: intent.subject, matchKind } });
           }
         }
       }

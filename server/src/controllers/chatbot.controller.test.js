@@ -273,3 +273,37 @@ test('turnV3: lỗi DB khi lấy dữ liệu Green Bowl → vẫn trả lời, k
   assert.equal(frames.some((frame) => frame.name === 'result'), false);
   assert.equal(releases.length, 0);
 });
+
+test('turnV3: tìm bài trả items (tối đa 3) + câu "Mình tìm được N bài"', async () => {
+  stubModel();
+  const chatDiscoveryModel = require('../models/chatDiscovery.model');
+  let captured = null;
+  chatDiscoveryModel.findChatPosts = async (account, options) => {
+    assert.equal(account.role, 'member');
+    captured = options;
+    return { kind: 'post', matchKind: 'exact', items: [
+      { id: '129', title: 'Chuyện ăn chay', voteCount: 5 },
+      { id: '137', title: 'Món cuốn', voteCount: 3 },
+      { id: '145', title: 'Mì cho ngày bận', voteCount: 1 },
+    ] };
+  };
+  let call = 0;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1 ? classifierJson({ intent: 'post', postMode: 'new', postOrder: 'votes', subject: 'đậu hũ' }) : '{"verdict":"allow"}';
+  };
+  deepseek.streamAnswer = async () => ({ complete: true, limited: false });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' }, body: memberBody({ text: 'tìm bài về đậu hũ' }) }), res);
+
+  const frames = events(res);
+  const result = frames.find((frame) => frame.name === 'result');
+  assert.ok(result);
+  assert.equal(result.data.kind, 'post');
+  assert.equal(result.data.matchKind, 'exact');
+  assert.deepEqual(result.data.items.map((item) => item.id), ['129', '137', '145']);
+  const text = frames.filter((frame) => frame.name === 'delta').map((frame) => frame.data.text).join('');
+  assert.ok(text.includes('Mình tìm được 3 bài'), text);
+  assert.deepEqual(captured, { subject: 'đậu hũ', seenIds: [], order: 'votes', nearTerms: [] });
+  assert.ok(frames.find((frame) => frame.name === 'done'));
+});

@@ -72,7 +72,11 @@ const isCardList = (items, check) => Array.isArray(items) && items.length > 0 &&
 
 function validResult(payload) {
   if (payload.kind === 'post') {
-    return payload.item && (payload.search === undefined || (payload.search && typeof payload.search === 'object'
+    // Khoi's code (05/11/2026): server trả items (tối đa 3) thay cho item đơn.
+    const items = Array.isArray(payload.items) ? payload.items : (payload.item ? [payload.item] : []);
+    return items.length > 0 && items.length <= 3
+      && items.every((item) => item && isResultId(item.id) && typeof item.title === 'string' && Boolean(item.title.trim()))
+      && (payload.search === undefined || (payload.search && typeof payload.search === 'object'
       && !Array.isArray(payload.search) && Object.keys(payload.search).length === 2
       && Object.keys(payload.search).every((key) => ['subject', 'matchKind'].includes(key))
       && typeof payload.search.subject === 'string' && payload.search.subject.trim()

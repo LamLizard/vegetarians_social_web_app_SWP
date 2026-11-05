@@ -190,7 +190,9 @@ export default function ChatbotPage({ user }) {
     const delivery = context.delivery;
     const currentSession = sessionRef.current;
     if (!delivery || delivery.state !== 'pending' || !currentSession
-      || !messages.some((message) => message.turnId === delivery.turnId && message.result?.item?.id === delivery.postId)) return;
+      || !messages.some((message) => message.turnId === delivery.turnId
+        && (message.result?.item?.id === delivery.postId
+          || message.result?.items?.some((item) => item.id === delivery.postId)))) return;
     if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) return;
     try {
       const saved = readChatSession(currentSession.scope);
@@ -459,16 +461,20 @@ export default function ChatbotPage({ user }) {
             updateTurn({ result: value });
             return;
           }
-          const id = value.item?.id;
-          if (typeof id !== 'string' || !/^[1-9]\d{0,17}$/.test(id)
-            || typeof value.item.title !== 'string' || !value.item.title.trim()) throw new Error('Không thể nhận bài viết hợp lệ.');
+          // Khoi's code (05/11/2026): cộng TẤT CẢ bài vừa hiện vào seenIds; delivery = bài hạng cao nhất.
+          const resultItems = Array.isArray(value.items) ? value.items : (value.item ? [value.item] : []);
+          const ids = resultItems.map((item) => item?.id);
+          if (!ids.length || ids.some((id) => typeof id !== 'string' || !/^[1-9]\d{0,17}$/.test(id))
+            || resultItems.some((item) => typeof item.title !== 'string' || !item.title.trim())) {
+            throw new Error('Không thể nhận bài viết hợp lệ.');
+          }
           const current = postContextRef.current;
           const key = subjectKey(value.search.subject);
           const oldTopic = current.topics.find((entry) => subjectKey(entry.subject) === key);
-          const entry = { subject: value.search.subject, seenIds: [...new Set([...(oldTopic?.seenIds ?? []), id])] };
+          const entry = { subject: value.search.subject, seenIds: [...new Set([...(oldTopic?.seenIds ?? []), ...ids])] };
           const nextContext = { ...current, activeSubject: entry.subject,
             topics: [...current.topics.filter((item) => subjectKey(item.subject) !== key), entry],
-            delivery: { turnId, subject: entry.subject, postId: id, state: 'pending' } };
+            delivery: { turnId, subject: entry.subject, postId: ids[0], state: 'pending' } };
           const nextMessages = messagesRef.current.map((message) => message.turnId === turnId && message.sender === 'bot'
             ? { ...message, content: reply + pendingPostText, status: 'streaming', result: value } : message);
           const saved = readChatSession(scope);

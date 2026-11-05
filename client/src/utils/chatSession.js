@@ -18,6 +18,16 @@ function validPostDiscovery(entries) {
   ));
 }
 
+// Khoi's code (05/11/2026): server trả items (tối đa 3) nên validator nhận cả items lẫn item cũ.
+function validResultItems(result) {
+  const items = Array.isArray(result?.items) ? result.items : (result?.item ? [result.item] : []);
+  return items.length > 0 && items.length <= 3 && items.every((item) => (
+    item && typeof item === 'object'
+    && typeof item.id === 'string' && /^[1-9]\d{0,17}$/.test(item.id)
+    && typeof item.title === 'string' && Boolean(item.title.trim())
+  ));
+}
+
 // Tùng: metadata chỉ mô tả bài đã hiện, không cấp quyền xem bài.
 function validPostContext(context) {
   const keysAre = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
@@ -78,7 +88,7 @@ export function readChatSession(scope) {
       && (message.question === undefined || (typeof message.question === 'string' && Array.from(message.question).length <= 10000
         && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(message.question)))
       && (message.result === undefined || (message.sender === 'bot' && message.result?.kind === 'post'
-        && /^[1-9]\d{0,17}$/.test(String(message.result?.item?.id)) && typeof message.result?.item?.title === 'string'))
+        && validResultItems(message.result)))
     ))) throw new Error('Phiên trò chuyện không hợp lệ.');
   return { ...value,
     ...(value.postContext?.delivery?.state === 'pending'
