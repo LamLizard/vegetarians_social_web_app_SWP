@@ -346,7 +346,16 @@ export default function ChatbotPage({ user }) {
     let timedOut = false;
     const startedAt = performance.now();
     // Tùng: giới hạn thời gian chờ bao gồm clock, lock và stream của lượt.
-    const requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
+    // Khoi's code (07/11/2026): 20s tới chữ đầu tiên; có chữ rồi thì nới tổng lên 45s như server.
+    let deadlineMs = 20000;
+    let requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
+    const extendDeadline = () => {
+      if (deadlineMs !== 20000) return;
+      deadlineMs = 45000;
+      window.clearTimeout(requestTimeout);
+      requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); },
+        Math.max(0, deadlineMs - (performance.now() - startedAt)));
+    };
     setBusy(true);
     setError('');
     setAnnouncement('Đang chờ phản hồi.');
@@ -363,7 +372,7 @@ export default function ChatbotPage({ user }) {
     let resultCard;
     let resultCards;
     const active = () => {
-      if (performance.now() - startedAt >= 20000) { timedOut = true; controller.abort(); }
+      if (performance.now() - startedAt >= deadlineMs) { timedOut = true; controller.abort(); }
       if (localStorage.getItem(AUTH_TOKEN_KEY) !== turnToken || actorToken.current !== turnToken) controller.abort();
       return running.current === controller && !controller.signal.aborted;
     };
@@ -434,6 +443,7 @@ export default function ChatbotPage({ user }) {
           saveSession(payload.session, scope, deviceId, current);
         },
         onDelta: (chunk, purpose, searchSubject) => {
+          extendDeadline();
           if (active()) {
             if (searchSubject && postContextRef.current.state === 'known') {
               const current = postContextRef.current;
@@ -446,6 +456,15 @@ export default function ChatbotPage({ user }) {
             if (purpose === 'post-found') pendingPostText += chunk;
             else { reply += chunk; updateTurn({ content: reply, status: 'streaming' }); }
           }
+        },
+        onRetract: (text) => {
+          if (!active()) return;
+          // Khoi's code (07/11/2026): server thu hồi câu trả lời đã stream → thay toàn bộ bong bóng.
+          reply = text;
+          pendingPostText = '';
+          resultCard = undefined;
+          resultCards = undefined;
+          updateTurn({ content: text, cards: undefined, result: undefined });
         },
         onResult: (value) => {
           if (!active()) return;

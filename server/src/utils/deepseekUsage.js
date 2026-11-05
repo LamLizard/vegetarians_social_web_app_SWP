@@ -3,7 +3,8 @@ const RETENTION_DAYS = 30;
 const DAY_MS = 86400000;
 const ZONE = 'Asia/Ho_Chi_Minh';
 const MODEL = 'deepseek-flash';
-const KINDS = new Set(['classifier', 'answer']);
+// Khoi's code (07/11/2026): tính cả lần gọi lớp duyệt đầu ra (policy_verification).
+const KINDS = new Set(['classifier', 'answer', 'verifier']);
 const FIELDS = ['attempts', 'errors', 'inFlight', 'usageKnown', 'usageUnknown',
   'promptTokens', 'completionTokens', 'totalTokens'];
 const days = new Map();

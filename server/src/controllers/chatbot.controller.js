@@ -264,6 +264,8 @@ async function turnV3(req, res) {
     if (!expired() && !res.destroyed && !res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify({ turnId, ...payload })}\n\n`);
   };
   let partial = false;
+  // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
+  let streamedAnswer = '';
   let outputPoints = 0;
   let phase = 'session';
   const pendingEvents = [];
@@ -322,7 +324,7 @@ async function turnV3(req, res) {
     }
     if (expired()) return undefined;
     phase = 'classifier_request';
-    const classifierResult = await deepseek.classify(classifierMessages, signal, req.turnDeadlineAt);
+    const classifierResult = await deepseek.classify(classifierMessages, signal, req.turnDeadlineAt, 'classifier');
     phase = 'classifier_validation';
     const scoped = parseScopedV3Intent(classifierResult, input.text);
     if (expired()) return undefined;
@@ -457,8 +459,17 @@ async function turnV3(req, res) {
       if (expired()) return undefined;
       phase = 'answer_stream';
       let answerText = '';
-      const result = await deepseek.streamAnswer(messages, { signal, deadlineAt: req.turnDeadlineAt,
-        maxPoints: 10000 - pendingPoints, onDelta: (chunk) => { answerText += chunk; } });
+      // Khoi's code (07/11/2026): scope allowed stream thẳng ra client ngay; mixed vẫn gom rồi duyệt rồi gửi.
+      const live = scoped.scope !== 'mixed';
+      let streamStarted = false;
+      const result = await deepseek.streamAnswer(messages, { signal, deadlineAt: () => req.turnDeadlineAt,
+        maxPoints: 10000 - pendingPoints - outputPoints,
+        onDelta: (chunk) => {
+          answerText += chunk;
+          if (!live) return;
+          if (!streamStarted) { streamStarted = true; req.extendTurnDeadline?.(); }
+          sendText(chunk);
+        } });
       if (!result.complete) {
         settled = true;
         emit('error', { code: 'OUTPUT_LIMITED', message: 'Câu trả lời chưa hoàn tất do giới hạn độ dài.', partial });
@@ -466,18 +477,21 @@ async function turnV3(req, res) {
         return undefined;
       }
       if (!validText(answerText)) throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' });
-      emitText(answerText);
+      if (live) streamedAnswer = answerText;
+      else emitText(answerText);
       // Khoi's code (05/11/2026): thẻ công thức/quán hiện dưới câu trả lời (qua lớp duyệt như mọi event khác).
       if (greenBowl && greenBowl.kind !== 'mealplan') queueEvent('result', { kind: greenBowl.kind, items: greenBowl.items });
     }
     if (expired()) return undefined;
     // Khoi's code (05/11/2026): chỉ thêm ghi chú khi câu trả lời đã có nội dung (không nối 2 câu từ chối).
     if (scoped.scope === 'mixed' && answerNeeded && pendingPoints) emitText(`\n\n${REPLY_SCOPE_NOTE}`);
-    const visibleContent = pendingEvents.map(({ event, payload }) => (event === 'delta'
+    const bufferedContent = pendingEvents.map(({ event, payload }) => (event === 'delta'
       ? { text: payload.text }
       : payload.items
         ? { items: payload.items.map((item) => ({ name: item.title ?? item.name })) }
         : { title: payload.item?.title, excerpt: payload.item?.excerpt }));
+    // Khoi's code (07/11/2026): nội dung đã stream không nằm trong pendingEvents nên chèn lên đầu.
+    const visibleContent = streamedAnswer ? [{ text: streamedAnswer }, ...bufferedContent] : bufferedContent;
     const verifierInput = JSON.stringify({ question: input.text,
       allowed: scoped.scope === 'mixed' ? scoped.allowedText : null, content: visibleContent });
     const verifierMessages = deepseek.fitClassifierMessages(VERIFIER_SYSTEM, input.history, verifierInput);
@@ -489,12 +503,22 @@ async function turnV3(req, res) {
     }
     if (expired()) return undefined;
     phase = 'policy_verification';
-    const verdictRaw = await deepseek.classify(verifierMessages, signal, req.turnDeadlineAt);
+    const verdictRaw = await deepseek.classify(verifierMessages, signal, req.turnDeadlineAt, 'verifier');
     if (expired()) return undefined;
     let verdict;
     try { verdict = JSON.parse(verdictRaw); } catch { verdict = null; }
     if (!validKeys(verdict, ['verdict']) || Object.keys(verdict).length !== 1
       || !['allow', 'reject', 'uncertain'].includes(verdict.verdict) || verdict.verdict !== 'allow') {
+      // Khoi's code (07/11/2026): đã stream thì thu hồi toàn bộ bong bóng, không nối thêm câu từ chối.
+      if (streamedAnswer) {
+        pendingEvents.length = 0;
+        settled = true;
+        emit('retract', { text: REPLY_UNKNOWN });
+        emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,
+          ...(refunded ? { refunded: true } : {}), ...(quota ? { quota } : {}) });
+        if (!res.destroyed && !res.writableEnded) res.end();
+        return undefined;
+      }
       finishFixed(REPLY_UNKNOWN);
       return undefined;
     }

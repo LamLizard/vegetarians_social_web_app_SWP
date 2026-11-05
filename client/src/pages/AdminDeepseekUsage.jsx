@@ -7,7 +7,8 @@ import styles from './AdminDeepseekUsage.module.css';
 
 const DAY_MS = 86400000;
 const UPDATE_MS = 30000;
-const LABELS = { classifier: 'Phân loại', answer: 'Trả lời' };
+// Khoi's code (07/11/2026): thêm loại gọi của lớp duyệt đầu ra (policy_verification).
+const LABELS = { classifier: 'Phân loại', answer: 'Trả lời', verifier: 'Duyệt đầu ra' };
 
 function vietnamDate(value = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Ho_Chi_Minh',
@@ -95,7 +96,7 @@ export default function AdminDeepseekUsage() {
   return (
     <section className={styles.usage} aria-labelledby={`${id}-title`}>
       <div className={styles.heading}>
-        <div><h2 id={`${id}-title`}>DeepSeek · Chatbot</h2><p>Theo dõi các lần gọi phân loại và trả lời.</p></div>
+        <div><h2 id={`${id}-title`}>DeepSeek · Chatbot</h2><p>Theo dõi các lần gọi phân loại, trả lời và duyệt đầu ra.</p></div>
         <div className={styles.controls}>
           <div className={styles.dateField}>
             <label htmlFor={`${id}-date`}>Ngày thống kê</label>
@@ -132,7 +133,7 @@ export default function AdminDeepseekUsage() {
             </tr>)}</tbody>
           </table>
         </div> : <p className={styles.empty}>Chưa ghi nhận lượt gọi nào trong khoảng dữ liệu hiện có.</p>}
-        <p className={styles.note}>Số liệu chỉ thuộc tiến trình đang phục vụ yêu cầu, không phải tổng tài khoản DeepSeek.</p>
+        <p className={styles.note}>Số liệu lưu trong bộ nhớ server, mất khi server khởi động lại. Số liệu chỉ thuộc tiến trình đang phục vụ yêu cầu, không phải tổng tài khoản DeepSeek.</p>
       </>}
     </section>
   );

@@ -14,9 +14,15 @@ function failure(code = 'MODEL_UNAVAILABLE') {
   return Object.assign(new Error(code), { code });
 }
 
+// Khoi's code (07/11/2026): deadline có thể là hàm để nới hạn giữa lúc stream (20s → 45s).
+function deadlineValue(deadlineAt) {
+  return typeof deadlineAt === 'function' ? deadlineAt() : deadlineAt;
+}
+
 // Tùng: không bắt đầu bước provider mới khi timer chưa kịp báo hết hạn.
 function ensureActive(signal, deadlineAt) {
-  if (signal?.aborted || (Number.isFinite(deadlineAt) && Date.now() >= deadlineAt)) throw failure('DEADLINE_EXCEEDED');
+  const at = deadlineValue(deadlineAt);
+  if (signal?.aborted || (Number.isFinite(at) && Date.now() >= at)) throw failure('DEADLINE_EXCEEDED');
 }
 
 // Tùng: bỏ từng cặp cũ thay vì cắt câu hỏi hoặc hồ sơ bắt buộc.
@@ -75,9 +81,10 @@ function observeUsage(observation, usage) {
   try { observation.current?.usage(usage); } catch { /* Không chặn chat. */ }
 }
 
-async function classifyRequest(messages, signal, deadlineAt, observation) {
+// Khoi's code (07/11/2026): nhận kind để ghi nhận riêng lần gọi duyệt đầu ra ('verifier').
+async function classifyRequest(messages, signal, deadlineAt, observation, kind = 'classifier') {
   const response = await openCompletion(messages, { signal, deadlineAt, stream: false, maxTokens: 1024,
-    json: true, observation, kind: 'classifier' });
+    json: true, observation, kind });
   try {
     ensureActive(signal, deadlineAt);
     const result = await response.json();
@@ -94,11 +101,11 @@ async function classifyRequest(messages, signal, deadlineAt, observation) {
   }
 }
 
-async function classify(messages, signal, deadlineAt) {
+async function classify(messages, signal, deadlineAt, kind = 'classifier') {
   const observation = { current: null };
   let failed = true;
   try {
-    const result = await classifyRequest(messages, signal, deadlineAt, observation);
+    const result = await classifyRequest(messages, signal, deadlineAt, observation, kind);
     failed = false;
     return result;
   } finally {

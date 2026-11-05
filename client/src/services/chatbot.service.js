@@ -90,7 +90,7 @@ function validResult(payload) {
 }
 
 // Tùng: mỗi thao tác gửi chỉ fetch một lần và đối chiếu turnId trước khi cập nhật UI.
-async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onUnauthorized } = {}) {
+async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onRetract, onUnauthorized } = {}) {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const headers = new Headers({ 'Content-Type': 'text/plain; charset=utf-8' });
   if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -136,6 +136,9 @@ async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onUn
           onDelta?.(payload.text, payload.purpose, payload.searchSubject);
         }
         else if (name === 'result' && accepted && validResult(payload)) onResult?.(payload);
+        // Khoi's code (07/11/2026): lớp duyệt không cho qua → thu hồi nội dung đã stream.
+        else if (name === 'retract' && accepted && typeof payload.text === 'string'
+          && payload.text.trim() && Array.from(payload.text).length <= 10000) onRetract?.(payload.text);
         else if (name === 'done' && accepted && payload.session && payload.limited === false) result = payload;
         else if (name === 'error' && accepted) throw new ApiError(payload.message || 'Trợ lý chưa hoàn tất.', 503, payload);
         else throw new Error('Phản hồi lượt không hợp lệ.');

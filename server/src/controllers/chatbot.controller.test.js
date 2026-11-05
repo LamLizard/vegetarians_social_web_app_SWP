@@ -307,3 +307,54 @@ test('turnV3: tìm bài trả items (tối đa 3) + câu "Mình tìm được N 
   assert.deepEqual(captured, { subject: 'đậu hũ', seenIds: [], order: 'votes', nearTerms: [] });
   assert.ok(frames.find((frame) => frame.name === 'done'));
 });
+
+test('turnV3: scope allowed stream ngay, lớp duyệt gạt → retract thay cả bong bóng', async () => {
+  stubModel();
+  const kinds = [];
+  let call = 0;
+  deepseek.classify = async (messages, signal, deadlineAt, kind) => {
+    kinds.push(kind);
+    call += 1;
+    return call === 1 ? classifierJson() : '{"verdict":"reject"}';
+  };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Nội dung ');
+    options.onDelta('bị gạt.');
+    return { complete: true, limited: false };
+  };
+  // Khoi's code (07/11/2026): chữ đầu tiên tới thì nới hạn lượt (chỉ một lần).
+  let extended = 0;
+  const req = fakeReq({ body: guestBody() });
+  req.extendTurnDeadline = () => { extended += 1; };
+  const res = fakeRes();
+  await controller.turnV3(req, res);
+
+  assert.equal(extended, 1);
+  const frames = events(res);
+  assert.deepEqual(frames.map((frame) => frame.name), ['accepted', 'delta', 'delta', 'retract', 'done']);
+  assert.equal(frames[1].data.text + frames[2].data.text, 'Nội dung bị gạt.');
+  assert.equal(frames[3].data.text,
+    'Mình chưa trả lời được câu này. Bạn thử hỏi lại ngắn gọn, tập trung vào món chay hoặc dinh dưỡng nhé.');
+  assert.deepEqual(kinds, ['classifier', 'verifier']);
+  assert.equal(releases.length, 0);
+});
+
+test('turnV3: scope mixed vẫn gom rồi mới gửi, gạt thì không có retract', async () => {
+  stubModel();
+  let call = 0;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1 ? classifierJson({ scope: 'mixed', allowedParts: ['đậu hũ'] }) : '{"verdict":"reject"}';
+  };
+  deepseek.streamAnswer = async (messages, options) => {
+    options.onDelta('Đậu hũ giàu đạm.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody({ text: 'đậu hũ có tốt không? viết code python giúp mình' }) }), res);
+
+  const frames = events(res);
+  assert.deepEqual(frames.map((frame) => frame.name), ['accepted', 'delta', 'done']);
+  assert.equal(frames[1].data.text,
+    'Mình chưa trả lời được câu này. Bạn thử hỏi lại ngắn gọn, tập trung vào món chay hoặc dinh dưỡng nhé.');
+});
