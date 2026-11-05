@@ -1,0 +1,173 @@
+// Khoi's code (05/11/2026): test các hàm thuần của lượt chatbot v3 (tách từ chatbot.controller.js).
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const {
+  validateV3, parseScopedV3Intent, isStandaloneArithmetic, vietnamDay, healthForChat,
+} = require('./chatbotTurn');
+
+const TURN_ID = '11111111-1111-4111-8111-111111111111';
+const DEVICE_ID = '22222222-2222-4222-8222-222222222222';
+const ACCOUNT = { id: 7 };
+
+function memberBody(overrides = {}) {
+  return {
+    protocol: 3, turnId: TURN_ID, text: '  Chào Mầm  ', history: [], sessionToken: 'session-token', ...overrides,
+  };
+}
+
+function guestBody(overrides = {}) {
+  return memberBody({ deviceId: DEVICE_ID, expectedDay: '2026-11-05', ...overrides });
+}
+
+// Classifier v3 trả đúng mười khoá; helper này dựng JSON hợp lệ rồi cho phép ghi đè từng khoá.
+function classifierRaw(overrides = {}) {
+  return JSON.stringify({
+    intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
+    needsWebsiteGuide: false, postMode: 'none', postOrder: 'none', nearTerms: [],
+    scope: 'allowed', allowedParts: [], ...overrides,
+  });
+}
+
+function destructure(raw, key) {
+  const value = JSON.parse(raw);
+  delete value[key];
+  return value;
+}
+
+test('validateV3: body hợp lệ của member → nhận, text được trim', () => {
+  const input = validateV3(memberBody(), ACCOUNT);
+  assert.ok(input);
+  assert.equal(input.text, 'Chào Mầm');
+  assert.deepEqual(input.history, []);
+  assert.equal(input.deviceId, undefined);
+  assert.equal(input.sessionToken, 'session-token');
+});
+
+test('validateV3: member gửi kèm deviceId hợp lệ và history theo cặp vẫn qua', () => {
+  const input = validateV3(memberBody({
+    deviceId: DEVICE_ID,
+    history: [{ sender: 'user', content: 'chào' }, { sender: 'bot', content: 'chào bạn' }],
+  }), ACCOUNT);
+  assert.ok(input);
+  assert.equal(input.history.length, 2);
+});
+
+test('validateV3: body hợp lệ của khách cần deviceId + expectedDay và giữ deviceId', () => {
+  const input = validateV3(guestBody(), null);
+  assert.ok(input);
+  assert.equal(input.deviceId, DEVICE_ID);
+  assert.equal(input.expectedDay, '2026-11-05');
+  assert.equal(validateV3(guestBody({ expectedDay: undefined }), null), null);
+  assert.equal(validateV3(guestBody({ expectedDay: '05-11-2026' }), null), null);
+});
+
+test('validateV3: history lẻ → null', () => {
+  assert.equal(validateV3(memberBody({ history: [{ sender: 'user', content: 'chào' }] }), ACCOUNT), null);
+});
+
+test('validateV3: history sai thứ tự user/bot → null', () => {
+  assert.equal(validateV3(memberBody({
+    history: [{ sender: 'bot', content: 'chào' }, { sender: 'user', content: 'ừ' }],
+  }), ACCOUNT), null);
+  assert.equal(validateV3(memberBody({
+    history: [{ sender: 'user', content: 'ừ' }, { sender: 'user', content: 'ừ' }],
+  }), ACCOUNT), null);
+});
+
+test('validateV3: text rỗng hoặc quá dài → null', () => {
+  assert.equal(validateV3(memberBody({ text: '   ' }), ACCOUNT), null);
+  assert.equal(validateV3(memberBody({ text: 'a'.repeat(10001) }), ACCOUNT), null);
+  // Ghi nhận đúng hành vi hiện tại: v3 chặn ở 10000 ký tự (validText), KHÔNG phải 1000 như v1.
+  assert.ok(validateV3(memberBody({ text: 'a'.repeat(1001) }), ACCOUNT));
+});
+
+test('validateV3: khoá thừa → null', () => {
+  assert.equal(validateV3(memberBody({ operationId: TURN_ID }), ACCOUNT), null);
+  assert.equal(validateV3(memberBody({ history: [{ sender: 'user', content: 'chào', extra: 1 }] }), ACCOUNT), null);
+});
+
+test('validateV3: protocol và turnId sai → null', () => {
+  assert.equal(validateV3(memberBody({ protocol: 2 }), ACCOUNT), null);
+  assert.equal(validateV3(memberBody({ turnId: 'abc' }), ACCOUNT), null);
+});
+
+test('validateV3: postContext phải đủ ba khoá và nhất quán state/seenIds', () => {
+  const ok = validateV3(memberBody({
+    postContext: { state: 'known', subject: 'đậu hũ', seenIds: ['12', '13'] },
+  }), ACCOUNT);
+  assert.ok(ok);
+  assert.equal(ok.postContext.seenIds.length, 2);
+  assert.equal(validateV3(memberBody({
+    postContext: { state: 'known', subject: 'đậu hũ', seenIds: ['12', '12'] },
+  }), ACCOUNT), null);
+  assert.equal(validateV3(memberBody({
+    postContext: { state: 'unknown', subject: null, seenIds: ['12'] },
+  }), ACCOUNT), null);
+});
+
+test('parseScopedV3Intent: scope allowed → giữ nguyên câu gốc, intent đã parse', () => {
+  const text = 'Gợi ý món chay từ đậu hũ và tính 25 nhân 17';
+  const result = parseScopedV3Intent(classifierRaw(), text);
+  assert.equal(result.scope, 'allowed');
+  assert.equal(result.allowedText, text);
+  assert.equal(result.intent.intent, 'chat');
+  assert.deepEqual(result.intent.nearTerms, []);
+});
+
+test('parseScopedV3Intent: scope outside → trả scope outside', () => {
+  const text = 'Tính 25 nhân 17';
+  const result = parseScopedV3Intent(classifierRaw({ scope: 'outside' }), text);
+  assert.equal(result.scope, 'outside');
+  assert.equal(result.allowedText, text);
+});
+
+test('parseScopedV3Intent: mixed có đoạn chép nguyên văn → allowedText là các đoạn đó', () => {
+  const text = 'Gợi ý món chay từ đậu hũ và tính 25 nhân 17';
+  const result = parseScopedV3Intent(classifierRaw({
+    scope: 'mixed', allowedParts: ['Gợi ý món chay từ đậu hũ'],
+  }), text);
+  assert.equal(result.scope, 'mixed');
+  assert.equal(result.allowedText, 'Gợi ý món chay từ đậu hũ');
+});
+
+test('parseScopedV3Intent: mixed mà đoạn không có trong câu gốc → uncertain', () => {
+  const text = 'Gợi ý món chay từ đậu hũ và tính 25 nhân 17';
+  const missing = parseScopedV3Intent(classifierRaw({
+    scope: 'mixed', allowedParts: ['món chay hấp'],
+  }), text);
+  assert.equal(missing.scope, 'uncertain');
+  assert.equal(missing.allowedText, null);
+  const whole = parseScopedV3Intent(classifierRaw({ scope: 'mixed', allowedParts: [text] }), text);
+  assert.equal(whole.scope, 'uncertain');
+  assert.equal(whole.allowedText, null);
+});
+
+test('parseScopedV3Intent: JSON thiếu khoá → throw MODEL_UNAVAILABLE', () => {
+  const missingKey = JSON.stringify(destructure(classifierRaw(), 'allowedParts'));
+  assert.throws(() => parseScopedV3Intent(missingKey, 'chào Mầm'), (error) => error.code === 'MODEL_UNAVAILABLE');
+  const extraKey = JSON.stringify({ ...JSON.parse(classifierRaw()), note: 'x' });
+  assert.throws(() => parseScopedV3Intent(extraKey, 'chào Mầm'), (error) => error.code === 'MODEL_UNAVAILABLE');
+  assert.throws(() => parseScopedV3Intent('không phải JSON', 'chào Mầm'), (error) => error.code === 'MODEL_UNAVAILABLE');
+});
+
+test('isStandaloneArithmetic: chỉ chặn phép tính đứng riêng', () => {
+  assert.equal(isStandaloneArithmetic('tính 25 x 17'), true);
+  assert.equal(isStandaloneArithmetic('25 nhân 17'), true);
+  assert.equal(isStandaloneArithmetic('200g đậu hũ bao nhiêu calo'), false);
+  assert.equal(isStandaloneArithmetic('chào Mầm'), false);
+});
+
+test('vietnamDay: 18:00 UTC đã sang ngày mới ở Việt Nam', () => {
+  assert.equal(vietnamDay(new Date('2026-11-04T17:00:00.000Z')), '2026-11-05');
+  assert.equal(vietnamDay(new Date('2026-11-04T16:59:00.000Z')), '2026-11-04');
+});
+
+test('healthForChat: chỉ lấy trường liên quan và đổi dị ứng thành tên', () => {
+  assert.equal(healthForChat(null), null);
+  const view = healthForChat({ gender: 'female', heightCm: 160, allergies: [{ name: 'đậu phộng' }], extra: 'x' });
+  assert.deepEqual(Object.keys(view), ['gender', 'dateOfBirth', 'heightCm', 'weightKg', 'bmi', 'bmiCategory',
+    'activityLevel', 'healthGoal', 'tdeeKcal', 'targetCaloriesKcal', 'allergies']);
+  assert.equal(view.gender, 'female');
+  assert.equal(view.weightKg, null);
+  assert.deepEqual(view.allergies, ['đậu phộng']);
+});

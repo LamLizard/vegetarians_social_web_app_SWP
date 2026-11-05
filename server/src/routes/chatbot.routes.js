@@ -41,6 +41,8 @@ function turnDeadline(req, res, next) {
 
 router.get('/quota', requireAuth, requireMember, chatbotController.getQuota);
 router.get('/quota/simple', requireAuth, requireMember, chatbotController.getSimpleQuota);
+// Khoi's code (05/11/2026): khách xem số lượt hỏi thử của thiết bị, không cần đăng nhập.
+router.get('/quota/guest', chatbotController.getGuestQuota);
 router.get('/availability', chatbotController.availability);
 router.get('/discovery/post/:id', optionalMember, chatbotController.getDiscoveryPost);
 // Tùng: chi tiết riêng yêu cầu member, giữ nguyên route preview của bảng tin.
