@@ -623,80 +623,89 @@ export default function UserProfilePage() {
               {requestError && accountSaveFeedback?.type !== 'error' && (
                 <div className={`alert mt-3 mb-3 ${styles.errorAlert}`} role="alert">{requestError}</div>
               )}
-              <p className="small text-body-secondary mt-3 mb-0">Ảnh đại diện được lưu ngay khi tải lên hoặc xóa; nút Huỷ bên dưới chỉ áp dụng cho thông tin tài khoản.</p>
               {avatarNotice && <Notice tone="info" className="mt-3">{avatarNotice}</Notice>}
 
-              <form onSubmit={handleSubmit} noValidate>
-                <div className={styles.accountFields}>
-                  <div className={styles.accountName}>
-                    <TextField
-                      id="profile-full-name"
-                      label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
-                      value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
-                      onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
-                      maxLength={30} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-30 ký tự. */
-                      error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
-                      placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
-                      onBlur={() => validateAccountFieldOnBlur('fullName')}
-                    />
+              <form className={styles.accountForm} onSubmit={handleSubmit} noValidate>
+                <section className={`${styles.accountSection} ${styles.accountInformation}`} aria-labelledby="profile-account-info-title">
+                  <h3 id="profile-account-info-title" className={styles.accountSectionTitle}>Thông tin tài khoản</h3>
+                  <div className={styles.accountFields}>
+                    <div className={styles.accountName}>
+                      <TextField
+                        id="profile-full-name"
+                        label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
+                        value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
+                        onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
+                        maxLength={30} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-30 ký tự. */
+                        error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
+                        placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
+                        onBlur={() => validateAccountFieldOnBlur('fullName')}
+                      />
+                    </div>
+                    <div className={styles.accountEmail}>
+                      <TextField
+                        className={styles.readOnlyEmail}
+                        label="Email đăng nhập"
+                        type="email"
+                        value={form.email}
+                        readOnly
+                        autoComplete="email"
+                        hint="Email được cố định từ khi tạo tài khoản và không thể chỉnh sửa tại Hồ sơ."
+                      /> {/* Duy's code: Chỉ hiển thị email tài khoản; không cho sửa từ trang Profile. */}
+                    </div>
                   </div>
+                </section>
 
-                <div className={styles.accountEmail}>
-                  <TextField
-                    label="Email đăng nhập"
-                    type="email"
-                    value={form.email}
-                    readOnly
-                    autoComplete="email"
-                    hint="Email được cố định từ khi tạo tài khoản và không thể chỉnh sửa tại Hồ sơ."
-                  /> {/* Duy's code: Chỉ hiển thị email tài khoản; không cho sửa từ trang Profile. */}
-                </div>
-                </div>
-
-                <div className={styles.accountPasswordFields}>
-                  <div>
-                    <PasswordField
-                      id="profile-new-password"
-                      label="Mật khẩu mới"
-                      value={form.password}
-                      onChange={updateField('password')}
-                      autoComplete="new-password"
-                      hint="Không dùng khoảng trắng. Bỏ trống nếu không đổi mật khẩu"
-                      error={errors.password}
-                      onBlur={() => validateAccountFieldOnBlur('password')}
-                    />
+                <section className={styles.accountSection} aria-labelledby="profile-password-title">
+                  <div className={styles.passwordSectionHeading}>
+                    <h3 id="profile-password-title" className={styles.accountSectionTitle}>Đổi mật khẩu</h3>
+                    <span className={styles.optionalLabel}>Không bắt buộc</span>
                   </div>
-                  <div>
-                    <PasswordField
-                      id="profile-confirm-password"
-                      label="Xác nhận mật khẩu mới"
-                      value={form.confirmPassword}
-                      onChange={updateField('confirmPassword')}
-                      autoComplete="new-password"
-                      hint="Không dùng khoảng trắng. Chỉ bắt buộc khi đổi mật khẩu"
-                      error={errors.confirmPassword}
-                      onBlur={() => validateAccountFieldOnBlur('confirmPassword')}
-                    />
+                  <p className={styles.passwordSectionHint}>
+                    Bỏ trống nếu không đổi mật khẩu. Mật khẩu 8 đến 20 ký tự, không chứa khoảng trắng, không trùng email.
+                  </p>
+                  <div className={styles.accountPasswordFields}>
+                    <div className={styles.currentPasswordField}>
+                      <PasswordField
+                        id="profile-current-password"
+                        label="Mật khẩu hiện tại (bắt buộc khi đổi mật khẩu)"
+                        value={form.currentPassword}
+                        onChange={updateField('currentPassword')}
+                        autoComplete="current-password"
+                        error={errors.currentPassword}
+                        onBlur={() => validateAccountFieldOnBlur('currentPassword')}
+                      />
+                    </div>
+                    <div className={styles.newPasswordField}>
+                      <PasswordField
+                        id="profile-new-password"
+                        label="Mật khẩu mới"
+                        value={form.password}
+                        onChange={updateField('password')}
+                        autoComplete="new-password"
+                        error={errors.password}
+                        onBlur={() => validateAccountFieldOnBlur('password')}
+                      />
+                    </div>
+                    <div className={styles.confirmPasswordField}>
+                      <PasswordField
+                        id="profile-confirm-password"
+                        label="Xác nhận mật khẩu mới"
+                        value={form.confirmPassword}
+                        onChange={updateField('confirmPassword')}
+                        autoComplete="new-password"
+                        error={errors.confirmPassword}
+                        onBlur={() => validateAccountFieldOnBlur('confirmPassword')}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <PasswordField
-                      id="profile-current-password"
-                      label="Mật khẩu hiện tại"
-                      value={form.currentPassword}
-                      onChange={updateField('currentPassword')}
-                      autoComplete="current-password"
-                      hint="Bắt buộc khi đổi mật khẩu"
-                      error={errors.currentPassword}
-                      onBlur={() => validateAccountFieldOnBlur('currentPassword')}
-                    />
+                </section>
+
+                <div className={styles.accountFooter}>
+                  <div className="d-flex justify-content-end gap-2">
+                    <button type="button" className="btn btn-outline-secondary" onClick={handleCancel} disabled={saving}>Huỷ</button>
+                    <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thông tin'}</button>
                   </div>
                 </div>
-
-                <div className="d-flex justify-content-end gap-2 mt-4">
-                  <button type="button" className="btn btn-outline-secondary" onClick={handleCancel} disabled={saving}>Huỷ</button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thông tin'}</button>
-                </div>
-
               </form>
               </section>
               )}
@@ -761,7 +770,7 @@ export default function UserProfilePage() {
                               hint="Chỉ dùng để chọn công thức ước tính năng lượng."
                             />
                           </div>
-                          <div className={styles.healthFieldRow}>
+                          <div className={`${styles.healthFieldRow} ${styles.dateOfBirthRow}`}>
                             <span className={styles.healthFieldLabel} id="health-date-of-birth-label">Ngày sinh</span>
                             <fieldset
                               className="border-0 p-0 m-0 w-100"
@@ -771,10 +780,10 @@ export default function UserProfilePage() {
                               aria-describedby={healthFieldErrors.dateOfBirth ? 'health-date-of-birth-error' : undefined}
                               onBlur={handleDateOfBirthBlur}
                             >
-                              <div className="row g-2">
-                                <div className="col-4">
+                              <div className={styles.dateOfBirthFields}>
+                                <div>
                                   <select
-                                    className="form-select"
+                                    className={`form-select ${styles.dateOfBirthSelect}`}
                                     id="health-date-of-birth-day"
                                     aria-label="Ngày sinh — ngày"
                                     value={healthDateParts.day}
@@ -786,9 +795,9 @@ export default function UserProfilePage() {
                                     ))}
                                   </select>
                                 </div>
-                                <div className="col-4">
+                                <div>
                                   <select
-                                    className="form-select"
+                                    className={`form-select ${styles.dateOfBirthSelect}`}
                                     id="health-date-of-birth-month"
                                     aria-label="Ngày sinh — tháng"
                                     value={healthDateParts.month}
@@ -800,7 +809,7 @@ export default function UserProfilePage() {
                                     ))}
                                   </select>
                                 </div>
-                                <div className="col-4">
+                                <div className={styles.dateOfBirthYear}>
                                   <TextField
                                     id="health-date-of-birth-year"
                                     type="text"
@@ -918,6 +927,11 @@ export default function UserProfilePage() {
                         <p className="small text-body-secondary mb-3">
                           Các kết quả thay đổi theo thông tin bạn nhập.
                         </p>
+                        {healthForm.gender === 'other' && (
+                          <Notice tone="info" className="mb-3">
+                            BMI vẫn tính được khi đủ chiều cao và cân nặng. Ứng dụng không tự chọn công thức nam/nữ nên BMR, TDEE và mục tiêu calo sẽ để trống.
+                          </Notice>
+                        )}
                         <div className={styles.healthResultsLayout}>
                           <div>
                             <div className={styles.healthMetricRow}>
@@ -960,32 +974,26 @@ export default function UserProfilePage() {
                               </p>
                             </div>
                           </div>
-
-                          <aside className={styles.healthExplanation} aria-label="Giải thích các chỉ số">
-                            <h5 className="h6">Giải thích đơn giản</h5>
-                            <p className="small">
-                              <strong>BMI</strong> so sánh cân nặng với chiều cao. Nhóm BMI chỉ để tham khảo cho người lớn, không phải chẩn đoán.
-                            </p>
-                            <p className="small">
-                              <strong>BMR</strong> là năng lượng cơ thể ước tính cần khi nghỉ ngơi.
-                            </p>
-                            <p className="small">
-                              <strong>TDEE</strong> là năng lượng ước tính tiêu hao trong ngày, đã tính mức vận động; không có nghĩa bạn bắt buộc phải ăn đúng con số đó.
-                            </p>
-                            <p className="small mb-0">
-                              <strong>Mục tiêu calo</strong> là TDEE được điều chỉnh theo lựa chọn của bạn: giảm cân giảm 15%, duy trì giữ nguyên, tăng cơ cộng 200 kcal. Đây là ước tính, không cam kết kết quả.
-                            </p>
-                          </aside>
+                        <aside className={styles.healthExplanation} aria-label="Giải thích các chỉ số">
+                          <h5 className="h6">Giải thích đơn giản</h5>
+                          <p className="small">
+                            <strong>BMI</strong> so sánh cân nặng với chiều cao. Nhóm BMI chỉ để tham khảo cho người lớn, không phải chẩn đoán.
+                          </p>
+                          <p className="small">
+                            <strong>BMR</strong> là năng lượng cơ thể ước tính cần khi nghỉ ngơi.
+                          </p>
+                          <p className="small">
+                            <strong>TDEE</strong> là năng lượng ước tính tiêu hao trong ngày, đã tính mức vận động; không có nghĩa bạn bắt buộc phải ăn đúng con số đó.
+                          </p>
+                          <p className="small mb-0">
+                            <strong>Mục tiêu calo</strong> là TDEE được điều chỉnh theo lựa chọn của bạn: giảm cân giảm 15%, duy trì giữ nguyên, tăng cơ cộng 200 kcal. Đây là ước tính, không cam kết kết quả.
+                          </p>
+                        </aside>
                         </div>
-                        {healthForm.gender === 'other' && (
-                          <Notice tone="info" className="mt-3">
-                            BMI vẫn tính được khi đủ chiều cao và cân nặng. Ứng dụng không tự chọn công thức nam/nữ nên BMR, TDEE và mục tiêu calo sẽ để trống.
-                          </Notice>
-                        )}
                       </section>
                     </div>
 
-                    <Notice tone="info" title="Thông tin hồ sơ sức khỏe" className="mt-3">
+                    <Notice tone="info" title="Thông tin hồ sơ sức khỏe" className={styles.healthInfoNotice}>
                       Thông tin bạn lưu sẽ được giữ trong hồ sơ tài khoản để hiển thị và tính các chỉ số tham khảo; các chỉ số này không thay thế tư vấn y tế.
                     </Notice>
 
