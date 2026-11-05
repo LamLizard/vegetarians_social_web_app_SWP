@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button, ConfirmDialog, ImageUpload, Modal, Notice, PasswordField, Select, Tabs, TextField,
 } from '../components'; /* Duy's code: Dùng component kit cho hồ sơ tài khoản và sức khỏe. */
@@ -14,6 +14,67 @@ import styles from './UserProfilePage.module.css'; /* Duy's code: Áp dụng mà
 const FULL_NAME_REGEX = /^[\p{L}\p{M}]+(?:[ .,'’-]+[\p{L}\p{M}]+)*$/u; /* Duy's code: Cho phép họ tên có chữ Unicode và dấu tiếng Việt. */
 
 const normalizeFullName = (value) => String(value ?? '').normalize('NFC').trim().replace(/\s+/gu, ' '); /* Duy's code: Chuẩn hoá khoảng trắng và dấu trước khi gửi API. */
+const DATE_OF_BIRTH_MIN = '1900-01-01';
+const DATE_OF_BIRTH_ERROR = 'Ngày sinh phải từ 01/01/1900 đến hôm nay.';
+const DATE_OF_BIRTH_PARTIAL_ERROR = 'Nhập đầy đủ ngày, tháng và năm sinh.';
+const emptyDateOfBirthParts = { day: '', month: '', year: '' };
+
+function todayInHoChiMinh() {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const dateParts = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+}
+
+function validateDateOfBirth(value, today) {
+  if (!value) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+  if (!match) return 'Ngày sinh không hợp lệ.';
+
+  const [, yearText, monthText, dayText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12) return 'Ngày sinh không hợp lệ.';
+  if (day < 1 || day > daysInMonth[month - 1]) {
+    return `Ngày sinh không hợp lệ: tháng ${month} năm ${year} không có ngày ${day}.`;
+  }
+  if (value < DATE_OF_BIRTH_MIN || value > today) return DATE_OF_BIRTH_ERROR;
+  return '';
+}
+
+function splitDateOfBirth(value) {
+  if (!value) return emptyDateOfBirthParts;
+  const [year = '', month = '', day = '', ...remaining] = String(value).split('-');
+  if (remaining.length || !/^\d{4}$/u.test(year) || !/^\d{2}$/u.test(month) || !/^\d{2}$/u.test(day)) {
+    return emptyDateOfBirthParts;
+  }
+  return { day: String(Number(day)), month: String(Number(month)), year };
+}
+
+function dateOfBirthValue(parts) {
+  if (!parts.day || !parts.month || !parts.year) return '';
+  return `${parts.year}-${parts.month.padStart(2, '0')}-${parts.day.padStart(2, '0')}`;
+}
+
+function validateDateOfBirthParts(parts, today) {
+  const { day, month, year } = parts;
+  if (!day && !month && !year) return { error: '', focusField: null };
+
+  const firstMissing = ['day', 'month', 'year'].find((field) => !parts[field]);
+  if (firstMissing) return { error: DATE_OF_BIRTH_PARTIAL_ERROR, focusField: firstMissing };
+  if (!/^\d{4}$/u.test(year)) return { error: 'Năm sinh phải gồm 4 chữ số.', focusField: 'year' };
+
+  const value = dateOfBirthValue(parts);
+  const error = validateDateOfBirth(value, today);
+  if (!error) return { error: '', focusField: null };
+  const focusField = error === DATE_OF_BIRTH_ERROR ? 'year' : 'day';
+  return { error, focusField };
+}
+
 const emptyHealthForm = {
   gender: '',
   dateOfBirth: '',
@@ -34,15 +95,14 @@ const toHealthForm = (profile) => ({
   allergies: (profile?.allergies || []).map((allergy) => allergy.name),
 });
 
-// Duy's code: Tính tuổi đủ năm theo sinh nhật để gửi đầu vào nhất quán lên preview.
-function ageFromDate(dateOfBirth) {
+// Duy's code: Tính tuổi đủ năm từ chuỗi ngày sinh để preview khớp ngày hiện tại tại Việt Nam.
+function ageFromDate(dateOfBirth, today) {
   if (!dateOfBirth) return null;
-  const birth = new Date(`${dateOfBirth}T00:00:00.000Z`);
-  if (Number.isNaN(birth.getTime())) return null;
-  const today = new Date();
-  let age = today.getUTCFullYear() - birth.getUTCFullYear();
-  if (today.getUTCMonth() < birth.getUTCMonth()
-    || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age -= 1;
+  if (validateDateOfBirth(dateOfBirth, today)) return null;
+  const [birthYear, birthMonth, birthDay] = dateOfBirth.split('-').map(Number);
+  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+  let age = todayYear - birthYear;
+  if (todayMonth < birthMonth || (todayMonth === birthMonth && todayDay < birthDay)) age -= 1;
   return age >= 0 ? age : null;
 }
 
@@ -55,6 +115,61 @@ const defaultValues = {
   confirmPassword: '',
 };
 
+function scrollToSavedBanner(bannerRef) {
+  const frameId = window.requestAnimationFrame(() => {
+    const banner = bannerRef.current;
+    if (!banner) return;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    banner.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    banner.focus({ preventScroll: true });
+  });
+  return () => window.cancelAnimationFrame(frameId);
+}
+
+function summarizeErrors(messages, fallback = '') {
+  const errors = Array.isArray(messages)
+    ? messages.filter((message) => typeof message === 'string' && message.trim())
+    : [];
+  const allErrors = errors.length ? errors : (fallback ? [fallback] : []);
+  const visibleErrors = allErrors.slice(0, 3);
+  const summary = visibleErrors.join(' ');
+  const remaining = allErrors.length - visibleErrors.length;
+  return remaining > 0 ? `${summary} và ${remaining} lỗi khác.` : summary;
+}
+
+function normalizeOptionalMeasurement(value) {
+  const text = String(value ?? '').trim();
+  return text ? text.replace(',', '.') : '';
+}
+
+function validateMeasurement(value, label, unit, min, max) {
+  const normalized = normalizeOptionalMeasurement(value);
+  if (!normalized) return '';
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/u.test(normalized)) {
+    return `${label} phải là số từ ${min} đến ${max} ${unit}.`;
+  }
+  const number = Number(normalized);
+  return Number.isFinite(number) && number >= min && number <= max
+    ? ''
+    : `${label} phải là số từ ${min} đến ${max} ${unit}.`;
+}
+
+function normalizeAllergies(allergies = []) {
+  return allergies
+    .map((name) => (typeof name === 'string' ? name.normalize('NFC').trim().replace(/\s+/gu, ' ') : ''))
+    .filter(Boolean)
+    .filter((name, index, items) => items.findIndex(
+      (candidate) => candidate.toLocaleLowerCase('vi') === name.toLocaleLowerCase('vi'),
+    ) === index);
+}
+
+function validateAllergies(allergies) {
+  if (!Array.isArray(allergies) || allergies.length > 50) return 'Chọn tối đa 50 mục dị ứng.';
+  if (allergies.some((name) => typeof name !== 'string')) return 'Tên dị ứng phải là nội dung dạng chữ.';
+  if (allergies.some((name) => [...name].length > 120)) return 'Tên dị ứng không được vượt quá 120 ký tự.';
+  return '';
+}
+
 function validateProfile(values) { /* Duy's code: Chỉ xác thực các trường tài khoản được phép chỉnh sửa. */
   const errors = {};
 
@@ -63,38 +178,45 @@ function validateProfile(values) { /* Duy's code: Chỉ xác thực các trườ
     errors.fullName = 'Họ và tên phải dài 2-30 ký tự, chỉ gồm chữ, khoảng trắng và dấu phân cách tên hợp lệ.'; /* Duy's code: Hiển thị lỗi phù hợp với tên đầy đủ. */
   }
 
-  if (values.password && values.password.toLowerCase() === String(values.email ?? '').toLowerCase()) { /* Duy's code: Không cho mật khẩu mới trùng email đăng nhập đã khóa. */
-    errors.password = 'Password không được trùng với email đăng nhập';
+  if (values.password) {
+    if (/\s/u.test(values.password)) {
+      errors.password = 'Mật khẩu mới không được chứa khoảng trắng.';
+    } else if (values.password.length < 8 || values.password.length > 20) {
+      errors.password = 'Password phải có độ dài 8-20 ký tự';
+    } else if (values.password.toLowerCase() === String(values.email ?? '').toLowerCase()) {
+      errors.password = 'Password không được trùng với email đăng nhập';
+    } else if (values.currentPassword && values.password === values.currentPassword) {
+      errors.password = 'Mật khẩu mới không được trùng với mật khẩu hiện tại.';
+    }
+
+    if (!values.currentPassword) errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận thay đổi';
   }
 
-  if (values.password && /\s/u.test(values.password)) { /* Duy's code: Cấm khoảng trắng trong mật khẩu mới. */
-    errors.password = 'Mật khẩu mới không được chứa khoảng trắng.'; /* Duy's code: Báo lỗi ngay tại ô mật khẩu mới. */
-  }
-
-  if (values.confirmPassword && /\s/u.test(values.confirmPassword)) { /* Duy's code: Cấm khoảng trắng trong ô xác nhận mật khẩu mới. */
-    errors.confirmPassword = 'Mật khẩu xác nhận không được chứa khoảng trắng.'; /* Duy's code: Báo lỗi ngay tại ô xác nhận. */
-  }
-
-  if (values.password && !values.currentPassword) { /* Duy's code: Chỉ yêu cầu xác nhận mật khẩu khi đổi mật khẩu. */
-    errors.currentPassword = 'Nhập mật khẩu hiện tại để xác nhận thay đổi'; /* Duy's code: Hiển thị yêu cầu xác nhận. */
-  }
-
-  if (values.password && (values.password.length < 8 || values.password.length > 20)) {
-    errors.password = 'Password phải có độ dài 8-20 ký tự';
-  }
-
-  if (values.password && !values.confirmPassword) {
+  if (values.confirmPassword) {
+    if (/\s/u.test(values.confirmPassword)) {
+      errors.confirmPassword = 'Mật khẩu xác nhận không được chứa khoảng trắng.';
+    } else if (!values.password) {
+      errors.confirmPassword = 'Hãy nhập mật khẩu trước khi xác nhận';
+    } else if (values.password !== values.confirmPassword) {
+      errors.confirmPassword = 'Mật khẩu xác nhận không khớp';
+    }
+  } else if (values.password) {
     errors.confirmPassword = 'Vui lòng xác nhận lại mật khẩu';
   }
 
-  if (values.password && values.password !== values.confirmPassword) {
-    errors.confirmPassword = 'Mật khẩu xác nhận không khớp';
-  }
+  return errors;
+}
 
-  if (!values.password && values.confirmPassword) {
-    errors.confirmPassword = 'Hãy nhập mật khẩu trước khi xác nhận';
-  }
-
+function validateHealthProfile(values, dateParts, today) {
+  const errors = {};
+  const dateOfBirthError = validateDateOfBirthParts(dateParts, today).error;
+  const heightError = validateMeasurement(values.heightCm, 'Chiều cao', 'cm', 50, 250);
+  const weightError = validateMeasurement(values.weightKg, 'Cân nặng', 'kg', 10, 500);
+  const allergiesError = validateAllergies(values.allergies);
+  if (dateOfBirthError) errors.dateOfBirth = dateOfBirthError;
+  if (heightError) errors.heightCm = heightError;
+  if (weightError) errors.weightKg = weightError;
+  if (allergiesError) errors.allergies = allergiesError;
   return errors;
 }
 
@@ -115,6 +237,9 @@ export default function UserProfilePage() {
   const [savedProfile, setSavedProfile] = useState(defaultValues);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [accountSaveResultCount, setAccountSaveResultCount] = useState(0);
+  const [accountSaveFeedback, setAccountSaveFeedback] = useState(null);
+  const accountFeedbackBannerRef = useRef(null);
   const [requestError, setRequestError] = useState('');
   const [avatarNotice, setAvatarNotice] = useState('');
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -122,21 +247,37 @@ export default function UserProfilePage() {
   const [healthLoading, setHealthLoading] = useState(true);
   const [healthLoadFailed, setHealthLoadFailed] = useState(false);
   const [healthSaving, setHealthSaving] = useState(false);
+  const [healthSaveResultCount, setHealthSaveResultCount] = useState(0);
+  const [healthSaveFeedback, setHealthSaveFeedback] = useState(null);
+  const healthFeedbackBannerRef = useRef(null);
   const [healthDeleting, setHealthDeleting] = useState(false);
   const [healthDeleteOpen, setHealthDeleteOpen] = useState(false);
   const [healthError, setHealthError] = useState('');
+  const [healthFieldErrors, setHealthFieldErrors] = useState({});
+  const [healthDateParts, setHealthDateParts] = useState(emptyDateOfBirthParts);
   const [healthNotice, setHealthNotice] = useState('');
   const [ageWarningOpen, setAgeWarningOpen] = useState(false);
   const [ageWarningAcceptedDob, setAgeWarningAcceptedDob] = useState('');
 
+  const today = todayInHoChiMinh();
   const healthPreview = calcHealth({
     gender: healthForm.gender,
-    age: ageFromDate(healthForm.dateOfBirth),
+    age: ageFromDate(healthForm.dateOfBirth, today),
     heightCm: healthForm.heightCm,
     weightKg: healthForm.weightKg,
     activityLevel: healthForm.activityLevel,
     goal: healthForm.healthGoal,
   });
+
+  useEffect(() => {
+    if (!accountSaveResultCount || saving || !accountSaveFeedback) return undefined;
+    return scrollToSavedBanner(accountFeedbackBannerRef);
+  }, [accountSaveResultCount, saving, accountSaveFeedback]);
+
+  useEffect(() => {
+    if (!healthSaveResultCount || healthSaving || !healthSaveFeedback) return undefined;
+    return scrollToSavedBanner(healthFeedbackBannerRef);
+  }, [healthSaveResultCount, healthSaving, healthSaveFeedback]);
 
   // Duy's code: Tải hồ sơ tài khoản khi mở trang và bỏ qua cập nhật khi unmount.
   useEffect(() => {
@@ -166,7 +307,9 @@ export default function UserProfilePage() {
         if (!active) return;
         setHealthLoadFailed(false);
         if (result.profile) {
-          setHealthForm(toHealthForm(result.profile));
+          const values = toHealthForm(result.profile);
+          setHealthForm(values);
+          setHealthDateParts(splitDateOfBirth(values.dateOfBirth));
         }
       })
       .catch((error) => {
@@ -187,7 +330,9 @@ export default function UserProfilePage() {
     setHealthError('');
     try {
       const result = await getHealthProfile();
-      setHealthForm(result.profile ? toHealthForm(result.profile) : emptyHealthForm);
+      const values = result.profile ? toHealthForm(result.profile) : emptyHealthForm;
+      setHealthForm(values);
+      setHealthDateParts(splitDateOfBirth(values.dateOfBirth));
     } catch (error) {
       setHealthLoadFailed(true);
       setHealthError(error.message);
@@ -201,6 +346,20 @@ export default function UserProfilePage() {
     setErrors((prev) => ({ ...prev, [field]: undefined }));
     setSubmitted(false);
     setRequestError('');
+    setAccountSaveFeedback(null);
+  };
+
+  const validateAccountFieldOnBlur = (field) => {
+    const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName) };
+    const nextErrors = validateProfile(normalizedForm);
+    const fields = field === 'fullName'
+      ? ['fullName']
+      : ['password', 'confirmPassword', 'currentPassword'];
+    setErrors((current) => {
+      const next = { ...current };
+      fields.forEach((name) => { next[name] = nextErrors[name]; });
+      return next;
+    });
   };
 
   // Duy's code: Gọi service upload Cloudinary rồi đồng bộ avatar mới vào state trang.
@@ -240,17 +399,43 @@ export default function UserProfilePage() {
   // Duy's code: Cập nhật trường sức khỏe và xóa thông báo lỗi cũ khi sửa dữ liệu.
   const updateHealthField = (field) => (value) => {
     setHealthForm((current) => ({ ...current, [field]: value }));
+    setHealthFieldErrors((current) => ({ ...current, [field]: undefined }));
     setHealthError('');
     setHealthNotice('');
+    setHealthSaveFeedback(null);
+  };
+
+  const updateDateOfBirthPart = (field) => (value) => {
+    const nextParts = { ...healthDateParts, [field]: value };
+    setHealthDateParts(nextParts);
+    setHealthForm((current) => ({ ...current, dateOfBirth: dateOfBirthValue(nextParts) }));
+    setHealthFieldErrors((current) => ({ ...current, dateOfBirth: undefined }));
+    setHealthError('');
+    setHealthNotice('');
+    setHealthSaveFeedback(null);
+  };
+
+  const handleDateOfBirthBlur = (event) => {
+    if (event.currentTarget.contains(event.relatedTarget)) return;
+    const { error } = validateDateOfBirthParts(healthDateParts, today);
+    setHealthFieldErrors((current) => ({ ...current, dateOfBirth: error || undefined }));
+  };
+
+  const validateHealthFieldOnBlur = (field) => {
+    const errorsForForm = validateHealthProfile(healthForm, healthDateParts, today);
+    setHealthFieldErrors((current) => ({ ...current, [field]: errorsForForm[field] }));
   };
 
   const confirmDeleteHealthProfile = async () => {
     setHealthDeleting(true);
     setHealthError('');
     setHealthNotice('');
+    setHealthSaveFeedback(null);
     try {
       await deleteHealthProfile();
       setHealthForm(emptyHealthForm);
+      setHealthDateParts(emptyDateOfBirthParts);
+      setHealthFieldErrors({});
       setHealthDeleteOpen(false);
       setHealthNotice('Hồ sơ sức khỏe và danh sách dị ứng đã được xóa.');
     } catch (error) {
@@ -264,16 +449,34 @@ export default function UserProfilePage() {
   const saveHealthForm = async (ageWarningAccepted = false) => {
     setHealthError('');
     setHealthNotice('');
+    setHealthSaveFeedback(null);
     setHealthSaving(true);
     try {
       const result = await saveHealthProfile({
         ...healthForm,
+        heightCm: normalizeOptionalMeasurement(healthForm.heightCm),
+        weightKg: normalizeOptionalMeasurement(healthForm.weightKg),
+        allergies: normalizeAllergies(healthForm.allergies),
         ageWarningAccepted,
       });
-      setHealthForm(toHealthForm(result.profile));
+      const values = toHealthForm(result.profile);
+      setHealthForm(values);
+      setHealthDateParts(splitDateOfBirth(values.dateOfBirth));
       setHealthNotice('Hồ sơ sức khỏe đã được lưu.');
+      setHealthSaveFeedback({ type: 'success' });
+      setHealthSaveResultCount((count) => count + 1);
     } catch (error) {
-      setHealthError(error.message);
+      const summary = summarizeErrors(error.details?.errors, error.message);
+      const serverField = error.details?.field;
+      if (['dateOfBirth', 'heightCm', 'weightKg', 'allergies'].includes(serverField)) {
+        const fieldMessage = serverField === 'dateOfBirth'
+          ? error.message
+          : (Array.isArray(error.details?.errors) ? error.details.errors[0] : error.message);
+        setHealthFieldErrors((current) => ({ ...current, [serverField]: fieldMessage || error.message }));
+      }
+      setHealthError(summary || error.message);
+      setHealthSaveFeedback({ type: 'error' });
+      setHealthSaveResultCount((count) => count + 1);
     } finally {
       setHealthSaving(false);
     }
@@ -284,7 +487,16 @@ export default function UserProfilePage() {
     event.preventDefault();
     setHealthError('');
     setHealthNotice('');
-    const age = ageFromDate(healthForm.dateOfBirth);
+    setHealthSaveFeedback(null);
+    const nextErrors = validateHealthProfile(healthForm, healthDateParts, today);
+    setHealthFieldErrors(nextErrors);
+    if (hasErrors(nextErrors)) {
+      setHealthError(summarizeErrors(Object.values(nextErrors)));
+      setHealthSaveFeedback({ type: 'error' });
+      setHealthSaveResultCount((count) => count + 1);
+      return;
+    }
+    const age = ageFromDate(healthForm.dateOfBirth, today);
     const isMinor = age !== null && age < 18;
     if (isMinor && ageWarningAcceptedDob !== healthForm.dateOfBirth) {
       setAgeWarningOpen(true);
@@ -303,6 +515,7 @@ export default function UserProfilePage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setAccountSaveFeedback(null);
     const normalizedForm = { ...form, fullName: normalizeFullName(form.fullName) }; /* Duy's code: Chuẩn hoá họ tên trước khi validate và lưu. */
     const nextErrors = validateProfile(normalizedForm); /* Duy's code: Kiểm tra các trường hồ sơ có thể thay đổi. */
     setErrors(nextErrors);
@@ -310,6 +523,8 @@ export default function UserProfilePage() {
     setRequestError('');
 
     if (hasErrors(nextErrors)) {
+      setAccountSaveFeedback({ type: 'error', message: summarizeErrors(Object.values(nextErrors)) });
+      setAccountSaveResultCount((count) => count + 1);
       return;
     }
 
@@ -324,8 +539,12 @@ export default function UserProfilePage() {
       const nextProfile = { ...defaultValues, ...updated };
       setSavedProfile(nextProfile);
       setForm(nextProfile);
+      setAccountSaveFeedback({ type: 'success' });
+      setAccountSaveResultCount((count) => count + 1);
     } catch (error) {
       setRequestError(error.message);
+      setAccountSaveFeedback({ type: 'error', message: summarizeErrors(error.details?.errors, error.message) });
+      setAccountSaveResultCount((count) => count + 1);
     } finally {
       setSaving(false);
     }
@@ -336,20 +555,19 @@ export default function UserProfilePage() {
     setErrors({});
     setRequestError('');
     setSubmitted(false);
+    setAccountSaveFeedback(null);
   };
 
   if (loading) return (
-    <div className={`container py-4 ${styles.page}`}>
+    <div className={`${styles.page} py-4`}>
       <ProfileBackNavigation /> {/* Duy's code: Luôn hiển thị đường quay lại khi dữ liệu đang tải. */}
       <div className="py-4 text-center">Đang tải hồ sơ...</div>
     </div>
   );
 
   return (
-    <div className={`container py-4 ${styles.page}`}>
+    <div className={`${styles.page} py-4`}>
       <ProfileBackNavigation /> {/* Duy's code: Hiển thị thanh quay lại phía trên trang hồ sơ. */}
-      <div className="row justify-content-center">
-        <div className="col-12 col-xxl-10">
           <div className={`card shadow-sm border-0 ${styles.card}`}>
             <div className="card-body p-4 p-lg-5">
               <div className="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
@@ -357,7 +575,7 @@ export default function UserProfilePage() {
                   <p className={`text-uppercase small mb-1 ${styles.eyebrow}`}>Profile</p>
                   <h2 className={`mb-0 ${styles.title}`}>User Profile</h2>
                 </div>
-                <div className="d-flex align-items-center gap-3">
+                <div className={`d-flex align-items-center gap-3 ${styles.profileIdentity}`}>
                   <Button
                     type="button"
                     variant="outline"
@@ -390,24 +608,40 @@ export default function UserProfilePage() {
               {/* Duy's code: Tab tài khoản chứa ảnh đại diện và thông tin đăng nhập. */}
               {activeTab === 'account' && (
               <section id="profile-account-panel" role="tabpanel" aria-labelledby="profile-account-tab" tabIndex="0">
+              {accountSaveFeedback && submitted && (accountSaveFeedback.type === 'error' || !requestError) && (
+                <div
+                  ref={accountFeedbackBannerRef}
+                  className={`alert mt-3 mb-3 ${accountSaveFeedback.type === 'error' ? styles.errorAlert : styles.successAlert}`}
+                  role={accountSaveFeedback.type === 'error' ? 'alert' : 'status'}
+                  aria-live={accountSaveFeedback.type === 'error' ? 'assertive' : 'polite'}
+                  tabIndex={-1}
+                  style={{ scrollMarginTop: '80px' }}
+                >
+                  {accountSaveFeedback.type === 'error' ? accountSaveFeedback.message : 'Thông tin hồ sơ đã được lưu.'}
+                </div>
+              )}
+              {requestError && accountSaveFeedback?.type !== 'error' && (
+                <div className={`alert mt-3 mb-3 ${styles.errorAlert}`} role="alert">{requestError}</div>
+              )}
               <p className="small text-body-secondary mt-3 mb-0">Ảnh đại diện được lưu ngay khi tải lên hoặc xóa; nút Huỷ bên dưới chỉ áp dụng cho thông tin tài khoản.</p>
               {avatarNotice && <Notice tone="info" className="mt-3">{avatarNotice}</Notice>}
 
               <form onSubmit={handleSubmit} noValidate>
-                <div className="row g-3 mt-1">
-                  <div className="col-12">
+                <div className={styles.accountFields}>
+                  <div className={styles.accountName}>
                     <TextField
+                      id="profile-full-name"
                       label="Họ và tên hiển thị" /* Duy's code: Thể hiện đây là tên thật hiển thị, không phải email đăng nhập. */
                       value={form.fullName} /* Duy's code: Liên kết ô tên với account.full_name. */
                       onChange={updateField('fullName')} /* Duy's code: Cập nhật trường fullName trong form. */
                       maxLength={30} /* Duy's code: Giới hạn tên theo quy tắc hồ sơ 2-30 ký tự. */
                       error={errors.fullName} /* Duy's code: Hiển thị lỗi xác thực họ tên. */
                       placeholder="Ví dụ: Nguyễn Thảo Linh" /* Duy's code: Minh hoạ họ tên có dấu và khoảng trắng. */
+                      onBlur={() => validateAccountFieldOnBlur('fullName')}
                     />
                   </div>
-                </div>
 
-                <div className="mt-3">
+                <div className={styles.accountEmail}>
                   <TextField
                     label="Email đăng nhập"
                     type="email"
@@ -417,36 +651,43 @@ export default function UserProfilePage() {
                     hint="Email được cố định từ khi tạo tài khoản và không thể chỉnh sửa tại Hồ sơ."
                   /> {/* Duy's code: Chỉ hiển thị email tài khoản; không cho sửa từ trang Profile. */}
                 </div>
+                </div>
 
-                <div className="d-flex flex-column gap-3 mt-3">
+                <div className={styles.accountPasswordFields}>
                   <div>
                     <PasswordField
+                      id="profile-new-password"
                       label="Mật khẩu mới"
                       value={form.password}
                       onChange={updateField('password')}
                       autoComplete="new-password"
                       hint="Không dùng khoảng trắng. Bỏ trống nếu không đổi mật khẩu"
                       error={errors.password}
+                      onBlur={() => validateAccountFieldOnBlur('password')}
                     />
                   </div>
                   <div>
                     <PasswordField
+                      id="profile-confirm-password"
                       label="Xác nhận mật khẩu mới"
                       value={form.confirmPassword}
                       onChange={updateField('confirmPassword')}
                       autoComplete="new-password"
                       hint="Không dùng khoảng trắng. Chỉ bắt buộc khi đổi mật khẩu"
                       error={errors.confirmPassword}
+                      onBlur={() => validateAccountFieldOnBlur('confirmPassword')}
                     />
                   </div>
                   <div>
                     <PasswordField
+                      id="profile-current-password"
                       label="Mật khẩu hiện tại"
                       value={form.currentPassword}
                       onChange={updateField('currentPassword')}
                       autoComplete="current-password"
                       hint="Bắt buộc khi đổi mật khẩu"
                       error={errors.currentPassword}
+                      onBlur={() => validateAccountFieldOnBlur('currentPassword')}
                     />
                   </div>
                 </div>
@@ -456,10 +697,6 @@ export default function UserProfilePage() {
                   <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thông tin'}</button>
                 </div>
 
-                {requestError && <div className={`alert mt-4 mb-0 ${styles.errorAlert}`} role="alert">{requestError}</div>}
-                {submitted && Object.keys(errors).length === 0 && (
-                  !requestError && !saving && <div className={`alert mt-4 mb-0 ${styles.successAlert}`}>Thông tin hồ sơ đã được lưu.</div>
-                )}
               </form>
               </section>
               )}
@@ -471,8 +708,30 @@ export default function UserProfilePage() {
                 <p className="text-body-secondary">
                   Thông tin này là riêng tư, chỉ dùng cho tài khoản của bạn. Trường không bắt buộc; chỉ số sẽ không được ước tính nếu thiếu dữ liệu cần thiết.
                 </p>
-                {healthError && <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>}
-                {healthNotice && <Notice tone="success" className="mb-3">{healthNotice}</Notice>}
+                {healthError && (healthSaveFeedback?.type === 'error' ? (
+                  <div
+                    ref={healthFeedbackBannerRef}
+                    aria-label={healthError}
+                    role="alert"
+                    aria-live="assertive"
+                    tabIndex={-1}
+                    style={{ scrollMarginTop: '80px' }}
+                  >
+                    <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>
+                  </div>
+                ) : <Notice tone="alert" title="Không thể xử lý hồ sơ sức khỏe" className="mb-3">{healthError}</Notice>)}
+                {healthNotice && (healthSaveFeedback?.type === 'success' ? (
+                  <div
+                    ref={healthFeedbackBannerRef}
+                    aria-label={healthNotice}
+                    role="status"
+                    aria-live="polite"
+                    tabIndex={-1}
+                    style={{ scrollMarginTop: '80px' }}
+                  >
+                    <Notice tone="success" className="mb-3">{healthNotice}</Notice>
+                  </div>
+                ) : <Notice tone="success" className="mb-3">{healthNotice}</Notice>)}
                 {/* Duy's code: Hiển thị form sức khỏe sau khi tải xong hồ sơ. */}
                 {healthLoading ? (
                   <p role="status">Đang tải hồ sơ sức khỏe...</p>
@@ -486,7 +745,7 @@ export default function UserProfilePage() {
                     <div className={styles.healthLayout}>
                       <section className={styles.healthPanel} aria-labelledby="health-basics-title">
                         <h4 id="health-basics-title" className="h6 mb-3">Thông tin cơ bản</h4>
-                        <fieldset className="border-0 p-0 m-0">
+                        <fieldset className={`border-0 p-0 m-0 ${styles.healthFieldsGrid}`}>
                           <div className={styles.healthFieldRow}>
                             <label className={styles.healthFieldLabel} htmlFor="health-gender">Giới tính</label>
                             <Select
@@ -503,25 +762,75 @@ export default function UserProfilePage() {
                             />
                           </div>
                           <div className={styles.healthFieldRow}>
-                            <label className={styles.healthFieldLabel} htmlFor="health-date-of-birth">Ngày sinh</label>
-                            <TextField
-                              id="health-date-of-birth"
-                              type="date"
-                              value={healthForm.dateOfBirth}
-                              onChange={updateHealthField('dateOfBirth')}
-                              max={new Date().toISOString().slice(0, 10)}
-                            />
+                            <span className={styles.healthFieldLabel} id="health-date-of-birth-label">Ngày sinh</span>
+                            <fieldset
+                              className="border-0 p-0 m-0 w-100"
+                              role="group"
+                              aria-labelledby="health-date-of-birth-label"
+                              aria-invalid={healthFieldErrors.dateOfBirth ? 'true' : undefined}
+                              aria-describedby={healthFieldErrors.dateOfBirth ? 'health-date-of-birth-error' : undefined}
+                              onBlur={handleDateOfBirthBlur}
+                            >
+                              <div className="row g-2">
+                                <div className="col-4">
+                                  <select
+                                    className="form-select"
+                                    id="health-date-of-birth-day"
+                                    aria-label="Ngày sinh — ngày"
+                                    value={healthDateParts.day}
+                                    onChange={(event) => updateDateOfBirthPart('day')(event.target.value)}
+                                  >
+                                    <option value="">Ngày</option>
+                                    {Array.from({ length: 31 }, (_, index) => (
+                                      <option key={index + 1} value={String(index + 1)}>{index + 1}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="col-4">
+                                  <select
+                                    className="form-select"
+                                    id="health-date-of-birth-month"
+                                    aria-label="Ngày sinh — tháng"
+                                    value={healthDateParts.month}
+                                    onChange={(event) => updateDateOfBirthPart('month')(event.target.value)}
+                                  >
+                                    <option value="">Tháng</option>
+                                    {Array.from({ length: 12 }, (_, index) => (
+                                      <option key={index + 1} value={String(index + 1)}>Tháng {index + 1}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="col-4">
+                                  <TextField
+                                    id="health-date-of-birth-year"
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={4}
+                                    aria-label="Ngày sinh — năm"
+                                    value={healthDateParts.year}
+                                    onChange={(value) => updateDateOfBirthPart('year')(value.replace(/\D/gu, '').slice(0, 4))}
+                                    placeholder="Năm"
+                                  />
+                                </div>
+                              </div>
+                              {healthFieldErrors.dateOfBirth && (
+                                <div id="health-date-of-birth-error" className="invalid-feedback d-block" role="alert">
+                                  {healthFieldErrors.dateOfBirth}
+                                </div>
+                              )}
+                            </fieldset>
                           </div>
                           <div className={styles.healthFieldRow}>
                             <label className={styles.healthFieldLabel} htmlFor="health-height">Chiều cao</label>
                             <TextField
                               id="health-height"
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               value={healthForm.heightCm}
                               onChange={updateHealthField('heightCm')}
-                              min="50"
-                              max="250"
-                              step="0.1"
+                              onBlur={() => validateHealthFieldOnBlur('heightCm')}
+                              error={healthFieldErrors.heightCm}
                               suffix="cm"
                               hint="Nhập giá trị từ 50 đến 250 cm."
                             />
@@ -530,12 +839,12 @@ export default function UserProfilePage() {
                             <label className={styles.healthFieldLabel} htmlFor="health-weight">Cân nặng</label>
                             <TextField
                               id="health-weight"
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               value={healthForm.weightKg}
                               onChange={updateHealthField('weightKg')}
-                              min="10"
-                              max="500"
-                              step="0.1"
+                              onBlur={() => validateHealthFieldOnBlur('weightKg')}
+                              error={healthFieldErrors.weightKg}
                               suffix="kg"
                               hint="Nhập giá trị từ 10 đến 500 kg."
                             />
@@ -547,38 +856,59 @@ export default function UserProfilePage() {
                           <p className="small text-body-secondary">
                             Chọn mức gần với sinh hoạt thường ngày; đây chỉ là ước lượng, không cần tính số buổi thật chính xác.
                           </p>
-                          <Select
-                            label="Mức vận động"
-                            value={healthForm.activityLevel}
-                            onChange={updateHealthField('activityLevel')}
-                            placeholder="Chọn mức vận động"
-                            options={[
-                              { value: 'sedentary', label: 'Ít — chủ yếu ngồi, ít đi bộ/tập' },
-                              { value: 'light', label: 'Nhẹ — hoạt động nhẹ hoặc tập nhẹ vài buổi/tuần' },
-                              { value: 'moderate', label: 'Vừa — tập vừa khoảng 3–5 buổi/tuần' },
-                              { value: 'active', label: 'Cao — tập nặng thường xuyên hoặc làm việc thể lực' },
-                            ]}
-                          />
-                          <Select
-                            className="mt-3"
-                            label="Mục tiêu"
-                            value={healthForm.healthGoal}
-                            onChange={updateHealthField('healthGoal')}
-                            placeholder="Chọn mục tiêu"
-                            options={[
-                              { value: 'lose_weight', label: 'Giảm cân' },
-                              { value: 'maintain', label: 'Duy trì cân nặng' },
-                              { value: 'gain_muscle', label: 'Tăng cơ' },
-                            ]}
-                          />
-                          <div className="mt-3">
+                          <div className={styles.healthFieldsGrid}>
+                            <Select
+                              label="Mức vận động"
+                              value={healthForm.activityLevel}
+                              onChange={updateHealthField('activityLevel')}
+                              placeholder="Chọn mức vận động"
+                              options={[
+                                { value: 'sedentary', label: 'Ít — chủ yếu ngồi, ít đi bộ/tập' },
+                                { value: 'light', label: 'Nhẹ — hoạt động nhẹ hoặc tập nhẹ vài buổi/tuần' },
+                                { value: 'moderate', label: 'Vừa — tập vừa khoảng 3–5 buổi/tuần' },
+                                { value: 'active', label: 'Cao — tập nặng thường xuyên hoặc làm việc thể lực' },
+                              ]}
+                            />
+                            <Select
+                              label="Mục tiêu"
+                              value={healthForm.healthGoal}
+                              onChange={updateHealthField('healthGoal')}
+                              placeholder="Chọn mục tiêu"
+                              options={[
+                                { value: 'lose_weight', label: 'Giảm cân' },
+                                { value: 'maintain', label: 'Duy trì cân nặng' },
+                                { value: 'gain_muscle', label: 'Tăng cơ' },
+                              ]}
+                            />
+                          </div>
+                          <div
+                            className={styles.allergyGroup}
+                            role="group"
+                            aria-labelledby="health-allergies-label"
+                            aria-invalid={healthFieldErrors.allergies ? 'true' : undefined}
+                            aria-describedby={healthFieldErrors.allergies ? 'health-allergies-error' : undefined}
+                            onBlur={(event) => {
+                              if (!event.currentTarget.contains(event.relatedTarget)) validateHealthFieldOnBlur('allergies');
+                            }}
+                          >
                             {/* Duy's Code : Tìm ingredient có sẵn hoặc gửi tên mới vào hàng duyệt Admin. */}
-                            <label className="form-label fw-semibold">Dị ứng / thực phẩm cần kiêng</label>
+                            <div className="d-flex flex-wrap align-items-baseline gap-2 mb-1">
+                              <span id="health-allergies-label" className="form-label fw-semibold mb-0">Dị ứng</span>
+                              <span className="small text-body-secondary">Không bắt buộc</span>
+                            </div>
+                            <p className="small text-body-secondary mb-2">
+                              Chỉ nhập nếu bạn có nguyên liệu bị dị ứng. Nếu không, bạn có thể bỏ qua mục này.
+                            </p>
                             <AllergyIngredientPicker
                               value={healthForm.allergies}
                               onChange={updateHealthField('allergies')}
                               max={50}
                             />
+                            {healthFieldErrors.allergies && (
+                              <div id="health-allergies-error" className="invalid-feedback d-block" role="alert">
+                                {healthFieldErrors.allergies}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </section>
@@ -595,7 +925,7 @@ export default function UserProfilePage() {
                               <p className={styles.healthMetricValue}>
                                 {healthPreview.bmi == null
                                   ? 'Chưa tính được: cần chiều cao và cân nặng.'
-                                  : ageFromDate(healthForm.dateOfBirth) !== null && ageFromDate(healthForm.dateOfBirth) < 18
+                                  : ageFromDate(healthForm.dateOfBirth, today) !== null && ageFromDate(healthForm.dateOfBirth, today) < 18
                                     ? `${healthPreview.bmi} — chỉ số BMI; không phân loại theo ngưỡng người lớn.`
                                     : `${healthPreview.bmi} — ${({
                                     underweight: 'thấp',
@@ -695,7 +1025,7 @@ export default function UserProfilePage() {
               <ConfirmDialog
                 open={healthDeleteOpen}
                 title="Xóa hồ sơ sức khỏe?"
-                message="Thông tin sức khỏe và toàn bộ danh sách dị ứng/thực phẩm cần kiêng sẽ bị xóa khỏi hồ sơ của bạn. Thao tác này không thể hoàn tác."
+                message="Thông tin sức khỏe và toàn bộ danh sách dị ứng sẽ bị xóa khỏi hồ sơ của bạn. Thao tác này không thể hoàn tác."
                 confirmLabel="Xóa hồ sơ"
                 cancelLabel="Giữ lại"
                 loading={healthDeleting}
@@ -727,8 +1057,6 @@ export default function UserProfilePage() {
               </Modal>
             </div>
           </div>
-        </div>
-      </div>
     </div>
   );
 }
