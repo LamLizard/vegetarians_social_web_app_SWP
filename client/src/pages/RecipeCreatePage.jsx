@@ -21,7 +21,6 @@ import { cleanIngredients, newIngredientRow, validateIngredients } from '../util
 import { timeAgo } from '../utils/format';
 import { getYouTubeId } from '../utils/validate';
 import useYouTubeCheck, { youTubeCheckText } from '../hooks/useYouTubeCheck';
-import { findAnimalWord } from '../utils/animalWords';
 import DishPicker from '../components/DishPicker/DishPicker';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import MemberLayout from '../components/MemberLayout/MemberLayout';
@@ -81,7 +80,6 @@ function ingredientNote(c) {
   if (!c) return undefined;
   const missing = c.known ? '' : ' Nguyên liệu đề xuất mới, Admin sẽ duyệt cùng công thức.';
   if (c.isAnimalDerived) return { tone: 'bad', text: `Kho ghi đây là nguyên liệu có nguồn gốc động vật. Admin sẽ kiểm tra lại.${missing}` };
-  if (c.keyword) return { tone: 'bad', text: `Tên có từ “${c.keyword}”, có thể không phải đồ chay. Admin sẽ kiểm tra lại.${missing}` };
   if (!c.known) return { tone: 'warn', text: missing.trim() };
   return undefined;
 }
@@ -177,14 +175,13 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
   const [sentStatus, setSentStatus] = useState('loading'); // loading | ready | error
   const [dishes, setDishes] = useState({ status: 'loading', items: [] }); // loading | ready | error
   const [ingredientNames, setIngredientNames] = useState([]);
-  const [animalWords, setAnimalWords] = useState([]); // banned_keyword category 'animal'
   const [sentPage, setSentPage] = useState(1); // Khoi's code: tab Công thức đã gửi, mỗi trang SENT_PAGE_SIZE công thức
   const [form, setForm] = useState(emptyForm);
   const formRef = useRef(form);
   formRef.current = form;
   const [touched, setTouched] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [checks, setChecks] = useState({}); // nameKey → { name, known, isAnimalDerived, keyword }
+  const [checks, setChecks] = useState({}); // nameKey → { name, known, isAnimalDerived }
   // Khoi's code: chế độ "Sửa và gửi lại" — công thức đang sửa + bản gốc (biết đã đổi gì chưa)
   const [editing, setEditing] = useState(null);
   const [snapshot, setSnapshot] = useState('');
@@ -262,7 +259,6 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     loadDishes();
     loadSent();
     recipeService.getIngredientNames().then(({ items }) => setIngredientNames(items)).catch(() => {});
-    recipeService.getAnimalWords().then(({ items }) => setAnimalWords(items)).catch(() => { /* không tải được: chỉ mất phần tô đỏ */ });
   }, []);
 
   const set = (key) => (v) => {
@@ -303,11 +299,9 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ chạy lại khi danh sách tên đổi
   }, [checkKey]);
   const rowNotes = form.ingredients.map((r) => (r.name.trim() ? ingredientNote(checks[nameKey(r.name)]) : undefined));
-  // Khoi's code: chữ người dùng tự gõ (tên món đề xuất, tên công thức) cũng soi từ động vật — chỉ cảnh báo
-  const dishWord = form.dish?.type === 'proposed' ? findAnimalWord(form.dish.name, animalWords) : null;
-  const titleWord = findAnimalWord(form.title, animalWords);
+  // Khoi's code (04/11/2026): bỏ soi từ động vật trong tên món / tên công thức (nhóm bỏ bảng banned_keyword).
+  // Còn cảnh báo nguyên liệu kho ghi là có nguồn gốc động vật.
   const flaggedCount = rowNotes.filter((n) => n?.tone === 'bad').length;
-  const flaggedText = [dishWord && 'tên món', titleWord && 'tên công thức'].filter(Boolean);
   const unknownCount = form.ingredients.filter((r) => r.name.trim() && checks[nameKey(r.name)]?.known === false).length;
   const ingWithAmount = form.ingredients.filter((r) => r.name.trim() && r.amount > 0).length;
   const stepCount = form.steps.filter((x) => x.trim()).length;
@@ -520,12 +514,6 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
               hint="Một món có thể có nhiều công thức. Chọn món để công thức nằm đúng chỗ."
             >
               <DishPicker value={form.dish} onChange={set('dish')} onDraftTextChange={onDishDraftChange} dishes={dishes.items} required />
-              {dishWord && (
-                <p className={s.flag} role="status">
-                  <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-                  Tên món đề xuất có từ “{dishWord}”, có thể không phải đồ chay. Vẫn gửi được, Admin sẽ kiểm tra lại.
-                </p>
-              )}
               {dishes.status === 'loading' && <p className={s.hint} role="status">Đang tải danh sách món…</p>}
               {dishes.status === 'error' && (
                 <Notice tone="alert" title="Chưa tải được danh sách món" action={{ label: 'Tải lại', onClick: loadDishes }}>
@@ -545,12 +533,6 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                 placeholder="Ví dụ: Đậu hũ sốt cà chua kiểu nhà làm"
                 error={touched.title && !form.title.trim() ? 'Nhập tên công thức' : undefined}
               />
-              {titleWord && (
-                <p className={s.flag} role="status">
-                  <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />
-                  Tên công thức có từ “{titleWord}”, có thể không phải đồ chay. Vẫn gửi được, Admin sẽ kiểm tra lại.
-                </p>
-              )}
               <TextArea
                 label="Mô tả ngắn"
                 value={form.description}
@@ -697,16 +679,13 @@ export default function RecipeCreatePage({ user, accountMenu = [] }) {
                   </li>
                 ))}
               </ul>
-              {(unknownCount > 0 || flaggedCount > 0 || flaggedText.length > 0) && (
+              {(unknownCount > 0 || flaggedCount > 0) && (
                 <ul className={s.notes} aria-live="polite">
                   {unknownCount > 0 && (
                     <li><i className="bi bi-info-circle" aria-hidden="true" />{unknownCount} nguyên liệu chưa có trong kho, sẽ gửi Admin duyệt cùng công thức.</li>
                   )}
                   {flaggedCount > 0 && (
                     <li className={s.noteBad}><i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />{flaggedCount} nguyên liệu có thể không phải đồ chay. Vẫn gửi được, Admin sẽ kiểm tra lại.</li>
-                  )}
-                  {flaggedText.length > 0 && (
-                    <li className={s.noteBad}><i className="bi bi-exclamation-triangle-fill" aria-hidden="true" />{flaggedText.join(' và ').replace(/^./, (c) => c.toUpperCase())} có từ chỉ động vật. Admin sẽ kiểm tra lại.</li>
                   )}
                 </ul>
               )}

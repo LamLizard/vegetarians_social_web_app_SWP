@@ -1,22 +1,27 @@
 .page {
+  --profile-page-width: calc(100vw - var(--nav-w, 252px) - 48px);
+  width: var(--profile-page-width);
+  max-width: none;
+  min-width: 0;
+  margin-left: calc((100% - var(--profile-page-width)) / 2);
   color: var(--ac-ink);
+  overflow-wrap: anywhere;
 }
 
 .card {
+  min-width: 0;
   color: var(--ac-ink);
   background-color: var(--ac-card);
   border: 1px solid var(--ac-border) !important;
   box-shadow: var(--ac-shadow) !important;
 }
 
-.title {
-  color: var(--ac-ink);
-}
+.card :global(.card-body) { min-width: 0; }
+
+.title { color: var(--ac-ink); }
 
 .eyebrow,
-.muted {
-  color: var(--ac-muted) !important;
-}
+.muted { color: var(--ac-muted) !important; }
 
 .avatar {
   color: var(--ac-ink);
@@ -36,37 +41,131 @@
   border-color: var(--ac-ok-line);
 }
 
+.accountForm {
+  --profile-gap: 24px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.accountSection { min-width: 0; }
+
+.accountInformation {
+  padding-top: var(--profile-gap);
+  padding-bottom: var(--profile-gap);
+  border-bottom: 1px solid var(--ac-border);
+}
+
+.accountSection + .accountSection { margin-top: var(--profile-gap); }
+
+.accountSectionTitle {
+  margin: 0 0 var(--profile-gap);
+  color: var(--ac-ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.accountFields,
+.accountPasswordFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: var(--profile-gap);
+  row-gap: var(--profile-gap);
+  min-width: 0;
+}
+
+.accountName,
+.accountEmail,
+.currentPasswordField,
+.newPasswordField,
+.confirmPasswordField { min-width: 0; }
+
+.readOnlyEmail :global(input[readonly]) {
+  color: var(--ac-muted);
+  background-color: var(--ac-field-bg);
+}
+
+.passwordSectionHeading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.passwordSectionHeading .accountSectionTitle { margin-bottom: 0; }
+
+.optionalLabel {
+  color: var(--ac-muted);
+  font-size: 0.8rem;
+}
+
+.passwordSectionHint {
+  margin: 0.5rem 0 var(--profile-gap);
+  color: var(--ac-muted);
+  font-size: 0.82rem;
+}
+
+.currentPasswordField { grid-column: 1; grid-row: 1; }
+.newPasswordField { grid-column: 2; grid-row: 1; }
+.confirmPasswordField { grid-column: 2; grid-row: 2; }
+
+.accountFooter {
+  margin-top: var(--profile-gap);
+}
+
+.profileIdentity { min-width: 0; flex-wrap: wrap; }
+
 .healthFormLayout {
-  container: healthForm / inline-size;
+  --profile-gap: 24px;
+  min-width: 0;
 }
 
 .healthLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
-  gap: 1.5rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: var(--profile-gap);
+  align-items: stretch;
+  min-width: 0;
 }
 
+.healthLayout > * { min-width: 0; }
+
 .healthPanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   min-width: 0;
-  padding: 1.25rem;
+  padding: var(--profile-gap);
   border: 1px solid var(--ac-border);
   border-radius: 1rem;
   background: var(--ac-card);
   container: healthPanel / inline-size;
 }
 
-.healthFieldRow {
-  display: grid;
-  grid-template-columns: minmax(7.5rem, 0.75fr) minmax(0, 1.25fr);
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--ac-border);
+.healthInfoNotice {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin-top: var(--profile-gap);
 }
 
-.healthFieldRow:last-child {
-  border-bottom: 0;
+.healthFieldsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.healthFieldRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0;
+  border: 0;
 }
 
 .healthFieldLabel {
@@ -75,16 +174,42 @@
   font-weight: 600;
 }
 
+.dateOfBirthRow { grid-column: 1 / -1; }
+
+.dateOfBirthFields {
+  display: grid;
+  grid-template-columns: minmax(76px, 0.8fr) minmax(116px, 1.3fr) minmax(76px, 1fr);
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dateOfBirthFields > * { min-width: 0; }
+
+.dateOfBirthSelect {
+  width: 100%;
+  min-width: 0;
+  padding-right: 1.75rem;
+  padding-left: 0.5rem;
+  white-space: nowrap;
+}
+
+.dateOfBirthYear { min-width: 0; }
+
+.allergyGroup {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 0.25rem;
+}
+
 .healthResultsLayout {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  flex: 1;
   gap: 1rem;
   align-items: stretch;
 }
 
-.healthResultsLayout > * {
-  min-width: 0;
-}
+.healthResultsLayout > * { min-width: 0; }
 
 .healthMetricRow {
   display: grid;
@@ -95,48 +220,55 @@
   border-bottom: 1px solid var(--ac-border);
 }
 
-.healthMetricRow:last-child {
-  border-bottom: 0;
-}
-
-.healthMetricValue {
-  margin: 0;
-  font-weight: 600;
-}
+.healthMetricRow:last-child { border-bottom: 0; }
+.healthMetricValue { min-width: 0; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 
 .healthExplanation {
+  width: 100%;
+  box-sizing: border-box;
+  height: 100%;
   min-width: 0;
+  margin: 0;
   padding: 1rem;
   border: 1px solid var(--ac-border);
   border-radius: 0.75rem;
   background: var(--ac-tip-bg);
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
-@container healthForm (max-width: 760px) {
-  .healthLayout {
-    grid-template-columns: minmax(0, 1fr);
-  }
+@media (max-width: 991.98px) {
+  .healthLayout { grid-template-columns: minmax(0, 1fr); }
 }
 
-@container healthPanel (max-width: 520px) {
-  .healthResultsLayout {
-    grid-template-columns: minmax(0, 1fr);
-  }
+@media (max-width: 767.98px) {
+  .page { --profile-page-width: calc(100vw - 24px); margin-left: 0; }
+  .accountFields,
+  .accountPasswordFields,
+  .healthFieldsGrid { grid-template-columns: minmax(0, 1fr); }
+  .currentPasswordField { grid-column: 1; grid-row: 1; }
+  .newPasswordField { grid-column: 1; grid-row: 2; }
+  .confirmPasswordField { grid-column: 1; grid-row: 3; }
+  .accountName,
+  .allergyGroup { grid-column: auto; }
 }
 
-@container healthPanel (max-width: 360px) {
-  .healthFieldRow,
-  .healthMetricRow {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.35rem;
-  }
+@container healthPanel (max-width: 320px) {
+  .dateOfBirthFields { grid-template-columns: minmax(76px, 0.8fr) minmax(116px, 1.3fr); }
+  .dateOfBirthYear { grid-column: 1 / -1; }
 }
 
-@media (max-width: 479.98px) {
-  .healthPanel {
-    padding: 1rem;
-  }
+@container healthPanel (max-width: 220px) {
+  .dateOfBirthFields { grid-template-columns: minmax(0, 1fr); }
+  .dateOfBirthYear { grid-column: auto; }
+}
+
+@media (max-width: 575.98px) {
+  .healthPanel { padding: var(--profile-gap); }
+  .healthResultsLayout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 359.98px) {
+  .healthMetricRow { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
 }
 
 .avatarButton {

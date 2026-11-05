@@ -179,13 +179,20 @@ function normalizeHealthProfile(body) {
   }
 
   const dateOfBirth = body?.dateOfBirth || null;
+  let dateOfBirthError = '';
   if (dateOfBirth) {
-    const parsedDate = new Date(`${dateOfBirth}T00:00:00.000Z`);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)
-      || Number.isNaN(parsedDate.getTime())
-      || parsedDate.toISOString().slice(0, 10) !== dateOfBirth
+    const hasDateFormat = /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth);
+    const parsedDate = hasDateFormat ? new Date(`${dateOfBirth}T00:00:00.000Z`) : null;
+    const hasRealDate = parsedDate
+      && !Number.isNaN(parsedDate.getTime())
+      && parsedDate.toISOString().slice(0, 10) === dateOfBirth;
+    if (!hasDateFormat || !hasRealDate) {
+      dateOfBirthError = 'Ngày sinh không hợp lệ.';
+      errors.push(dateOfBirthError);
+    } else if (dateOfBirth < '1900-01-01'
       || parsedDate > new Date(new Date().toISOString().slice(0, 10))) {
-      errors.push('Ngày sinh không hợp lệ hoặc đang ở tương lai.');
+      dateOfBirthError = 'Ngày sinh phải từ 01/01/1900 đến hôm nay.';
+      errors.push(dateOfBirthError);
     }
   }
   const age = dateOfBirth ? getAge(dateOfBirth) : null;
@@ -214,6 +221,7 @@ function normalizeHealthProfile(body) {
   if (allergies.some((name) => [...name].length > 120)) errors.push('Mỗi dị ứng/kiêng không được vượt quá 120 ký tự.');
   return {
     errors,
+    dateOfBirthError,
     value: { gender, dateOfBirth, heightCm, weightKg, activityLevel, healthGoal, allergies },
   };
 }
@@ -230,8 +238,15 @@ async function getMyHealthProfile(req, res, next) {
 // Duy's code: Kiểm tra dữ liệu, tính chỉ số và lưu hồ sơ sức khỏe.
 async function saveMyHealthProfile(req, res, next) {
   try {
-    const { errors, value } = normalizeHealthProfile(req.body);
-    if (errors.length) return res.status(400).json({ message: errors[0], errors });
+    const { errors, value, dateOfBirthError } = normalizeHealthProfile(req.body);
+    if (errors.length) {
+      const message = dateOfBirthError || errors[0];
+      return res.status(400).json({
+        message,
+        errors,
+        ...(dateOfBirthError ? { field: 'dateOfBirth' } : {}),
+      });
+    }
 
     const calculated = calculateHealth(value);
     return res.json(await healthProfileModel.saveHealthProfile(req.account.id, value, calculated));

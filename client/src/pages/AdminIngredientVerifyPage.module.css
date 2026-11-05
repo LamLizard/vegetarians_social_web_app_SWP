@@ -1,6 +1,7 @@
-/* Duy's Code: Bố cục riêng cho bốn trang con trong khu duyệt nguyên liệu. */
-.page { display: grid; gap: 20px; width: 100%; padding: 26px 32px 48px; }
-.pageNav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 8px; border: 1px solid var(--ac-border); border-radius: 18px; background: var(--ac-card); }
+/* Duy's Code: Bố cục riêng cho các trang con trong khu duyệt nguyên liệu. */
+.page { display: grid; gap: 20px; width: 100%; min-width: 0; max-width: 100%; padding: 26px 32px 48px; }
+.page > header { width: 100%; min-width: 0; }
+.pageNav { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); min-width: 0; gap: 10px; padding: 8px; border: 1px solid var(--ac-border); border-radius: 18px; background: var(--ac-card); }
 .pageNav button { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 14px; border: 1px solid transparent; border-radius: 13px; background: transparent; color: var(--ac-muted); text-align: left; font: inherit; font-weight: 650; transition: background .16s ease, color .16s ease, border-color .16s ease; }
 .pageNav button:hover { background: var(--ac-bg-subtle, transparent); color: var(--ac-ink); }
 .pageNav button > i { color: var(--ac-moss); font-size: 1.1rem; }
@@ -12,7 +13,7 @@
 .sectionHeading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .sectionHeading h2 { margin: 0 0 4px; font-size: 1.2rem; font-weight: 750; }
 .sectionHeading p { margin: 0; color: var(--ac-muted); }
-.proposalList, .historyList { display: grid; gap: 12px; }
+.proposalList, .historyList { display: grid; min-width: 0; gap: 12px; }
 .proposalCard { display: grid; gap: 14px; padding: 20px 22px 16px; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-lg, 1rem); box-shadow: 0 5px 18px rgb(48 65 43 / 4%); }
 .proposalHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 13px; border-bottom: 1px solid var(--ac-border); }
 .proposalTitle { display: flex; align-items: center; gap: 13px; min-width: 0; }
@@ -37,20 +38,12 @@
 .proposalActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 9px; padding-top: 4px; border-top: 0; }
 .actionHint { flex: 1 1 240px; color: var(--ac-muted); font-size: .82rem; }
 .loading { display: grid; min-height: 180px; place-items: center; }
-.keywordToolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.keywordToolbar p { margin: 0; color: var(--ac-muted); }
-.keywordToolbar input { width: min(380px, 100%); }
-.keywordTableWrap { overflow-x: auto; border: 1px solid var(--ac-border); border-radius: 15px; background: var(--ac-card); }
-.keywordTable { width: 100%; border-collapse: collapse; }
-.keywordTable th, .keywordTable td { padding: 13px 16px; border-bottom: 1px solid var(--ac-border); text-align: left; vertical-align: middle; }
-.keywordTable th { background: var(--ac-bg-subtle, transparent); color: var(--ac-muted); font-size: .78rem; font-weight: 750; text-transform: uppercase; letter-spacing: .035em; }
-.keywordTable tbody tr:last-child td { border-bottom: 0; }
-.keywordCategory { display: inline-flex; padding: 4px 9px; border-radius: 999px; background: var(--ac-tag-bg); color: var(--ac-moss); font-size: .78rem; font-weight: 650; }
-.historyCard { display: grid; gap: 12px; padding: 17px 19px; border: 1px solid var(--ac-border); border-radius: 15px; }
-.historyTop { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.historyTop h3 { margin: 0 0 3px; font-size: 1rem; font-weight: 750; }
+.historyCard { display: grid; min-width: 0; gap: 12px; padding: 17px 19px; border: 1px solid var(--ac-border); border-radius: 15px; }
+.historyTop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; min-width: 0; gap: 8px 14px; }
+.historyTop > div { flex: 1 1 180px; min-width: 0; overflow-wrap: anywhere; }
+.historyTop h3 { margin: 0 0 3px; font-size: 1rem; font-weight: 750; overflow-wrap: anywhere; }
 .historyTop p { margin: 0; color: var(--ac-muted); font-size: .86rem; }
-.historyStatus { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; }
+.historyStatus { flex: 0 1 auto; max-width: 100%; padding: 6px 10px; border-radius: 999px; font-size: .78rem; font-weight: 700; overflow-wrap: anywhere; }
 .statusApproved { background: #eaf4ec; color: #356548; }
 .statusRejected { background: #fbecea; color: #9a3f36; }
 .statusRemoved { background: #f1efe8; color: #6c6253; }
@@ -59,14 +52,12 @@
 .historyMeta p { margin: 0; overflow-wrap: anywhere; }
 
 @media (max-width: 920px) {
-  .pageNav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .classification { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .allergenGroup { grid-column: 1 / -1; }
 }
 
 @media (max-width: 640px) {
   .page { padding: 18px 12px 40px; }
-  .pageNav { grid-template-columns: minmax(0, 1fr); }
   .pageNav button { padding: 11px 12px; }
   .proposalCard { gap: 12px; padding: 14px; }
   .proposalHeader, .historyTop { align-items: flex-start; }
@@ -79,8 +70,5 @@
   .proposalActions { justify-content: stretch; }
   .proposalActions > button { flex: 1 1 auto; }
   .actionHint { flex-basis: 100%; }
-  .keywordToolbar { align-items: stretch; flex-direction: column; }
-  .keywordToolbar input { width: 100%; }
-  .keywordTable th, .keywordTable td { padding: 11px 12px; }
   .historyCard { padding: 14px; }
 }
