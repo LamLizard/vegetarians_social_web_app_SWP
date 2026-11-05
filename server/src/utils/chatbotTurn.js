@@ -44,18 +44,44 @@ function vietnamDay(at) {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+// Khoi's code (05/11/2026): bỏ giá trị hồ sơ vô lý trước khi gửi AI và gắn cờ profileWarnings.
+const HEALTH_LIMITS = [
+  { field: 'heightCm', flag: 'height', min: 100, max: 230 },
+  { field: 'weightKg', flag: 'weight', min: 25, max: 300 },
+  { field: 'bmi', flag: 'bmi', min: 12, max: 60 },
+];
+
 function healthForChat(profile) {
   if (!profile) return null;
   const fields = ['gender', 'dateOfBirth', 'heightCm', 'weightKg', 'bmi', 'bmiCategory',
     'activityLevel', 'healthGoal', 'tdeeKcal', 'targetCaloriesKcal'];
-  return { ...Object.fromEntries(fields.map((field) => [field, profile[field] ?? null])),
-    allergies: Array.isArray(profile.allergies) ? profile.allergies.map(({ name }) => name) : null };
+  const view = Object.fromEntries(fields.map((field) => [field, profile[field] ?? null]));
+  const profileWarnings = [];
+  for (const { field, flag, min, max } of HEALTH_LIMITS) {
+    if (view[field] === null || view[field] === undefined) continue;
+    const value = Number(view[field]);
+    if (!Number.isFinite(value) || value < min || value > max) { view[field] = null; profileWarnings.push(flag); }
+    else view[field] = value;
+  }
+  return { ...view,
+    allergies: Array.isArray(profile.allergies) ? profile.allergies.map(({ name }) => name) : null,
+    profileWarnings };
+}
+
+// Khoi's code (05/11/2026): Mầm đã nhắc "cập nhật hồ sơ" trong hội thoại chưa (chỉ tính tin của bot).
+function alreadyWarnedProfile(history) {
+  return Array.isArray(history) && history.some((entry) => entry && entry.sender === 'bot'
+    && typeof entry.content === 'string' && entry.content.includes('cập nhật hồ sơ'));
 }
 
 // Tùng: chỉ chặn phép tính độc lập khớp toàn câu, không chặn số trong câu hỏi món ăn.
+// Khoi's code (05/11/2026): nhận thêm đuôi "bằng mấy" và "=?" ("25 nhân 17 bằng mấy", "25*17=?").
 function isStandaloneArithmetic(text) {
   const expression = text.trim().replace(/^(?:(?:hãy|hay)\s+)?(?:tính|tinh)\s+(?:(?:giúp|giup)\s+)?(?:(?:mình|minh|tôi|toi|em)\s+)?/iu, '');
-  return /^[+-]?\d+(?:[.,]\d+)?(?:\s*(?:\+|-|×|x|\*|\/|:|nhân|nhan|chia|cộng|cong|trừ|tru)\s*[+-]?\d+(?:[.,]\d+)?)+\s*[?!.]*$/iu.test(expression);
+  const sum = /^[+-]?\d+(?:[.,]\d+)?(?:\s*(?:\+|-|×|x|\*|\/|:|nhân|nhan|chia|cộng|cong|trừ|tru)\s*[+-]?\d+(?:[.,]\d+)?)+/iu.exec(expression);
+  if (!sum) return false;
+  const tail = expression.slice(sum[0].length);
+  return /^\s*(?:(?:=|bằng|bang|ra)\s*(?:(?:mấy|may|bao\s*nhiêu|bao\s*nhieu|gì|gi)\s*)?\??)?\s*[?!.]*$/iu.test(tail);
 }
 
 // Tùng: policy có hai khóa riêng; parser v3 vẫn nhận đúng tám khóa như cũ.
@@ -89,4 +115,5 @@ function parseScopedV3Intent(raw, text) {
   return { scope, intent, allowedText: allowedParts.join('\n') };
 }
 
-module.exports = { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, isStandaloneArithmetic, parseScopedV3Intent };
+module.exports = { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alreadyWarnedProfile,
+  isStandaloneArithmetic, parseScopedV3Intent };

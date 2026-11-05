@@ -6,7 +6,9 @@ const assert = require('node:assert/strict');
 
 const chatbotModel = require('../models/chatbot.model');
 const aiConfig = require('../models/aiConfig.model');
+const healthModel = require('../models/health-profile.model');
 const deepseek = require('../utils/deepseek');
+const { issueSimpleSession } = require('../utils/chatSessionToken');
 const controller = require('./chatbot.controller');
 
 const TURN_ID = '11111111-1111-4111-8111-111111111111';
@@ -188,4 +190,31 @@ test('turnV3 member: giữ hạn mức 50 và hoàn đúng subject tài khoản 
   const failed = events(res).find((frame) => frame.name === 'error');
   assert.equal(failed.data.refunded, true);
   assert.equal(failed.data.quota.limit, 50);
+});
+
+test('turnV3: hồ sơ vô lý và cờ alreadyWarned được gửi cho model', async () => {
+  stubModel();
+  healthModel.getHealthProfile = async () => ({ heightCm: 250, weightKg: 60, bmi: 9.6, allergies: [] });
+  let call = 0;
+  deepseek.classify = async () => { call += 1; return call === 1 ? classifierJson({ needsPersonalization: true }) : '{"verdict":"allow"}'; };
+  let captured = null;
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta('Gợi ý canh bí đỏ.');
+    return { complete: true, limited: false };
+  };
+  const sessionToken = issueSimpleSession({ id: 7 }).token;
+  const res = fakeRes();
+  const history = [{ sender: 'user', content: 'chào' }, { sender: 'bot', content: 'Bạn nhớ cập nhật hồ sơ nhé.' }];
+  await controller.turnV3(fakeReq({ account: { id: 7 }, body: memberBody({ history, sessionToken }) }), res);
+
+  assert.ok(captured);
+  const data = JSON.parse(captured[captured.length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.deepEqual(data.health.profileWarnings, ['height', 'bmi']);
+  assert.equal(data.health.heightCm, null);
+  assert.equal(data.health.weightKg, 60);
+  assert.equal(data.alreadyWarned, true);
+  assert.equal(captured[0].content.includes('Không in dữ liệu kỹ thuật'), true);
+  assert.equal(events(res).find((frame) => frame.name === 'done') !== undefined, true);
 });

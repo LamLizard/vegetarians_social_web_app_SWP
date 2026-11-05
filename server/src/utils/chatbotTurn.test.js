@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
-  validateV3, parseScopedV3Intent, isStandaloneArithmetic, vietnamDay, healthForChat,
+  validateV3, parseScopedV3Intent, isStandaloneArithmetic, vietnamDay, healthForChat, alreadyWarnedProfile,
 } = require('./chatbotTurn');
 
 const TURN_ID = '11111111-1111-4111-8111-111111111111';
@@ -157,6 +157,17 @@ test('isStandaloneArithmetic: chỉ chặn phép tính đứng riêng', () => {
   assert.equal(isStandaloneArithmetic('chào Mầm'), false);
 });
 
+test('isStandaloneArithmetic: nhận thêm đuôi "bằng mấy" và dạng "=?"', () => {
+  assert.equal(isStandaloneArithmetic('25 nhân 17 bằng mấy'), true);
+  assert.equal(isStandaloneArithmetic('25 nhân 17 bằng mấy?'), true);
+  assert.equal(isStandaloneArithmetic('tính 25 nhân 17 bằng mấy'), true);
+  assert.equal(isStandaloneArithmetic('25*17=?'), true);
+  assert.equal(isStandaloneArithmetic('25 x 17 = ?'), true);
+  assert.equal(isStandaloneArithmetic('25 nhân 17 bằng 425'), false);
+  assert.equal(isStandaloneArithmetic('gợi ý món chay 25 x 17'), false);
+  assert.equal(isStandaloneArithmetic('đậu hũ 200g bao nhiêu đạm'), false);
+});
+
 test('vietnamDay: 18:00 UTC đã sang ngày mới ở Việt Nam', () => {
   assert.equal(vietnamDay(new Date('2026-11-04T17:00:00.000Z')), '2026-11-05');
   assert.equal(vietnamDay(new Date('2026-11-04T16:59:00.000Z')), '2026-11-04');
@@ -166,8 +177,43 @@ test('healthForChat: chỉ lấy trường liên quan và đổi dị ứng thà
   assert.equal(healthForChat(null), null);
   const view = healthForChat({ gender: 'female', heightCm: 160, allergies: [{ name: 'đậu phộng' }], extra: 'x' });
   assert.deepEqual(Object.keys(view), ['gender', 'dateOfBirth', 'heightCm', 'weightKg', 'bmi', 'bmiCategory',
-    'activityLevel', 'healthGoal', 'tdeeKcal', 'targetCaloriesKcal', 'allergies']);
+    'activityLevel', 'healthGoal', 'tdeeKcal', 'targetCaloriesKcal', 'allergies', 'profileWarnings']);
   assert.equal(view.gender, 'female');
   assert.equal(view.weightKg, null);
   assert.deepEqual(view.allergies, ['đậu phộng']);
+  assert.deepEqual(view.profileWarnings, []);
+});
+
+test('healthForChat: giá trị vô lý → null và gắn cờ', () => {
+  const view = healthForChat({ heightCm: 250, weightKg: 60, bmi: 9.6 });
+  assert.equal(view.heightCm, null);
+  assert.equal(view.weightKg, 60);
+  assert.equal(view.bmi, null);
+  assert.deepEqual(view.profileWarnings, ['height', 'bmi']);
+  const nan = healthForChat({ heightCm: 'cao', weightKg: 60, bmi: null });
+  assert.equal(nan.heightCm, null);
+  assert.deepEqual(nan.profileWarnings, ['height']);
+});
+
+test('healthForChat: biên 100/230 cm, 25/300 kg, 12/60 BMI', () => {
+  const lower = healthForChat({ heightCm: 100, weightKg: 25, bmi: 12 });
+  assert.deepEqual(lower.profileWarnings, []);
+  assert.deepEqual([lower.heightCm, lower.weightKg, lower.bmi], [100, 25, 12]);
+  const upper = healthForChat({ heightCm: 230, weightKg: 300, bmi: 60 });
+  assert.deepEqual(upper.profileWarnings, []);
+  assert.deepEqual([upper.heightCm, upper.weightKg, upper.bmi], [230, 300, 60]);
+  const below = healthForChat({ heightCm: 99, weightKg: 24, bmi: 11.9 });
+  assert.deepEqual(below.profileWarnings, ['height', 'weight', 'bmi']);
+  assert.deepEqual([below.heightCm, below.weightKg, below.bmi], [null, null, null]);
+  const above = healthForChat({ heightCm: 231, weightKg: 301, bmi: 60.1 });
+  assert.deepEqual(above.profileWarnings, ['height', 'weight', 'bmi']);
+  assert.deepEqual([above.heightCm, above.weightKg, above.bmi], [null, null, null]);
+});
+
+test('alreadyWarnedProfile: chỉ tính tin của bot có nhắc cập nhật hồ sơ', () => {
+  assert.equal(alreadyWarnedProfile([]), false);
+  assert.equal(alreadyWarnedProfile(undefined), false);
+  assert.equal(alreadyWarnedProfile([{ sender: 'user', content: 'cập nhật hồ sơ ở đâu?' }]), false);
+  assert.equal(alreadyWarnedProfile([{ sender: 'bot', content: 'Bạn cập nhật hồ sơ để Mầm tư vấn chính xác hơn nhé.' }]), true);
+  assert.equal(alreadyWarnedProfile([{ sender: 'user', content: 'chào' }, { sender: 'bot', content: 'Chào bạn.' }]), false);
 });
