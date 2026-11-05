@@ -42,6 +42,9 @@ function validText(value) {
 }
 
 // Tùng: chỉ so sánh chủ đề bằng chữ chuẩn hóa, không tự suy đồng nghĩa.
+// Khoi's code (08/11/2026): chữ ký HMAC base64url của server (32 byte).
+const HISTORY_SIGNATURE = /^[A-Za-z0-9_-]{43}$/;
+
 function subjectKey(value) {
   return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
 }
@@ -58,8 +61,12 @@ function completedHistory(messages) {
     const question = messages[i];
     const answer = messages[i + 1];
     if (question.sender === 'user' && answer.sender === 'bot'
-      && (question.status ?? 'complete') === 'complete' && (answer.status ?? 'complete') === 'complete') {
-      result.push({ sender: 'user', content: question.content }, { sender: 'bot', content: answer.content });
+      && (question.status ?? 'complete') === 'complete' && (answer.status ?? 'complete') === 'complete'
+      // Khoi's code (08/11/2026): chỉ gửi cặp mà tin bot có chữ ký server; bản cũ/lượt lỗi thì bỏ.
+      && typeof answer.turnId === 'string' && UUID.test(answer.turnId)
+      && Number.isSafeInteger(answer.at) && typeof answer.sig === 'string' && HISTORY_SIGNATURE.test(answer.sig)) {
+      result.push({ sender: 'user', content: question.content },
+        { sender: 'bot', content: answer.content, turnId: answer.turnId, at: answer.at, sig: answer.sig });
       i += 1;
     }
   }
@@ -157,6 +164,10 @@ export default function ChatbotPage({ user }) {
   const serverClock = useRef(null);
   const actorToken = useRef(null);
   const textareaRef = useRef(null);
+  // Khoi's code (08/11/2026): tự gửi lại đúng 1 lần khi server báo lịch sử không hợp lệ.
+  const sendRef = useRef(null);
+  const retryRef = useRef(null);
+  const historyRetried = useRef(null);
   const actor = user?.id ? `account:${user.id}` : 'guest';
   const suggestions = user?.id ? SUGGESTIONS_MEMBER : SUGGESTIONS_GUEST;
 
@@ -333,8 +344,9 @@ export default function ChatbotPage({ user }) {
     return () => window.clearTimeout(timer);
   }, [session, updateMessages, updateSession]);
 
-  const sendQuestion = async (question) => {
-    if (!enabled || !sessionReady || busy || running.current || !quota?.remaining || !question.trim() || !validText(question)) return;
+  const sendQuestion = async (question, { ignoreBusy = false } = {}) => {
+    if (!enabled || !sessionReady || (busy && !ignoreBusy) || running.current
+      || !quota?.remaining || !question.trim() || !validText(question)) return;
     if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) { setError('Tài khoản đã thay đổi. Vui lòng mở lại cuộc trò chuyện.'); return; }
     if (!globalThis.crypto?.randomUUID) { setError('Không thể gửi câu hỏi trên trình duyệt này.'); return; }
     const turnToken = actorToken.current;
@@ -513,9 +525,12 @@ export default function ChatbotPage({ user }) {
         return;
       }
       if (pendingPostText) throw new Error('Không thể hiển thị bài viết; kết quả chưa xác định.');
+      const entry = response.historyEntry;
       const nextMessages = updateMessages((current) => current.map((message) => (
         message.turnId === turnId ? { ...message, status: 'complete',
-          ...(message.sender === 'bot' ? { content: reply, result: resultCard, cards: resultCards, limited: response.limited } : {}) } : message
+          ...(message.sender === 'bot' ? { content: reply, result: resultCard, cards: resultCards, limited: response.limited,
+            // Khoi's code (08/11/2026): lưu chữ ký cạnh nội dung để lượt sau gửi lại đúng cặp đã ký.
+            ...(entry ? { at: entry.at, sig: entry.sig } : {}) } : {}) } : message
       )));
       saveSession(response.session, scope, deviceId, nextMessages);
       if (response.quota?.day === clockDay(serverClock.current)) { quotaFromServer = true; setQuota(response.quota); }
@@ -532,6 +547,16 @@ export default function ChatbotPage({ user }) {
           // Khoi's code (05/11/2026): giữ tin cũ trên màn hình, chèn dòng phân cách; lượt sau gửi history rỗng.
           updateSession(null);
           updateMessages((current) => withSessionNote(current));
+        }
+        if (requestError.details?.code === 'HISTORY_INVALID') {
+          // Khoi's code (08/11/2026): lịch sử bị sửa tay/hết hạn → như hết phiên, rồi tự gửi lại 1 lần.
+          updateSession(null);
+          updateMessages((current) => withSessionNote(current));
+          if (historyRetried.current !== question) {
+            historyRetried.current = question;
+            retryRef.current = question;
+          }
+          setError(requestError.message || 'Lịch sử trò chuyện không hợp lệ.');
         }
         const nextMessages = updateMessages((current) => current.map((message) => message.turnId === turnId
           ? { ...message, status: 'failed', ...(message.sender === 'bot' ? {
@@ -556,6 +581,10 @@ export default function ChatbotPage({ user }) {
       window.clearTimeout(requestTimeout);
       // Tùng: mở composer đúng hạn, không chờ lock đối soát của tab khác.
       if (running.current === controller) { running.current = null; setBusy(false); }
+      // Khoi's code (08/11/2026): gửi lại đúng câu vừa rồi với lịch sử rỗng (chỉ một lần).
+      const retry = retryRef.current;
+      retryRef.current = null;
+      if (retry) window.setTimeout(() => { void sendRef.current?.(retry, { ignoreBusy: true }); }, 0);
       // Khoi's code (05/11/2026): lượt không kèm quota (429, dừng, hoàn lượt sau khi ngắt) → đọc lại từ server.
       if (!quotaFromServer) {
         try {
@@ -568,6 +597,9 @@ export default function ChatbotPage({ user }) {
       }
     }
   };
+
+  // Khoi's code (08/11/2026): giữ bản mới nhất để lượt tự gửi lại dùng đúng state hiện tại.
+  sendRef.current = sendQuestion;
 
   // Khoi's code (05/11/2026): dừng lượt đang chờ — server chỉ hoàn lượt khi chưa gửi câu trả lời (bước 2).
   const stopAnswer = () => {

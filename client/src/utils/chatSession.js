@@ -85,6 +85,11 @@ export function readChatSession(scope) {
       && (message.status === undefined || ['complete', 'failed', 'waiting', 'streaming'].includes(message.status))
       && (message.turnId === undefined || (typeof message.turnId === 'string' && OPERATION_UUID.test(message.turnId)))
       && (message.error === undefined || (typeof message.error === 'string' && message.error.length <= 1000))
+      // Khoi's code (08/11/2026): tin bot có thể mang chữ ký server (at + sig) để gửi lại lượt sau.
+      && (message.at === undefined || (message.sender === 'bot' && Number.isSafeInteger(message.at)))
+      && (message.sig === undefined || (message.sender === 'bot' && typeof message.sig === 'string'
+        && /^[A-Za-z0-9_-]{43}$/.test(message.sig)))
+      && ((message.at === undefined) === (message.sig === undefined))
       && (message.question === undefined || (typeof message.question === 'string' && Array.from(message.question).length <= 10000
         && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(message.question)))
       && (message.result === undefined || (message.sender === 'bot' && message.result?.kind === 'post'

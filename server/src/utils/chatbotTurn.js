@@ -25,8 +25,15 @@ function validateV3(body, account) {
     || (body.expectedDay !== undefined && (typeof body.expectedDay !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.expectedDay)))
     || (body.sessionToken !== undefined && (typeof body.sessionToken !== 'string' || body.sessionToken.length > 1024))
     || !validText(body.text) || !Array.isArray(body.history) || body.history.length > 20 || body.history.length % 2
-    || !body.history.every((entry, index) => validKeys(entry, ['sender', 'content'])
-      && entry.sender === (index % 2 ? 'bot' : 'user') && validText(entry.content))) return null;
+    // Khoi's code (08/11/2026): tin bot được mang thêm turnId/at/sig của server để ký lịch sử.
+    || !body.history.every((entry, index) => {
+      const bot = index % 2 === 1;
+      return validKeys(entry, bot ? ['sender', 'content', 'turnId', 'at', 'sig'] : ['sender', 'content'])
+        && entry.sender === (bot ? 'bot' : 'user') && validText(entry.content)
+        && (!bot || ((entry.turnId === undefined || (typeof entry.turnId === 'string' && UUID.test(entry.turnId)))
+          && (entry.at === undefined || Number.isSafeInteger(entry.at))
+          && (entry.sig === undefined || (typeof entry.sig === 'string' && entry.sig.length <= 128))));
+    })) return null;
   const context = body.postContext;
   if (context !== undefined && (!validKeys(context, ['state', 'subject', 'seenIds'])
     || Object.keys(context).length !== 3 || !['known', 'unknown'].includes(context.state)

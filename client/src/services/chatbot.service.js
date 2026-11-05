@@ -90,6 +90,15 @@ function validResult(payload) {
 }
 
 // Tùng: mỗi thao tác gửi chỉ fetch một lần và đối chiếu turnId trước khi cập nhật UI.
+// Khoi's code (08/11/2026): chữ ký server gắn vào từng câu trả lời để lượt sau kiểm lại lịch sử.
+const HISTORY_SIGNATURE = /^[A-Za-z0-9_-]{43}$/;
+
+function validHistoryEntry(entry, turnId) {
+  return entry && typeof entry === 'object' && !Array.isArray(entry)
+    && Object.keys(entry).length === 3 && Object.keys(entry).every((key) => ['turnId', 'at', 'sig'].includes(key))
+    && entry.turnId === turnId && Number.isSafeInteger(entry.at) && HISTORY_SIGNATURE.test(entry.sig);
+}
+
 async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onRetract, onUnauthorized } = {}) {
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const headers = new Headers({ 'Content-Type': 'text/plain; charset=utf-8' });
@@ -139,7 +148,13 @@ async function streamTurnV3(input, { signal, onAccepted, onDelta, onResult, onRe
         // Khoi's code (07/11/2026): lớp duyệt không cho qua → thu hồi nội dung đã stream.
         else if (name === 'retract' && accepted && typeof payload.text === 'string'
           && payload.text.trim() && Array.from(payload.text).length <= 10000) onRetract?.(payload.text);
-        else if (name === 'done' && accepted && payload.session && payload.limited === false) result = payload;
+        else if (name === 'done' && accepted && payload.session && payload.limited === false) {
+          // Khoi's code (08/11/2026): chữ ký sai hình dạng thì bỏ, lượt vẫn hoàn tất nhưng không vào lịch sử.
+          if (payload.historyEntry !== undefined && !validHistoryEntry(payload.historyEntry, input.turnId)) {
+            delete payload.historyEntry;
+          }
+          result = payload;
+        }
         else if (name === 'error' && accepted) throw new ApiError(payload.message || 'Trợ lý chưa hoàn tất.', 503, payload);
         else throw new Error('Phản hồi lượt không hợp lệ.');
       }

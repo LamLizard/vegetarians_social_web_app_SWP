@@ -10,6 +10,8 @@ const websiteGuide = require('../utils/chatbotWebsiteGuide');
 const healthModel = require('../models/health-profile.model');
 // Khoi's code (05/11/2026): prompt và các hàm thuần của lượt v3 tách sang utils để test riêng.
 const { CLASSIFIER_SYSTEM, ANSWER_SYSTEM, VERIFIER_SYSTEM } = require('../utils/chatbotPrompts');
+// Khoi's code (08/11/2026): ký/kiểm từng cặp hỏi–đáp để không tin lịch sử bị sửa tay.
+const { signTurn, verifyHistory, historyScopeFor } = require('../utils/chatHistorySignature');
 const { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alreadyWarnedProfile,
   isStandaloneArithmetic, parseScopedV3Intent } = require('../utils/chatbotTurn');
 // Khoi's code (05/11/2026): hạn mức phụ theo IP cho khách (băm IP, không lưu IP gốc).
@@ -182,6 +184,8 @@ async function turnV3(req, res) {
     return undefined;
   };
   if (!input) return reject(400, 'INVALID_INPUT', 'Dữ liệu câu hỏi không hợp lệ.');
+  // Khoi's code (08/11/2026): chỉ đưa { sender, content } cho AI, không đưa sig/at vào prompt.
+  const chatHistory = input.history.map(({ sender, content }) => ({ sender, content }));
   let config;
   try {
     config = await aiConfig.getConfig();
@@ -201,6 +205,17 @@ async function turnV3(req, res) {
     return reject(503, 'SESSION_UNAVAILABLE', 'Không thể kiểm tra phiên trò chuyện.');
   }
   if (expired()) return undefined;
+  // Khoi's code (08/11/2026): kiểm chữ ký TỪNG cặp trước khi trừ lượt; sai thì 409, không tốn lượt.
+  if (input.history.length) {
+    let check;
+    try { check = verifyHistory({ history: input.history, scope: historyScopeFor(req.account, input.deviceId) }); }
+    catch { check = { ok: false, reason: 'BAD_SIGNATURE' }; }
+    if (!check.ok) {
+      // Tùng: chỉ ghi nhóm lỗi, không ghi nội dung chat.
+      console.warn(`[chatbot] phase=history_signature code=${check.reason}`);
+      return reject(409, 'HISTORY_INVALID', 'Lịch sử trò chuyện không hợp lệ hoặc đã hết hạn. Mầm sẽ bắt đầu cuộc trò chuyện mới.');
+    }
+  }
   // Khoi's code (05/11/2026): quota khách đếm ở server (thiết bị + IP); mọi subject đã trừ đều có thể hoàn.
   const admittedSubjects = [];
   let primarySubject = null;
@@ -264,6 +279,9 @@ async function turnV3(req, res) {
     if (!expired() && !res.destroyed && !res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify({ turnId, ...payload })}\n\n`);
   };
   let partial = false;
+  // Khoi's code (08/11/2026): nội dung bot cuối cùng client thấy — dùng để ký lịch sử khi 'done'.
+  let botText = '';
+  let historyScope = null;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -273,6 +291,7 @@ async function turnV3(req, res) {
   let pendingBytes = 0;
   const queueEvent = (event, payload) => {
     const text = event === 'delta' ? payload.text : '';
+    if (text) botText += text; // Khoi's code (08/11/2026): cộng dồn nội dung sẽ hiển thị
     if ((event === 'delta' && !validText(text, true)) || pendingEvents.length >= 16) {
       throw Object.assign(new Error('CONTEXT_BUDGET_EXCEEDED'), { code: 'CONTEXT_BUDGET_EXCEEDED' });
     }
@@ -288,8 +307,17 @@ async function turnV3(req, res) {
   const emitText = (text) => queueEvent('delta', { text });
   const sendText = (text) => {
     partial = true;
+    botText += text; // Khoi's code (08/11/2026): cộng dồn nội dung sẽ hiển thị
     outputPoints += Array.from(text).length;
     emit('delta', { text });
+  };
+  // Khoi's code (08/11/2026): ký đúng cặp (câu hỏi, nội dung bot cuối cùng) tại thời điểm phát 'done'.
+  const historyEntryFor = () => {
+    const at = Date.now();
+    try {
+      if (!historyScope) historyScope = historyScopeFor(req.account, input.deviceId);
+      return { turnId, at, sig: signTurn({ scope: historyScope, turnId, at, userText: input.text, botText }) };
+    } catch { return undefined; }
   };
   // Khoi's code (05/11/2026): lượt đã chốt thì không hoàn; lưới an toàn cho lượt bị ngắt khi chưa gửi chữ nào.
   let settled = false;
@@ -303,10 +331,14 @@ async function turnV3(req, res) {
     emit('accepted', { session, quotaDay, ...(quota ? { quota } : {}) });
     const finishFixed = (message) => {
       if (expired() || res.destroyed || res.writableEnded) return;
+      // Khoi's code (08/11/2026): client chỉ thấy câu cố định này (buffer chưa gửi) → ký đúng nó.
+      botText = message;
       sendText(message);
       if (expired() || res.destroyed || res.writableEnded) return;
       settled = true;
+      const entry = historyEntryFor();
       emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,
+        ...(entry ? { historyEntry: entry } : {}),
         ...(refunded ? { refunded: true } : {}), ...(quota ? { quota } : {}) });
       if (!res.destroyed && !res.writableEnded) res.end();
     };
@@ -316,7 +348,7 @@ async function turnV3(req, res) {
     }
     // Tùng: phân biệt ý định theo ngữ cảnh để không nhầm hỏi món với tìm bài.
     // Tùng: gửi lịch sử như dữ liệu để tránh nhầm câu trả lời cũ với đầu ra JSON classifier.
-    const classifierMessages = deepseek.fitClassifierMessages(CLASSIFIER_SYSTEM, input.history, input.text, input.postContext?.subject ?? null);
+    const classifierMessages = deepseek.fitClassifierMessages(CLASSIFIER_SYSTEM, chatHistory, input.text, input.postContext?.subject ?? null);
     const classifierData = JSON.parse(classifierMessages[1].content);
     if (classifierData.history.length !== input.history.length) {
       finishFixed(REPLY_UNKNOWN);
@@ -452,9 +484,9 @@ async function turnV3(req, res) {
     if (answerNeeded) {
       // Tùng: hướng dẫn trả lời hữu ích và giải nghĩa trạng thái hồ sơ theo yêu cầu đã chốt.
       // Khoi's code (05/11/2026): kèm cờ alreadyWarned + dữ liệu Green Bowl đã lọc dị ứng.
-      const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(input.history),
+      const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
         greenBowl, website: intent.needsWebsiteGuide ? websiteGuide : null });
-      const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], input.history,
+      const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
       if (expired()) return undefined;
       phase = 'answer_stream';
@@ -494,10 +526,10 @@ async function turnV3(req, res) {
     const visibleContent = streamedAnswer ? [{ text: streamedAnswer }, ...bufferedContent] : bufferedContent;
     const verifierInput = JSON.stringify({ question: input.text,
       allowed: scoped.scope === 'mixed' ? scoped.allowedText : null, content: visibleContent });
-    const verifierMessages = deepseek.fitClassifierMessages(VERIFIER_SYSTEM, input.history, verifierInput);
+    const verifierMessages = deepseek.fitClassifierMessages(VERIFIER_SYSTEM, chatHistory, verifierInput);
     // Tùng: không kiểm với lịch sử bị cắt mà giả định đã đủ ngữ cảnh.
     const verifierData = JSON.parse(verifierMessages[1].content);
-    if (verifierData.history.length !== input.history.length) {
+    if (verifierData.history.length !== chatHistory.length) {
       finishFixed(REPLY_UNKNOWN);
       return undefined;
     }
@@ -514,7 +546,11 @@ async function turnV3(req, res) {
         pendingEvents.length = 0;
         settled = true;
         emit('retract', { text: REPLY_UNKNOWN });
+        // Khoi's code (08/11/2026): client thay cả bong bóng bằng câu từ chối → ký đúng câu đó.
+        botText = REPLY_UNKNOWN;
+        const retractEntry = historyEntryFor();
         emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,
+          ...(retractEntry ? { historyEntry: retractEntry } : {}),
           ...(refunded ? { refunded: true } : {}), ...(quota ? { quota } : {}) });
         if (!res.destroyed && !res.writableEnded) res.end();
         return undefined;
@@ -532,7 +568,9 @@ async function turnV3(req, res) {
     }
     if (expired()) return undefined;
     settled = true;
+    const finalEntry = historyEntryFor();
     emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,
+      ...(finalEntry ? { historyEntry: finalEntry } : {}),
       ...(refunded ? { refunded: true } : {}), ...(quota ? { quota } : {}) });
     if (!res.destroyed && !res.writableEnded) res.end();
   } catch (error) {
