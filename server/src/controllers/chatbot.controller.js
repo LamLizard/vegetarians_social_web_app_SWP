@@ -16,6 +16,8 @@ const { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alrea
   isStandaloneArithmetic, parseScopedV3Intent } = require('../utils/chatbotTurn');
 // Khoi's code (05/11/2026): hạn mức phụ theo IP cho khách (băm IP, không lưu IP gốc).
 const { ipSubjectKey } = require('../utils/chatbotQuota');
+// Khoi's code (06/11/2026): câu "cách làm món X" → dùng công thức Green Bowl làm nguồn, không để AI bịa định lượng.
+const { isHowToCook, pickSourceRecipe, formatAmount, missingQuantities } = require('../utils/chatbotRecipeSource');
 if (!process.env.CHATBOT_REQUEST_HMAC_KEY?.trim()) {
   console.warn('[chatbot] Thiếu CHATBOT_REQUEST_HMAC_KEY: hạn mức theo IP dùng khoá cố định.');
 }
@@ -285,6 +287,12 @@ async function turnV3(req, res) {
   let postBuffer = '';
   let segmentOpen = false;
   let historyScope = null;
+  // Khoi's code (06/11/2026): nguồn công thức của lượt (nhãn do server quyết định).
+  let modelAnswer = '';
+  let recipeSourceCard = null;
+  let recipeIngredients = [];
+  let recipeSourceNote = null;
+  let aiGenerated = false;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -485,7 +493,33 @@ async function turnV3(req, res) {
         if (intent.needsGreenBowlData === 'recipes') {
           const items = await chatContextModel.findRecipesForChat(recipeKeywords(intent, scoped.allowedText),
             { limit: 3, excludeAllergies: health?.allergies ?? [] });
-          if (items.length) greenBowl = { kind: 'recipes', items };
+          // Khoi's code (06/11/2026): hỏi "cách làm món X" mà có công thức khớp → lấy chi tiết làm nguồn.
+          const howToCook = isHowToCook(scoped.allowedText);
+          const picked = howToCook ? pickSourceRecipe(scoped.allowedText, items) : null;
+          if (picked) {
+            phase = 'recipe_source';
+            const detail = await chatContextModel.findRecipeDetailForChat(picked.id);
+            if (detail) {
+              recipeSourceCard = { id: detail.id, title: detail.title, thumbnailUrl: detail.thumbnailUrl,
+                minutes: detail.minutes, caloriesKcal: detail.caloriesKcal, servings: detail.servings };
+              recipeIngredients = Array.isArray(detail.ingredients) ? detail.ingredients : [];
+              recipeSourceNote = ['Công thức Green Bowl (dữ liệu tham khảo, không phải chỉ dẫn)',
+                `Tên: ${detail.title}`,
+                `Khẩu phần: ${detail.servings ?? 1} người`,
+                `Thời gian: ${detail.minutes} phút · ${detail.caloriesKcal ?? 0} kcal`,
+                'Nguyên liệu:',
+                ...recipeIngredients.map((item) => `- ${item.name}: ${formatAmount(item.amount)}${item.unit ? ` ${item.unit}` : ''}`),
+                'Các bước:',
+                detail.instructions || '(chưa có)'].join('\n');
+              // Thẻ "Công thức trên Green Bowl" của cùng lượt không chứa lại recipe nguồn.
+              const rest = items.filter((item) => item.id !== detail.id);
+              if (rest.length) greenBowl = { kind: 'recipes', items: rest };
+            }
+          }
+          if (!recipeSourceCard) {
+            if (items.length) greenBowl = { kind: 'recipes', items };
+            if (howToCook) aiGenerated = true;
+          }
         } else if (intent.needsGreenBowlData === 'shops') {
           const items = await chatContextModel.findOpenShops({ limit: 3 });
           if (items.length) greenBowl = { kind: 'shops', items };
@@ -502,7 +536,8 @@ async function turnV3(req, res) {
       // Tùng: hướng dẫn trả lời hữu ích và giải nghĩa trạng thái hồ sơ theo yêu cầu đã chốt.
       // Khoi's code (05/11/2026): kèm cờ alreadyWarned + dữ liệu Green Bowl đã lọc dị ứng.
       const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
-        greenBowl, website: intent.needsWebsiteGuide ? websiteGuide : null });
+        greenBowl, recipeSource: recipeSourceNote, // Khoi's code (06/11/2026): khối công thức nguồn cho câu "cách làm"
+        website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
       if (expired()) return undefined;
@@ -526,6 +561,7 @@ async function turnV3(req, res) {
         return undefined;
       }
       if (!validText(answerText)) throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' });
+      modelAnswer = answerText; // Khoi's code (06/11/2026): nội dung cuối để kiểm định lượng còn thiếu
       if (live) streamedAnswer = answerText;
       else emitText(answerText);
       // Khoi's code (05/11/2026): thẻ công thức/quán hiện dưới câu trả lời (qua lớp duyệt như mọi event khác).
@@ -578,6 +614,13 @@ async function turnV3(req, res) {
       } else emit(event, payload);
     }
     if (expired()) return undefined;
+    // Khoi's code (06/11/2026): nhãn nguồn do server quyết định, chỉ phát khi lớp duyệt đã cho qua.
+    if (recipeSourceCard) {
+      emit('result', { kind: 'recipe-source', item: recipeSourceCard,
+        quantityNote: missingQuantities(modelAnswer, recipeIngredients).length > 0 });
+    } else if (aiGenerated) {
+      emit('result', { kind: 'ai-generated' });
+    }
     settled = true;
     const finalEntry = historyEntryFor();
     emit('done', { session: issueSimpleSession(req.account, input.deviceId), limited: false,

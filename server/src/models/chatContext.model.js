@@ -63,6 +63,27 @@ async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies =
 }
 
 /** Quán đã xác minh và không bị ẩn; xếp quán đang mở trước, kèm câu trạng thái theo giờ VN. */
+// Khoi's code (06/11/2026): chi tiết công thức đã duyệt để Mầm diễn đạt lại đúng định lượng (chỉ SELECT).
+const RECIPE_INSTRUCTIONS_LIMIT = 4000;
+
+async function findRecipeDetailForChat(recipeId) {
+  if (!/^[1-9]\d{0,17}$/.test(String(recipeId ?? ''))) return null;
+  const { rows: [row] } = await pool.query(`
+    SELECT r.recipe_id::text AS id, r.title, r.servings, r.calories_kcal AS "caloriesKcal",
+      (COALESCE(r.prep_time_minutes, 0) + COALESCE(r.cook_time_minutes, 0))::int AS minutes,
+      r.thumbnail_url AS "thumbnailUrl",
+      LEFT(COALESCE(r.instructions, ''), ${RECIPE_INSTRUCTIONS_LIMIT}) AS instructions,
+      COALESCE((SELECT json_agg(json_build_object('name', ing.name, 'amount', ri.amount, 'unit', ri.unit)
+          ORDER BY ri.ingredient_id)
+        FROM public.recipe_ingredient ri JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
+        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS ingredients
+    FROM public.recipe r
+    JOIN public.dish d ON d.dish_id = r.dish_id AND d.status = 'active'
+    WHERE r.recipe_id = $1 AND r.status = 'approved'
+  `, [recipeId]);
+  return row ?? null;
+}
+
 async function findOpenShops({ limit = 3, now = new Date() } = {}) {
   const { rows } = await pool.query(`
     SELECT s.shop_id::text AS id, s.name, s.address, s.avt_shop_url AS "avatarUrl",
@@ -121,4 +142,5 @@ async function findTodayMealPlan(accountId) {
     totalKcal: meals.reduce((sum, meal) => sum + meal.totalKcal, 0), meals };
 }
 
-module.exports = { findRecipesForChat, findOpenShops, findTodayMealPlan, excludeAllergens, plain };
+module.exports = { findRecipesForChat, findRecipeDetailForChat, findOpenShops, findTodayMealPlan,
+  excludeAllergens, plain };

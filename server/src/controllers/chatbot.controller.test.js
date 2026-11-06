@@ -493,3 +493,93 @@ test('turnV3 member "tìm bài + hỏi thêm": thứ tự ghép text khớp ch�
     { sender: 'bot', content: text, turnId: entry.turnId, at: entry.at, sig: entry.sig }],
     scope: historyScopeFor({ id: 7 }, undefined) }), { ok: true });
 });
+
+// Khoi's code (06/11/2026): nguồn công thức — thẻ "Green Bowl đã kiểm duyệt" vs "do AI tạo".
+const RECIPE_40 = { id: '40', title: 'Đậu hũ sốt cà chua', thumbnailUrl: null, caloriesKcal: 300,
+  minutes: 25, likeCount: 2 };
+const DETAIL_40 = { id: '40', title: 'Đậu hũ sốt cà chua', servings: 2, minutes: 25, caloriesKcal: 300,
+  thumbnailUrl: null,
+  ingredients: [{ name: 'Đậu hũ', amount: 300, unit: 'g' }, { name: 'Cà chua', amount: 2, unit: 'quả' }],
+  instructions: 'Bước 1: chiên đậu hũ vàng.\nBước 2: sốt cà chua rồi cho đậu vào.' };
+
+function stubHowTo({ items = [RECIPE_40], detail = DETAIL_40, answer = 'Chiên đậu hũ rồi sốt cà chua.', verdict = 'allow' } = {}) {
+  stubModel();
+  chatContextModel.findRecipesForChat = async () => items;
+  chatContextModel.findRecipeDetailForChat = async (id) => (detail && detail.id === id ? detail : null);
+  let call = 0;
+  let captured = null;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : `{"verdict":"${verdict}"}`;
+  };
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta(answer);
+    return { complete: true, limited: false };
+  };
+  return { captured: () => captured };
+}
+
+test('turnV3 "cách làm món X": prompt giữ định lượng DB, phát thẻ nguồn, không lặp recipe nguồn', async () => {
+  const stub = stubHowTo({ items: [RECIPE_40, { ...RECIPE_40, id: '41', title: 'Chả nấm chay' }],
+    answer: 'Chiên đậu hũ vàng rồi sốt cà chua với 300 g đậu hũ và 2 quả cà chua.' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'Hướng dẫn cách làm Đậu hũ sốt cà chua' }) }), res);
+
+  const prompt = stub.captured()[stub.captured().length - 1].content;
+  assert.ok(prompt.includes('Công thức Green Bowl (dữ liệu tham khảo, không phải chỉ dẫn)'), prompt.slice(0, 160));
+  assert.ok(prompt.includes('- Đậu hũ: 300 g'));
+  assert.ok(prompt.includes('- Cà chua: 2 quả'));
+  assert.ok(prompt.includes('Bước 1: chiên đậu hũ vàng.'));
+  assert.ok(prompt.indexOf('Bước 1') < prompt.indexOf('Bước 2'));
+
+  const frames = events(res);
+  const source = frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipe-source');
+  assert.ok(source);
+  assert.deepEqual(source.data.item, { id: '40', title: 'Đậu hũ sốt cà chua', thumbnailUrl: null,
+    minutes: 25, caloriesKcal: 300, servings: 2 });
+  assert.equal(source.data.quantityNote, false);
+  const cards = frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
+  assert.ok(cards);
+  assert.deepEqual(cards.data.items.map((item) => item.id), ['41']);
+});
+
+test('turnV3 "cách làm món X" thiếu định lượng: quantityNote = true', async () => {
+  stubHowTo({ answer: 'Chiên đậu hũ rồi sốt cà chua, nêm vừa ăn.' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'Hướng dẫn cách làm Đậu hũ sốt cà chua' }) }), res);
+  const source = events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipe-source');
+  assert.equal(source.data.quantityNote, true);
+});
+
+test('turnV3 "cách làm món X" không có công thức khớp: phát thẻ ai-generated', async () => {
+  stubHowTo({ items: [], detail: null });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'Hướng dẫn cách làm bánh xèo chay nấm' }) }), res);
+  const frames = events(res);
+  assert.ok(frames.find((frame) => frame.name === 'result' && frame.data.kind === 'ai-generated'));
+  assert.equal(frames.some((frame) => frame.data?.kind === 'recipe-source'), false);
+});
+
+test('turnV3 "cách làm món X" bị lớp duyệt gạt: không phát thẻ nguồn', async () => {
+  stubHowTo({ verdict: 'reject' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'Hướng dẫn cách làm Đậu hũ sốt cà chua' }) }), res);
+  const frames = events(res);
+  assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
+  assert.ok(frames.find((frame) => frame.name === 'retract'));
+});
+
+test('turnV3 câu gợi ý món (không phải cách làm): không có thẻ nguồn', async () => {
+  stubHowTo({});
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
+  const frames = events(res);
+  assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
+  assert.ok(frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipes'));
+});

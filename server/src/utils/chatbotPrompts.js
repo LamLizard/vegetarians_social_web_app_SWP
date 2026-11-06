@@ -47,6 +47,8 @@ const ANSWER_SYSTEM = [
       'Nếu health.profileWarnings có phần tử, nhắc người dùng cập nhật hồ sơ để Mầm tư vấn chính xác hơn; chỉ nhắc một lần trong hội thoại: khi alreadyWarned là true thì không nhắc lại và vẫn trả lời câu hỏi bình thường.',
       // Khoi's code (05/11/2026): khách hỏi cần cá nhân hoá → nhắc đăng nhập đúng một câu ở cuối.
       'Khi healthState là guest và câu hỏi cần cá nhân hoá, kết thúc câu trả lời bằng đúng câu: “Đăng nhập và khai báo dị ứng trong Hồ sơ để Mầm gợi ý an toàn hơn.”',
+      // Khoi's code (06/11/2026): có công thức Green Bowl làm nguồn thì bám đúng số liệu, không bịa định lượng.
+      'Khi có khối Công thức Green Bowl: giữ NGUYÊN định lượng và thứ tự bước, chỉ được diễn đạt lại ngắn gọn; không thêm nguyên liệu; người dùng hỏi khẩu phần khác thì tính từ chính số liệu đó; không tự ghi câu “đã kiểm duyệt”.',
 ].join('\n');
 
 const VERIFIER_SYSTEM = [

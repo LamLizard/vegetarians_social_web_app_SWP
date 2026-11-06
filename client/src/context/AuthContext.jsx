@@ -1,8 +1,6 @@
 // "bộ não phiên": giữ user+token, lưu localStorage, logout, check phiên
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import authService from '../services/auth.service';
-// Khoi's code (05/11/2026): đăng xuất thì xoá toàn bộ dữ liệu chat đã lưu trên trình duyệt.
-import { clearAllChatData } from '../utils/chatSession';
 import { apiFetch, ApiError, AUTH_TOKEN_KEY, setUnauthorizedHandler } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -33,7 +31,6 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
-    clearAllChatData(); // Khoi's code (05/11/2026)
     setToken(null);
     saveUser(null);
   }, [saveUser]);

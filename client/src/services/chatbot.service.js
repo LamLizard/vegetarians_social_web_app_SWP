@@ -69,6 +69,12 @@ const isShopCard = (item) => Boolean(item) && isResultId(item.id) && typeof item
   && typeof item.statusText === 'string' && item.statusText.length <= 120 && typeof item.isOpen === 'boolean'
   && (item.address == null || (typeof item.address === 'string' && item.address.length <= 500));
 const isCardList = (items, check) => Array.isArray(items) && items.length > 0 && items.length <= 3 && items.every(check);
+// Khoi's code (06/11/2026): thẻ nguồn công thức + nhãn "do AI tạo" (nhãn do server quyết định).
+const isRecipeSourceCard = (item) => Boolean(item) && isResultId(item.id)
+  && typeof item.title === 'string' && Boolean(item.title.trim())
+  && (item.thumbnailUrl == null || (typeof item.thumbnailUrl === 'string' && item.thumbnailUrl.length <= 2048))
+  && isOptionalNumber(item.minutes) && isOptionalNumber(item.caloriesKcal)
+  && (item.servings == null || (Number.isSafeInteger(item.servings) && item.servings > 0 && item.servings <= 100));
 
 function validResult(payload) {
   if (payload.kind === 'post') {
@@ -86,6 +92,8 @@ function validResult(payload) {
   }
   if (payload.kind === 'recipes') return isCardList(payload.items, isRecipeCard);
   if (payload.kind === 'shops') return isCardList(payload.items, isShopCard);
+  if (payload.kind === 'recipe-source') return isRecipeSourceCard(payload.item) && typeof payload.quantityNote === 'boolean';
+  if (payload.kind === 'ai-generated') return payload.item === undefined;
   return false;
 }
 

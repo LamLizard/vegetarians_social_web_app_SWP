@@ -98,9 +98,6 @@
   color: var(--mam-accent-text); font-size: .82rem; cursor: pointer; }
 .newChat:hover { background: var(--mam-well); }
 .newChat:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
-/* Khoi's code (05/11/2026): dòng phân cách khi phiên trước kết thúc. */
-.sessionDivider { width: min(100%, 880px); margin: var(--mam-space-sm) auto; padding-top: var(--mam-space-sm);
-  border-top: 1px dashed var(--mam-line); color: var(--v-muted); font-size: .78rem; text-align: center; }
 /* Khoi's code (05/11/2026): nút Sao chép dưới câu trả lời của Mầm. */
 .copy { margin-top: 2px; padding: 2px 6px; border: 0; border-radius: 8px; background: none;
   color: var(--v-muted); font-size: .74rem; cursor: pointer; }
