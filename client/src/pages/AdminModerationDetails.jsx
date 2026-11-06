@@ -63,8 +63,7 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
             <dt>Mở nhóm lúc</dt><dd>{dateLabel(reportCase.createdAt)}</dd>
             <dt>Báo cáo gần nhất</dt><dd>{dateLabel(reports[0]?.createdAt)}</dd>
             <dt>Trạng thái nhóm</dt><dd><ReportModerationStatus status={reportCase.status} targetType={reportCase.targetType} /></dd>
-            {reportCase.handledAt && <><dt>Đã xử lý</dt><dd>{reportCase.status === 'auto_closed_deleted'
-              ? 'Hệ thống' : (reportCase.handlerName || reportCase.handlerEmail || 'Admin')} · {dateLabel(reportCase.handledAt)}</dd></>}
+            {reportCase.handledAt && <><dt>Đã xử lý</dt><dd>{reportCase.handlerName || reportCase.handlerEmail || 'Admin'} · {dateLabel(reportCase.handledAt)}</dd></>}
             {reportCase.resolutionNote && <><dt>Kết quả</dt><dd className={styles.content}>{reportCase.resolutionNote}</dd></>}
           </dl>
         </Panel>
@@ -85,7 +84,7 @@ export default function AdminModerationDetails({ post, reportCase, reports = [],
             <dt>Ngày gửi</dt><dd>{dateLabel(comment.createdAt)}</dd>
             <dt>Bài viết chứa bình luận</dt><dd>{post?.title || `Bài #${comment.postId} không còn tồn tại`}</dd>
           </dl>
-          {comment.status === 'deleted'
+          {comment.status === 'deleted' && !['accepted', 'rejected'].includes(reportCase.status)
             ? <Notice tone="info">Bình luận đã bị xóa.</Notice>
             : <div className={`${styles.content} mt-3`}>{comment.content}</div>}
         </Panel>

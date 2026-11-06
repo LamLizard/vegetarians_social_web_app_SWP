@@ -28,7 +28,7 @@ const POST_STATUSES = [
 ];
 const REPORT_STATUSES = [
   { value: 'pending', label: 'Chờ xử lý' }, { value: 'accepted', label: 'Đã chấp nhận' },
-  { value: 'rejected', label: 'Đã từ chối' }, { value: 'auto_closed_deleted', label: 'Tự đóng do bình luận đã xóa' },
+  { value: 'rejected', label: 'Đã từ chối' },
   { value: 'all', label: 'Tất cả trạng thái' },
 ];
 const POST_TYPES = [
@@ -82,16 +82,19 @@ export default function AdminModerationPage() {
   const [actionError, setActionError] = useState(null);
   const saveInFlight = useRef(false);
   const pageAlive = useRef(true);
+  const listGeneration = useRef(0);
 
   useEffect(() => {
     pageAlive.current = true;
-    return () => { pageAlive.current = false; };
+    return () => { pageAlive.current = false; listGeneration.current += 1; };
   }, []);
 
   useEffect(() => {
     if (!isAdmin || query.tab === 'post-edits') return undefined;
     const controller = new AbortController();
     let active = true;
+    const generation = listGeneration.current;
+    const isCurrent = () => active && generation === listGeneration.current;
     setLoading(true);
     setError(null);
     // Tung's code: Chỉ tab duyệt bài đọc posts. Hai tab còn lại đọc case,
@@ -101,9 +104,9 @@ export default function AdminModerationPage() {
         ...filters, targetType: query.tab === 'comment-report' ? 'comment' : 'post',
       }, signal);
     fetchList(query, controller.signal)
-      .then(data => { if (active) setList(data); })
-      .catch(err => { if (active && err.name !== 'AbortError') setError(err); })
-      .finally(() => { if (active) setLoading(false); });
+      .then(data => { if (isCurrent()) setList(data); })
+      .catch(err => { if (isCurrent() && err.name !== 'AbortError') setError(err); })
+      .finally(() => { if (isCurrent()) setLoading(false); });
     return () => { active = false; controller.abort(); };
   }, [query, reload, isAdmin]);
 
@@ -122,8 +125,29 @@ export default function AdminModerationPage() {
     return () => { active = false; controller.abort(); };
   }, [selected, detailReload, isAdmin, query.tab]);
 
-  const changeFilters = (patch) => setQuery(current => ({ ...current, ...patch, page: 1 }));
+  const invalidateList = () => {
+    listGeneration.current += 1;
+    setLoading(true);
+    setError(null);
+  };
+  const changeFilters = (patch) => {
+    invalidateList();
+    setQuery(current => ({ ...current, ...patch, page: 1 }));
+  };
+  const changeSearch = (value) => {
+    setSearchInput(value);
+    changeFilters({ search: value.trim() });
+  };
+  const changePage = (page) => {
+    invalidateList();
+    setQuery(current => ({ ...current, page }));
+  };
+  const refreshList = () => {
+    if (query.tab !== 'post-edits') invalidateList();
+    setReload(value => value + 1);
+  };
   const changeTab = (tab) => {
+    invalidateList();
     setSearchInput('');
     setSelected(null);
     setQuery({ tab, status: 'pending', postType: 'all', search: '', page: 1, stale: false });
@@ -157,7 +181,7 @@ export default function AdminModerationPage() {
       let message = decision.entity === 'post'
         ? (decision.action === 'approve' ? 'Đã duyệt bài viết.' : 'Đã từ chối bài viết; bài chuyển sang Đã xóa.')
         : decision.targetType === 'comment'
-          ? (decision.action === 'accept' ? 'Đã xóa bình luận và tự đóng báo cáo.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
+          ? (decision.action === 'accept' ? 'Đã chấp nhận báo cáo và xóa bình luận.' : 'Đã từ chối nhóm báo cáo; giữ nguyên trạng thái bình luận.')
           : (decision.action === 'accept' ? 'Đã xử lý nhóm báo cáo và gỡ bài.' : 'Đã từ chối gỡ bài theo nhóm báo cáo này.');
       if (decision.entity === 'case' && decision.targetType === 'post' && decision.action === 'reject') {
         if (result.postStatus === 'deleted') message += ' Bài đã xóa được giữ nguyên.';
@@ -170,7 +194,7 @@ export default function AdminModerationPage() {
       setDecision(null);
       setSelected(null);
       setDetail(null);
-      setReload(value => value + 1);
+      refreshList();
     } catch (err) {
       if (!pageAlive.current) return;
       if (err.status === 409) {
@@ -179,7 +203,7 @@ export default function AdminModerationPage() {
         toast(err.message, { tone: 'info' });
         setDecision(null);
         setDetailReload(value => value + 1);
-        setReload(value => value + 1);
+        refreshList();
       } else {
         // Giữ ConfirmDialog mở để lý do vừa nhập không bị mất khi request lỗi.
         setActionError(err.message || 'Không thể lưu quyết định. Vui lòng thử lại.');
@@ -243,16 +267,15 @@ export default function AdminModerationPage() {
   return (
     <AdminLayout activeKey="moderation" title="Quản lý bài viết" user={user} onLogout={handleLogout}>
       <PageHeader title="Quản lý bài viết" description="Duyệt bài blog/video và xử lý nhóm báo cáo bài viết, bình luận."
-        actions={<Button variant="outline" icon="arrow-clockwise" onClick={() => setReload(value => value + 1)} disabled={query.tab !== 'post-edits' && loading}>Tải lại</Button>} />
+        actions={<Button variant="outline" icon="arrow-clockwise" onClick={refreshList} disabled={query.tab !== 'post-edits' && loading}>Tải lại</Button>} />
       <Tabs items={TABS} value={query.tab} onChange={changeTab} label="Chọn danh sách quản trị bài viết" />
       {query.tab === 'post-edits' ? <AdminPostEditQueue refreshKey={reload} /> : <>
       <Panel className="my-3" title="Bộ lọc" icon="funnel">
         <div className={styles.filters}>
           <div className={styles.search}>
-            <SearchInput value={searchInput} onChange={setSearchInput}
-              onSearch={search => changeFilters({ search })} maxLength={255}
-              placeholder={query.tab === 'post' ? 'Tiêu đề, tác giả — nhấn Enter'
-                : query.tab === 'comment-report' ? 'Bình luận, bài viết, người báo cáo' : 'Tiêu đề, người báo cáo — nhấn Enter'} />
+            <SearchInput value={searchInput} onChange={changeSearch} maxLength={255}
+              placeholder={query.tab === 'post' ? 'Tiêu đề, tác giả'
+                : query.tab === 'comment-report' ? 'Bình luận, bài viết, người báo cáo' : 'Tiêu đề, người báo cáo'} />
           </div>
           <Select label="Trạng thái" options={query.tab === 'post' ? POST_STATUSES : REPORT_STATUSES}
             value={query.status} onChange={status => changeFilters({ status, stale: false })} />
@@ -270,8 +293,11 @@ export default function AdminModerationPage() {
           }}>Đặt lại bộ lọc</Button>
         </div>
       </Panel>
+      {query.tab === 'post' && query.status === 'public' && (
+        <p className={styles.muted}>Bài được xếp theo lần xử lý gần nhất; nếu chưa có, dùng ngày công khai hoặc ngày gửi.</p>
+      )}
       {error ? (
-        <Notice tone="alert" title="Không tải được danh sách" action={{ label: 'Thử lại', onClick: () => setReload(value => value + 1) }}>
+        <Notice tone="alert" title="Không tải được danh sách" action={{ label: 'Thử lại', onClick: refreshList }}>
           {error.message}
         </Notice>
       ) : (
@@ -280,7 +306,7 @@ export default function AdminModerationPage() {
             caption={query.tab === 'post' ? 'Danh sách bài viết để duyệt' : 'Danh sách nhóm báo cáo để xử lý'}
             empty={{ icon: 'check2-circle', title: 'Không có mục phù hợp', children: 'Đổi bộ lọc hoặc tải lại để xem dữ liệu mới.' }}
             footer={!loading && <Pagination page={list.page} totalPages={list.totalPages} totalItems={list.totalItems}
-              pageSize={list.pageSize} onChange={page => setQuery(current => ({ ...current, page }))} />} />
+              pageSize={list.pageSize} onChange={changePage} />} />
         </Panel>
       )}
 
