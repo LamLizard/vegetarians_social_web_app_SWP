@@ -38,13 +38,18 @@ const RECIPE_STOPWORDS = new Set(['mon', 'chay', 'minh', 'nen', 'an', 'gi', 'cho
   // Khoi's code (06/11/2026): từ xưng hô/đệm không được thành từ khoá món ("chỉ tao làm…", "dạy mình nấu…").
   'tao', 'may', 'chi', 'day', 'gium', 'nha', 'nhe', 'huong', 'dan', 'bay', 'sao',
   // Khoi's code (06/11/2026): tính từ khen chung không phải tên món ("hủ tiếu ăn với gì ngon").
-  'ngon']);
+  'ngon',
+  // Khoi's code (06/11/2026): từ hỏi định lượng/khẩu phần — "định" bỏ dấu thành "dinh" khớp nhầm "Men dinh dưỡng".
+  'dinh', 'luong', 'ntn', 'khau', 'phan', 'gram', 'kcal']);
 const MAX_RECIPE_TERMS = 6;
 // Khoi's code (06/11/2026): ưu tiên cụm món của classifier, rồi cụm 2 từ liền nhau (vd "nước dừa"), rồi từ đơn.
 function recipeKeywords(intent, text) {
   const fromIntent = [intent.cookDish, intent.subject, ...(Array.isArray(intent.nearTerms) ? intent.nearTerms : [])]
     .filter((value) => typeof value === 'string' && value.trim());
-  const tokens = String(text ?? '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  // Khoi's code (06/11/2026): hỏi cách làm một món → chỉ tách từ khoá từ TÊN MÓN, bỏ phần còn lại của câu
+  // (khẩu phần, "định lượng", "làm ntn"… không phải tên món và dễ khớp nhầm nguyên liệu).
+  const source = typeof intent.cookDish === 'string' && intent.cookDish.trim() ? intent.cookDish : text;
+  const tokens = String(source ?? '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const usable = (token) => token.length >= 3 && !RECIPE_STOPWORDS.has(chatContextModel.plain(token));
   // Khoi's code (06/11/2026): cụm 2 từ nhận cả từ 2 chữ cái (hủ tiếu, mì xào, cá kho) — tên món tiếng Việt hay có;
   // từ đứng riêng vẫn cần ≥ 3 chữ cái để tránh rác.

@@ -49,3 +49,16 @@ test('"mì xào" và "cá kho" là cụm; từ đơn ≥ 3 chữ cái khác vẫ
   assert.equal(folded.includes('xao'), false);
   assert.ok(folded.includes('nam rom') && folded.includes('nam'), folded.join(' | '));
 });
+
+// Khoi's code (06/11/2026): có cookDish thì chỉ lấy từ khoá từ tên món ("định" từng khớp nhầm "Men dinh dưỡng").
+test('cookDish "chè bưởi": bỏ phần khẩu phần/định lượng của câu', () => {
+  const terms = recipeKeywords({ cookDish: 'chè bưởi', subject: null, nearTerms: [] },
+    'chè bưởi cho 1 nhà 6 ng ăn thì định lượng bao nhiêu, làm ntn ?');
+  assert.deepEqual(folds(terms), ['che buoi', 'che', 'buoi']);
+});
+
+test('không có cookDish: "định lượng"/"ntn" không thành từ khoá', () => {
+  const folded = folds(recipeKeywords({ subject: null, nearTerms: [] }, 'định lượng đậu hũ cho 6 người ntn'));
+  for (const stop of ['dinh', 'luong', 'dinh luong', 'ntn']) assert.equal(folded.includes(stop), false, stop);
+  assert.ok(folded.includes('dau hu'), folded.join(' | '));
+});
