@@ -25,12 +25,13 @@ import s from './FeedPostCard.module.css';
  * @param {number} voteCount · commentCount · @param {boolean} voted
  * @param {boolean} [reported]          người xem đã báo cáo → menu hiện "Đã báo cáo" (không bấm được)
  * @param {() => void} onVote · onOpen · onComment
- * @param {() => void} [onReport]       không truyền (vd bài của mình) → không có menu báo cáo
+ * @param {() => void} [onReport]       báo cáo bài viết
+ * @param {() => void} [onReportAccount] báo cáo tài khoản tác giả bài viết
  */
 export default function FeedPostCard({
   postType = 'blog', title, excerpt, href = '#', thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, voted = false, reported = false,
-  onVote, onOpen, onComment, onReport, onTopicClick,
+  onVote, onOpen, onComment, onReport, onReportAccount, onTopicClick,
 }) {
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
   const cover = postType === 'video' && youtubeVideoId
@@ -39,9 +40,12 @@ export default function FeedPostCard({
   // Giữ thẻ <a> (Ctrl+click, trình đọc màn hình vẫn đúng) nhưng mở bài tại chỗ
   const open = (e) => { e.preventDefault(); onOpen?.(); };
 
-  const menuItems = reported
-    ? [{ icon: 'flag-fill', label: 'Đã báo cáo', hint: 'Admin đang xem xét', disabled: true }]
-    : onReport ? [{ icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', tone: 'alert', onClick: onReport }] : [];
+  const menuItems = [
+    ...(onReport ? [reported
+      ? { icon: 'flag-fill', label: 'Đã báo cáo bài viết', hint: 'Admin đang xem xét', disabled: true }
+      : { icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', tone: 'alert', onClick: onReport }] : []),
+    ...(onReportAccount ? [{ icon: 'person-fill-exclamation', label: 'Báo cáo tài khoản', hint: 'Báo cáo tác giả bài viết', tone: 'alert', onClick: onReportAccount }] : []),
+  ];
 
   return (
     <article className={s.card}>
