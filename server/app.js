@@ -15,6 +15,7 @@ app.use('/api/auth', authRoutes);
 // Duy's code: Kết nối API xem và cập nhật hồ sơ của tài khoản hiện tại.
 app.use('/api/users', require('./src/routes/user.routes'));
 // Duy's code: Hoàn tất điểm nối API hồ sơ User.
+app.use('/api/accounts', require('./src/routes/account-report.routes'));
 
 // Tung's code: Đăng ký API duyệt bài viết và xử lý báo cáo bài viết cho trang Admin.
 // Router tự kiểm tra đăng nhập (requireAuth) và quyền Admin (requireAdmin)

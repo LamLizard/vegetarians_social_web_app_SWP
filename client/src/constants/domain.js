@@ -120,6 +120,7 @@ export const REPORT_TARGET = {
   post: 'Bài đăng',
   comment: 'Bình luận',
   recipe: 'Công thức',
+  account: 'Tài khoản',
 };
 
 /** Lý do báo cáo. report.reason_code */
@@ -129,6 +130,16 @@ export const REPORT_REASON = {
   not_vegan: 'Không phải món chay',
   abusive: 'Ngôn từ xúc phạm',
   other: 'Lý do khác',
+};
+
+/** Nhãn hành vi khi báo cáo tài khoản; dùng lại reason_code enum hiện có trong DB. */
+export const REPORT_ACCOUNT_REASON = {
+  account_spam: 'Spam',
+  account_avatar_inappropriate: 'Ảnh đại diện không phù hợp',
+  account_impersonation: 'Tài khoản giả danh',
+  account_harassment: 'Quấy rối, đe doạ hoặc xúc phạm người khác',
+  account_fraud: 'Lừa đảo hoặc phát tán liên kết độc hại',
+  account_inappropriate_content: 'Chia sẻ nội dung không phù hợp',
 };
 
 const AUDIT_TARGET_LABEL = {
