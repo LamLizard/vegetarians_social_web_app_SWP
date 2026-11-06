@@ -2,28 +2,38 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import MemberNavigationLayout from '../components/MemberNavigationLayout';
 import ChatThread from '../components/ChatThread/ChatThread';
 import ChatBubble from '../components/ChatBubble/ChatBubble';
+import RichText from '../components/ChatBubble/richText';
 import PromptChip from '../components/PromptChip/PromptChip';
 import Button from '../components/Button/Button';
 import Modal from '../components/Modal/Modal';
 import Notice from '../components/Notice/Notice';
+import ConfirmDialog from '../components/ConfirmDialog/ConfirmDialog';
+import { useToast } from '../components/Toast/Toast';
 import ChatDiscoveryResult from './ChatDiscoveryResult';
-import { AI_DISCLAIMER, AI_NAME } from '../constants/domain';
+import ChatSourceCard from './ChatSourceCard';
+import ChatResultCards from './ChatResultCards';
+import { AI_NAME } from '../constants/domain';
 import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
 import { AUTH_TOKEN_KEY } from '../services/api';
-import { readChatSession, writeChatSession } from '../utils/chatSession';
+import { readChatSession, writeChatSession, clearChatSession } from '../utils/chatSession';
 import styles from './ChatbotPage.module.css';
 
-const GUEST_KEY = 'vegetarian-chat-guest-quota-v1';
-const GUEST_V2_KEY = 'vegetarian-chat-guest-quota-v2';
-const GUEST_LIMIT = 5;
+// Khoi's code (05/11/2026): chỉ giữ deviceId trên máy khách; số lượt hỏi thử do server đếm.
+const GUEST_DEVICE_KEY = 'vegetarian-chat-guest-device-v1';
+const LEGACY_GUEST_KEYS = ['vegetarian-chat-guest-quota-v1', 'vegetarian-chat-guest-quota-v2'];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SUGGESTIONS = [
-  'Gợi ý bữa sáng chay giàu đạm',
-  'Có thể thay trứng trong món bánh bằng gì?',
-  'Gợi ý món chay dễ nấu cho bữa tối',
-  'Mình muốn trò chuyện về món chay',
+// Khoi's code (05/11/2026): gợi ý đúng khả năng của Mầm; khách không tìm bài viết được.
+const SUGGESTIONS_MEMBER = [
+  'Tối nay mình nên ăn món chay gì?',
+  'Thay trứng trong bánh bằng gì?',
+  'Tìm bài viết về đậu hũ',
+  'Làm sao để đăng công thức lên Green Bowl?',
 ];
+const SUGGESTIONS_GUEST = ['Tối nay mình nên ăn món chay gì?', 'Thay trứng trong bánh bằng gì?',
+  'Ăn chay sao cho đủ đạm?', 'Làm sao để đăng công thức lên Green Bowl?'];
+
+const MEDICAL_NOTE = 'Mầm chỉ cung cấp thông tin tham khảo, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng.';
 
 function validText(value) {
   return Array.from(value).length <= 10000
@@ -31,6 +41,9 @@ function validText(value) {
 }
 
 // Tùng: chỉ so sánh chủ đề bằng chữ chuẩn hóa, không tự suy đồng nghĩa.
+// Khoi's code (08/11/2026): chữ ký HMAC base64url của server (32 byte).
+const HISTORY_SIGNATURE = /^[A-Za-z0-9_-]{43}$/;
+
 function subjectKey(value) {
   return value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();
 }
@@ -40,94 +53,43 @@ function emptyPostContext(state = 'unknown') {
 }
 
 function completedHistory(messages) {
+  // Khoi's code (06/11/2026): quay về logic phiên gốc của Tùng — không còn tin 'system' để ngắt lịch sử.
   const result = [];
   for (let i = 0; i + 1 < messages.length; i += 1) {
     const question = messages[i];
     const answer = messages[i + 1];
     if (question.sender === 'user' && answer.sender === 'bot'
-      && (question.status ?? 'complete') === 'complete' && (answer.status ?? 'complete') === 'complete') {
-      result.push({ sender: 'user', content: question.content }, { sender: 'bot', content: answer.content });
+      && (question.status ?? 'complete') === 'complete' && (answer.status ?? 'complete') === 'complete'
+      // Khoi's code (08/11/2026): chỉ gửi cặp mà tin bot có chữ ký server; bản cũ/lượt lỗi thì bỏ.
+      && typeof answer.turnId === 'string' && UUID.test(answer.turnId)
+      && Number.isSafeInteger(answer.at) && typeof answer.sig === 'string' && HISTORY_SIGNATURE.test(answer.sig)) {
+      result.push({ sender: 'user', content: question.content },
+        { sender: 'bot', content: answer.content, turnId: answer.turnId, at: answer.at, sig: answer.sig });
       i += 1;
     }
   }
   return result.slice(-20);
 }
 
-function readLegacyGuest() {
-  const raw = localStorage.getItem(GUEST_KEY);
-  if (raw === null) return { used: 0, deviceId: null };
-  const value = JSON.parse(raw);
-  if (!value || !Number.isInteger(value.used) || value.used < 0 || value.used > GUEST_LIMIT
-    || typeof value.deviceId !== 'string' || !UUID.test(value.deviceId)
-    || (value.simpleCharges !== undefined && (!Array.isArray(value.simpleCharges)
-      || !value.simpleCharges.every((id) => typeof id === 'string' && UUID.test(id))))) {
-    throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
+function legacyGuestDevice() {
+  for (const key of LEGACY_GUEST_KEYS) {
+    const raw = localStorage.getItem(key);
+    if (!raw) continue;
+    try {
+      const value = JSON.parse(raw);
+      if (value && typeof value.deviceId === 'string' && UUID.test(value.deviceId)) return value.deviceId;
+    } catch { /* bỏ qua bản ghi cũ bị hỏng */ }
   }
-  return value;
+  return null;
 }
 
-function withGuestLock(action, signal) {
-  // Keep concurrent guest counter updates and pre-admission reversals isolated.
-  if (!navigator.locks) return Promise.reject(new Error('Trình duyệt không hỗ trợ quản lý lượt dùng an toàn.'));
-  return navigator.locks.request(GUEST_KEY, signal ? { signal } : {}, action);
-}
-
-// Tùng: chuyển nguyên lượt cũ trong cùng lock; ngày do server cung cấp, không dùng giờ máy.
-function guestForDay(day) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('Không thể xác nhận ngày sử dụng.');
-  const raw = localStorage.getItem(GUEST_V2_KEY);
-  let current;
-  if (raw === null) {
-    const legacy = readLegacyGuest();
-    current = { version: 2, deviceId: legacy.deviceId ?? crypto.randomUUID(), day, used: legacy.used,
-      pending: (legacy.simpleCharges || []).map((turnId) => ({ turnId, day })) };
-  } else {
-    current = JSON.parse(raw);
-    if (!current || current.version !== 2 || typeof current.deviceId !== 'string' || !UUID.test(current.deviceId)
-      || typeof current.day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(current.day)
-      || !Number.isInteger(current.used) || current.used < 0 || current.used > GUEST_LIMIT
-      || !Array.isArray(current.pending) || !current.pending.every((p) => p && UUID.test(p.turnId)
-        && /^\d{4}-\d{2}-\d{2}$/.test(p.day))) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
-    if (day < current.day) throw new Error('Không thể xác nhận ngày sử dụng.');
-    if (day > current.day) current = { ...current, day, used: 0 };
-  }
-  localStorage.setItem(GUEST_V2_KEY, JSON.stringify(current));
-  return current;
-}
-
-async function readGuest(day, signal) { return withGuestLock(() => guestForDay(day), signal); }
-
-async function reserveGuest(id, day, signal) {
-  return withGuestLock(() => {
-    if (signal.aborted) throw new Error('Kết nối quá lâu.');
-    const current = guestForDay(day);
-    if (current.used >= GUEST_LIMIT) throw new Error('Bạn đã dùng hết lượt hỏi thử hôm nay.');
-    const next = { ...current, used: current.used + 1, pending: [...current.pending, { turnId: id, day }] };
-    localStorage.setItem(GUEST_V2_KEY, JSON.stringify(next));
-    return next;
-  }, signal);
-}
-
-// Tùng: response cũ chỉ hoàn đúng reservation cùng ngày; outcome chưa rõ giữ nguyên lượt.
-async function settleGuest(id, day, rejectedBeforeAdmission, known) {
-  return withGuestLock(() => {
-    const raw = localStorage.getItem(GUEST_V2_KEY);
-    if (!raw) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
-    const current = JSON.parse(raw);
-    if (!current || current.version !== 2 || !Array.isArray(current.pending)
-      || !Number.isInteger(current.used) || current.used < 0 || current.used > GUEST_LIMIT) throw new Error('Không thể đọc lượt dùng trên trình duyệt này.');
-    const pending = current.pending.find((entry) => entry.turnId === id && entry.day === day);
-    if (!pending || !known) return current;
-    const next = { ...current,
-      used: rejectedBeforeAdmission && current.day === day ? Math.max(0, current.used - 1) : current.used,
-      pending: current.pending.filter((entry) => !(entry.turnId === id && entry.day === day)) };
-    localStorage.setItem(GUEST_V2_KEY, JSON.stringify(next));
-    return next;
-  });
-}
-
-function guestQuota(value) {
-  return { day: value.day, used: value.used, limit: GUEST_LIMIT, remaining: GUEST_LIMIT - value.used };
+// Khoi's code (05/11/2026): deviceId vẫn lưu trên máy khách để gửi lên server; không còn đếm lượt ở đây.
+function readGuestDevice() {
+  const saved = localStorage.getItem(GUEST_DEVICE_KEY);
+  const deviceId = saved && UUID.test(saved) ? saved : (legacyGuestDevice() ?? crypto.randomUUID());
+  if (deviceId !== saved) localStorage.setItem(GUEST_DEVICE_KEY, deviceId);
+  for (const key of LEGACY_GUEST_KEYS) localStorage.removeItem(key);
+  return deviceId;
 }
 
 // Tùng: suy ngày từ clock server và đồng hồ monotonic để chặn response ngày cũ.
@@ -161,56 +123,12 @@ function MamAvatar({ className = '' }) {
   );
 }
 
-function replyInline(text, keyBase) {
-  return text.split('**').map((part, index) => (index % 2 === 1
-    ? <strong key={`${keyBase}-${index}`}>{part}</strong> : part));
-}
-
-function ChatReplyText({ text }) {
-  const blocks = [];
-  let paragraph = [];
-  let list = null;
-  const flushParagraph = () => { if (paragraph.length) blocks.push({ type: 'paragraph', lines: paragraph }); paragraph = []; };
-  const flushList = () => { if (list) blocks.push(list); list = null; };
-  String(text).replace(/\r/g, '').split('\n').forEach((line) => {
-    if (!line.trim()) { flushParagraph(); flushList(); return; }
-    const heading = /^\s{0,3}#{1,6}(?:\s+|$)(.*)$/.exec(line);
-    if (heading) { flushParagraph(); flushList(); if (heading[1]) blocks.push({ type: 'heading', text: heading[1] }); return; }
-    const bullet = /^\s*[-•*]\s+/.exec(line);
-    const numbered = /^\s*(\d+)[.)]\s+/.exec(line);
-    const type = bullet ? 'ul' : numbered ? 'ol' : null;
-    if (type) {
-      flushParagraph();
-      if (!list || list.type !== type) { flushList(); list = { type, items: [], ...(numbered ? { start: Number(numbered[1]) } : {}) }; }
-      list.items.push(line.slice((bullet || numbered)[0].length));
-      return;
-    }
-    flushList();
-    paragraph.push(line);
-  });
-  flushParagraph();
-  flushList();
-  return (
-    <div className={styles.replyText}>
-      {blocks.map((block, index) => {
-        if (block.type === 'heading') return <h3 key={index}>{replyInline(block.text, index)}</h3>;
-        if (block.type === 'paragraph') return <p key={index}>{block.lines.map((line, lineIndex) => (
-          <span key={lineIndex}>{lineIndex > 0 && <br />}{replyInline(line, `${index}-${lineIndex}`)}</span>
-        ))}</p>;
-        const List = block.type;
-        return <List key={index} start={block.type === 'ol' ? block.start : undefined}>{block.items.map((item, itemIndex) => (
-          <li key={itemIndex}>{replyInline(item, `${index}-${itemIndex}`)}</li>
-        ))}</List>;
-      })}
-    </div>
-  );
-}
-
 // Khoi's code (01/11/2026): mở từ khối "Hỏi Mầm" ở Bảng tin (/chatbot?ask=<câu hỏi>) → điền sẵn câu vào ô chat, chỉ cần Enter để gửi.
 const readAskParam = () => (new URLSearchParams(window.location.search).get('ask') ?? '').trim().slice(0, 10000);
 
 export default function ChatbotPage({ user }) {
   const { logout } = useAuthContext();
+  const toast = useToast();
   const [text, setText] = useState(readAskParam); // Khoi's code 01/11: '' khi không có ?ask=
   const askFocusRef = useRef(Boolean(readAskParam())); // Khoi's code 01/11: còn chờ focus ô chat cho câu điền sẵn
   const [messages, setMessages] = useState([]);
@@ -222,6 +140,8 @@ export default function ChatbotPage({ user }) {
   const [busy, setBusy] = useState(false);
   const [announcement, setAnnouncement] = useState('');
   const [loginOpen, setLoginOpen] = useState(false);
+  const [confirmNew, setConfirmNew] = useState(false);
+  const stopRequested = useRef(false);
   const messagesRef = useRef([]);
   const sessionRef = useRef(null);
   const postContextRef = useRef(emptyPostContext());
@@ -230,7 +150,12 @@ export default function ChatbotPage({ user }) {
   const serverClock = useRef(null);
   const actorToken = useRef(null);
   const textareaRef = useRef(null);
+  // Khoi's code (08/11/2026): tự gửi lại đúng 1 lần khi server báo lịch sử không hợp lệ.
+  const sendRef = useRef(null);
+  const retryRef = useRef(null);
+  const historyRetried = useRef(null);
   const actor = user?.id ? `account:${user.id}` : 'guest';
+  const suggestions = user?.id ? SUGGESTIONS_MEMBER : SUGGESTIONS_GUEST;
 
   // Khoi's code (01/11/2026): xoá ?ask= khỏi URL (tải lại trang không điền lại); ô chat bị khoá tới khi phiên sẵn sàng → lúc đó mới focus, con trỏ ở cuối câu
   useEffect(() => {
@@ -262,7 +187,9 @@ export default function ChatbotPage({ user }) {
     const delivery = context.delivery;
     const currentSession = sessionRef.current;
     if (!delivery || delivery.state !== 'pending' || !currentSession
-      || !messages.some((message) => message.turnId === delivery.turnId && message.result?.item?.id === delivery.postId)) return;
+      || !messages.some((message) => message.turnId === delivery.turnId
+        && (message.result?.item?.id === delivery.postId
+          || message.result?.items?.some((item) => item.id === delivery.postId)))) return;
     if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) return;
     try {
       const saved = readChatSession(currentSession.scope);
@@ -309,27 +236,33 @@ export default function ChatbotPage({ user }) {
         rememberClock(serverClock, availability);
         setEnabled(Boolean(availability.enabled));
         if (availability.enabled) scheduleReset(availability);
-        let guest;
+        let deviceId;
         if (user?.id) {
           const result = await chatbotService.getSimpleQuota({ signal: controller.signal });
           if (!actorCurrent()) return;
           setQuota(result.quota);
         } else {
-          guest = availability.enabled ? await readGuest(availability.quotaDay, controller.signal) : readLegacyGuest();
-          if (!actorCurrent()) return;
-          setQuota(guestQuota(guest));
+          deviceId = readGuestDevice();
+          if (availability.enabled) {
+            const result = await chatbotService.getGuestQuota(deviceId, { signal: controller.signal });
+            if (!actorCurrent()) return;
+            setQuota(result.quota);
+          }
         }
-        const scope = user?.id ? actor : guest.deviceId ? `device:${guest.deviceId}` : null;
+        const scope = user?.id ? actor : deviceId ? `device:${deviceId}` : null;
         const saved = scope ? readChatSession(scope) : null;
         if (saved) {
-          const result = await chatbotService.verifySimpleSession({ token: saved.token, deviceId: guest?.deviceId }, { signal: controller.signal });
+          const result = await chatbotService.verifySimpleSession({ token: saved.token, deviceId }, { signal: controller.signal });
           if (!actorCurrent()) return;
           if (result.valid) {
             updateMessages(saved.messages);
             postContextRef.current = saved.postContext ?? emptyPostContext();
-            updateSession({ token: saved.token, scope, deviceId: guest?.deviceId,
+            updateSession({ token: saved.token, scope, deviceId,
               expiresAt: result.expiresAt, serverTime: result.serverTime });
-          } else postContextRef.current = emptyPostContext('known');
+          } else {
+            // Khoi's code (06/11/2026): quay về logic phiên gốc của Tùng — phiên cũ hết hạn thì khung trống.
+            postContextRef.current = emptyPostContext('known');
+          }
         } else {
           postContextRef.current = emptyPostContext('known');
         }
@@ -361,9 +294,11 @@ export default function ChatbotPage({ user }) {
         rememberClock(serverClock, availability);
         scheduleReset(availability);
         const current = user?.id ? (await chatbotService.getSimpleQuota({ signal: controller.signal })).quota
-          : guestQuota(await readGuest(availability.quotaDay, controller.signal));
-        if (actorCurrent() && refreshGeneration === generation.current && current.day === clockDay(serverClock.current)) setQuota(current);
-      } catch { if (actorCurrent() && refreshGeneration === generation.current) { setQuota(null); setError('Không thể đọc lượt dùng trên trình duyệt này.'); } }
+          : (await chatbotService.getGuestQuota(readGuestDevice(), { signal: controller.signal })).quota;
+        // Khoi's code (05/11/2026): quota khách do server trả nên không cần so ngày ở máy khách.
+        const fresh = user?.id ? current.day === clockDay(serverClock.current) : true;
+        if (actorCurrent() && refreshGeneration === generation.current && fresh) setQuota(current);
+      } catch { if (actorCurrent() && refreshGeneration === generation.current) { setQuota(null); setError('Không thể đọc số lượt còn lại.'); } }
     };
     window.addEventListener('storage', refreshQuota);
     window.addEventListener('focus', refreshQuota);
@@ -385,6 +320,7 @@ export default function ChatbotPage({ user }) {
       running.current?.abort();
       running.current = null;
       setBusy(false);
+      // Khoi's code (06/11/2026): quay về logic phiên gốc của Tùng — hết phiên thì xoá toàn bộ tin.
       updateMessages([]);
       updateSession(null);
       postContextRef.current = emptyPostContext('known');
@@ -393,8 +329,9 @@ export default function ChatbotPage({ user }) {
     return () => window.clearTimeout(timer);
   }, [session, updateMessages, updateSession]);
 
-  const sendQuestion = async (question) => {
-    if (!enabled || !sessionReady || busy || running.current || !quota?.remaining || !question.trim() || !validText(question)) return;
+  const sendQuestion = async (question, { ignoreBusy = false } = {}) => {
+    if (!enabled || !sessionReady || (busy && !ignoreBusy) || running.current
+      || !quota?.remaining || !question.trim() || !validText(question)) return;
     if (localStorage.getItem(AUTH_TOKEN_KEY) !== actorToken.current) { setError('Tài khoản đã thay đổi. Vui lòng mở lại cuộc trò chuyện.'); return; }
     if (!globalThis.crypto?.randomUUID) { setError('Không thể gửi câu hỏi trên trình duyệt này.'); return; }
     const turnToken = actorToken.current;
@@ -402,10 +339,20 @@ export default function ChatbotPage({ user }) {
     const turnGeneration = ++generation.current;
     const controller = new AbortController();
     running.current = controller;
+    stopRequested.current = false;
     let timedOut = false;
     const startedAt = performance.now();
     // Tùng: giới hạn thời gian chờ bao gồm clock, lock và stream của lượt.
-    const requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
+    // Khoi's code (07/11/2026): 20s tới chữ đầu tiên; có chữ rồi thì nới tổng lên 45s như server.
+    let deadlineMs = 20000;
+    let requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20000);
+    const extendDeadline = () => {
+      if (deadlineMs !== 20000) return;
+      deadlineMs = 45000;
+      window.clearTimeout(requestTimeout);
+      requestTimeout = window.setTimeout(() => { timedOut = true; controller.abort(); },
+        Math.max(0, deadlineMs - (performance.now() - startedAt)));
+    };
     setBusy(true);
     setError('');
     setAnnouncement('Đang chờ phản hồi.');
@@ -413,16 +360,16 @@ export default function ChatbotPage({ user }) {
     updateMessages((current) => [...current,
       { sender: 'user', content: question, status: 'waiting', turnId },
       { sender: 'bot', content: '', status: 'waiting', turnId, question }]);
-    let guest;
-    let rejected = false;
+    let guestDeviceId;
     let accepted = false;
-    let requestStarted = false;
+    let quotaFromServer = false;
     let scope;
     let reply = '';
     let pendingPostText = '';
     let resultCard;
+    let resultCards;
     const active = () => {
-      if (performance.now() - startedAt >= 20000) { timedOut = true; controller.abort(); }
+      if (performance.now() - startedAt >= deadlineMs) { timedOut = true; controller.abort(); }
       if (localStorage.getItem(AUTH_TOKEN_KEY) !== turnToken || actorToken.current !== turnToken) controller.abort();
       return running.current === controller && !controller.signal.aborted;
     };
@@ -459,12 +406,13 @@ export default function ChatbotPage({ user }) {
         setEnabled(false);
         throw new Error('Trợ lý hiện không khả dụng.');
       }
+      // Khoi's code (05/11/2026): khách không tự trừ lượt; server trừ và trả lại khi lượt lỗi.
       if (!user?.id) {
-        guest = await reserveGuest(turnId, availability.quotaDay, controller.signal);
+        guestDeviceId = readGuestDevice();
         if (!active()) { if (timedOut) throw new Error('Kết nối quá lâu.'); return; }
-        setQuota(guestQuota(guest));
       }
-      const deviceId = guest?.deviceId;
+      const deviceId = guestDeviceId;
+      const expectedDay = availability.quotaDay;
       scope = user?.id ? actor : `device:${deviceId}`;
       const priorSession = sessionRef.current;
       if (priorSession && !readChatSession(scope)) postContextRef.current = emptyPostContext();
@@ -475,24 +423,24 @@ export default function ChatbotPage({ user }) {
         seenIds: postContext.state === 'known' ? (topic?.seenIds ?? []) : [] };
       const payload = { protocol: 3, turnId, text: question, history,
         postContext: searchContext,
-        ...(deviceId ? { deviceId, expectedDay: guest.day } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) };
+        ...(deviceId ? { deviceId, expectedDay } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) };
       if (new TextEncoder().encode(JSON.stringify(payload)).length > 2 * 1024 * 1024) {
         postContextRef.current = { ...postContextRef.current, state: 'unknown' };
         throw new Error('Không thể xác định danh sách bài đã hiện do dữ liệu quá lớn.');
       }
-      requestStarted = true;
       const response = await chatbotService.streamTurnV3(payload, {
         signal: controller.signal,
         onUnauthorized: (token) => { if (token && localStorage.getItem(AUTH_TOKEN_KEY) === token) logout(); },
         onAccepted: (payload) => {
           if (!active()) return;
           accepted = true;
-          if (payload.quota?.day === clockDay(serverClock.current)) setQuota(payload.quota);
+          if (payload.quota?.day === clockDay(serverClock.current)) { quotaFromServer = true; setQuota(payload.quota); }
           const current = updateMessages((list) => list.map((message) => message.turnId === turnId && message.sender === 'user'
             ? { ...message, status: 'complete' } : message));
           saveSession(payload.session, scope, deviceId, current);
         },
         onDelta: (chunk, purpose, searchSubject) => {
+          extendDeadline();
           if (active()) {
             if (searchSubject && postContextRef.current.state === 'known') {
               const current = postContextRef.current;
@@ -506,24 +454,52 @@ export default function ChatbotPage({ user }) {
             else { reply += chunk; updateTurn({ content: reply, status: 'streaming' }); }
           }
         },
+        onRetract: (text) => {
+          if (!active()) return;
+          // Khoi's code (07/11/2026): server thu hồi câu trả lời đã stream → thay toàn bộ bong bóng.
+          reply = text;
+          pendingPostText = '';
+          resultCard = undefined;
+          resultCards = undefined;
+          // Khoi's code (06/11/2026): bị thu hồi thì bỏ luôn thẻ nguồn công thức.
+          updateTurn({ content: text, cards: undefined, result: undefined, source: undefined });
+        },
         onResult: (value) => {
           if (!active()) return;
+          // Khoi's code (06/11/2026): thẻ nguồn công thức (Green Bowl đã duyệt / do AI tạo) — chỉ hiển thị.
+          // Chỉ lưu đúng các khoá của hợp đồng (bỏ turnId) để chatSession đọc lại được ở lượt sau.
+          if (value.kind === 'recipe-source' || value.kind === 'ai-generated') {
+            updateTurn({ source: value.kind === 'recipe-source'
+              ? { kind: 'recipe-source', item: value.item, quantityNote: value.quantityNote }
+              : { kind: 'ai-generated' } });
+            return;
+          }
+          // Khoi's code (05/11/2026): thẻ công thức/quán thật của Green Bowl.
+          if (value.kind === 'recipes' || value.kind === 'shops') {
+            resultCards = value;
+            updateTurn({ cards: value });
+            return;
+          }
           if (!value.search) {
             postContextRef.current = { ...postContextRef.current, state: 'unknown' };
             resultCard = value;
             updateTurn({ result: value });
             return;
           }
-          const id = value.item?.id;
-          if (typeof id !== 'string' || !/^[1-9]\d{0,17}$/.test(id)
-            || typeof value.item.title !== 'string' || !value.item.title.trim()) throw new Error('Không thể nhận bài viết hợp lệ.');
+          // Khoi's code (05/11/2026): cộng TẤT CẢ bài vừa hiện vào seenIds; delivery = bài hạng cao nhất.
+          const resultItems = Array.isArray(value.items) ? value.items : (value.item ? [value.item] : []);
+          const ids = resultItems.map((item) => item?.id);
+          if (!ids.length || ids.some((id) => typeof id !== 'string' || !/^[1-9]\d{0,17}$/.test(id))
+            || resultItems.some((item) => typeof item.title !== 'string' || !item.title.trim())) {
+            throw new Error('Không thể nhận bài viết hợp lệ.');
+          }
           const current = postContextRef.current;
           const key = subjectKey(value.search.subject);
           const oldTopic = current.topics.find((entry) => subjectKey(entry.subject) === key);
-          const entry = { subject: value.search.subject, seenIds: [...new Set([...(oldTopic?.seenIds ?? []), id])] };
+          const entry = { subject: value.search.subject, seenIds: [...new Set([...(oldTopic?.seenIds ?? []), ...ids])] };
           const nextContext = { ...current, activeSubject: entry.subject,
             topics: [...current.topics.filter((item) => subjectKey(item.subject) !== key), entry],
-            delivery: { turnId, subject: entry.subject, postId: id, state: 'pending' } };
+            delivery: { turnId, subject: entry.subject, postId: ids[0], state: 'pending' } };
           const nextMessages = messagesRef.current.map((message) => message.turnId === turnId && message.sender === 'bot'
             ? { ...message, content: reply + pendingPostText, status: 'streaming', result: value } : message);
           const saved = readChatSession(scope);
@@ -536,28 +512,52 @@ export default function ChatbotPage({ user }) {
           updateMessages(nextMessages);
         },
       });
-      if (!active()) { if (timedOut) throw new Error('Kết nối quá lâu.'); return; }
+      if (!active()) {
+        if (timedOut) throw new Error('Kết nối quá lâu.');
+        // Khoi's code (05/11/2026): người dùng bấm Dừng → coi như lượt lỗi để hiện đúng trạng thái.
+        if (stopRequested.current) throw new Error('Đã dừng lượt.');
+        return;
+      }
       if (pendingPostText) throw new Error('Không thể hiển thị bài viết; kết quả chưa xác định.');
+      const entry = response.historyEntry;
       const nextMessages = updateMessages((current) => current.map((message) => (
         message.turnId === turnId ? { ...message, status: 'complete',
-          ...(message.sender === 'bot' ? { content: reply, result: resultCard, limited: response.limited } : {}) } : message
+          ...(message.sender === 'bot' ? { content: reply, result: resultCard, cards: resultCards, limited: response.limited,
+            // Khoi's code (08/11/2026): lưu chữ ký cạnh nội dung để lượt sau gửi lại đúng cặp đã ký.
+            ...(entry ? { at: entry.at, sig: entry.sig } : {}) } : {}) } : message
       )));
       saveSession(response.session, scope, deviceId, nextMessages);
-      if (response.quota?.day === clockDay(serverClock.current)) setQuota(response.quota);
+      if (response.quota?.day === clockDay(serverClock.current)) { quotaFromServer = true; setQuota(response.quota); }
       setAnnouncement('Đã nhận phản hồi.');
     } catch (requestError) {
-      rejected = !accepted && requestError.rejectedBeforeAdmission === true;
+      const stopped = stopRequested.current;
       if (ownsTurn()) {
         if (requestError.details?.code === 'CHATBOT_DISABLED') setEnabled(false);
+        // Khoi's code (05/11/2026): lượt lỗi có thể được server hoàn → cập nhật số lượt và ghi chú.
+        const errorQuota = requestError.details?.quota;
+        if (errorQuota && Number.isInteger(errorQuota.remaining)) { quotaFromServer = true; setQuota(errorQuota); }
+        const wasRefunded = requestError.details?.refunded === true;
         if (requestError.details?.code === 'SESSION_EXPIRED') {
+          // Khoi's code (06/11/2026): quay về logic phiên gốc của Tùng — bỏ phiên, chỉ giữ lượt đang gửi.
           updateSession(null);
           updateMessages((current) => current.filter((message) => message.turnId === turnId));
         }
+        if (requestError.details?.code === 'HISTORY_INVALID') {
+          // Khoi's code (06/11/2026): xử lý như SESSION_EXPIRED gốc (chỉ giữ lượt đang gửi) rồi tự gửi lại 1 lần.
+          updateSession(null);
+          updateMessages((current) => current.filter((message) => message.turnId === turnId));
+          if (historyRetried.current !== question) {
+            historyRetried.current = question;
+            retryRef.current = question;
+          }
+          setError(requestError.message || 'Lịch sử trò chuyện không hợp lệ.');
+        }
         const nextMessages = updateMessages((current) => current.map((message) => message.turnId === turnId
           ? { ...message, status: 'failed', ...(message.sender === 'bot' ? {
-            content: reply, error: timedOut ? 'Kết nối quá lâu; chưa xác định được kết quả. Bạn có thể gửi lại.'
-              : requestError instanceof TypeError ? 'Không thể kết nối; chưa xác định được kết quả. Bạn có thể gửi lại.'
-                : requestError.message || 'Chưa xác định được kết quả. Bạn có thể gửi lại.',
+            content: reply, refunded: wasRefunded, error: stopped ? 'Bạn đã dừng lượt này.'
+              : timedOut ? 'Kết nối quá lâu; chưa xác định được kết quả. Bạn có thể gửi lại.'
+                : requestError instanceof TypeError ? 'Không thể kết nối; chưa xác định được kết quả. Bạn có thể gửi lại.'
+                  : requestError.message || 'Chưa xác định được kết quả. Bạn có thể gửi lại.',
           } : {}) } : message));
         if (accepted && scope && sessionRef.current?.token) {
           try {
@@ -575,14 +575,48 @@ export default function ChatbotPage({ user }) {
       window.clearTimeout(requestTimeout);
       // Tùng: mở composer đúng hạn, không chờ lock đối soát của tab khác.
       if (running.current === controller) { running.current = null; setBusy(false); }
-      if (guest) {
+      // Khoi's code (08/11/2026): gửi lại đúng câu vừa rồi với lịch sử rỗng (chỉ một lần).
+      const retry = retryRef.current;
+      retryRef.current = null;
+      if (retry) window.setTimeout(() => { void sendRef.current?.(retry, { ignoreBusy: true }); }, 0);
+      // Khoi's code (05/11/2026): lượt không kèm quota (429, dừng, hoàn lượt sau khi ngắt) → đọc lại từ server.
+      if (!quotaFromServer) {
         try {
-          const current = await settleGuest(turnId, guest.day, rejected || !requestStarted, accepted || rejected || !requestStarted);
+          const result = user?.id
+            ? await chatbotService.getSimpleQuota()
+            : await chatbotService.getGuestQuota(readGuestDevice());
           if (generation.current === turnGeneration && actorToken.current === turnToken
-            && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken && current.day === clockDay(serverClock.current)) setQuota(guestQuota(current));
-        } catch { if (generation.current === turnGeneration && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken) { setQuota(null); setError('Không thể cập nhật lượt dùng trên trình duyệt này.'); } }
+            && localStorage.getItem(AUTH_TOKEN_KEY) === turnToken) setQuota(result.quota);
+        } catch { /* giữ số lượt đang hiển thị */ }
       }
     }
+  };
+
+  // Khoi's code (08/11/2026): giữ bản mới nhất để lượt tự gửi lại dùng đúng state hiện tại.
+  sendRef.current = sendQuestion;
+
+  // Khoi's code (05/11/2026): dừng lượt đang chờ — server chỉ hoàn lượt khi chưa gửi câu trả lời (bước 2).
+  const stopAnswer = () => {
+    stopRequested.current = true;
+    running.current?.abort();
+  };
+
+  const copyAnswer = async (content) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      toast('Đã sao chép');
+    } catch { toast('Không thể sao chép', { tone: 'alert' }); }
+  };
+
+  // Khoi's code (05/11/2026): xoá lịch sử + sessionToken, không đụng quota (không hoàn, không trừ).
+  const startNewChat = () => {
+    setConfirmNew(false);
+    const scope = sessionRef.current?.scope ?? (user?.id ? actor : `device:${readGuestDevice()}`);
+    try { clearChatSession(scope); } catch { /* trình duyệt chặn lưu trữ */ }
+    updateMessages([]);
+    updateSession(null);
+    postContextRef.current = emptyPostContext('known');
+    setAnnouncement('Đã bắt đầu cuộc trò chuyện mới.');
   };
 
   const send = (event) => {
@@ -601,7 +635,13 @@ export default function ChatbotPage({ user }) {
         <header className={styles.header}>
           <div className={styles.identity}>
             <MamAvatar className={styles.identityMark} />
-            <div><h1 id="chatbot-title">{AI_NAME}</h1><p>Trợ lý cho những bữa ăn chay của bạn</p></div>
+            <div>
+              <h1 id="chatbot-title">{AI_NAME}</h1>
+              <p>Trợ lý cho những bữa ăn chay của bạn</p>
+              {/* Khoi's code (05/11/2026): nói rõ chính sách lưu lịch sử (nhóm chốt: không lưu lâu dài). */}
+              {/* Khoi's code (06/11/2026): khớp vòng đời phiên gốc — 30 phút không hoạt động là tự xoá. */}
+              <small className={styles.subtitle}>Cuộc trò chuyện tự xoá sau 30 phút không hoạt động.</small>
+            </div>
           </div>
           <div className={styles.quota} aria-live="polite">
             {quota ? <span>Còn {quota.remaining}/{quota.limit} lượt{user ? ' hôm nay' : ' hỏi thử'}</span>
@@ -612,6 +652,14 @@ export default function ChatbotPage({ user }) {
           {!enabled && <Notice tone="info">Trợ lý hiện không khả dụng, vui lòng quay lại sau.</Notice>}
           {error && <Notice tone="alert">{error}</Notice>}
           {!user && quota?.remaining === 0 && <div><Button variant="outline" onClick={() => setLoginOpen(true)}>Đăng nhập để tiếp tục</Button></div>}
+          {messages.length > 0 && (
+            <div className={styles.chatTools}>
+              {/* Khoi's code (05/11/2026): xoá lịch sử + sessionToken, không hoàn và không trừ lượt. */}
+              <button type="button" className={styles.newChat} onClick={() => setConfirmNew(true)}>
+                <i className="bi bi-arrow-counterclockwise" aria-hidden="true" /> Cuộc trò chuyện mới
+              </button>
+            </div>
+          )}
           <div className={styles.conversation}>
             {!sessionReady ? <p className={styles.sessionStatus} role="status">Đang kiểm tra phiên trò chuyện...</p>
               : messages.length === 0 ? (
@@ -620,7 +668,7 @@ export default function ChatbotPage({ user }) {
                   <h2>Chào bạn, hôm nay mình ăn gì nhỉ?</h2>
                   <p>Hỏi {AI_NAME} về món chay, nguyên liệu hoặc dinh dưỡng. Bạn cũng có thể bắt đầu từ một gợi ý:</p>
                   <div className={styles.suggestions} role="group" aria-label="Gợi ý câu hỏi">
-                    {SUGGESTIONS.map((suggestion) => <PromptChip key={suggestion} disabled={suggestionsDisabled}
+                    {suggestions.map((suggestion) => <PromptChip key={suggestion} disabled={suggestionsDisabled}
                       onClick={() => { setText(suggestion); textareaRef.current?.focus(); }}>{suggestion}</PromptChip>)}
                   </div>
                   <small>Chọn gợi ý để thêm vào ô nhập, rồi chỉnh sửa trước khi gửi.</small>
@@ -635,12 +683,26 @@ export default function ChatbotPage({ user }) {
                         <ChatBubble sender={message.sender} content={message.content}
                           className={message.sender === 'bot' ? styles.botBubble : undefined}
                           typing={message.sender === 'bot' && message.status === 'waiting' && !message.content}>
-                          {message.sender === 'bot' && message.content ? <ChatReplyText text={message.content} /> : undefined}
+                          {message.sender === 'bot' && message.content
+                            ? <div className={styles.replyText}><RichText text={message.content} /></div> : undefined}
                         </ChatBubble>
+                        {message.sender === 'bot' && message.content && message.status !== 'waiting' && (
+                          <button type="button" className={styles.copy} onClick={() => void copyAnswer(message.content)}>
+                            <i className="bi bi-clipboard" aria-hidden="true" /> Sao chép
+                          </button>
+                        )}
                         {message.sender === 'bot' && message.result && <ChatDiscoveryResult result={message.result} />}
+                        {/* Khoi's code (06/11/2026): thẻ nguồn đứng NGAY dưới bong bóng, trước hàng thẻ món khác. */}
+                        {message.sender === 'bot' && message.source && <ChatSourceCard source={message.source} />}
+                        {message.sender === 'bot' && message.cards && (
+                          <ChatResultCards cards={message.cards}
+                            title={message.source ? 'Món khác trên Green Bowl bạn có thể thích' : undefined} />
+                        )}
                         {message.sender === 'bot' && message.limited && <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>}
                         {message.sender === 'bot' && message.status === 'failed' && <div className={styles.messageNotice}>
                           <p>{message.error}</p>
+                          {/* Khoi's code (05/11/2026): lượt lỗi đã được server hoàn thì nói rõ để khách yên tâm. */}
+                          {message.refunded && <small>Lượt này không bị tính.</small>}
                           <button type="button" className={styles.retry} disabled={busy || !enabled || !quota?.remaining}
                             onClick={() => void sendQuestion(message.question)}>Gửi lại</button>
                         </div>}
@@ -660,17 +722,26 @@ export default function ChatbotPage({ user }) {
                   if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing
                     && event.nativeEvent.keyCode !== 229) send(event);
                 }}
-                aria-describedby="chatbot-hint chatbot-disclaimer" placeholder="Hỏi Mầm về món chay..." />
-              <Button type="submit" icon="arrow-up" loading={busy}
-                disabled={!enabled || !sessionReady || !text.trim() || !textValid || !quota?.remaining}>Gửi</Button>
+                aria-describedby="chatbot-hint chatbot-medical" placeholder="Hỏi Mầm về món chay..." />
+              {/* Khoi's code (05/11/2026): đang chờ thì cho Dừng (abort) thay cho Gửi. */}
+              {busy ? (
+                <Button type="button" variant="outline" icon="stop-circle" onClick={stopAnswer}>Dừng</Button>
+              ) : (
+                <Button type="submit" icon="arrow-up"
+                  disabled={!enabled || !sessionReady || !text.trim() || !textValid || !quota?.remaining}>Gửi</Button>
+              )}
             </div>
+            {/* Khoi's code (05/11/2026): dòng nhắc y tế cố định dưới ô nhập (FR-14/BR-03). */}
+            <p className={styles.disclaimer} id="chatbot-medical">{MEDICAL_NOTE}</p>
             <div className={styles.composerFoot}>
               <small id="chatbot-hint">Enter để gửi, Shift + Enter để xuống dòng. {Array.from(text).length}/10.000 ký tự
                 {!textValid && ' — Câu hỏi vượt giới hạn hoặc có ký tự không hợp lệ.'}</small>
-              <small id="chatbot-disclaimer">{AI_DISCLAIMER}</small>
             </div>
           </form>
         </div>
+        <ConfirmDialog open={confirmNew} title="Xoá cuộc trò chuyện hiện tại?" confirmLabel="Xoá cuộc trò chuyện"
+          message="Các tin nhắn trong khung chat sẽ bị xoá khỏi trình duyệt. Lượt đã dùng không được hoàn lại."
+          onConfirm={startNewChat} onCancel={() => setConfirmNew(false)} />
         <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title="Đăng nhập để tiếp tục" size="sm">
           <p>Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.</p>
           <Button onClick={() => window.location.assign('/login')}>Đăng nhập</Button>

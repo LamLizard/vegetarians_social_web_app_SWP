@@ -48,7 +48,7 @@ function parseV3Intent(raw) {
     throw invalid(typeof raw === 'string' && !raw.trim() ? 'CLASSIFIER_JSON_EMPTY' : 'CLASSIFIER_JSON_INVALID');
   }
   const keys = ['intent', 'subject', 'hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide',
-    'postMode', 'postOrder', 'nearTerms'];
+    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms'];
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid('CLASSIFIER_OBJECT_INVALID');
   if (Object.keys(value).length !== keys.length || Object.keys(value).some((key) => !keys.includes(key))) {
     throw invalid('CLASSIFIER_KEYS_INVALID');
@@ -56,6 +56,10 @@ function parseV3Intent(raw) {
   if (!['chat', 'post'].includes(value.intent)) throw invalid('CLASSIFIER_INTENT_INVALID');
   if ((value.subject !== null && typeof value.subject !== 'string')
     || !['hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide'].every((key) => typeof value[key] === 'boolean')) {
+    throw invalid('CLASSIFIER_TYPES_INVALID');
+  }
+  // Khoi's code (05/11/2026): dữ liệu Green Bowl cần hỏi model mới có dữ liệu thật (recipes/shops/mealplan).
+  if (!['recipes', 'shops', 'mealplan', 'none'].includes(value.needsGreenBowlData)) {
     throw invalid('CLASSIFIER_TYPES_INVALID');
   }
   const subject = value.subject?.trim().normalize('NFC') || null;

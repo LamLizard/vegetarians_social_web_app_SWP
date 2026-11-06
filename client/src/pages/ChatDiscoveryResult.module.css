@@ -4,3 +4,6 @@
 .content h3 { margin: 0 0 .4rem; font-size: 1rem; overflow-wrap: anywhere; }
 .content p { margin: 0 0 .5rem; overflow-wrap: anywhere; }
 .meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; font-size: .85rem; color: var(--mam-ink); }
+
+/* Khoi's code (05/11/2026): xếp tối đa 3 thẻ bài viết theo chiều dọc. */
+.list { display: grid; gap: .5rem; justify-items: start; }

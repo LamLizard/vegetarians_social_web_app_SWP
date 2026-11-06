@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth, requireMember } = require('../middlewares/auth');
 const chatbotController = require('../controllers/chatbot.controller');
+const { createTurnDeadline } = require('../utils/turnDeadline'); // Khoi's code (07/11/2026)
 
 const router = express.Router();
 
@@ -15,32 +16,13 @@ function removed(req, res) {
   return res.status(410).json({ code: 'FEATURE_REMOVED', message: 'Chức năng này không còn khả dụng.' });
 }
 
-// Tùng: deadline bắt đầu trước auth/parser, không đoán admission khi DB đang commit.
-function turnDeadline(req, res, next) {
-  const controller = new AbortController();
-  req.turnSignal = controller.signal;
-  req.turnDeadlineAt = Date.now() + 20000;
-  const timer = setTimeout(() => {
-    controller.abort();
-    if (res.destroyed || res.writableEnded) return;
-    const turnId = typeof req.body?.turnId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(req.body.turnId)
-      ? req.body.turnId : undefined;
-    if (!res.headersSent) {
-      return res.status(503).json({ code: req.admissionStarted ? 'OUTCOME_UNKNOWN' : 'DEADLINE_EXCEEDED',
-        message: 'Hết thời gian chờ. Trạng thái lượt có thể chưa rõ.',
-        ...(!req.admissionStarted ? { admitted: false } : {}), ...(turnId ? { turnId } : {}) });
-    }
-    if (turnId) res.write(`event: error\ndata: ${JSON.stringify({ turnId, code: 'DEADLINE_EXCEEDED', message: 'Hết thời gian chờ.', partial: true })}\n\n`);
-    return res.end();
-  }, 20000);
-  const finish = () => { clearTimeout(timer); controller.abort(); };
-  res.once('finish', finish);
-  res.once('close', finish);
-  return next();
-}
+// Khoi's code (07/11/2026): hạn lượt (20s tới chữ đầu tiên, 45s tổng) nằm ở utils/turnDeadline.js.
+const turnDeadline = createTurnDeadline();
 
 router.get('/quota', requireAuth, requireMember, chatbotController.getQuota);
 router.get('/quota/simple', requireAuth, requireMember, chatbotController.getSimpleQuota);
+// Khoi's code (05/11/2026): khách xem số lượt hỏi thử của thiết bị, không cần đăng nhập.
+router.get('/quota/guest', chatbotController.getGuestQuota);
 router.get('/availability', chatbotController.availability);
 router.get('/discovery/post/:id', optionalMember, chatbotController.getDiscoveryPost);
 // Tùng: chi tiết riêng yêu cầu member, giữ nguyên route preview của bảng tin.

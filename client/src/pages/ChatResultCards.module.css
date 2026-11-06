@@ -1,0 +1,13 @@
+/* Khoi's code (05/11/2026): thẻ công thức/quán — tối đa 3 thẻ, cuộn ngang trên mobile. */
+.wrap { margin-top: var(--mam-space-xs); }
+.head { margin: 0 0 6px; color: var(--v-muted); font-size: .78rem; }
+.list { display: flex; gap: .6rem; margin: 0; padding: 0 0 .3rem; overflow-x: auto; list-style: none; scroll-snap-type: x proximity; }
+.card { flex: 0 0 196px; min-width: 0; scroll-snap-align: start; }
+.link { display: grid; gap: 4px; height: 100%; padding: .5rem; border: 1px solid var(--mam-line); border-radius: var(--mam-radius-control); background: var(--mam-well); color: inherit; text-decoration: none; }
+.link:hover { border-color: var(--mam-strong-line); }
+.link:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
+.thumb { width: 100%; overflow: hidden; border-radius: 8px; }
+.title { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--mam-ink); font-size: .9rem; font-weight: 600; line-height: 1.35; }
+.meta { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: var(--v-muted); font-size: .76rem; line-height: 1.4; }
+.status { color: var(--mam-accent-text); font-size: .76rem; font-weight: 600; }
+@media (max-width: 600px) { .card { flex-basis: 168px; } }
