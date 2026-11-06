@@ -70,9 +70,19 @@
 .ringSide span { white-space: nowrap; }
 .ringSide b { color: var(--v-accent-text); font-size: 1rem; }
 .meals { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.meal { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 6px; padding: 6px 4px; font-size: 0.82rem; }
-.mealLabel { color: var(--v-muted); font-size: 0.75rem; font-weight: 700; }
+/* Khoi's code (06/11/2026): tích món đã ăn, nhóm theo bữa (phương án B). Cả dòng là một nút checkbox. */
+.goalNote { margin: -4px 0 8px; color: var(--v-muted); font-size: 0.72rem; line-height: 1.4; }
+.slot + .slot { margin-top: 6px; }
+.slotHead { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 2px; color: var(--v-muted); font-size: 0.75rem; font-weight: 700; }
+.slotKcal { font-weight: 600; font-variant-numeric: tabular-nums; }
+.mealCheck { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; padding: 6px 4px;
+  border: 0; border-radius: 8px; background: none; color: inherit; font: inherit; font-size: 0.82rem; text-align: left; cursor: pointer; }
+.mealCheck:hover { background: var(--v-surface-2); }
+.check { display: grid; place-items: center; width: 18px; height: 18px; border: 2px solid var(--v-line-strong, #c3cfc4); border-radius: 50%;
+  color: #fff; font-size: 0.7rem; transition: background .15s, border-color .15s; }
+.mealDone .check { border-color: var(--v-accent); background: var(--v-accent); }
 .mealDish { overflow: hidden; color: var(--v-text); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.mealDone .mealDish { color: var(--v-muted); text-decoration: line-through; text-decoration-color: var(--v-muted); }
 .mealKcal { color: var(--v-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 .emptyPlan { display: grid; gap: 8px; justify-items: start; padding: 2px; }
 .emptyPlan > i { color: var(--v-accent); font-size: 1.2rem; }

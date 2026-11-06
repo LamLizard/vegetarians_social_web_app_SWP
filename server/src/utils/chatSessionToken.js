@@ -83,4 +83,6 @@ function verifySimpleSession(token, account, deviceId) {
   }
 }
 
-module.exports = { issueSession, verifySession, issueSimpleSession, verifySimpleSession };
+// Khoi's code (08/11/2026): dùng lại khoá + scope actor + TTL phiên cho chữ ký lịch sử chat.
+module.exports = { issueSession, verifySession, issueSimpleSession, verifySimpleSession,
+  signingKey, actorScope, SIMPLE_TTL_MS };
