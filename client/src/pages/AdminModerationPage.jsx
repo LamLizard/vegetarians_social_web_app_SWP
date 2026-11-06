@@ -13,6 +13,7 @@ import AdminPostEditQueue from './AdminPostEditQueue';
 import AdminModerationDetails from './AdminModerationDetails';
 import { PostModerationStatus, ReportModerationStatus } from './postModerationPresentation';
 import styles from './AdminModerationPage.module.css';
+import detailStyles from './AdminModerationDetails.module.css';
 
 const TABS = [
   { key: 'post', label: 'Duyệt bài viết', icon: 'journal-text' },
@@ -310,10 +311,10 @@ export default function AdminModerationPage() {
         </Panel>
       )}
 
-      <Modal open={Boolean(selected) && !decision} onClose={() => setSelected(null)} size="lg"
+      <Modal open={Boolean(selected) && !decision} onClose={() => setSelected(null)} size="lg" className={detailStyles.detailModal}
         title={selected?.entity === 'case' ? (isCommentCase ? 'Nhóm báo cáo bình luận' : 'Nhóm báo cáo bài viết') : 'Chi tiết bài viết'}
         footer={(
-          <div className={styles.actions}>
+          <div className={detailStyles.detailActions}>
             <Button variant="subtle" onClick={() => setSelected(null)}>Đóng</Button>
             {canDecide && selected.entity === 'post' && <>
               <Button variant="alert" icon="x-lg" onClick={() => openDecision('reject')}>Từ chối</Button>
