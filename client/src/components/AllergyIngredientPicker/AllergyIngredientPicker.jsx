@@ -113,7 +113,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
       setProposals((current) => current.some((item) => sameName(item.name, name))
         ? current
         : [...current, { id: `pending-${name}`, name, status: 'pending' }]);
-      setFeedback({ tone: 'success', text: result.message || 'Tên dị ứng đã được lưu vào hồ sơ sức khỏe và gửi Admin phân loại.' });
+      setFeedback({ tone: 'success', text: result.message || 'Tên dị ứng đã được lưu vào hồ sơ sức khỏe và gửi quản trị viên phân loại.' });
       setQuery('');
     } catch (error) {
       setFeedback({ tone: 'alert', text: error.message });
@@ -127,6 +127,9 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
 
   return (
     <div>
+      {value.length === 0 && (
+        <p className={styles.emptyState}>Chưa có mục nào. Bạn có thể bỏ qua nếu không có dị ứng.</p>
+      )}
       <div className={styles.box}>
         {value.map((name) => (
           <Chip key={name} onRemove={() => onChange?.(value.filter((selected) => selected !== name))}>{name}</Chip>
@@ -135,7 +138,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
           className={styles.input}
           value={query}
           onChange={(event) => { setQuery(event.target.value); setMatches([]); setFeedback(null); }}
-          placeholder={value.length >= max ? `Đã đủ ${max} mục` : 'Tìm nguyên liệu trong kho'}
+          placeholder={value.length >= max ? `Đã đủ ${max} mục` : 'Nhập tên nguyên liệu, ví dụ: bông cải xanh'}
           aria-label="Tìm nguyên liệu dị ứng trong cơ sở dữ liệu"
           autoComplete="off"
           maxLength={120}
@@ -156,7 +159,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
       {query.trim() && !loading && !loadError && visibleMatches.length === 0 && !exactMatch && (
         <div className={styles.proposal}>
           <span>Chưa tìm thấy “{query.trim()}” trong kho nguyên liệu.</span>
-          <Button type="button" size="sm" icon="send" loading={submitBusy} onClick={proposeIngredient}>Gửi Admin duyệt</Button>
+          <Button type="button" size="sm" icon="send" loading={submitBusy} onClick={proposeIngredient}>Gửi quản trị viên duyệt</Button>
         </div>
       )}
       {exactMatch && !value.some((name) => sameName(name, exactMatch)) && (
@@ -166,7 +169,7 @@ export default function AllergyIngredientPicker({ value = [], onChange, max = 50
         </div>
       )}
       {feedback && <p className={feedback.tone === 'alert' ? styles.error : styles.success} role={feedback.tone === 'alert' ? 'alert' : 'status'}>{feedback.text}</p>}
-      <p className={styles.hint}>Tên dị ứng được lưu trong hồ sơ sức khỏe ngay khi gửi. Admin sẽ phân loại và thêm tên vào danh mục nguyên liệu để hệ thống nhận biết chính xác.</p>
+      <p className={styles.hint}>Nếu không tìm thấy nguyên liệu trong danh sách, bạn có thể gửi tên mới. Tên sẽ được lưu vào hồ sơ ngay, quản trị viên sẽ phân loại sau để hệ thống nhận biết chính xác.</p>
       {proposals.some((item) => item.status === 'pending') && (
         <div className={styles.hint} aria-live="polite">
           Đang chờ duyệt: {proposals.filter((item) => item.status === 'pending').map((item) => item.name).join(', ')}
