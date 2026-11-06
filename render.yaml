@@ -15,6 +15,9 @@ services:
         value: production
       - key: PORT
         value: 10000
+      # Khoi's code (06/11/2026): Render đứng sau proxy → tin X-Forwarded-For để hạn mức theo IP đúng người.
+      - key: TRUST_PROXY
+        value: "1"
       # ---- Bắt buộc, điền trong Dashboard (sync:false = không lưu vào repo) ----
       - key: DATABASE_URL
         sync: false

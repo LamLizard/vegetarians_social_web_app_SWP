@@ -2,6 +2,10 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
+// Khoi's code (06/11/2026): sau proxy (Render) phải tin X-Forwarded-For, nếu không req.ip là IP của proxy
+// → mọi khách dùng chung một bucket hạn mức theo IP. Chỉ bật khi TRUST_PROXY là số nguyên ≥ 1.
+const TRUST_PROXY_HOPS = Number(process.env.TRUST_PROXY);
+if (Number.isInteger(TRUST_PROXY_HOPS) && TRUST_PROXY_HOPS >= 1) app.set('trust proxy', TRUST_PROXY_HOPS);
 app.use(cors());          // dev cho thoáng; sau siết origin từ client/.env (CLIENT_URL)
 // Khoi's code: nội dung bài viết không giới hạn độ dài (D-11) → nới mức nhận JSON từ 100 KB mặc định lên 1 MB.
 app.use(express.json({ limit: '1mb' }));
