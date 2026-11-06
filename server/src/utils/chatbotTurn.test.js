@@ -24,7 +24,7 @@ function classifierRaw(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
     needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
-    scope: 'allowed', allowedParts: [], ...overrides,
+    scope: 'allowed', allowedParts: [], cookDish: null, ...overrides,
   });
 }
 
@@ -156,6 +156,26 @@ test('parseScopedV3Intent: JSON thiếu khoá → throw MODEL_UNAVAILABLE', () =
   const extraKey = JSON.stringify({ ...JSON.parse(classifierRaw()), note: 'x' });
   assert.throws(() => parseScopedV3Intent(extraKey, 'chào Mầm'), (error) => error.code === 'MODEL_UNAVAILABLE');
   assert.throws(() => parseScopedV3Intent('không phải JSON', 'chào Mầm'), (error) => error.code === 'MODEL_UNAVAILABLE');
+});
+
+// Khoi's code (06/11/2026): khoá cookDish — món người dùng muốn cách làm.
+test('parseScopedV3Intent: cookDish hợp lệ, ép needsGreenBowlData = recipes', () => {
+  const result = parseScopedV3Intent(classifierRaw({ cookDish: '  nấm kho nước dừa ' }), 'chỉ tao nấm kho nước dừa');
+  assert.equal(result.intent.cookDish, 'nấm kho nước dừa');
+  assert.equal(result.intent.needsGreenBowlData, 'recipes');
+  assert.equal(parseScopedV3Intent(classifierRaw(), 'chào').intent.cookDish, null);
+  assert.equal(parseScopedV3Intent(classifierRaw({ cookDish: '   ' }), 'chào').intent.cookDish, null);
+});
+
+test('parseScopedV3Intent: cookDish sai kiểu/quá dài/thiếu khoá → throw; lượt tìm bài bỏ cookDish', () => {
+  const fail = (raw) => assert.throws(() => parseScopedV3Intent(raw, 'chào'), (error) => error.code === 'MODEL_UNAVAILABLE');
+  fail(classifierRaw({ cookDish: 5 }));
+  fail(classifierRaw({ cookDish: 'a'.repeat(81) }));
+  fail(JSON.stringify(destructure(classifierRaw(), 'cookDish')));
+  const post = parseScopedV3Intent(classifierRaw({ intent: 'post', subject: 'đậu hũ', postMode: 'new', postOrder: 'votes',
+    cookDish: 'đậu hũ' }), 'tìm bài đậu hũ');
+  assert.equal(post.intent.cookDish, null);
+  assert.equal(post.intent.needsGreenBowlData, 'none');
 });
 
 test('isStandaloneArithmetic: chỉ chặn phép tính đứng riêng', () => {

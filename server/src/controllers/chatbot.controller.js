@@ -17,7 +17,7 @@ const { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alrea
 // Khoi's code (05/11/2026): hạn mức phụ theo IP cho khách (băm IP, không lưu IP gốc).
 const { ipSubjectKey } = require('../utils/chatbotQuota');
 // Khoi's code (06/11/2026): câu "cách làm món X" → dùng công thức Green Bowl làm nguồn, không để AI bịa định lượng.
-const { isHowToCook, pickSourceRecipe, formatAmount, missingQuantities } = require('../utils/chatbotRecipeSource');
+const { formatAmount, missingQuantities } = require('../utils/chatbotRecipeSource');
 if (!process.env.CHATBOT_REQUEST_HMAC_KEY?.trim()) {
   console.warn('[chatbot] Thiếu CHATBOT_REQUEST_HMAC_KEY: hạn mức theo IP dùng khoá cố định.');
 }
@@ -34,13 +34,33 @@ const REPLY_SCOPE_NOTE = 'Mình chỉ hỗ trợ phần câu hỏi liên quan đ
 const RECIPE_STOPWORDS = new Set(['mon', 'chay', 'minh', 'nen', 'an', 'gi', 'cho', 'va', 'cua', 'co', 'khong',
   'hom', 'nay', 'toi', 'sang', 'trua', 'goi', 'cach', 'nau', 'lam', 'mot', 'vai', 'nhung', 'cac', 'voi', 'de',
   'khi', 'thi', 'roi', 'nhu', 'the', 'nao', 'bao', 'nhieu', 'calo', 'nguoi', 'ban', 'mam', 'trong', 'uong',
-  'dang', 'tu', 'hay', 'giup', 'muon', 'chieu', 'bua']);
+  'dang', 'tu', 'hay', 'giup', 'muon', 'chieu', 'bua',
+  // Khoi's code (06/11/2026): từ xưng hô/đệm không được thành từ khoá món ("chỉ tao làm…", "dạy mình nấu…").
+  'tao', 'may', 'chi', 'day', 'gium', 'nha', 'nhe', 'huong', 'dan', 'bay', 'sao']);
+const MAX_RECIPE_TERMS = 6;
+// Khoi's code (06/11/2026): ưu tiên cụm món của classifier, rồi cụm 2 từ liền nhau (vd "nước dừa"), rồi từ đơn.
 function recipeKeywords(intent, text) {
-  const fromIntent = [intent.subject, ...(Array.isArray(intent.nearTerms) ? intent.nearTerms : [])]
+  const fromIntent = [intent.cookDish, intent.subject, ...(Array.isArray(intent.nearTerms) ? intent.nearTerms : [])]
     .filter((value) => typeof value === 'string' && value.trim());
-  const words = String(text ?? '').toLowerCase().split(/[^\p{L}\p{N}]+/u)
-    .filter((word) => word.length >= 3 && !RECIPE_STOPWORDS.has(chatContextModel.plain(word)));
-  return [...new Set([...fromIntent, ...words])].slice(0, 4);
+  const tokens = String(text ?? '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const usable = (token) => token.length >= 3 && !RECIPE_STOPWORDS.has(chatContextModel.plain(token));
+  const pairs = [];
+  for (let index = 0; index + 1 < tokens.length; index += 1) {
+    if (usable(tokens[index]) && usable(tokens[index + 1])) {
+      pairs.push(`${tokens[index].toLowerCase()} ${tokens[index + 1].toLowerCase()}`);
+    }
+  }
+  const singles = tokens.map((token) => token.toLowerCase()).filter(usable);
+  const seen = new Set();
+  const terms = [];
+  for (const term of [...fromIntent, ...pairs, ...singles]) {
+    const key = chatContextModel.plain(term).trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    terms.push(term);
+    if (terms.length >= MAX_RECIPE_TERMS) break;
+  }
+  return terms;
 }
 
 const MESSAGES = {
@@ -293,6 +313,8 @@ async function turnV3(req, res) {
   let recipeIngredients = [];
   let recipeSourceNote = null;
   let aiGenerated = false;
+  // Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn nhãn AI tạo.
+  let recipeExcludedByAllergy = false;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -493,12 +515,22 @@ async function turnV3(req, res) {
         if (intent.needsGreenBowlData === 'recipes') {
           const items = await chatContextModel.findRecipesForChat(recipeKeywords(intent, scoped.allowedText),
             { limit: 3, excludeAllergies: health?.allergies ?? [] });
-          // Khoi's code (06/11/2026): hỏi "cách làm món X" mà có công thức khớp → lấy chi tiết làm nguồn.
-          const howToCook = isHowToCook(scoped.allowedText);
-          const picked = howToCook ? pickSourceRecipe(scoped.allowedText, items) : null;
-          if (picked) {
+          // Khoi's code (06/11/2026): "cách làm món X" → tìm công thức của X trong TOÀN BỘ recipe đã duyệt,
+          // không phụ thuộc 3 thẻ gợi ý; công thức bị loại do dị ứng thì không gắn nhãn "do AI tạo".
+          // Khoi's code (06/11/2026): classifier trả cookDish (món cần cách làm) thay cho dò chữ trong câu hỏi.
+          const howToCook = Boolean(intent.cookDish);
+          let found = null;
+          if (howToCook) {
             phase = 'recipe_source';
-            const detail = await chatContextModel.findRecipeDetailForChat(picked.id);
+            found = await chatContextModel.findRecipeSourceByQuestion(intent.cookDish)
+              ?? await chatContextModel.findRecipeSourceByQuestion(scoped.allowedText);
+            if (found && chatContextModel.excludeAllergens([found], health?.allergies ?? []).length === 0) {
+              recipeExcludedByAllergy = true;
+              found = null;
+            }
+          }
+          if (found) {
+            const detail = await chatContextModel.findRecipeDetailForChat(found.id);
             if (detail) {
               recipeSourceCard = { id: detail.id, title: detail.title, thumbnailUrl: detail.thumbnailUrl,
                 minutes: detail.minutes, caloriesKcal: detail.caloriesKcal, servings: detail.servings };
@@ -518,7 +550,8 @@ async function turnV3(req, res) {
           }
           if (!recipeSourceCard) {
             if (items.length) greenBowl = { kind: 'recipes', items };
-            if (howToCook) aiGenerated = true;
+            // Khoi's code (06/11/2026): chỉ gắn "do AI tạo" khi thật sự KHÔNG có công thức nào khớp.
+            if (howToCook && !found && !recipeExcludedByAllergy) aiGenerated = true;
           }
         } else if (intent.needsGreenBowlData === 'shops') {
           const items = await chatContextModel.findOpenShops({ limit: 3 });
@@ -537,6 +570,7 @@ async function turnV3(req, res) {
       // Khoi's code (05/11/2026): kèm cờ alreadyWarned + dữ liệu Green Bowl đã lọc dị ứng.
       const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
         greenBowl, recipeSource: recipeSourceNote, // Khoi's code (06/11/2026): khối công thức nguồn cho câu "cách làm"
+        recipeExcludedByAllergy, // Khoi's code (06/11/2026): công thức có nhưng chứa nguyên liệu dị ứng
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
@@ -671,4 +705,6 @@ function startRequestCleanup() {
 }
 
 module.exports = { availability, getDiscoveryPost, getMemberPost, verifyChatSession, verifySimpleChatSession, getQuota, getSimpleQuota, getGuestQuota, turnV3,
+  // Khoi's code (06/11/2026): export để test phần chọn từ khoá tìm công thức.
+  recipeKeywords,
   startRequestCleanup };

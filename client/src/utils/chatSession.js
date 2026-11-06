@@ -79,13 +79,16 @@ export function readChatSession(scope) {
   const raw = v2 ?? localStorage.getItem(PREFIX + scope);
   if (!raw) return null;
   const value = JSON.parse(raw);
+  // Khoi's code (06/11/2026): bản ghi cũ có tin 'system' (dòng phân cách) → bỏ khi đọc, không hiện thành bong bóng.
+  const messages = Array.isArray(value?.messages)
+    ? value.messages.filter((message) => message?.sender !== 'system') : value?.messages;
   if (!value || (v2 !== null && value.version !== 2) || typeof value.token !== 'string' || value.token.length > 1024
     || (value.flowToken !== undefined && (typeof value.flowToken !== 'string' || value.flowToken.length > 2048))
     || (value.postDiscovery !== undefined && !validPostDiscovery(value.postDiscovery))
     || (value.postContext !== undefined && !validPostContext(value.postContext))
-    || !Array.isArray(value.messages)
-    || !value.messages.every((message) => (
-      ['user', 'bot', 'system'].includes(message.sender) && typeof message.content === 'string'
+    || !Array.isArray(messages)
+    || !messages.every((message) => (
+      ['user', 'bot'].includes(message.sender) && typeof message.content === 'string'
       && Array.from(message.content).length <= 10000
       && !/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(message.content)
       && (message.limited === undefined || (message.sender === 'bot' && typeof message.limited === 'boolean'))
@@ -106,7 +109,7 @@ export function readChatSession(scope) {
   return { ...value,
     ...(value.postContext?.delivery?.state === 'pending'
       ? { postContext: { ...value.postContext, state: 'unknown' } } : {}),
-    messages: value.messages.map((message) => {
+    messages: messages.map((message) => {
       const incomplete = message.sender === 'bot' && ['waiting', 'streaming'].includes(message.status);
       return { ...message, status: incomplete ? 'failed' : (message.status ?? 'complete'),
         ...(incomplete ? { error: 'Chưa xác định được kết quả của lượt trước.' } : {}) };

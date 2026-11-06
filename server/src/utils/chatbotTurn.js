@@ -92,17 +92,32 @@ function isStandaloneArithmetic(text) {
 }
 
 // Tùng: policy có hai khóa riêng; parser v3 vẫn nhận đúng tám khóa như cũ.
+// Khoi's code (06/11/2026): cookDish hợp lệ = null hoặc chuỗi 1–80 ký tự (sau trim); sai kiểu → undefined.
+const COOK_DISH_MAX = 80;
+function parseCookDish(value) {
+  if (value === null || (typeof value === 'string' && !value.trim())) return null;
+  if (typeof value !== 'string' || !validText(value)) return undefined;
+  const dish = value.trim().normalize('NFC');
+  return Array.from(dish).length <= COOK_DISH_MAX ? dish : undefined;
+}
+
 function parseScopedV3Intent(raw, text) {
   const invalid = () => Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' });
   let value;
   try { value = JSON.parse(raw); } catch { throw invalid(); }
+  // Khoi's code (06/11/2026): khoá thứ 12 cookDish — món người dùng muốn cách làm (null nếu không).
   const keys = ['intent', 'subject', 'hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide',
-    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts'];
+    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts', 'cookDish'];
   if (!validKeys(value, keys) || Object.keys(value).length !== keys.length
     || !['allowed', 'outside', 'mixed', 'uncertain'].includes(value.scope)
     || !Array.isArray(value.allowedParts) || value.allowedParts.length > 8) throw invalid();
-  const { scope, allowedParts, ...intentValue } = value;
-  const intent = parseV3Intent(JSON.stringify(intentValue));
+  const { scope, allowedParts, cookDish: rawCookDish, ...intentValue } = value;
+  const cookDish = parseCookDish(rawCookDish);
+  if (cookDish === undefined) throw invalid();
+  const parsed = parseV3Intent(JSON.stringify(intentValue));
+  // Khoi's code (06/11/2026): có món cần cách làm thì luôn lấy dữ liệu công thức (model đôi khi quên đặt recipes).
+  const intent = { ...parsed, cookDish: parsed.intent === 'chat' ? cookDish : null,
+    needsGreenBowlData: parsed.intent === 'chat' && cookDish ? 'recipes' : parsed.needsGreenBowlData };
   if (scope !== 'mixed') {
     if (allowedParts.length) throw invalid();
     return { scope, intent, allowedText: text };

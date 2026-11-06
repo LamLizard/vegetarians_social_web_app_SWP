@@ -1,7 +1,7 @@
 // Khoi's code (05/11/2026): test phần thuần của chatContext.model (không cần DB).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { excludeAllergens, plain } = require('./chatContext.model');
+const { excludeAllergens, plain, findRecipesForChat } = require('./chatContext.model');
 const { groupScheduleRows } = require('./shop.model');
 const { shopOpenInfo, shopStatusText } = require('../utils/shopOpen');
 
@@ -47,4 +47,22 @@ test('lịch quán: dạng phẳng SQL trả về → gom theo ngày đúng như
   assert.equal(shopStatusText(shopOpenInfo(schedule, new Date('2026-11-02T05:30:00Z'))), 'Đóng cửa · mở lúc 17:00');
   // quán chưa có lịch → câu "Chưa cập nhật giờ" (không phải đang mở)
   assert.equal(shopStatusText(shopOpenInfo(groupScheduleRows([]), new Date('2026-11-02T02:00:00Z'))), 'Chưa cập nhật giờ');
+});
+
+// Khoi's code (06/11/2026): controller gửi tối đa 6 term (MAX_RECIPE_TERMS) → SQL phải có đúng 6 tham số.
+test('findRecipesForChat: nhận tối đa 6 term, tham số SQL khớp số term', async () => {
+  const pool = require('../config/db');
+  const original = pool.query;
+  let captured = null;
+  pool.query = async (sql, params) => { captured = { sql, params }; return { rows: [] }; };
+  try {
+    await findRecipesForChat(['một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy'], { limit: 3 });
+  } finally {
+    pool.query = original;
+  }
+  assert.equal(captured.params.length, 6);
+  assert.equal(captured.params[0], 'một');
+  assert.equal(captured.params[5], 'sáu');
+  assert.ok(captured.sql.includes('$6'));
+  assert.equal(captured.sql.includes('$7'), false);
 });

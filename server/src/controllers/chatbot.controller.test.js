@@ -31,7 +31,7 @@ function classifierJson(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
     needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
-    scope: 'allowed', allowedParts: [], ...overrides,
+    scope: 'allowed', allowedParts: [], cookDish: null, ...overrides,
   });
 }
 
@@ -502,15 +502,19 @@ const DETAIL_40 = { id: '40', title: 'Đậu hũ sốt cà chua', servings: 2, m
   ingredients: [{ name: 'Đậu hũ', amount: 300, unit: 'g' }, { name: 'Cà chua', amount: 2, unit: 'quả' }],
   instructions: 'Bước 1: chiên đậu hũ vàng.\nBước 2: sốt cà chua rồi cho đậu vào.' };
 
-function stubHowTo({ items = [RECIPE_40], detail = DETAIL_40, answer = 'Chiên đậu hũ rồi sốt cà chua.', verdict = 'allow' } = {}) {
+function stubHowTo({ items = [RECIPE_40], detail = DETAIL_40, answer = 'Chiên đậu hũ rồi sốt cà chua.',
+  verdict = 'allow', source = { id: '40', title: 'Đậu hũ sốt cà chua', ingredientNames: ['Đậu hũ', 'Cà chua'] },
+  cookDish = 'đậu hũ sốt cà chua', sourceCalls = [] } = {}) {
   stubModel();
   chatContextModel.findRecipesForChat = async () => items;
+  // Khoi's code (06/11/2026): nguồn công thức tìm trên toàn bộ recipe đã duyệt, không dựa vào 3 thẻ.
+  chatContextModel.findRecipeSourceByQuestion = async (text) => { sourceCalls.push(text); return source; };
   chatContextModel.findRecipeDetailForChat = async (id) => (detail && detail.id === id ? detail : null);
   let call = 0;
   let captured = null;
   deepseek.classify = async () => {
     call += 1;
-    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : `{"verdict":"${verdict}"}`;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes', cookDish }) : `{"verdict":"${verdict}"}`;
   };
   deepseek.streamAnswer = async (messages, options) => {
     captured = messages;
@@ -555,7 +559,7 @@ test('turnV3 "cách làm món X" thiếu định lượng: quantityNote = true',
 });
 
 test('turnV3 "cách làm món X" không có công thức khớp: phát thẻ ai-generated', async () => {
-  stubHowTo({ items: [], detail: null });
+  stubHowTo({ items: [], detail: null, source: null });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
     body: memberBody({ text: 'Hướng dẫn cách làm bánh xèo chay nấm' }) }), res);
@@ -574,12 +578,57 @@ test('turnV3 "cách làm món X" bị lớp duyệt gạt: không phát thẻ ng
   assert.ok(frames.find((frame) => frame.name === 'retract'));
 });
 
-test('turnV3 câu gợi ý món (không phải cách làm): không có thẻ nguồn', async () => {
-  stubHowTo({});
+test('turnV3 câu gợi ý món (cookDish null): không có thẻ nguồn', async () => {
+  stubHowTo({ cookDish: null });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
     body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
   const frames = events(res);
   assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
   assert.ok(frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipes'));
+});
+
+// Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn "do AI tạo".
+test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAllergy, không ai-generated', async () => {
+  const stub = stubHowTo({ source: { id: '40', title: 'Đậu hũ sốt cà chua', ingredientNames: ['Đậu nành'] } });
+  healthModel.getHealthProfile = async () => ({ allergies: [{ name: 'đậu nành' }] });
+  let call = 0;
+  deepseek.classify = async () => {
+    call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes', needsPersonalization: true,
+      cookDish: 'đậu hũ sốt cà chua' }) : '{"verdict":"allow"}';
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'Hướng dẫn cách làm Đậu hũ sốt cà chua' }) }), res);
+
+  const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.equal(data.recipeExcludedByAllergy, true);
+  assert.equal(data.recipeSource, null);
+  const frames = events(res);
+  assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
+  assert.ok(frames.find((frame) => frame.name === 'done'));
+});
+
+// Khoi's code (06/11/2026): câu không có chữ "làm/nấu" — classifier trả cookDish, tìm nguồn bằng tên món trước.
+test('turnV3 "chỉ tao nấm kho nước dừa": cookDish từ classifier → không có công thức thì ai-generated', async () => {
+  const sourceCalls = [];
+  stubHowTo({ items: [], detail: null, source: null, cookDish: 'nấm kho nước dừa', sourceCalls });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'chỉ tao nấm kho nước dừa' }) }), res);
+  assert.deepEqual(sourceCalls, ['nấm kho nước dừa', 'chỉ tao nấm kho nước dừa']);
+  const frames = events(res);
+  assert.ok(frames.find((frame) => frame.name === 'result' && frame.data.kind === 'ai-generated'));
+});
+
+test('turnV3 cookDish khớp công thức: chỉ tìm 1 lần bằng tên món', async () => {
+  const sourceCalls = [];
+  stubHowTo({ cookDish: 'đậu hũ sốt cà chua', sourceCalls, answer: 'Dùng 300 g đậu hũ và 2 quả cà chua.' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'đậu hũ sốt cà chua gồm những gì' }) }), res);
+  assert.deepEqual(sourceCalls, ['đậu hũ sốt cà chua']);
+  assert.ok(events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipe-source'));
 });

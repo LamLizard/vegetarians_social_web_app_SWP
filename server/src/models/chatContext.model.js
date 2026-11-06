@@ -28,21 +28,25 @@ function excludeAllergens(items = [], allergies = []) {
  * Không có keyword → trả công thức nhiều tim nhất. Dị ứng: loại ở JS trước khi cắt `limit`.
  */
 async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies = [] } = {}) {
+  // Khoi's code (06/11/2026): khớp MAX_RECIPE_TERMS bên controller (tối đa 6 term).
   const terms = [...new Set((Array.isArray(keywords) ? keywords : [keywords])
-    .map((keyword) => String(keyword ?? '').trim()).filter(Boolean))].slice(0, 4);
+    .map((keyword) => String(keyword ?? '').trim()).filter(Boolean))].slice(0, 6);
   const params = [];
-  const match = terms.length
-    ? `AND (${terms.map((term) => {
-      params.push(term);
-      const index = params.length;
-      const needle = fold(`$${index}`);
-      return `(position(${needle} in ${fold('r.title')}) > 0
+  const conditions = terms.map((term) => {
+    params.push(term);
+    const index = params.length;
+    const needle = fold(`$${index}`);
+    return `(position(${needle} in ${fold('r.title')}) > 0
         OR position(${needle} in ${fold('d.name')}) > 0
         OR EXISTS (SELECT 1 FROM public.recipe_ingredient ri
             JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
           WHERE ri.recipe_id = r.recipe_id AND position(${needle} in ${fold('ing.name')}) > 0))`;
-    }).join(' OR ')})`
-    : '';
+  });
+  const match = conditions.length ? `AND (${conditions.join(' OR ')})` : '';
+  // Khoi's code (06/11/2026): xếp theo SỐ term khớp (nhiều hơn đứng trước) rồi mới tới lượt thích.
+  const score = conditions.length
+    ? `(${conditions.map((condition) => `(CASE WHEN ${condition} THEN 1 ELSE 0 END)`).join(' + ')})`
+    : '0';
   const { rows } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, d.name AS "dishName",
       r.thumbnail_url AS "thumbnailUrl", r.calories_kcal AS "caloriesKcal",
@@ -54,7 +58,7 @@ async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies =
     FROM public.recipe r
     JOIN public.dish d ON d.dish_id = r.dish_id AND d.status = 'active'
     WHERE r.status = 'approved' ${match}
-    ORDER BY "likeCount" DESC, r.recipe_id DESC
+    ORDER BY ${score} DESC, "likeCount" DESC, r.recipe_id DESC
     LIMIT ${RECIPE_SCAN_LIMIT}
   `, params);
   return excludeAllergens(rows, excludeAllergies)
@@ -62,7 +66,28 @@ async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies =
     .map(({ ingredientNames, ...item }) => item);
 }
 
-/** Quán đã xác minh và không bị ẩn; xếp quán đang mở trước, kèm câu trạng thái theo giờ VN. */
+// Khoi's code (06/11/2026): công thức có TÊN nằm trong câu hỏi — tìm trên toàn bộ recipe đã duyệt
+// (không phụ thuộc 3 thẻ gợi ý), để "cách làm món X" dùng đúng công thức của X làm nguồn.
+async function findRecipeSourceByQuestion(question) {
+  const text = String(question ?? '').trim();
+  if (!text) return null;
+  const { rows: [row] } = await pool.query(`
+    SELECT r.recipe_id::text AS id, r.title,
+      (SELECT count(*)::int FROM public.recipe_like l WHERE l.recipe_id = r.recipe_id) AS "likeCount",
+      COALESCE((SELECT json_agg(ing.name)
+        FROM public.recipe_ingredient ri JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
+        WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS "ingredientNames"
+    FROM public.recipe r
+    JOIN public.dish d ON d.dish_id = r.dish_id AND d.status = 'active'
+    WHERE r.status = 'approved' AND (position(${fold('r.title')} in ${fold('$1')}) > 0
+      -- Khoi's code (06/11/2026): bỏ chữ "chay" hai bên rồi so khớp nguyên tên ("chả nấm" ↔ "Chả nấm chay").
+      OR btrim(regexp_replace(regexp_replace(${fold('r.title')}, '(^|\\s)chay(\\s|$)', ' ', 'g'), '\\s+', ' ', 'g')) = btrim(regexp_replace(regexp_replace(${fold('$1')}, '(^|\\s)chay(\\s|$)', ' ', 'g'), '\\s+', ' ', 'g')))
+    ORDER BY length(r.title) DESC, "likeCount" DESC, r.recipe_id DESC
+    LIMIT 1
+  `, [text]);
+  return row ?? null;
+}
+
 // Khoi's code (06/11/2026): chi tiết công thức đã duyệt để Mầm diễn đạt lại đúng định lượng (chỉ SELECT).
 const RECIPE_INSTRUCTIONS_LIMIT = 4000;
 
@@ -84,6 +109,7 @@ async function findRecipeDetailForChat(recipeId) {
   return row ?? null;
 }
 
+/** Quán đã xác minh và không bị ẩn; xếp quán đang mở trước, kèm câu trạng thái theo giờ VN. */
 async function findOpenShops({ limit = 3, now = new Date() } = {}) {
   const { rows } = await pool.query(`
     SELECT s.shop_id::text AS id, s.name, s.address, s.avt_shop_url AS "avatarUrl",
@@ -142,5 +168,5 @@ async function findTodayMealPlan(accountId) {
     totalKcal: meals.reduce((sum, meal) => sum + meal.totalKcal, 0), meals };
 }
 
-module.exports = { findRecipesForChat, findRecipeDetailForChat, findOpenShops, findTodayMealPlan,
-  excludeAllergens, plain };
+module.exports = { findRecipesForChat, findRecipeSourceByQuestion, findRecipeDetailForChat, findOpenShops,
+  findTodayMealPlan, excludeAllergens, plain };

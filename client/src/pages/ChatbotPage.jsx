@@ -692,8 +692,12 @@ export default function ChatbotPage({ user }) {
                           </button>
                         )}
                         {message.sender === 'bot' && message.result && <ChatDiscoveryResult result={message.result} />}
-                        {message.sender === 'bot' && message.cards && <ChatResultCards cards={message.cards} />}
+                        {/* Khoi's code (06/11/2026): thẻ nguồn đứng NGAY dưới bong bóng, trước hàng thẻ món khác. */}
                         {message.sender === 'bot' && message.source && <ChatSourceCard source={message.source} />}
+                        {message.sender === 'bot' && message.cards && (
+                          <ChatResultCards cards={message.cards}
+                            title={message.source ? 'Món khác trên Green Bowl bạn có thể thích' : undefined} />
+                        )}
                         {message.sender === 'bot' && message.limited && <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>}
                         {message.sender === 'bot' && message.status === 'failed' && <div className={styles.messageNotice}>
                           <p>{message.error}</p>
