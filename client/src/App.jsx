@@ -120,9 +120,11 @@ function AppContent() {
   if (user?.role === 'member' && detailPostId) return <PostDetailPage postId={detailPostId} user={user} />;
   // Khoi's code: Tạo công thức + Công thức đã gửi — chỉ thành viên (Admin vào sẽ về dashboard như cũ)
   if (!isAdmin && path === '/recipes/new') return <RecipeCreatePage user={user} accountMenu={accountMenu} />;
-  // Khoi's code: xem công thức đã duyệt — thành viên và Admin
-  if (recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
-  if (path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
+  // Khoi's code: trang Công thức + chi tiết công thức là trang của thành viên.
+  // Admin có khu duyệt riêng (/admin/recipes/verify) nên mở /recipes hoặc /recipes/:id sẽ rơi xuống
+  // nhánh dashboard bên dưới — cùng cách chặn với /profile, /meal-plan, /chatbot, /shops.
+  if (!isAdmin && recipeViewId) return <RecipeDetailPage recipeId={recipeViewId} user={user} accountMenu={accountMenu} />;
+  if (!isAdmin && path === '/recipes') return <RecipeListPage user={user} accountMenu={accountMenu} />; // Khoi's code: trang Công thức
   if (!isAdmin && path === '/meal-plan') return <MealPlanPage user={user} accountMenu={accountMenu} />;
   if (!isAdmin && path === '/chatbot') return <ChatbotPage key={user.id} user={user} />;
   /* Lam's code: Trang Khám phá quán chay (M-08) — thành viên đã đăng nhập. */

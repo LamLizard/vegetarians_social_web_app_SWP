@@ -131,3 +131,32 @@ test('saves a health profile without a consent field when no age warning is need
   assert.equal(res.body.profile.dateOfBirth, '1990-01-01');
   assert.equal(savedHealthProfile[1].gender, 'female');
 });
+
+test('returns specific date-of-birth validation messages and field metadata', async () => {
+  const cases = [
+    { dateOfBirth: 'not-a-date', message: 'Ngày sinh không hợp lệ.' },
+    { dateOfBirth: '2000-02-31', message: 'Ngày sinh không hợp lệ.' },
+    { dateOfBirth: '0001-12-12', message: 'Ngày sinh phải từ 01/01/1900 đến hôm nay.' },
+    { dateOfBirth: '9999-12-31', message: 'Ngày sinh phải từ 01/01/1900 đến hôm nay.' },
+  ];
+
+  for (const { dateOfBirth, message } of cases) {
+    const res = createResponse();
+    await saveMyHealthProfile({ account: { id: '42' }, body: { dateOfBirth } }, res, (error) => { throw error; });
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body.message, message);
+    assert.ok(res.body.errors.includes(message));
+    assert.equal(res.body.field, 'dateOfBirth');
+  }
+});
+
+test('accepts February 29 in a leap year', async () => {
+  const res = createResponse();
+  await saveMyHealthProfile({
+    account: { id: '42' },
+    body: { dateOfBirth: '2000-02-29', ageWarningAccepted: true },
+  }, res, (error) => { throw error; });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.profile.dateOfBirth, '2000-02-29');
+});

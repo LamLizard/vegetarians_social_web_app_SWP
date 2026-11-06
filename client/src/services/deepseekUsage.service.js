@@ -15,7 +15,7 @@ export async function getDeepseekUsage({ date, signal } = {}) {
       || typeof result.generatedAt !== 'string' || !result.source
       || !['unknown', 'partial', 'observed'].includes(result.coverage?.state)
       || !validCounts(result.totals) || !Array.isArray(result.groups)
-      || !result.groups.every((group) => ['classifier', 'answer'].includes(group.kind) && validCounts(group))) {
+      || !result.groups.every((group) => ['classifier', 'answer', 'verifier'].includes(group.kind) && validCounts(group))) { // Khoi's code (07/11/2026): thêm loại gọi verifier
     throw new Error('Dữ liệu sử dụng DeepSeek không hợp lệ.');
   }
   return result;

@@ -1,10 +1,15 @@
+import { useEffect, useState } from 'react';
 import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import Photo from '../Photo/Photo';
+import YouTubeEmbed from '../YouTubeEmbed/YouTubeEmbed';
 import cx from '../cx';
 import { POST_TYPE } from '../../constants/domain';
 import { formatCount, timeAgo } from '../../utils/format';
 import s from './FeedPostCard.module.css';
+
+// Khoi's code (06/11/2026): phát video ngay trong thẻ; thẻ khác bắt đầu phát thì thẻ này tự dừng (1 video một lúc).
+const PLAY_EVENT = 'gb-feed-video-play';
 
 /**
  * Thẻ bài của Bảng tin.
@@ -25,12 +30,13 @@ import s from './FeedPostCard.module.css';
  * @param {number} voteCount · commentCount · @param {boolean} voted
  * @param {boolean} [reported]          người xem đã báo cáo → menu hiện "Đã báo cáo" (không bấm được)
  * @param {() => void} onVote · onOpen · onComment
- * @param {() => void} [onReport]       không truyền (vd bài của mình) → không có menu báo cáo
+ * @param {() => void} [onReport]       báo cáo bài viết
+ * @param {() => void} [onReportAccount] báo cáo tài khoản tác giả bài viết
  */
 export default function FeedPostCard({
   postType = 'blog', title, excerpt, href = '#', thumbnailUrl, youtubeVideoId, author = {}, createdAt, categories = [],
   voteCount = 0, commentCount = 0, voted = false, reported = false,
-  onVote, onOpen, onComment, onReport, onTopicClick,
+  onVote, onOpen, onComment, onReport, onReportAccount, onTopicClick,
 }) {
   const type = POST_TYPE[postType] ?? POST_TYPE.blog;
   const cover = postType === 'video' && youtubeVideoId
@@ -38,10 +44,26 @@ export default function FeedPostCard({
     : thumbnailUrl;
   // Giữ thẻ <a> (Ctrl+click, trình đọc màn hình vẫn đúng) nhưng mở bài tại chỗ
   const open = (e) => { e.preventDefault(); onOpen?.(); };
+  const inlineVideo = postType === 'video' && Boolean(youtubeVideoId);
+  const [playing, setPlaying] = useState(false);
+  const [token] = useState(() => ({}));
+  useEffect(() => {
+    if (!playing) return undefined;
+    const stop = (event) => { if (event.detail !== token) setPlaying(false); };
+    window.addEventListener(PLAY_EVENT, stop);
+    return () => window.removeEventListener(PLAY_EVENT, stop);
+  }, [playing, token]);
+  const play = () => {
+    window.dispatchEvent(new CustomEvent(PLAY_EVENT, { detail: token }));
+    setPlaying(true);
+  };
 
-  const menuItems = reported
-    ? [{ icon: 'flag-fill', label: 'Đã báo cáo', hint: 'Admin đang xem xét', disabled: true }]
-    : onReport ? [{ icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', tone: 'alert', onClick: onReport }] : [];
+  const menuItems = [
+    ...(onReport ? [reported
+      ? { icon: 'flag-fill', label: 'Đã báo cáo bài viết', hint: 'Admin đang xem xét', disabled: true }
+      : { icon: 'flag', label: 'Báo cáo bài viết', hint: 'Gửi cho Admin xem xét', tone: 'alert', onClick: onReport }] : []),
+    ...(onReportAccount ? [{ icon: 'person-fill-exclamation', label: 'Báo cáo tài khoản', hint: 'Báo cáo tác giả bài viết', tone: 'alert', onClick: onReportAccount }] : []),
+  ];
 
   return (
     <article className={s.card}>
@@ -89,7 +111,17 @@ export default function FeedPostCard({
         </div>
       )}
 
-      {cover && (
+      {inlineVideo && (playing ? (
+        <div className={s.player}>
+          <YouTubeEmbed videoId={youtubeVideoId} title={title} autoLoad shape="none" />
+        </div>
+      ) : (
+        <button type="button" className={cx(s.media, s.mediaBtn)} onClick={play} aria-label={`Phát video: ${title}`}>
+          <Photo src={cover} alt="" ratio="16/9" />
+          <span className={s.play} aria-hidden="true"><i className="bi bi-play-fill" /></span>
+        </button>
+      ))}
+      {cover && !inlineVideo && (
         <a href={href} onClick={open} className={s.media} tabIndex={-1} aria-hidden="true">
           <Photo src={cover} alt="" ratio="16/9" />
           {postType === 'video' && <span className={s.play}><i className="bi bi-play-fill" /></span>}

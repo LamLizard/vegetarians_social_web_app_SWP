@@ -1,4 +1,9 @@
 const { ModerationError, getPostDecision, canRestorePost } = require('../utils/postModeration');
+const { fold } = require('../utils/postSearch');
+
+// Chỉ nhận tên cột và placeholder cố định từ module; từ khóa luôn được bind.
+const searchMatch = (column, placeholder) =>
+  `${fold(`normalize(${column}, NFC)`)} LIKE ${fold(`normalize(${placeholder}::text, NFC)`)}`;
 const POST_FIELDS = `
   p.post_id AS id, p.account_id AS "accountId", p.post_type AS "postType",
   p.title, p.content, p.thumbnail_url AS "thumbnailUrl", p.youtube_url AS "youtubeUrl",
@@ -114,11 +119,6 @@ function createPostModerationModel(database) {
       if (!isComment && locatedCase.targetType !== 'post') {
         throw new ModerationError(400, 'Loại đối tượng báo cáo không hợp lệ.');
       }
-      // Tùng: không xóa qua xử lý báo cáo khi nhật ký tổng chưa được che nội dung.
-      if (isComment && decision.action === 'accept') {
-        throw new ModerationError(503, 'Tính năng xóa bình luận tạm thời chưa khả dụng.');
-      }
-
       let beforePost = null;
       let beforeComment = null;
       if (isComment) {
@@ -146,7 +146,8 @@ function createPostModerationModel(database) {
       const target = isComment ? beforeComment : beforePost;
       if (decision.action === 'accept') {
         if (!target) throw new ModerationError(404, 'Nội dung không còn tồn tại. Có thể từ chối để đóng nhóm báo cáo.');
-        const allowed = isComment ? ['public', 'hidden', 'deleted'] : ['public', 'reported', 'deleted'];
+        if (isComment && !beforePost) throw new ModerationError(409, 'Bài viết chứa bình luận không còn tồn tại.');
+        const allowed = isComment ? ['public', 'hidden'] : ['public', 'reported', 'deleted'];
         if (!allowed.includes(target.status)) throw new ModerationError(409, 'Trạng thái nội dung không cho phép gỡ. Hãy tải lại dữ liệu.');
       }
       const reports = await client.query(`
@@ -159,14 +160,12 @@ function createPostModerationModel(database) {
         throw new ModerationError(409, 'Dữ liệu báo cáo không đồng nhất với nhóm. Cần kiểm tra lại dữ liệu.');
       }
 
-      // Tùng: comment bị xóa thì báo cáo tự đóng; không giả quyết định xử lý báo cáo.
-      const autoClosed = isComment && decision.action === 'accept';
-      const status = autoClosed ? 'auto_closed_deleted' : decision.action === 'accept' ? 'accepted' : 'rejected';
+      // Tùng: quyết định của Admin áp dụng nhất quán cho case và từng report.
+      const status = decision.action === 'accept' ? 'accepted' : 'rejected';
       // Tung's code: Lấy một timestamp từ DB cho cả case và mọi report.
       // Trả text để không mất phần microsecond khi đi qua JavaScript Date.
       const stamp = await client.query('SELECT now()::text AS "handledAt"');
-      const values = [status, autoClosed ? null : admin.id, stamp.rows[0].handledAt,
-        autoClosed ? 'Báo cáo tự đóng do bình luận đã bị xóa' : decision.note, id];
+      const values = [status, admin.id, stamp.rows[0].handledAt, decision.note, id];
       const updatedCase = await client.query(`
         UPDATE report_case rc SET status = $1::report_status_enum, handled_by = $2,
           handled_at = $3, resolution_note = $4
@@ -228,11 +227,14 @@ function createPostModerationModel(database) {
       // Mỗi reporter nhận một kết quả; lỗi log/notification rollback cả quyết định.
       const previousReports = new Map(reports.rows.map(report => [String(report.id), report]));
       const actionLabel = isComment ? 'xóa bình luận' : 'gỡ bài';
-      for (const after of autoClosed ? [] : updatedReports.rows) {
+      for (const after of updatedReports.rows) {
         await audit(client, admin, decision.action === 'accept' ? 'ACCEPT' : 'REJECT', 'report', after.id,
           previousReports.get(String(after.id)), after, decision.note);
+        const resultMessage = isComment
+          ? `${status === 'accepted' ? 'Đã chấp nhận' : 'Đã từ chối'} ${actionLabel} theo báo cáo của bạn.`
+          : `${status === 'accepted' ? 'Đã chấp nhận' : 'Đã từ chối'} ${actionLabel} theo báo cáo của bạn: ${decision.note}`;
         await notify(client, after.reporterId, 'report_result', 'Kết quả xử lý báo cáo',
-          `${status === 'accepted' ? 'Đã chấp nhận' : 'Đã từ chối'} ${actionLabel} theo báo cáo của bạn: ${decision.note}`, 'report', after.id);
+          resultMessage, 'report', after.id);
       }
       return { ...updatedCase.rows[0], postStatus: afterPost?.status || null, commentStatus: afterComment?.status || null };
     });
@@ -249,7 +251,8 @@ function createPostModerationModel(database) {
     if (query.search) {
       const pattern = `%${query.search.replace(/[\\%_]/g, '\\$&')}%`;
       const placeholder = param(pattern);
-      clauses.push(`(p.title ILIKE ${placeholder} OR a.full_name ILIKE ${placeholder} OR a.email ILIKE ${placeholder})`);
+      clauses.push(`(${searchMatch('p.title', placeholder)} OR ${searchMatch('a.full_name', placeholder)}
+        OR ${searchMatch('a.email', placeholder)})`);
     }
     if (query.stale) clauses.push("p.status = 'pending' AND p.created_at < now() - interval '48 hours'");
     return { where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', values };
@@ -263,9 +266,12 @@ function createPostModerationModel(database) {
     const totalPages = Math.max(1, Math.ceil(totalItems / query.limit));
     const page = Math.min(query.page, totalPages);
     const fields = `${POST_FIELDS}, a.full_name AS "authorName", a.email AS "authorEmail", a.avatar_url AS "authorAvatarUrl"`;
+    const order = query.status === 'public'
+      ? 'COALESCE(p.moderated_at, p.published_at, p.created_at) DESC, p.post_id DESC'
+      : 'p.created_at ASC, p.post_id ASC';
     const { rows } = await pool.query(`
       SELECT ${fields} ${from} ${where}
-      ORDER BY p.created_at ASC, p.post_id ASC
+      ORDER BY ${order}
       LIMIT $${values.length + 1} OFFSET $${values.length + 2}
     `, [...values, query.limit, (page - 1) * query.limit]);
     // Tùng: bỏ cảnh báo animal ở duyệt bài, giữ mảng cho client hiện có.
@@ -327,13 +333,17 @@ function createPostModerationModel(database) {
     `;
     const where = `
       WHERE rc.target_type = $1::report_target_type_enum
+        AND rc.status::text IN ('pending', 'accepted', 'rejected')
         AND ($2::text = 'all' OR rc.status::text = $2)
         AND ($3::boolean = false OR (rc.status = 'pending' AND rc.created_at < now() - interval '48 hours'))
         AND ($4::text = 'all' OR rc.target_type = 'comment' OR p.post_type::text = $4)
-        AND ($5::text = '' OR p.title ILIKE $5 OR (cm.status <> 'deleted' AND cm.content ILIKE $5) OR parent.title ILIKE $5
+        AND ($5::text = '' OR ${searchMatch('p.title', '$5')}
+          OR ((cm.status <> 'deleted' OR rc.status IN ('accepted', 'rejected')) AND ${searchMatch('cm.content', '$5')})
+          OR ${searchMatch('parent.title', '$5')}
           OR EXISTS (
             SELECT 1 FROM report rr JOIN account reporter ON reporter.account_id = rr.reporter_id
-            WHERE rr.case_id = rc.case_id AND (reporter.full_name ILIKE $5 OR reporter.email ILIKE $5)
+            WHERE rr.case_id = rc.case_id AND (${searchMatch('reporter.full_name', '$5')}
+              OR ${searchMatch('reporter.email', '$5')})
           ))
     `;
     const pattern = query.search ? `%${query.search.replace(/[\\%_]/g, '\\$&')}%` : '';
@@ -392,8 +402,8 @@ function createPostModerationModel(database) {
         if (comment) {
           comment.history = await history('comment', comment.id, client);
           if (comment.status === 'deleted') {
-            // Tùng: dữ liệu cũ vẫn giữ trong DB, nhưng không trả nội dung qua API.
-            comment.content = null;
+            // Admin xem nội dung của quyết định đã xử lý; không trả snapshot log cũ.
+            if (!['accepted', 'rejected'].includes(reportCase.status)) comment.content = null;
             comment.history = comment.history.map((entry) => ({ id: entry.id, action: entry.action,
               createdAt: entry.createdAt, adminName: entry.adminName, adminEmail: entry.adminEmail }));
             const auditTable = await client.query("SELECT to_regclass('public.comment_delete_audit') AS name");
@@ -424,10 +434,10 @@ function createPostModerationModel(database) {
         LEFT JOIN account a ON a.account_id = l.admin_id
         WHERE r.case_id = $1 ORDER BY l.created_at DESC, l.admin_log_id DESC LIMIT 100
       `, [id]);
-      if (comment?.status === 'deleted') {
+      if (comment?.status === 'deleted' && !['accepted', 'rejected'].includes(reportCase.status)) {
         for (const report of reports.rows) report.reasonText = null;
         for (const event of events.rows) event.reason = null;
-        if (reportCase.status !== 'auto_closed_deleted') reportCase.resolutionNote = null;
+        reportCase.resolutionNote = null;
       }
       return { case: { ...reportCase, reportCount: reports.rows.length, history: events.rows }, reports: reports.rows, post, comment };
     });
