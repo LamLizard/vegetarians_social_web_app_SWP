@@ -8,8 +8,7 @@
 .badge { align-self: flex-start; display: inline-flex; align-items: center; gap: .3rem; padding: 2px 8px;
   border-radius: 999px; background: var(--ac-ok-bg); color: var(--ac-ok-fg); font-size: .72rem; font-weight: 600; }
 .title { margin: 0; font-weight: 700; font-size: .95rem; overflow-wrap: anywhere; }
-.meta, .desc, .note { margin: 0; font-size: .8rem; color: var(--mam-muted); overflow-wrap: anywhere; }
-.note { color: var(--ac-warn-fg); }
+.meta, .desc { margin: 0; font-size: .8rem; color: var(--mam-muted); overflow-wrap: anywhere; }
 .link { align-self: flex-start; margin-top: .2rem; padding: 4px 12px; border: 1px solid var(--mam-strong-line);
   border-radius: 999px; background: none; color: var(--mam-ink); font-size: .78rem; text-decoration: none; }
 .link:hover { border-color: var(--mam-accent); }

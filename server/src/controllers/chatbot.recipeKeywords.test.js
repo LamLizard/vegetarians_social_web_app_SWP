@@ -37,3 +37,15 @@ test('từ đệm không lọt vào, danh sách không trùng và tối đa 6 te
   assert.equal(folded.includes('bay'), false);
   assert.equal(new Set(folded).size, folded.length);
 });
+
+// Khoi's code (06/11/2026): tên món có từ 2 chữ cái; nửa còn lại không đứng riêng (tránh "tiếu" ↔ "Tiêu đen").
+test('"hủ tiếu chay ăn với gì ngon" → chỉ còn cụm "hủ tiếu"', () => {
+  assert.deepEqual(folds(recipeKeywords({ subject: null, nearTerms: [] }, 'hủ tiếu chay ăn với gì ngon')), ['hu tieu']);
+});
+
+test('"mì xào" và "cá kho" là cụm; từ đơn ≥ 3 chữ cái khác vẫn giữ', () => {
+  const folded = folds(recipeKeywords({ subject: null, nearTerms: [] }, 'cách làm mì xào chay với nấm rơm'));
+  assert.ok(folded.includes('mi xao'), folded.join(' | '));
+  assert.equal(folded.includes('xao'), false);
+  assert.ok(folded.includes('nam rom') && folded.includes('nam'), folded.join(' | '));
+});

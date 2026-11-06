@@ -36,7 +36,9 @@ const RECIPE_STOPWORDS = new Set(['mon', 'chay', 'minh', 'nen', 'an', 'gi', 'cho
   'khi', 'thi', 'roi', 'nhu', 'the', 'nao', 'bao', 'nhieu', 'calo', 'nguoi', 'ban', 'mam', 'trong', 'uong',
   'dang', 'tu', 'hay', 'giup', 'muon', 'chieu', 'bua',
   // Khoi's code (06/11/2026): từ xưng hô/đệm không được thành từ khoá món ("chỉ tao làm…", "dạy mình nấu…").
-  'tao', 'may', 'chi', 'day', 'gium', 'nha', 'nhe', 'huong', 'dan', 'bay', 'sao']);
+  'tao', 'may', 'chi', 'day', 'gium', 'nha', 'nhe', 'huong', 'dan', 'bay', 'sao',
+  // Khoi's code (06/11/2026): tính từ khen chung không phải tên món ("hủ tiếu ăn với gì ngon").
+  'ngon']);
 const MAX_RECIPE_TERMS = 6;
 // Khoi's code (06/11/2026): ưu tiên cụm món của classifier, rồi cụm 2 từ liền nhau (vd "nước dừa"), rồi từ đơn.
 function recipeKeywords(intent, text) {
@@ -44,13 +46,22 @@ function recipeKeywords(intent, text) {
     .filter((value) => typeof value === 'string' && value.trim());
   const tokens = String(text ?? '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const usable = (token) => token.length >= 3 && !RECIPE_STOPWORDS.has(chatContextModel.plain(token));
+  // Khoi's code (06/11/2026): cụm 2 từ nhận cả từ 2 chữ cái (hủ tiếu, mì xào, cá kho) — tên món tiếng Việt hay có;
+  // từ đứng riêng vẫn cần ≥ 3 chữ cái để tránh rác.
+  const pairable = (token) => token.length >= 2 && !RECIPE_STOPWORDS.has(chatContextModel.plain(token));
   const pairs = [];
+  const covered = new Set();
   for (let index = 0; index + 1 < tokens.length; index += 1) {
-    if (usable(tokens[index]) && usable(tokens[index + 1])) {
-      pairs.push(`${tokens[index].toLowerCase()} ${tokens[index + 1].toLowerCase()}`);
+    const [left, right] = [tokens[index], tokens[index + 1]];
+    if (pairable(left) && pairable(right)) {
+      pairs.push(`${left.toLowerCase()} ${right.toLowerCase()}`);
+      // Cụm có từ 2 chữ cái là tên món ghép: nửa còn lại đứng riêng vô nghĩa và bỏ dấu dễ khớp nhầm
+      // ("tiếu" → "tieu" khớp nguyên liệu "Tiêu đen") → không dùng làm từ đơn.
+      if (left.length < 3 || right.length < 3) { covered.add(index); covered.add(index + 1); }
     }
   }
-  const singles = tokens.map((token) => token.toLowerCase()).filter(usable);
+  const singles = tokens.filter((token, index) => usable(token) && !covered.has(index))
+    .map((token) => token.toLowerCase());
   const seen = new Set();
   const terms = [];
   for (const term of [...fromIntent, ...pairs, ...singles]) {

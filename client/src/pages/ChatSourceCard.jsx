@@ -35,11 +35,11 @@ export default function ChatSourceCard({ source }) {
         </span>
         <p className={styles.title}>{item.title}</p>
         {meta && <p className={styles.meta}>{meta}</p>}
-        <p className={styles.desc}>Câu trả lời dựa trên công thức này.</p>
+        {/* Khoi's code (06/11/2026): câu trả lời không nêu đủ định lượng (vd hỏi mẹo) thì không nói "dựa trên". */}
+        <p className={styles.desc}>{source.quantityNote
+          ? 'Công thức gốc của món này — xem để có đủ định lượng chính xác.'
+          : 'Câu trả lời dựa trên công thức này.'}</p>
         <a className={styles.link} href={`/recipes/${encodeURIComponent(item.id)}`}>Xem công thức gốc</a>
-        {source.quantityNote && (
-          <p className={styles.note}>Định lượng có thể khác bản gốc, bạn xem công thức gốc để chính xác.</p>
-        )}
       </div>
     </div>
   );

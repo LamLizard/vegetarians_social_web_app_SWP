@@ -238,7 +238,8 @@ test('turnV3: dữ liệu Green Bowl có thật → thẻ kết quả + dữ li�
   stubModel();
   chatContextModel.findRecipesForChat = async (keywords, options) => {
     assert.deepEqual(options, { limit: 3, excludeAllergies: [] });
-    assert.ok(keywords.includes('đậu'));
+    // Khoi's code (06/11/2026): "đậu hũ" giờ là một cụm (từ 2 chữ cái được ghép cụm), không tách "đậu" đứng riêng.
+    assert.ok(keywords.includes('đậu hũ'), keywords.join(' | '));
     return [{ id: '40', title: 'Đậu hũ sốt cà chua', dishName: 'Đậu hũ', thumbnailUrl: 'https://x/y.png',
       caloriesKcal: 300, minutes: 25, likeCount: 1 }];
   };
