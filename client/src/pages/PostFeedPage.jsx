@@ -41,7 +41,6 @@ import FeedPostViewer from '../components/FeedPostViewer/FeedPostViewer';
 import FeedTopbar from '../components/FeedTopbar/FeedTopbar';
 import FadeContent from '../components/reactbits/FadeContent';
 import postService from '../services/post.service';
-import { reportAccount } from '../services/account-report.service';
 import chatbotService from '../services/chatbot.service';
 import mealPlanService from '../services/meal-plan.service';
 import recipeService from '../services/recipe.service';
@@ -397,16 +396,12 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
   };
 
   const askReport = (target) => (isGuest ? requireLogin() : setReportTarget(target));
-  const askReportAccount = (accountId, title) => (isGuest
-    ? requireLogin()
-    : setReportTarget({ type: 'account', id: accountId, title }));
 
   const submitReport = async ({ reasonCode, reasonText }) => {
     const { type, id } = reportTarget;
     const context = viewerContext;
     try {
-      if (type === 'account') await reportAccount({ accountId: id, reasonCode, reasonText });
-      else await postService.report({ targetType: type, targetId: id, reasonCode, reasonText });
+      await postService.report({ targetType: type, targetId: id, reasonCode, reasonText });
     } catch (err) {
       if (!isViewerCurrent(context)) throw new Error('Tài khoản đã thay đổi. Vui lòng thử lại.', { cause: err });
       // 409 = đã báo cáo từ trước (vd ở tab khác) → vẫn đánh dấu để nút đổi thành "Đã báo cáo"
@@ -581,9 +576,6 @@ export default function PostFeedPage({ user, onLogin, onRegister, accountMenu = 
                 onOpen={() => { openRequestRef.current += 1; setOpenPostId(''); setLinkedPost(null); setOpened({ id: post.id, toComments: false, context: viewerContext }); }}
                 onComment={() => { openRequestRef.current += 1; setOpenPostId(''); setLinkedPost(null); setOpened({ id: post.id, toComments: true, context: viewerContext }); }}
                 onReport={isMine(post) ? undefined : () => askReport({ type: 'post', id: post.id, title: post.title })}
-                onReportAccount={isMine(post) || !post.author?.id
-                  ? undefined
-                  : () => askReportAccount(post.author.id, post.author.fullName || 'Thành viên')}
                 reported={post.hasReported}
                 onTopicClick={filterByTopic}
               />
