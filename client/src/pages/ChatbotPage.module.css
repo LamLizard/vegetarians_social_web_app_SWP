@@ -89,3 +89,19 @@
 @media (prefers-reduced-motion: reduce) {
   .suggestions button:active, .retry:active { transform: none; }
 }
+/* Khoi's code (05/11/2026): dòng chính sách lưu lịch sử dưới tiêu đề trang. */
+.subtitle { display: block; margin-top: 2px; color: var(--v-muted); font-size: .72rem; line-height: 1.4; }
+/* Khoi's code (05/11/2026): hàng công cụ + nút Cuộc trò chuyện mới ở đầu khung chat. */
+.chatTools { display: flex; justify-content: flex-end; width: min(100%, 880px); margin-inline: auto; }
+.newChat { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: var(--mam-space-xs) var(--mam-space-sm);
+  border: 1px solid var(--mam-strong-line); border-radius: var(--mam-radius-control); background: var(--mam-paper);
+  color: var(--mam-accent-text); font-size: .82rem; cursor: pointer; }
+.newChat:hover { background: var(--mam-well); }
+.newChat:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
+/* Khoi's code (05/11/2026): nút Sao chép dưới câu trả lời của Mầm. */
+.copy { margin-top: 2px; padding: 2px 6px; border: 0; border-radius: 8px; background: none;
+  color: var(--v-muted); font-size: .74rem; cursor: pointer; }
+.copy:hover { color: var(--mam-accent-text); text-decoration: underline; }
+.copy:focus-visible { outline: 3px solid var(--mam-focus); outline-offset: 2px; }
+/* Khoi's code (05/11/2026): nhắc y tế cố định ngay dưới ô nhập (FR-14/BR-03). */
+.disclaimer { margin: 0; color: var(--v-muted); font-size: .72rem; line-height: 1.45; }

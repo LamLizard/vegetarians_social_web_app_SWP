@@ -185,4 +185,6 @@ module.exports = {
   findVerifiedShops,
   findShopDetail,
   findFilterCategories,
+  // Khoi's code (08/11/2026): dùng chung để gom lịch quán từ dạng phẳng của SQL thành dạng theo ngày.
+  groupScheduleRows,
 };
