@@ -4,7 +4,7 @@ import Button from '../Button/Button';
 import RadioGroup from '../RadioGroup/RadioGroup';
 import TextArea from '../TextArea/TextArea';
 import Notice from '../Notice/Notice';
-import { REPORT_ACCOUNT_REASON, REPORT_REASON, REPORT_TARGET, toOptions } from '../../constants/domain';
+import { REPORT_REASON, REPORT_TARGET, toOptions } from '../../constants/domain';
 
 /**
  * Hộp báo cáo vi phạm (FR-24): chọn lý do + ghi chú. Báo cáo vào hàng chờ Admin (report.status = 'pending').
@@ -49,7 +49,6 @@ export default function ReportDialog({ open, targetType = 'post', targetTitle, o
   };
 
   const what = (REPORT_TARGET[targetType] ?? 'nội dung').toLowerCase();
-  const reasonOptions = targetType === 'account' ? REPORT_ACCOUNT_REASON : REPORT_REASON;
 
   return (
     <Modal
@@ -71,7 +70,7 @@ export default function ReportDialog({ open, targetType = 'post', targetTitle, o
         <RadioGroup
           label="Lý do"
           required
-          options={toOptions(reasonOptions)}
+          options={toOptions(REPORT_REASON)}
           value={reason}
           onChange={(v) => { setReason(v); setErrors((x) => ({ ...x, reason: undefined })); }}
           error={errors.reason}

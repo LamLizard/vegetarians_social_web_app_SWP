@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, ErrorDialog, PageHeader, Pagination, Panel, SearchInput, StatusBadge } from '../components'; // Duy's code: bổ sung filter và phân trang tài khoản.
 import useAuth from '../hooks/useAuth';
-import { REPORT_ACCOUNT_REASON } from '../constants/domain'; // Duy's code: nhãn lý do báo cáo tài khoản.
+import { REPORT_REASON } from '../constants/domain'; // Duy's code: dịch reason_code theo enum hiện có trên DB.
 import { decideAccountReport, getAccountReports, getMembers, setMemberStatus } from '../services/admin-member.service';
 
 const ADMIN_NAV = [
@@ -197,7 +197,7 @@ export default function AdminMemberManagementPage() {
         <div className="d-flex flex-column gap-2">
           {row.reports.map((report) => (
             <div key={report.id}>
-              <div className="fw-semibold">{REPORT_ACCOUNT_REASON[report.reasonCode] || report.reasonCode}</div>
+              <div className="fw-semibold">{REPORT_REASON[report.reasonCode] || report.reasonCode}</div>
               {report.reasonText && <div className="small text-body-secondary">{report.reasonText}</div>}
             </div>
           ))}
