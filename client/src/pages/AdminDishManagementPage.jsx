@@ -3,6 +3,7 @@ import { AdminLayout, Button, EmptyState, ErrorDialog, PageHeader, Panel, Photo,
 import useAuth from '../hooks/useAuth';
 import { getAdminDishes } from '../services/dish.service';
 import { RecipeSteps } from '../components/RecipeView/RecipeView';
+import { filterAdminDishes } from '../utils/dishSearch';
 import styles from './AdminDishManagementPage.module.css';
 
 const formatDate = (value) => {
@@ -10,19 +11,6 @@ const formatDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium' }).format(date);
 };
-
-const searchText = (value) => String(value || '').trim().toLocaleLowerCase('vi');
-
-function dishMatchesSearch(dish, query) {
-  if (!query) return true;
-  const values = [
-    dish.name,
-    dish.description,
-    ...(dish.categories || []).map((category) => category.name),
-    ...(dish.recipes || []).flatMap((recipe) => [recipe.title, recipe.instructions, ...(recipe.ingredients || []).map((ingredient) => ingredient.name)]),
-  ];
-  return values.some((value) => searchText(value).includes(query));
-}
 
 // Mỗi bản ghi Dish trong DB là một món riêng; Recipe được tải từ quan hệ recipe.dish_id.
 export default function AdminDishManagementPage() {
@@ -49,8 +37,7 @@ export default function AdminDishManagementPage() {
   useEffect(() => { load(); }, [load]);
 
   const visibleDishes = useMemo(() => {
-    const needle = searchText(query);
-    return dishes.filter((dish) => dishMatchesSearch(dish, needle));
+    return filterAdminDishes(dishes, query);
   }, [dishes, query]);
 
   const totalRecipes = visibleDishes.reduce((total, dish) => total + (dish.recipes || []).length, 0);
@@ -72,7 +59,7 @@ export default function AdminDishManagementPage() {
         <ErrorDialog error={error} title="Không tải được danh sách món ăn" onRetry={load} />
 
         <div className={styles.toolbar}>
-          <SearchInput value={query} onChange={setQuery} placeholder="Tìm món, danh mục hoặc công thức" label="Tìm món ăn" />
+          <SearchInput value={query} onChange={setQuery} placeholder="Tìm món hoặc danh mục" label="Tìm món ăn" />
           <span>{visibleDishes.length} món · {totalRecipes} công thức đã duyệt</span>
         </div>
 
@@ -80,7 +67,7 @@ export default function AdminDishManagementPage() {
           {loading ? <div className="py-5 text-center"><Spinner label="Đang tải món ăn…" showLabel /></div>
             : visibleDishes.length === 0 ? <EmptyState
               icon="egg-fried"
-              title={query ? 'Không tìm thấy món phù hợp' : 'Chưa có món ăn'}
+              title={query ? 'Không tìm thấy món nào' : 'Chưa có món ăn'}
               description={query ? 'Thử từ khóa khác.' : 'Tạo một Dish để lưu các công thức và phân loại món.'}
             />
               : visibleDishes.map((dish) => {
