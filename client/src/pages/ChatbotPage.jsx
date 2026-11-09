@@ -680,12 +680,15 @@ export default function ChatbotPage({ user }) {
                       className={message.sender === 'bot' ? styles.messageBot : styles.messageUser}>
                       {message.sender === 'bot' && <MamAvatar className={styles.messageAvatar} />}
                       <div className={styles.messageBody}>
-                        <ChatBubble sender={message.sender} content={message.content}
-                          className={message.sender === 'bot' ? styles.botBubble : undefined}
-                          typing={message.sender === 'bot' && message.status === 'waiting' && !message.content}>
-                          {message.sender === 'bot' && message.content
-                            ? <div className={styles.replyText}><RichText text={message.content} /></div> : undefined}
-                        </ChatBubble>
+                        {/* Khoi's code (09/11/2026): lượt lỗi chưa có chữ nào thì không vẽ bong bóng rỗng, chỉ hiện dòng lỗi. */}
+                        {!(message.sender === 'bot' && message.status === 'failed' && !message.content) && (
+                          <ChatBubble sender={message.sender} content={message.content}
+                            className={message.sender === 'bot' ? styles.botBubble : undefined}
+                            typing={message.sender === 'bot' && message.status === 'waiting' && !message.content}>
+                            {message.sender === 'bot' && message.content
+                              ? <div className={styles.replyText}><RichText text={message.content} /></div> : undefined}
+                          </ChatBubble>
+                        )}
                         {message.sender === 'bot' && message.content && message.status !== 'waiting' && (
                           <button type="button" className={styles.copy} onClick={() => void copyAnswer(message.content)}>
                             <i className="bi bi-clipboard" aria-hidden="true" /> Sao chép
@@ -743,7 +746,9 @@ export default function ChatbotPage({ user }) {
           message="Các tin nhắn trong khung chat sẽ bị xoá khỏi trình duyệt. Lượt đã dùng không được hoàn lại."
           onConfirm={startNewChat} onCancel={() => setConfirmNew(false)} />
         <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title="Đăng nhập để tiếp tục" size="sm">
-          <p>Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.</p>
+          {/* Khoi's code (09/11/2026): nói đúng lý do — hết lượt của trình duyệt hay của cả mạng (IP). */}
+          <p>{quota?.network ? 'Mạng bạn đang dùng đã hết lượt hỏi thử hôm nay (tính chung cho mọi khách cùng mạng).'
+            : 'Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.'}</p>
           <Button onClick={() => window.location.assign('/login')}>Đăng nhập</Button>
         </Modal>
       </section>
