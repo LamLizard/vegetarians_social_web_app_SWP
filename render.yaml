@@ -16,8 +16,9 @@ services:
       - key: PORT
         value: 10000
       # Khoi's code (06/11/2026): Render đứng sau proxy → tin X-Forwarded-For để hạn mức theo IP đúng người.
+      # Khoi's code (09/11/2026): 3 lớp = Cloudflare + cân bằng tải Render (app.js cũng tự dùng 3 khi RENDER=true).
       - key: TRUST_PROXY
-        value: "1"
+        value: "3"
       # ---- Bắt buộc, điền trong Dashboard (sync:false = không lưu vào repo) ----
       - key: DATABASE_URL
         sync: false

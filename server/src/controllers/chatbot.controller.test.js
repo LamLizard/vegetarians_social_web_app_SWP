@@ -190,6 +190,42 @@ test('turnV3 khách: IP hết lượt → trả lại lượt thiết bị vừa
   assert.equal(releases.length, 1);
   assert.equal(releases[0].subjectKey, DEVICE_ID);
   assert.equal(res.frames.length, 0);
+  // Khoi's code (09/11/2026): nói rõ là mạng (IP) hết lượt, không phải trình duyệt này.
+  assert.match(res.body.message, /^Mạng bạn đang dùng đã hết lượt hỏi thử/);
+});
+
+// Khoi's code (09/11/2026): số lượt khách hiển thị = lượt còn ít hơn giữa thiết bị và IP.
+function quotaStub(byKey) {
+  chatbotModel.turnQuota = async (subject) => {
+    const used = subject.subjectKey.startsWith('ip:') ? byKey.ip : byKey.device;
+    return { used, limit: subject.limit, remaining: Math.max(0, subject.limit - used),
+      resetAt: new Date(`${day}T17:00:00.000Z`), day };
+  };
+}
+
+test('getGuestQuota: thiết bị mới (0/5) nhưng IP đã dùng 20/20 → còn 0, network=true', async () => {
+  quotaStub({ device: 0, ip: 20 });
+  const res = fakeRes();
+  await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
+  assert.equal(res.body.quota.remaining, 0);
+  assert.equal(res.body.quota.limit, 5);
+  assert.equal(res.body.quota.network, true);
+});
+
+test('getGuestQuota: IP còn nhiều → hiện lượt của thiết bị, không có network', async () => {
+  quotaStub({ device: 2, ip: 9 });
+  const res = fakeRes();
+  await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
+  assert.deepEqual(Object.keys(res.body.quota).sort(), ['limit', 'remaining', 'resetAt', 'used']);
+  assert.equal(res.body.quota.remaining, 3);
+});
+
+test('getGuestQuota: IP còn 1 lượt, thiết bị còn 5 → hiện còn 1', async () => {
+  quotaStub({ device: 0, ip: 19 });
+  const res = fakeRes();
+  await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
+  assert.equal(res.body.quota.remaining, 1);
+  assert.equal(res.body.quota.network, true);
 });
 
 test('turnV3 member: giữ hạn mức 50 và hoàn đúng subject tài khoản khi lỗi', async () => {
