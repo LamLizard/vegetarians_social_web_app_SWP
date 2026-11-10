@@ -589,14 +589,14 @@
 
 .slotAddStrong {
   border-style: solid;
-  border-color: var(--v-accent);
-  background: var(--v-accent);
-  color: var(--v-on-accent);
+  border-color: var(--v-accent-line);
+  background: var(--v-accent-soft);
+  color: var(--v-accent-text);
 }
 
 .slotAddStrong:hover:not(:disabled) {
-  background: var(--v-accent-hover);
-  border-color: var(--v-accent-hover);
+  background: var(--v-accent);
+  border-color: var(--v-accent);
   color: var(--v-on-accent);
 }
 
