@@ -412,7 +412,7 @@ function RandomPlanModal({
   form,
   weekDays,
   defaultTarget,
-  hasHealthProfile,
+  canRandomize,
   profileLoading,
   profileError,
   mealsPerDay = 3,
@@ -434,7 +434,7 @@ function RandomPlanModal({
   const perMealHousehold = householdTotal ? householdTotal / meals : 0;
   const perMealPerPerson = perPersonTarget ? perPersonTarget / meals : 0;
   const missingTargetIndex = perPersonValues.findIndex((value) => !Number.isFinite(value) || value <= 0);
-  const canSubmit = hasHealthProfile && !isRunning;
+  const canSubmit = canRandomize && !isRunning;
 
   return (
     <Modal
@@ -452,7 +452,7 @@ function RandomPlanModal({
             loading={isRunning}
             disabled={!canSubmit}
             onClick={onSubmit}
-            title={hasHealthProfile ? undefined : 'Cần điền hồ sơ sức khỏe trước'}
+            title={canRandomize ? undefined : 'Cần điền hồ sơ sức khỏe trước'}
           >
             Random ngày đã chọn
           </Button>
@@ -460,7 +460,7 @@ function RandomPlanModal({
       )}
     >
       <div className={styles.randomPanel}>
-        {!hasHealthProfile ? (
+        {!canRandomize ? (
           <div className={styles.gate} role="alert">
             <span className={styles.gateIcon} aria-hidden="true"><i className="bi bi-heart-pulse" /></span>
             <div className={styles.gateBody}>
@@ -687,7 +687,6 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const rawProfileTarget = healthProfile?.targetCalories ?? healthProfile?.targetCaloriesKcal;
   const profileTargetValue = Number(rawProfileTarget);
   const profileTarget = Number.isFinite(profileTargetValue) && profileTargetValue > 0 ? profileTargetValue : null;
-  const hasHealthProfile = Boolean(profileTarget);
 
   const rawTargetCalories = selectedPlan?.targetCaloriesKcal ?? profileTarget;
   const targetCaloriesValue = Number(rawTargetCalories);
@@ -708,6 +707,9 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   // Món lưu kcal mỗi suất → tổng đã chọn của cả nhà = mỗi suất × số người.
   const householdConsumedKcal = totalCalories * householdSize;
   const perMealPerPersonKcal = perPersonTargetKcal ? perPersonTargetKcal / mealsPerDay : null;
+  // BR-09 (Google Sheet, ID19): mục tiêu lấy từ thực đơn, không có mới lấy từ hồ sơ
+  // → chỉ chặn random khi CẢ HAI đều không có mục tiêu calo.
+  const canRandomize = Boolean(targetCalories);
   const canEditSelectedDate = !isPastDate(selectedDate);
   const remainingKcal = perPersonTargetKcal ? perPersonTargetKcal - totalCalories : null;
   const caloriePercentage = perPersonTargetKcal && totalCalories > 0 && planItems.length
@@ -923,8 +925,8 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
 
   const handleRandomize = async () => {
     if (randomizingRef.current || isSaving) return;
-    // Chưa điền hồ sơ sức khỏe → modal đang hiện thông báo + link, không submit.
-    if (!hasHealthProfile) return;
+    // Không có mục tiêu calo nào (hồ sơ lẫn thực đơn) → modal đang hiện thông báo + link, không submit.
+    if (!canRandomize) return;
 
     const { days: pickedDates, others, sameTarget, targets, replace } = randomForm;
     const household = Number(others) + 1;
@@ -1110,7 +1112,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
             </div>
           </div>
 
-          {!hasHealthProfile && !profileLoading ? (
+          {!canRandomize && !profileLoading ? (
             <p className={styles.calorieHint}>
               <i className="bi bi-info-circle" aria-hidden="true" />
               Chưa có mục tiêu calo.{' '}
@@ -1179,7 +1181,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
         form={randomForm}
         weekDays={randomWeekDays}
         defaultTarget={defaultTarget}
-        hasHealthProfile={hasHealthProfile}
+        canRandomize={canRandomize}
         profileLoading={profileLoading}
         profileError={profileError}
         mealsPerDay={mealsPerDay}
