@@ -2,7 +2,7 @@ const mealPlanModel = require('../models/meal-plan.model');
 
 const MEAL_SLOTS = new Set(['breakfast', 'lunch', 'dinner', 'snack']);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
-const MAX_HOUSEHOLD_SIZE = 10;
+const MAX_HOUSEHOLD_SIZE = 11; // bản thân + tối đa 10 người ăn chung
 const MIN_PERSON_TARGET = 500;
 const MAX_PERSON_TARGET = 8000;
 
