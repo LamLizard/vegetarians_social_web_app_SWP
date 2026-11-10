@@ -92,13 +92,6 @@ export const STATUS = {
     accepted: { label: 'Đã xử lý',    tone: 'ok',      icon: 'check-circle' },
     rejected: { label: 'Đã bác bỏ',   tone: 'neutral', icon: 'x-circle' },
   },
-
-  /** meal_plan.status */
-  mealPlan: {
-    draft:    { label: 'Bản nháp', tone: 'neutral', icon: 'pencil' },
-    saved:    { label: 'Đã lưu',   tone: 'ok',      icon: 'bookmark-check' },
-    archived: { label: 'Lưu trữ',  tone: 'neutral', icon: 'archive' },
-  },
 };
 
 /** Tên hiển thị của từng đối tượng (dùng trong Review Kit, tiêu đề bảng admin). */
@@ -110,7 +103,6 @@ export const ENTITY_LABEL = {
   shopDish: 'Món trong menu quán',
   account: 'Tài khoản',
   report: 'Báo cáo',
-  mealPlan: 'Thực đơn',
   shopOpen: 'Giờ mở cửa (tính từ giờ, không lưu DB)',
   chatMessage: 'Tin nhắn chatbot',
   category: 'Danh mục',

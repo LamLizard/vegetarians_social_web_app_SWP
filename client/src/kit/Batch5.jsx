@@ -3,6 +3,7 @@ import {
   AdminLayout, AiProgress, AiTip, AppShell, Button, CalorieSummary, ChatBubble, ChatComposer, ChatThread,
   ConfirmDialog, DataTable, DayTabs, DishCard, EmptyState, Checkbox, HighlightChip, LoginPrompt, MealCard, Modal,
   Notice, NotificationList, PageHeader, Pagination, PromptChip, SearchInput, StatCard, StatusBadge, Tabs, TextField,
+  Chip,
   useToast, AI_DISCLAIMER, AI_NAME, BMI_CATEGORY, GUEST_LIMIT, HEALTH_GOAL, MEAL_PLAN_STEPS, REPORT_REASON,
   calcHealth, formatNumber, timeAgo,
 } from '../components';
@@ -201,7 +202,9 @@ function MealPlanPage() {
         description={<>Mục tiêu {HEALTH_GOAL.maintain.toLowerCase()} · tránh đậu phộng · 3 bữa mỗi ngày</>}
         actions={(
           <>
-            <StatusBadge entity="mealPlan" status={status} />
+            <Chip icon={status === 'saved' ? 'bookmark-check' : 'pencil'}>
+              {status === 'saved' ? 'Đã lưu thực đơn' : 'Bản nháp chưa lưu'}
+            </Chip>
             <Button variant="outline" icon="arrow-clockwise" onClick={start}>Tạo lại</Button>
             <Button icon="bookmark-check" disabled={status === 'saved' || warnDays.length > 0}
               onClick={() => { setStatus('saved'); toast('Đã lưu thực đơn'); }}>Lưu thực đơn</Button>
