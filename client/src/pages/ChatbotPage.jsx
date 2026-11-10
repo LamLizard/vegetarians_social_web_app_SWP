@@ -746,9 +746,7 @@ export default function ChatbotPage({ user }) {
           message="Các tin nhắn trong khung chat sẽ bị xoá khỏi trình duyệt. Lượt đã dùng không được hoàn lại."
           onConfirm={startNewChat} onCancel={() => setConfirmNew(false)} />
         <Modal open={loginOpen} onClose={() => setLoginOpen(false)} title="Đăng nhập để tiếp tục" size="sm">
-          {/* Khoi's code (09/11/2026): nói đúng lý do — hết lượt của trình duyệt hay của cả mạng (IP). */}
-          <p>{quota?.network ? 'Mạng bạn đang dùng đã hết lượt hỏi thử hôm nay (tính chung cho mọi khách cùng mạng).'
-            : 'Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.'}</p>
+          <p>Bạn đã dùng hết lượt hỏi thử trên trình duyệt này.</p>
           <Button onClick={() => window.location.assign('/login')}>Đăng nhập</Button>
         </Modal>
       </section>

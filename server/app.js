@@ -5,7 +5,7 @@ const app = express();
 // Khoi's code (06/11/2026): sau proxy (Render) phải tin X-Forwarded-For, nếu không req.ip là IP của proxy
 // → mọi khách dùng chung một bucket hạn mức theo IP. Chỉ bật khi TRUST_PROXY là số nguyên ≥ 1.
 // Khoi's code (09/11/2026): trên Render request đi qua Cloudflare + bộ cân bằng tải nội bộ, X-Forwarded-For có dạng
-// "IP khách, IP Cloudflare, 10.x" → để 1 thì req.ip = 10.x (chung cho mọi người, cả web chỉ còn 20 lượt khách/ngày).
+// "IP khách, IP Cloudflare, 10.x" → để 1 thì req.ip = 10.x (chung cho mọi người, mọi hạn mức theo IP sẽ dồn vào một chỗ).
 // Render tự đặt RENDER=true nên trên Render luôn tin ít nhất 3 lớp, kể cả khi Dashboard còn để TRUST_PROXY=1.
 const RENDER_PROXY_HOPS = 3;
 const configuredHops = Number(process.env.TRUST_PROXY);
