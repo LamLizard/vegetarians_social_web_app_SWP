@@ -111,20 +111,18 @@ function stubModel({ plan } = {}) {
   chatContextModel.findTodayMealPlan = async () => null;
 }
 
-test('turnV3 khách: lỗi provider chưa gửi chữ → hoàn cả lượt thiết bị và IP', async () => {
+test('turnV3 khách: lỗi provider chưa gửi chữ → hoàn lượt của trình duyệt', async () => {
   stubModel();
   deepseek.classify = async () => { throw Object.assign(new Error('MODEL_UNAVAILABLE'), { code: 'MODEL_UNAVAILABLE' }); };
   const res = fakeRes();
   await controller.turnV3(fakeReq({ body: guestBody() }), res);
 
-  assert.equal(admits.length, 2);
+  assert.equal(admits.length, 1);
   assert.equal(admits[0].subject.subjectType, 'device');
   assert.equal(admits[0].subject.subjectKey, DEVICE_ID);
   assert.equal(admits[0].subject.limit, 5);
-  assert.match(admits[1].subject.subjectKey, /^ip:[0-9a-f]{32}$/);
-  assert.equal(admits[1].subject.limit, 20);
-  assert.equal(releases.length, 2);
-  assert.deepEqual(releases.map((item) => item.subjectKey), [DEVICE_ID, admits[1].subject.subjectKey]);
+  assert.equal(releases.length, 1);
+  assert.deepEqual(releases.map((item) => item.subjectKey), [DEVICE_ID]);
 
   const frames = events(res);
   assert.equal(frames[0].name, 'accepted');
@@ -176,56 +174,41 @@ test('turnV3: câu mixed chỉ có một câu từ chối, không nối hai câu
   assert.equal((text.match(/Mình chỉ hỗ trợ/g) || []).length, 1);
 });
 
-test('turnV3 khách: IP hết lượt → trả lại lượt thiết bị vừa trừ và trả 429', async () => {
-  stubModel({ plan: (subject) => {
-    if (subject.subjectKey.startsWith('ip:')) throw Object.assign(new Error('QUOTA_EXCEEDED'), { code: 'QUOTA_EXCEEDED' });
-    return { used: 1, limit: subject.limit, remaining: subject.limit - 1,
-      resetAt: new Date(`${day}T17:00:00.000Z`), day, admittedAt: new Date().toISOString() };
-  } });
+// Khoi's code (10/11/2026): bỏ hạn mức IP → khách chỉ trừ đúng 1 subject là trình duyệt.
+test('turnV3 khách: trình duyệt hết 5 lượt → 429, không có hạn mức IP', async () => {
+  stubModel({ plan: () => { throw Object.assign(new Error('QUOTA_EXCEEDED'), { code: 'QUOTA_EXCEEDED' }); } });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ body: guestBody() }), res);
 
   assert.equal(res.statusCode, 429);
   assert.equal(res.body.code, 'QUOTA_EXCEEDED');
-  assert.equal(releases.length, 1);
-  assert.equal(releases[0].subjectKey, DEVICE_ID);
+  assert.equal(res.body.message, 'Bạn đã hết lượt trong ngày.');
+  assert.equal(admits.length, 1);
+  assert.equal(admits[0].subject.subjectKey, DEVICE_ID);
+  assert.equal(releases.length, 0);
   assert.equal(res.frames.length, 0);
-  // Khoi's code (09/11/2026): nói rõ là mạng (IP) hết lượt, không phải trình duyệt này.
-  assert.match(res.body.message, /^Mạng bạn đang dùng đã hết lượt hỏi thử/);
 });
 
-// Khoi's code (09/11/2026): số lượt khách hiển thị = lượt còn ít hơn giữa thiết bị và IP.
-function quotaStub(byKey) {
+test('turnV3 khách: hai khách cùng IP được đếm riêng theo trình duyệt', async () => {
+  stubModel();
+  deepseek.classify = async () => classifierJson({ scope: 'outside' });
+  const other = '0b7a3c52-91d4-4e8f-a6b2-5c1d9e7f3a40';
+  await controller.turnV3(fakeReq({ body: guestBody() }), fakeRes());
+  await controller.turnV3(fakeReq({ body: guestBody({ deviceId: other, turnId: '1f2e3d4c-5b6a-4789-8abc-def012345678' }) }), fakeRes());
+  assert.deepEqual(admits.map((item) => item.subject.subjectKey), [DEVICE_ID, other]);
+  assert.equal(admits.some((item) => item.subject.subjectKey.startsWith('ip:')), false);
+});
+
+test('getGuestQuota: chỉ đọc lượt của trình duyệt', async () => {
+  stubModel();
   chatbotModel.turnQuota = async (subject) => {
-    const used = subject.subjectKey.startsWith('ip:') ? byKey.ip : byKey.device;
-    return { used, limit: subject.limit, remaining: Math.max(0, subject.limit - used),
-      resetAt: new Date(`${day}T17:00:00.000Z`), day };
+    quotaReads.push(subject);
+    return { used: 2, limit: subject.limit, remaining: subject.limit - 2, resetAt: new Date(`${day}T17:00:00.000Z`), day };
   };
-}
-
-test('getGuestQuota: thiết bị mới (0/5) nhưng IP đã dùng 20/20 → còn 0, network=true', async () => {
-  quotaStub({ device: 0, ip: 20 });
   const res = fakeRes();
   await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
-  assert.equal(res.body.quota.remaining, 0);
-  assert.equal(res.body.quota.limit, 5);
-  assert.equal(res.body.quota.network, true);
-});
-
-test('getGuestQuota: IP còn nhiều → hiện lượt của thiết bị, không có network', async () => {
-  quotaStub({ device: 2, ip: 9 });
-  const res = fakeRes();
-  await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
-  assert.deepEqual(Object.keys(res.body.quota).sort(), ['limit', 'remaining', 'resetAt', 'used']);
-  assert.equal(res.body.quota.remaining, 3);
-});
-
-test('getGuestQuota: IP còn 1 lượt, thiết bị còn 5 → hiện còn 1', async () => {
-  quotaStub({ device: 0, ip: 19 });
-  const res = fakeRes();
-  await controller.getGuestQuota({ query: { deviceId: DEVICE_ID }, ip: GUEST_IP }, res);
-  assert.equal(res.body.quota.remaining, 1);
-  assert.equal(res.body.quota.network, true);
+  assert.deepEqual(quotaReads.map((item) => item.subjectKey), [DEVICE_ID]);
+  assert.deepEqual(res.body.quota, { used: 2, limit: 5, remaining: 3, resetAt: res.body.quota.resetAt });
 });
 
 test('turnV3 member: giữ hạn mức 50 và hoàn đúng subject tài khoản khi lỗi', async () => {

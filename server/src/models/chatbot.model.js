@@ -2,9 +2,9 @@ const pool = require('../config/db');
 
 const MEMBER_LIMIT = 20;
 const SIMPLE_MEMBER_LIMIT = 50;
-// Khoi's code (05/11/2026): khách đếm ở server — 5 lượt/thiết bị và 20 lượt/IP mỗi ngày.
+// Khoi's code (05/11/2026): khách đếm ở server — 5 lượt/thiết bị mỗi ngày.
+// Khoi's code (10/11/2026): bỏ hạn mức 20 lượt/IP theo quyết định của nhóm.
 const GUEST_DEVICE_LIMIT = 5;
-const GUEST_IP_LIMIT = 20;
 
 class ChatbotStoreError extends Error {
   constructor(code) {
@@ -206,4 +206,4 @@ async function deleteExpiredRequests() {
 }
 
 module.exports = { ChatbotStoreError, getQuota, getSimpleQuota, deleteExpiredRequests, admitTurn, releaseTurn, turnQuota,
-  SIMPLE_MEMBER_LIMIT, GUEST_DEVICE_LIMIT, GUEST_IP_LIMIT };
+  SIMPLE_MEMBER_LIMIT, GUEST_DEVICE_LIMIT };

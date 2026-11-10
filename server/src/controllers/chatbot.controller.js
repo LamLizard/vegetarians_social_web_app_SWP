@@ -15,7 +15,6 @@ const { signTurn, verifyHistory, historyScopeFor } = require('../utils/chatHisto
 const { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alreadyWarnedProfile,
   isStandaloneArithmetic, parseScopedV3Intent } = require('../utils/chatbotTurn');
 // Khoi's code (05/11/2026): hạn mức phụ theo IP cho khách (băm IP, không lưu IP gốc).
-const { ipSubjectKey } = require('../utils/chatbotQuota');
 // Khoi's code (06/11/2026): câu "cách làm món X" → dùng công thức Green Bowl làm nguồn, không để AI bịa định lượng.
 const { formatAmount, missingQuantities } = require('../utils/chatbotRecipeSource');
 if (!process.env.CHATBOT_REQUEST_HMAC_KEY?.trim()) {
@@ -191,13 +190,7 @@ async function getSimpleQuota(req, res) {
 }
 
 // Khoi's code (05/11/2026): số lượt hỏi thử của khách lấy từ server theo deviceId (không cần đăng nhập).
-// Khoi's code (09/11/2026): khách bị giới hạn bởi cả thiết bị (5) lẫn mạng/IP (20, chung mọi khách cùng mạng).
-// Số hiển thị = lượt còn ÍT HƠN của hai bên; network=true khi chính IP là bên chặn → client nói đúng lý do.
-function guestQuotaView(device, ip) {
-  if (!ip || ip.remaining >= device.remaining) return device;
-  return { ...device, remaining: ip.remaining, network: true };
-}
-const NETWORK_QUOTA_MESSAGE = 'Mạng bạn đang dùng đã hết lượt hỏi thử hôm nay (tính chung cho mọi khách cùng mạng). Đăng nhập để hỏi tiếp.';
+// Khoi's code (10/11/2026): nhóm chốt bỏ hạn mức theo IP — khách chỉ giới hạn 5 lượt/ngày trên mỗi trình duyệt.
 
 async function getGuestQuota(req, res) {
   res.set('Cache-Control', 'private, no-store');
@@ -207,14 +200,10 @@ async function getGuestQuota(req, res) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'Dữ liệu câu hỏi không hợp lệ.' });
   }
   try {
-    const device = await chatbotModel.turnQuota({ subjectType: 'device', subjectKey: deviceId,
+    const quota = await chatbotModel.turnQuota({ subjectType: 'device', subjectKey: deviceId,
       limit: chatbotModel.GUEST_DEVICE_LIMIT });
-    const ip = await chatbotModel.turnQuota({ subjectType: 'device',
-      subjectKey: ipSubjectKey(req.ip, process.env.CHATBOT_REQUEST_HMAC_KEY), limit: chatbotModel.GUEST_IP_LIMIT });
-    const view = guestQuotaView({ used: device.used, limit: device.limit,
-      remaining: device.remaining, resetAt: device.resetAt }, ip);
-    return res.json({ quota: { used: view.used, limit: view.limit, remaining: view.remaining, resetAt: view.resetAt,
-      ...(view.network ? { network: true } : {}) } });
+    return res.json({ quota: { used: quota.used, limit: quota.limit,
+      remaining: quota.remaining, resetAt: quota.resetAt } });
   } catch {
     return res.status(503).json({ code: 'STORE_UNAVAILABLE', message: 'Chưa thể kiểm tra lượt hỏi thử.' });
   }
@@ -266,11 +255,9 @@ async function turnV3(req, res) {
       return reject(409, 'HISTORY_INVALID', 'Lịch sử trò chuyện không hợp lệ hoặc đã hết hạn. Mầm sẽ bắt đầu cuộc trò chuyện mới.');
     }
   }
-  // Khoi's code (05/11/2026): quota khách đếm ở server (thiết bị + IP); mọi subject đã trừ đều có thể hoàn.
+  // Khoi's code (05/11/2026): quota khách đếm ở server theo thiết bị; mọi subject đã trừ đều có thể hoàn.
   const admittedSubjects = [];
   let primarySubject = null;
-  let ipSubject = null;
-  let ipExhausted = false;
   let quota;
   let admittedAt;
   let quotaDay;
@@ -285,10 +272,7 @@ async function turnV3(req, res) {
       try { await chatbotModel.releaseTurn(subject); } catch { console.warn('[chatbot] refund failed'); }
     }
     if (primarySubject) {
-      try {
-        const view = quotaOf(await chatbotModel.turnQuota(primarySubject));
-        quota = ipSubject ? guestQuotaView(view, await chatbotModel.turnQuota(ipSubject)) : view;
-      } catch { /* giữ số lượt cũ */ }
+      try { quota = quotaOf(await chatbotModel.turnQuota(primarySubject)); } catch { /* giữ số lượt cũ */ }
     }
     return true;
   };
@@ -307,30 +291,14 @@ async function turnV3(req, res) {
       const device = await chatbotModel.admitTurn({ subjectType: 'device', subjectKey: input.deviceId,
         limit: chatbotModel.GUEST_DEVICE_LIMIT }, { deadlineAt: req.turnDeadlineAt, signal });
       admittedSubjects.push({ subjectType: 'device', subjectKey: input.deviceId, day: device.day });
-      // Khoi's code: chặn đổi deviceId bằng hạn mức phụ theo IP đã băm; khách phải qua cả hai hạn mức.
-      const ipKey = ipSubjectKey(req.ip, process.env.CHATBOT_REQUEST_HMAC_KEY);
-      let ip;
-      try {
-        ip = await chatbotModel.admitTurn({ subjectType: 'device', subjectKey: ipKey,
-          limit: chatbotModel.GUEST_IP_LIMIT }, { deadlineAt: req.turnDeadlineAt, signal });
-        admittedSubjects.push({ subjectType: 'device', subjectKey: ipKey, day: ip.day });
-      } catch (error) {
-        // Khoi's code: IP hết lượt thì trả lại lượt vừa trừ cho thiết bị.
-        ipExhausted = error.code === 'QUOTA_EXCEEDED';
-        await refundAdmissions();
-        throw error;
-      }
       primarySubject = { subjectType: 'device', subjectKey: input.deviceId, limit: chatbotModel.GUEST_DEVICE_LIMIT };
-      ipSubject = { subjectType: 'device', subjectKey: ipKey, limit: chatbotModel.GUEST_IP_LIMIT };
       req.admissionStarted = true;
       admittedAt = new Date(device.admittedAt).getTime();
       quotaDay = device.day;
-      quota = guestQuotaView(quotaOf(device), ip);
+      quota = quotaOf(device);
     }
   } catch (error) {
-    if (error.code === 'QUOTA_EXCEEDED') {
-      return reject(429, 'QUOTA_EXCEEDED', ipExhausted ? NETWORK_QUOTA_MESSAGE : 'Bạn đã hết lượt trong ngày.');
-    }
+    if (error.code === 'QUOTA_EXCEEDED') return reject(429, 'QUOTA_EXCEEDED', 'Bạn đã hết lượt trong ngày.');
     if (!expired() && !res.headersSent) return res.status(503).json({ code: 'OUTCOME_UNKNOWN', message: 'Chưa xác định được trạng thái lượt này.', turnId });
     return undefined;
   }
