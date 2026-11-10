@@ -397,7 +397,7 @@ import { Button } from '../components';
             when="hiện trạng thái của bài, món, quán, tài khoản, báo cáo. Toàn bộ danh sách xem ở mục K-02."
             note="Thay đổi so với bản cũ: bắt buộc truyền entity. Lý do: cùng chữ 'pending' nhưng Post là 'Chờ duyệt', Shop là 'Chờ xác minh', Report là 'Chờ xử lý'."
             props={[
-              ['entity', "'post'|'comment'|'dish'|'shop'|'shopDish'|'account'|'report'|'mealPlan'", '', 'BẮT BUỘC'],
+              ['entity', "'post'|'comment'|'dish'|'shop'|'shopDish'|'account'|'report'", '', 'BẮT BUỘC'],
               ['status', 'string', '', 'BẮT BUỘC. Đúng giá trị API trả về'],
               ['size', "'sm'|'md'", "'md'", 'sm dùng trong bảng admin'],
               ['label', 'string', '', 'Ghi đè chữ (hiếm khi cần)'],
