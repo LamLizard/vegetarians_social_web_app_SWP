@@ -18,6 +18,7 @@ import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
 import { AUTH_TOKEN_KEY } from '../services/api';
 import { readChatSession, writeChatSession, clearChatSession } from '../utils/chatSession';
+import { repeatedCardIndexes } from '../utils/chatCards';
 import styles from './ChatbotPage.module.css';
 
 // Khoi's code (05/11/2026): chỉ giữ deviceId trên máy khách; số lượt hỏi thử do server đếm.
@@ -619,6 +620,8 @@ export default function ChatbotPage({ user }) {
     void sendQuestion(question);
   };
   const suggestionsDisabled = !enabled || !sessionReady || busy || !quota?.remaining || text.length > 0;
+  // Khoi's code (11/11/2026): các tin của Mầm có hàng thẻ trùng lượt ngay trước (không vẽ lại).
+  const repeatedCards = repeatedCardIndexes(messages);
   const textValid = validText(text);
 
   return (
@@ -689,7 +692,8 @@ export default function ChatbotPage({ user }) {
                         {message.sender === 'bot' && message.result && <ChatDiscoveryResult result={message.result} />}
                         {/* Khoi's code (06/11/2026): thẻ nguồn đứng NGAY dưới bong bóng, trước hàng thẻ món khác. */}
                         {message.sender === 'bot' && message.source && <ChatSourceCard source={message.source} />}
-                        {message.sender === 'bot' && message.cards && (
+                        {/* Khoi's code (11/11/2026): hàng thẻ y hệt lượt trả lời ngay trước thì không vẽ lại. */}
+                        {message.sender === 'bot' && message.cards && !repeatedCards.has(index) && (
                           <ChatResultCards cards={message.cards}
                             title={message.source ? 'Món khác trên Green Bowl bạn có thể thích' : undefined} />
                         )}

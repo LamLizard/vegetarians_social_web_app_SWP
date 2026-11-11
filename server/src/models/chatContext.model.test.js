@@ -1,7 +1,7 @@
 // Khoi's code (05/11/2026): test phần thuần của chatContext.model (không cần DB).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { excludeAllergens, plain, findRecipesForChat } = require('./chatContext.model');
+const { excludeAllergens, matchedAllergens, plain, findRecipesForChat } = require('./chatContext.model');
 const { groupScheduleRows } = require('./shop.model');
 const { shopOpenInfo, shopStatusText } = require('../utils/shopOpen');
 
@@ -22,6 +22,16 @@ test('excludeAllergens: bỏ công thức có nguyên liệu trùng dị ứng (
   assert.deepEqual(excludeAllergens(items, ['đậu phộng', 'nấm']).map((item) => item.id), ['1']);
   assert.deepEqual(excludeAllergens(items, ['   ', '']).map((item) => item.id), ['1', '2', '3']);
   assert.deepEqual(excludeAllergens([], ['đậu hũ']), []);
+});
+
+// Khoi's code (11/11/2026): nêu đúng nguyên liệu trùng dị ứng của công thức bị loại.
+test('matchedAllergens: trả tên nguyên liệu trùng dị ứng, không dấu/hoa thường, không trùng lặp', () => {
+  const recipe = { ingredientNames: ['Đậu hũ', 'Cà chua', 'Hành tím', 'Hành lá', 'Hành lá'] };
+  assert.deepEqual(matchedAllergens(recipe, ['hanh la']), ['Hành lá']);
+  assert.deepEqual(matchedAllergens(recipe, ['HÀNH']), ['Hành tím', 'Hành lá']);
+  assert.deepEqual(matchedAllergens(recipe, ['đậu phộng']), []);
+  assert.deepEqual(matchedAllergens(recipe, []), []);
+  assert.deepEqual(matchedAllergens(null, ['hành lá']), []);
 });
 
 test('excludeAllergens: chỉ xét nguyên liệu, không loại theo tiêu đề', () => {

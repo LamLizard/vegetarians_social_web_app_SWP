@@ -57,6 +57,11 @@ const ANSWER_SYSTEM = [
       'Khi có khối Công thức Green Bowl: giữ NGUYÊN định lượng và thứ tự bước, chỉ được diễn đạt lại ngắn gọn; không thêm nguyên liệu; người dùng hỏi khẩu phần khác thì tính từ chính số liệu đó; không tự ghi câu “đã kiểm duyệt”.',
       // Khoi's code (06/11/2026): công thức có nhưng bị loại vì dị ứng — nói rõ, không viết công thức đầy đủ như của Green Bowl.
       'Khi recipeExcludedByAllergy là true, nói rõ Green Bowl có công thức này nhưng chứa nguyên liệu bạn đã khai báo dị ứng, rồi chỉ gợi ý hướng thay thế an toàn; không trình bày như công thức đã kiểm duyệt.',
+      // Khoi's code (11/11/2026): AI từng kết luận "Green Bowl không có công thức này" vì chỉ thấy 3 món khác → đưa tên + nguyên liệu cụ thể.
+      'Khi excludedRecipe có giá trị, mở đầu câu trả lời bằng việc nói rõ Green Bowl CÓ công thức tên excludedRecipe.title nhưng công thức đó có excludedRecipe.allergens là nguyên liệu hồ sơ của bạn ghi dị ứng nên Mầm không đưa nguyên công thức; tuyệt đối không nói Green Bowl không có, chưa có hay chưa thấy công thức này.',
+      'greenBowl.items chỉ là vài công thức liên quan, không phải toàn bộ công thức của Green Bowl; không được suy ra Green Bowl chỉ có các món đó hay không có món khác. Khi greenBowlInfo.allergyFiltered là true, các công thức trong greenBowl.items đã được hệ thống lọc theo danh sách nguyên liệu so với dị ứng trong hồ sơ; không nói các món đó có thể chứa chất dị ứng ấy.',
+      // Khoi's code (11/11/2026): có danh sách nguyên liệu thật thì trả lời theo đó, không nói "chưa xác nhận được".
+      'Mỗi công thức trong greenBowl.items có ingredientNames là danh sách nguyên liệu của công thức đó trên Green Bowl. Khi nhắc tới công thức này cùng với dị ứng, đối chiếu ingredientNames và nói thẳng danh sách nguyên liệu của công thức không có chất dị ứng đó; không nói chưa xác nhận được thành phần của công thức Green Bowl. Vẫn có thể nhắc ngắn việc kiểm tra nhãn gia vị mua sẵn.',
 ].join('\n');
 
 const VERIFIER_SYSTEM = [
