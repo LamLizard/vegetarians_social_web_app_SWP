@@ -321,6 +321,8 @@ async function turnV3(req, res) {
   let aiGenerated = false;
   // Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn nhãn AI tạo.
   let recipeExcludedByAllergy = false;
+  // Khoi's code (11/11/2026): tên công thức bị loại + nguyên liệu trùng dị ứng để AI nói đúng, không kết luận "không có".
+  let excludedRecipe = null;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -520,7 +522,7 @@ async function turnV3(req, res) {
         phase = 'greenbowl_data';
         if (intent.needsGreenBowlData === 'recipes') {
           const items = await chatContextModel.findRecipesForChat(recipeKeywords(intent, scoped.allowedText),
-            { limit: 3, excludeAllergies: health?.allergies ?? [] });
+            { limit: 3, excludeAllergies: health?.allergies ?? [], withIngredients: true });
           // Khoi's code (06/11/2026): "cách làm món X" → tìm công thức của X trong TOÀN BỘ recipe đã duyệt,
           // không phụ thuộc 3 thẻ gợi ý; công thức bị loại do dị ứng thì không gắn nhãn "do AI tạo".
           // Khoi's code (06/11/2026): classifier trả cookDish (món cần cách làm) thay cho dò chữ trong câu hỏi.
@@ -532,6 +534,8 @@ async function turnV3(req, res) {
               ?? await chatContextModel.findRecipeSourceByQuestion(scoped.allowedText);
             if (found && chatContextModel.excludeAllergens([found], health?.allergies ?? []).length === 0) {
               recipeExcludedByAllergy = true;
+              excludedRecipe = { title: found.title,
+                allergens: chatContextModel.matchedAllergens(found, health?.allergies ?? []) };
               found = null;
             }
           }
@@ -577,6 +581,10 @@ async function turnV3(req, res) {
       const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
         greenBowl, recipeSource: recipeSourceNote, // Khoi's code (06/11/2026): khối công thức nguồn cho câu "cách làm"
         recipeExcludedByAllergy, // Khoi's code (06/11/2026): công thức có nhưng chứa nguyên liệu dị ứng
+        excludedRecipe,
+        // Khoi's code (11/11/2026): danh sách công thức chỉ là vài món liên quan, đã lọc theo dị ứng trong hồ sơ.
+        greenBowlInfo: greenBowl?.kind === 'recipes'
+          ? { partialList: true, allergyFiltered: Boolean(health?.allergies?.length) } : null,
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
@@ -605,7 +613,11 @@ async function turnV3(req, res) {
       if (live) streamedAnswer = answerText;
       else emitText(answerText);
       // Khoi's code (05/11/2026): thẻ công thức/quán hiện dưới câu trả lời (qua lớp duyệt như mọi event khác).
-      if (greenBowl && greenBowl.kind !== 'mealplan') queueEvent('result', { kind: greenBowl.kind, items: greenBowl.items });
+      // Khoi's code (11/11/2026): ingredientNames chỉ dành cho AI; thẻ gửi về trình duyệt giữ đúng các trường cũ.
+      if (greenBowl && greenBowl.kind !== 'mealplan') {
+        queueEvent('result', { kind: greenBowl.kind,
+          items: greenBowl.items.map(({ ingredientNames, ...item }) => item) });
+      }
     }
     if (expired()) return undefined;
     // Khoi's code (05/11/2026): chỉ thêm ghi chú khi câu trả lời đã có nội dung (không nối 2 câu từ chối).
