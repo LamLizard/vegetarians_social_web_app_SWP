@@ -36,7 +36,8 @@ function matchedAllergens(item, allergies = []) {
  * Công thức đã duyệt (món active) khớp không dấu theo tiêu đề / tên món / tên nguyên liệu.
  * Không có keyword → trả công thức nhiều tim nhất. Dị ứng: loại ở JS trước khi cắt `limit`.
  */
-async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies = [] } = {}) {
+// Khoi's code (11/11/2026): withIngredients=true giữ lại ingredientNames để Mầm tự đối chiếu dị ứng (mặc định vẫn bỏ).
+async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies = [], withIngredients = false } = {}) {
   // Khoi's code (06/11/2026): khớp MAX_RECIPE_TERMS bên controller (tối đa 6 term).
   const terms = [...new Set((Array.isArray(keywords) ? keywords : [keywords])
     .map((keyword) => String(keyword ?? '').trim()).filter(Boolean))].slice(0, 6);
@@ -72,7 +73,8 @@ async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies =
   `, params);
   return excludeAllergens(rows, excludeAllergies)
     .slice(0, limit)
-    .map(({ ingredientNames, ...item }) => item);
+    .map(({ ingredientNames, ...item }) => (withIngredients
+      ? { ...item, ingredientNames: Array.isArray(ingredientNames) ? ingredientNames : [] } : item));
 }
 
 // Khoi's code (06/11/2026): công thức có TÊN nằm trong câu hỏi — tìm trên toàn bộ recipe đã duyệt

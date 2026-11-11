@@ -522,7 +522,7 @@ async function turnV3(req, res) {
         phase = 'greenbowl_data';
         if (intent.needsGreenBowlData === 'recipes') {
           const items = await chatContextModel.findRecipesForChat(recipeKeywords(intent, scoped.allowedText),
-            { limit: 3, excludeAllergies: health?.allergies ?? [] });
+            { limit: 3, excludeAllergies: health?.allergies ?? [], withIngredients: true });
           // Khoi's code (06/11/2026): "cách làm món X" → tìm công thức của X trong TOÀN BỘ recipe đã duyệt,
           // không phụ thuộc 3 thẻ gợi ý; công thức bị loại do dị ứng thì không gắn nhãn "do AI tạo".
           // Khoi's code (06/11/2026): classifier trả cookDish (món cần cách làm) thay cho dò chữ trong câu hỏi.
@@ -613,7 +613,11 @@ async function turnV3(req, res) {
       if (live) streamedAnswer = answerText;
       else emitText(answerText);
       // Khoi's code (05/11/2026): thẻ công thức/quán hiện dưới câu trả lời (qua lớp duyệt như mọi event khác).
-      if (greenBowl && greenBowl.kind !== 'mealplan') queueEvent('result', { kind: greenBowl.kind, items: greenBowl.items });
+      // Khoi's code (11/11/2026): ingredientNames chỉ dành cho AI; thẻ gửi về trình duyệt giữ đúng các trường cũ.
+      if (greenBowl && greenBowl.kind !== 'mealplan') {
+        queueEvent('result', { kind: greenBowl.kind,
+          items: greenBowl.items.map(({ ingredientNames, ...item }) => item) });
+      }
     }
     if (expired()) return undefined;
     // Khoi's code (05/11/2026): chỉ thêm ghi chú khi câu trả lời đã có nội dung (không nối 2 câu từ chối).

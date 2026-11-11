@@ -256,7 +256,8 @@ test('turnV3: hồ sơ vô lý và cờ alreadyWarned được gửi cho model',
 test('turnV3: dữ liệu Green Bowl có thật → thẻ kết quả + dữ liệu vào prompt', async () => {
   stubModel();
   chatContextModel.findRecipesForChat = async (keywords, options) => {
-    assert.deepEqual(options, { limit: 3, excludeAllergies: [] });
+    // Khoi's code (11/11/2026): xin kèm nguyên liệu để AI đối chiếu dị ứng.
+    assert.deepEqual(options, { limit: 3, excludeAllergies: [], withIngredients: true });
     // Khoi's code (06/11/2026): "đậu hũ" giờ là một cụm (từ 2 chữ cái được ghép cụm), không tách "đậu" đứng riêng.
     assert.ok(keywords.includes('đậu hũ'), keywords.join(' | '));
     return [{ id: '40', title: 'Đậu hũ sốt cà chua', dishName: 'Đậu hũ', thumbnailUrl: 'https://x/y.png',
@@ -632,6 +633,21 @@ test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAlle
   const frames = events(res);
   assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
   assert.ok(frames.find((frame) => frame.name === 'done'));
+});
+
+// Khoi's code (11/11/2026): AI nhận nguyên liệu từng món gợi ý; thẻ gửi về trình duyệt không có trường này.
+test('turnV3 gợi ý món: ingredientNames tới AI nhưng không nằm trong frame result', async () => {
+  const stub = stubHowTo({ cookDish: null, items: [{ ...RECIPE_40, ingredientNames: ['Đậu hũ', 'Cà chua'] }] });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
+  const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.deepEqual(data.greenBowl.items[0].ingredientNames, ['Đậu hũ', 'Cà chua']);
+  const result = events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
+  assert.ok(result);
+  assert.equal('ingredientNames' in result.data.items[0], false);
+  assert.deepEqual(Object.keys(result.data.items[0]).sort(), Object.keys(RECIPE_40).sort());
 });
 
 test('turnV3 không bị loại do dị ứng: excludedRecipe là null', async () => {
