@@ -3,6 +3,7 @@ import Avatar from '../Avatar/Avatar';
 import Menu from '../Menu/Menu';
 import cx from '../cx';
 import { APP_NAME } from '../../constants/domain';
+import logo from '../../assets/logo-for-all.png';
 import { useTheme } from '../../utils/theme';
 import s from './FeedSidebar.module.css';
 
@@ -72,12 +73,7 @@ export default function FeedSidebar({
       <aside className={cx(s.side, collapsed && s.collapsed, mobileOpen && s.open)} aria-label="Điều hướng chính">
         <div className={s.top}>
           <a href="/" className={s.brand} aria-label={`${APP_NAME}, về trang chủ`}>
-            <span className={s.mark} aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="18" height="18">
-                <path d="M5 19c0-8 5-13.5 14-14-.3 8.6-5.6 14-14 14Z" fill="currentColor" />
-                <path d="M5 19c3-4.2 6-7 9.5-9" stroke="var(--v-accent)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-              </svg>
-            </span>
+            <img className={s.mark} src={logo} alt="" />
             <span className={s.name}>{APP_NAME}</span>
           </a>
           <button

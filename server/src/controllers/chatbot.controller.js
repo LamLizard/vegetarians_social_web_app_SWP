@@ -15,7 +15,6 @@ const { signTurn, verifyHistory, historyScopeFor } = require('../utils/chatHisto
 const { UUID, validKeys, validText, validateV3, vietnamDay, healthForChat, alreadyWarnedProfile,
   isStandaloneArithmetic, parseScopedV3Intent } = require('../utils/chatbotTurn');
 // Khoi's code (05/11/2026): hạn mức phụ theo IP cho khách (băm IP, không lưu IP gốc).
-const { ipSubjectKey } = require('../utils/chatbotQuota');
 // Khoi's code (06/11/2026): câu "cách làm món X" → dùng công thức Green Bowl làm nguồn, không để AI bịa định lượng.
 const { formatAmount, missingQuantities } = require('../utils/chatbotRecipeSource');
 if (!process.env.CHATBOT_REQUEST_HMAC_KEY?.trim()) {
@@ -191,6 +190,8 @@ async function getSimpleQuota(req, res) {
 }
 
 // Khoi's code (05/11/2026): số lượt hỏi thử của khách lấy từ server theo deviceId (không cần đăng nhập).
+// Khoi's code (10/11/2026): nhóm chốt bỏ hạn mức theo IP — khách chỉ giới hạn 5 lượt/ngày trên mỗi trình duyệt.
+
 async function getGuestQuota(req, res) {
   res.set('Cache-Control', 'private, no-store');
   res.vary('Authorization');
@@ -254,7 +255,7 @@ async function turnV3(req, res) {
       return reject(409, 'HISTORY_INVALID', 'Lịch sử trò chuyện không hợp lệ hoặc đã hết hạn. Mầm sẽ bắt đầu cuộc trò chuyện mới.');
     }
   }
-  // Khoi's code (05/11/2026): quota khách đếm ở server (thiết bị + IP); mọi subject đã trừ đều có thể hoàn.
+  // Khoi's code (05/11/2026): quota khách đếm ở server theo thiết bị; mọi subject đã trừ đều có thể hoàn.
   const admittedSubjects = [];
   let primarySubject = null;
   let quota;
@@ -290,17 +291,6 @@ async function turnV3(req, res) {
       const device = await chatbotModel.admitTurn({ subjectType: 'device', subjectKey: input.deviceId,
         limit: chatbotModel.GUEST_DEVICE_LIMIT }, { deadlineAt: req.turnDeadlineAt, signal });
       admittedSubjects.push({ subjectType: 'device', subjectKey: input.deviceId, day: device.day });
-      // Khoi's code: chặn đổi deviceId bằng hạn mức phụ theo IP đã băm; khách phải qua cả hai hạn mức.
-      const ipKey = ipSubjectKey(req.ip, process.env.CHATBOT_REQUEST_HMAC_KEY);
-      try {
-        const ip = await chatbotModel.admitTurn({ subjectType: 'device', subjectKey: ipKey,
-          limit: chatbotModel.GUEST_IP_LIMIT }, { deadlineAt: req.turnDeadlineAt, signal });
-        admittedSubjects.push({ subjectType: 'device', subjectKey: ipKey, day: ip.day });
-      } catch (error) {
-        // Khoi's code: IP hết lượt thì trả lại lượt vừa trừ cho thiết bị.
-        await refundAdmissions();
-        throw error;
-      }
       primarySubject = { subjectType: 'device', subjectKey: input.deviceId, limit: chatbotModel.GUEST_DEVICE_LIMIT };
       req.admissionStarted = true;
       admittedAt = new Date(device.admittedAt).getTime();

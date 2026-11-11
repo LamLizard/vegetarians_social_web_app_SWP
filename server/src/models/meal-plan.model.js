@@ -32,8 +32,7 @@ const PLAN_COLUMNS = `
   meals_per_day::int AS "mealsPerDay",
   target_calories_kcal AS "targetCaloriesKcal",
   household_size::int AS "householdSize",
-  person_targets AS "personTargets",
-  status
+  person_targets AS "personTargets"
 `;
 
 const ITEM_COLUMNS = `
@@ -304,7 +303,6 @@ async function createDayPlan(accountId, planDate, mealsPerDay = 3) {
         targetCaloriesKcal: existing.targetCaloriesKcal ?? null,
         householdSize: Number(existing.householdSize ?? 1),
         personTargets: normalizePersonTargets(existing.personTargets),
-        status: existing.status ?? 'saved',
       };
     }
 
@@ -335,23 +333,19 @@ async function createDayPlan(accountId, planDate, mealsPerDay = 3) {
         title,
         plan_date,
         meals_per_day,
-        source,
         bmi_snapshot,
         target_calories_kcal,
         goal_snapshot,
-        allergy_snapshot,
-        status
+        allergy_snapshot
       ) VALUES (
         $1,
         $2,
         $3::date,
         $4,
-        'manual',
         $5,
         $6,
         $7,
-        $8::jsonb,
-        'saved'
+        $8::jsonb
       )
       RETURNING ${PLAN_COLUMNS}
     `, [
@@ -373,7 +367,6 @@ async function createDayPlan(accountId, planDate, mealsPerDay = 3) {
       targetCaloriesKcal: inserted.targetCaloriesKcal ?? null,
       householdSize: Number(inserted.householdSize ?? 1),
       personTargets: normalizePersonTargets(inserted.personTargets),
-      status: inserted.status ?? 'saved',
     };
   });
 }

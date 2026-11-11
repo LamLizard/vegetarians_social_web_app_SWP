@@ -229,7 +229,10 @@ function ProfileBackNavigation() { /* Duy's code: Thanh điều hướng quay l�
 }
 
 export default function UserProfilePage() {
-  const [activeTab, setActiveTab] = useState('account');
+  // Meal Plan trỏ thẳng tới tab hồ sơ sức khỏe bằng /profile?tab=health
+  const [activeTab, setActiveTab] = useState(() => (
+    new URLSearchParams(window.location.search).get('tab') === 'health' ? 'health' : 'account'
+  ));
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [form, setForm] = useState(defaultValues);
   const [errors, setErrors] = useState({});

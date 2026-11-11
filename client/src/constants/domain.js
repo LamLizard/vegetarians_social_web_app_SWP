@@ -52,11 +52,9 @@ export const NUTRITION_GROUP = {
   fruit:     { label: 'Trái cây',     icon: 'apple' },
 };
 
-/** Nguồn tạo thực đơn. meal_plan.source (Report v4.0) */
-export const MEAL_PLAN_SOURCE = {
-  ai: 'Mầm gợi ý',
-  manual: 'Tự lên',
-};
+/** Nguồn tạo thực đơn (Report v4.0) — KHÔNG còn lưu ở DB.
+ *  meal_plan.source đã bị bỏ cùng meal_plan_source_enum (11/2026).
+ *  Nếu cần phân biệt thực đơn do AI tạo: dùng meal_plan.ai_model (khác NULL). */
 
 /** Loại thông báo. notification.type
  *  8 giá trị đầu lấy từ file ERD trong Project. 4 giá trị cuối là GIẢ ĐỊNH theo Report v4.0

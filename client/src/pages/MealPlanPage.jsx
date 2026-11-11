@@ -31,7 +31,11 @@ const WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 const MIN_PERSON_TARGET = 500;
 const MAX_PERSON_TARGET = 8000;
-const MAX_HOUSEHOLD = 10;
+// Số người ăn chung KHÔNG tính bản thân: 0 → 10 (cả nhà tối đa 11 người).
+const MAX_OTHERS_SHARING = 10;
+
+// Trang Hồ sơ → tab Hồ sơ sức khỏe (?tab=health đọc ở UserProfilePage).
+const HEALTH_PROFILE_HREF = '/profile?tab=health';
 
 function dateKey(date) {
   const year = date.getFullYear();
@@ -137,6 +141,13 @@ function formatKcal(value) {
   return new Intl.NumberFormat('vi-VN').format(Math.round(Number(value) || 0));
 }
 
+/** Mục tiêu calo chỉ nhận 500–8.000 kcal → kẹp giá trị (không báo lỗi). */
+function clampPersonTarget(value) {
+  const number = Math.round(Number(value));
+  if (!Number.isFinite(number)) return '';
+  return Math.min(MAX_PERSON_TARGET, Math.max(MIN_PERSON_TARGET, number));
+}
+
 function getWarning(item, allergies) {
   if (!item || !allergies?.length) return null;
 
@@ -157,15 +168,15 @@ function getWarning(item, allergies) {
   return matches.length ? `Có thể chứa ${[...new Set(matches)].join(', ')}` : null;
 }
 
-function WeekPicker({ weekStart, selectedDate, dayHasItems, onWeekChange, onSelectDate }) {
+function WeekPicker({ weekStart, selectedDate, todayKey, dayHasItems, onWeekChange, onSelectDate }) {
   const monday = mondayOf(parseDateKey(weekStart));
   const currentMonday = mondayOf(getTodayInVietnam());
   const finalMonday = mondayOf(new Date(new Date().getFullYear(), 11, 31, 12));
   const weekDays = Array.from({ length: 7 }, (_, index) => addDays(monday, index));
 
   return (
-    <section className={styles.weekPicker} aria-label="Chọn tuần và ngày">
-      <div className={styles.weekControls}>
+    <section className={styles.weekCard} aria-label="Chọn tuần và ngày">
+      <div className={styles.weekHead}>
         <button
           type="button"
           className={styles.weekArrow}
@@ -175,7 +186,7 @@ function WeekPicker({ weekStart, selectedDate, dayHasItems, onWeekChange, onSele
         >
           <i className="bi bi-chevron-left" aria-hidden="true" />
         </button>
-        <strong className={styles.weekLabel}>{formatWeekLabel(monday)}</strong>
+        <span className={styles.weekLabel}>{formatWeekLabel(monday)}</span>
         <button
           type="button"
           className={styles.weekArrow}
@@ -192,12 +203,14 @@ function WeekPicker({ weekStart, selectedDate, dayHasItems, onWeekChange, onSele
           const key = dateKey(day);
           const selected = key === selectedDate;
           const filled = Boolean(dayHasItems?.(key));
+          const isToday = key === todayKey;
           return (
             <button
               key={key}
               type="button"
-              className={`${styles.weekDay} ${selected ? styles.weekDaySelected : ''}`}
+              className={`${styles.weekDay} ${selected ? styles.weekDaySelected : ''} ${isToday ? styles.weekDayToday : ''}`}
               aria-pressed={selected}
+              aria-current={isToday ? 'date' : undefined}
               onClick={() => onSelectDate(key)}
             >
               <span className={styles.weekDayName}>{WEEKDAY_SHORT[index]}</span>
@@ -223,7 +236,7 @@ function DishRow({ item, warning, disabled, removing, onRemove }) {
         <span className={styles.dishText}>
           <span className={styles.dishName}>{item.recipeName}</span>
           <span className={styles.dishMeta}>
-            <span className={styles.dishKcal}>{formatKcal(item.caloriesKcal ?? 0)} kcal</span>
+            <span className={styles.dishKcal}>{formatKcal(item.caloriesKcal ?? 0)} kcal/người</span>
             {item.nutritionGroup ? <span className={styles.dishTag}>{item.nutritionGroup}</span> : null}
           </span>
           {warning ? (
@@ -232,7 +245,7 @@ function DishRow({ item, warning, disabled, removing, onRemove }) {
             </span>
           ) : null}
         </span>
-        <i className={`bi bi-box-arrow-up-right ${styles.dishGo}`} aria-hidden="true" />
+        <i className={`bi bi-arrow-up-right ${styles.dishGo}`} aria-hidden="true" />
       </a>
 
       <button
@@ -256,19 +269,14 @@ function MealSlotCard({ slot, items, allergies, disabled, removingId, onAdd, onR
   return (
     <section className={`${styles.slotCard} ${empty ? styles.slotCardEmpty : ''}`} aria-label={SLOT_LABEL[slot]}>
       <header className={styles.slotHead}>
-        <span className={styles.slotTitle}>
-          <i className={`bi bi-${SLOT_ICON[slot]}`} aria-hidden="true" />
-          {SLOT_LABEL[slot]}
+        <span className={styles.slotIcon} aria-hidden="true">
+          <i className={`bi bi-${SLOT_ICON[slot]}`} />
         </span>
-        <span className={styles.slotStats}>
-          {empty ? (
-            <span className={styles.slotEmptyHint}>Chưa có món</span>
-          ) : (
-            <>
-              <span className={styles.slotCount}>{items.length} món</span>
-              <span className={styles.slotKcal}>{formatKcal(subtotal)} kcal</span>
-            </>
-          )}
+        <span className={styles.slotTitles}>
+          <span className={styles.slotTitle}>{SLOT_LABEL[slot]}</span>
+          <span className={styles.slotMeta}>
+            {empty ? 'Chưa có món' : `${items.length} món · ${formatKcal(subtotal)} kcal/người`}
+          </span>
         </span>
       </header>
 
@@ -289,15 +297,15 @@ function MealSlotCard({ slot, items, allergies, disabled, removingId, onAdd, onR
         </ul>
       )}
 
-      <Button
-        size="sm"
-        variant={empty ? 'primary' : 'outline'}
-        icon="plus-lg"
+      <button
+        type="button"
+        className={`${styles.slotAdd} ${empty ? styles.slotAddStrong : ''}`}
         disabled={disabled}
         onClick={onAdd}
       >
+        <i className="bi bi-plus-lg" aria-hidden="true" />
         Thêm món
-      </Button>
+      </button>
     </section>
   );
 }
@@ -370,14 +378,15 @@ function RecipePickerModal({ open, onClose, slot, query, recipes, loading, error
   );
 }
 
-function PersonTargetRow({ index, value, disabled, onChange }) {
+function PersonTargetRow({ index, value, disabled, invalid, onChange, onBlur }) {
   const inputId = `person-target-${index}`;
   return (
-    <li className={styles.personRow}>
+    <li className={`${styles.personRow} ${index === 0 ? styles.personRowSelf : ''}`}>
       <label className={styles.personLabel} htmlFor={inputId}>
-        <i className="bi bi-person" aria-hidden="true" /> Người {index + 1}
+        <i className={`bi bi-${index === 0 ? 'person-check' : 'person'}`} aria-hidden="true" />
+        {index === 0 ? 'Bạn' : `Người ${index + 1}`}
       </label>
-      <span className={styles.personInputWrap}>
+      <span className={`${styles.personInputWrap} ${invalid ? styles.personInputInvalid : ''}`}>
         <input
           id={inputId}
           className={styles.personInput}
@@ -388,7 +397,9 @@ function PersonTargetRow({ index, value, disabled, onChange }) {
           step={50}
           value={value ?? ''}
           disabled={disabled}
+          aria-invalid={invalid || undefined}
           onChange={(event) => onChange(event.target.value === '' ? '' : Number(event.target.value))}
+          onBlur={onBlur}
         />
         <span className={styles.personUnit}>kcal</span>
       </span>
@@ -401,6 +412,9 @@ function RandomPlanModal({
   form,
   weekDays,
   defaultTarget,
+  canRandomize,
+  profileLoading,
+  profileError,
   mealsPerDay = 3,
   isRunning,
   onChange,
@@ -408,175 +422,224 @@ function RandomPlanModal({
   onSubmit,
 }) {
   const {
-    days, household, sameTarget, targets, replace, error,
+    days, others, sameTarget, targets, replace, error,
   } = form;
 
   const meals = Math.max(1, Number(mealsPerDay) || 3);
-  const everyPersonHasTarget = Array.from({ length: household }, (_, index) => Number(targets[index]))
-    .every((value) => Number.isFinite(value) && value > 0);
-  const householdTotal = everyPersonHasTarget
-    ? Array.from({ length: household }, (_, index) => Number(targets[index]))
-      .reduce((sum, value) => sum + value, 0)
-    : 0;
+  const household = Number(others) + 1; // bản thân + số người ăn chung
+  const perPersonValues = Array.from({ length: household }, (_, index) => Number(targets[index]));
+  const everyPersonHasTarget = perPersonValues.every((value) => Number.isFinite(value) && value > 0);
+  const householdTotal = everyPersonHasTarget ? perPersonValues.reduce((sum, value) => sum + value, 0) : 0;
   const perPersonTarget = householdTotal ? Math.round(householdTotal / household) : 0;
   const perMealHousehold = householdTotal ? householdTotal / meals : 0;
   const perMealPerPerson = perPersonTarget ? perPersonTarget / meals : 0;
-  const sameTargetText = defaultTarget ? `${formatKcal(defaultTarget)} kcal` : 'mục tiêu hiện tại';
+  const missingTargetIndex = perPersonValues.findIndex((value) => !Number.isFinite(value) || value <= 0);
+  const canSubmit = canRandomize && !isRunning;
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Random thực đơn"
-      description="Chọn ngày, số người ăn — mỗi bữa sẽ được random từ 1 đến 3 món."
+      description="Chọn ngày và số người ăn — mỗi bữa sẽ được random từ 1 đến 3 món."
       size="lg"
       dismissible={!isRunning}
       footer={(
         <>
           <Button variant="subtle" disabled={isRunning} onClick={onClose}>Hủy</Button>
-          <Button icon="shuffle" loading={isRunning} disabled={isRunning} onClick={onSubmit}>
+          <Button
+            icon="shuffle"
+            loading={isRunning}
+            disabled={!canSubmit}
+            onClick={onSubmit}
+            title={canRandomize ? undefined : 'Cần điền hồ sơ sức khỏe trước'}
+          >
             Random ngày đã chọn
           </Button>
         </>
       )}
     >
       <div className={styles.randomPanel}>
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>
-            1. Chọn ngày
-            <span className={styles.legendHint}>{days.length ? `Đã chọn ${days.length} ngày` : 'Chưa chọn ngày'}</span>
-          </legend>
-          <div className={styles.randomDayList}>
-            {weekDays.map(({ date, isPast }) => {
-              const selected = days.includes(date);
-              const parsed = parseDateKey(date);
-              return (
-                <label
-                  key={date}
-                  className={`${styles.randomDayOption} ${selected ? styles.randomDayOptionSelected : ''} ${isPast ? styles.randomDayOptionDisabled : ''}`}
-                >
-                  <input
-                    className={styles.randomDayCheckbox}
-                    type="checkbox"
-                    checked={selected}
-                    disabled={isPast || isRunning}
-                    onChange={() => onChange({
-                      days: selected ? days.filter((entry) => entry !== date) : [...days, date],
+        {!canRandomize ? (
+          <div className={styles.gate} role="alert">
+            <span className={styles.gateIcon} aria-hidden="true"><i className="bi bi-heart-pulse" /></span>
+            <div className={styles.gateBody}>
+              <p className={styles.gateText}>
+                {profileError
+                  ? 'Không tải được hồ sơ sức khỏe của bạn. Vui lòng thử lại sau.'
+                  : profileLoading
+                    ? 'Đang kiểm tra hồ sơ sức khỏe…'
+                    : 'Bạn chưa điền hồ sơ sức khỏe. Vui lòng điền hồ sơ sức khoẻ'}
+              </p>
+              <a className={styles.gateAction} href={HEALTH_PROFILE_HREF}>
+                Điền hồ sơ sức khỏe
+                <i className="bi bi-arrow-right" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+        ) : (
+          <>
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.legend}>
+                <span className={styles.step} aria-hidden="true">1</span>
+                Chọn ngày
+                <span className={styles.legendHint}>{days.length ? `Đã chọn ${days.length} ngày` : 'Chưa chọn ngày'}</span>
+              </legend>
+              <div className={styles.randomDayList}>
+                {weekDays.map(({ date, isPast }) => {
+                  const selected = days.includes(date);
+                  const parsed = parseDateKey(date);
+                  return (
+                    <label
+                      key={date}
+                      className={`${styles.randomDayOption} ${selected ? styles.randomDayOptionSelected : ''} ${isPast ? styles.randomDayOptionDisabled : ''}`}
+                    >
+                      <input
+                        className={styles.randomDayCheckbox}
+                        type="checkbox"
+                        checked={selected}
+                        disabled={isPast || isRunning}
+                        onChange={() => onChange({
+                          days: selected ? days.filter((entry) => entry !== date) : [...days, date],
+                          error: '',
+                        })}
+                      />
+                      <span className={styles.randomDayLabel}>
+                        <strong>{WEEKDAY_LABELS[(parsed.getDay() + 6) % 7]}</strong>
+                        <span>{shortDate(parsed)}{isPast ? ' · đã qua' : ''}</span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <fieldset className={styles.fieldset}>
+              <legend className={styles.legend}>
+                <span className={styles.step} aria-hidden="true">2</span>
+                Số người ăn
+              </legend>
+
+              <NumberStepper
+                label="Ngoài bạn còn bao nhiêu người ăn chung?"
+                value={others}
+                min={0}
+                max={MAX_OTHERS_SHARING}
+                unit="người"
+                disabled={isRunning}
+                hint={`Tính cả bạn: ${household} người · tối đa ${MAX_OTHERS_SHARING + 1} người ăn chung.`}
+                onChange={(value) => {
+                  const nextOthers = Math.min(MAX_OTHERS_SHARING, Math.max(0, Number(value) || 0));
+                  const nextHousehold = nextOthers + 1;
+                  const nextTargets = Array.from({ length: nextHousehold }, (_, index) => (
+                    targets[index] ?? defaultTarget ?? ''
+                  ));
+                  onChange({
+                    others: nextOthers,
+                    targets: sameTarget ? nextTargets.map(() => defaultTarget ?? '') : nextTargets,
+                    error: '',
+                  });
+                }}
+              />
+
+              <div className={styles.targetBlock}>
+                {household > 1 ? (
+                  <Checkbox
+                    checked={sameTarget}
+                    disabled={isRunning || !defaultTarget}
+                    onChange={(checked) => onChange({
+                      sameTarget: checked,
+                      targets: checked
+                        ? Array.from({ length: household }, () => defaultTarget ?? '')
+                        : targets,
                       error: '',
                     })}
-                  />
-                  <span className={styles.randomDayLabel}>
-                    <strong>{WEEKDAY_LABELS[(parsed.getDay() + 6) % 7]}</strong>
-                    <span>{shortDate(parsed)}{isPast ? ' · đã qua' : ''}</span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
+                  >
+                    Cả {household} người dùng cùng mục tiêu {defaultTarget ? `${formatKcal(defaultTarget)} kcal` : 'hiện tại'}
+                  </Checkbox>
+                ) : null}
 
-        <fieldset className={styles.fieldset}>
-          <legend className={styles.legend}>2. Số người ăn</legend>
-          <NumberStepper
-            label="Số người ăn chung thực đơn"
-            value={household}
-            min={1}
-            max={MAX_HOUSEHOLD}
-            unit="người"
-            disabled={isRunning}
-            hint="Từ 2 người, mỗi người có thể có mục tiêu calo riêng."
-            onChange={(value) => {
-              const next = Math.min(MAX_HOUSEHOLD, Math.max(1, Number(value) || 1));
-              const nextTargets = Array.from({ length: next }, (_, index) => (
-                targets[index] ?? defaultTarget ?? ''
-              ));
-              onChange({
-                household: next,
-                targets: sameTarget ? nextTargets.map(() => defaultTarget ?? '') : nextTargets,
-                error: '',
-              });
-            }}
-          />
+                <ul className={styles.personList}>
+                  {Array.from({ length: household }, (_, index) => (
+                    <PersonTargetRow
+                      key={index}
+                      index={index}
+                      value={targets[index] ?? ''}
+                      disabled={isRunning || (sameTarget && household > 1)}
+                      invalid={(!sameTarget || household === 1) && missingTargetIndex === index}
+                      onChange={(value) => {
+                        const nextTargets = [...targets];
+                        nextTargets[index] = value;
+                        onChange({ targets: nextTargets, error: '' });
+                      }}
+                      onBlur={() => {
+                        const current = targets[index];
+                        if (current === '' || current === null || current === undefined) return;
+                        const clamped = clampPersonTarget(current);
+                        if (clamped === current) return;
+                        const nextTargets = [...targets];
+                        nextTargets[index] = clamped;
+                        onChange({ targets: nextTargets });
+                      }}
+                    />
+                  ))}
+                </ul>
+                <p className={styles.targetNote}>
+                  <i className="bi bi-info-circle" aria-hidden="true" />
+                  {household === 1
+                    ? 'Mục tiêu hôm nay của bạn, tính bằng kcal/người/ngày — giá trị ngoài khoảng hợp lệ sẽ tự điều chỉnh.'
+                    : sameTarget
+                      ? 'Bỏ chọn để nhập mục tiêu riêng cho từng người.'
+                      : 'Mục tiêu tính bằng kcal/người/ngày — giá trị ngoài khoảng hợp lệ sẽ được tự điều chỉnh.'}
+                </p>
+              </div>
 
-          {household > 1 ? (
-            <div className={styles.sameTargetBlock}>
-              <Checkbox
-                checked={sameTarget}
-                disabled={isRunning || !defaultTarget}
-                onChange={(checked) => onChange({
-                  sameTarget: checked,
-                  targets: checked
-                    ? Array.from({ length: household }, () => defaultTarget ?? '')
-                    : targets,
-                  error: '',
-                })}
-              >
-                Cả {household} người dùng cùng mục tiêu {sameTargetText}
-              </Checkbox>
+              <div className={styles.randomSummary}>
+                {perPersonTarget ? (
+                  household > 1 ? (
+                    <>
+                      <span className={styles.summaryStat}>
+                        <small>Cả nhà</small>
+                        <strong>{formatKcal(householdTotal)} <em>kcal/ngày</em></strong>
+                      </span>
+                      <span className={styles.summaryStat}>
+                        <small>Trung bình</small>
+                        <strong>{formatKcal(perPersonTarget)} <em>kcal/người/ngày</em></strong>
+                      </span>
+                      <span className={styles.summaryStat}>
+                        <small>Chia {meals} bữa</small>
+                        <strong>{formatKcal(perMealPerPerson)} <em>kcal/người/bữa</em></strong>
+                        <small className={styles.summarySub}>Cả nhà {formatKcal(perMealHousehold)} kcal/bữa</small>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className={styles.summaryStat}>
+                        <small>Mục tiêu của bạn</small>
+                        <strong>{formatKcal(perPersonTarget)} <em>kcal/ngày</em></strong>
+                      </span>
+                      <span className={styles.summaryStat}>
+                        <small>Chia {meals} bữa</small>
+                        <strong>{formatKcal(perMealPerPerson)} <em>kcal/bữa</em></strong>
+                      </span>
+                    </>
+                  )
+                ) : (
+                  <span className={styles.summaryEmpty}>Nhập mục tiêu calo cho từng người để xem tổng cả nhà.</span>
+                )}
+              </div>
+            </fieldset>
 
-              <ul className={styles.personList}>
-                {Array.from({ length: household }, (_, index) => (
-                  <PersonTargetRow
-                    key={index}
-                    index={index}
-                    value={targets[index] ?? ''}
-                    disabled={isRunning || sameTarget}
-                    onChange={(value) => {
-                      const nextTargets = [...targets];
-                      nextTargets[index] = value;
-                      onChange({ targets: nextTargets, error: '' });
-                    }}
-                  />
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <p className={styles.randomHint}>
-              <i className="bi bi-info-circle" aria-hidden="true" />{' '}
-              Dùng mục tiêu hiện tại của bạn: <strong>{sameTargetText}</strong>.
-            </p>
-          )}
-
-          <div className={styles.randomSummary}>
-            {perPersonTarget ? (
-              household > 1 ? (
-                <>
-                  <span>
-                    Cả nhà <strong>{formatKcal(householdTotal)}</strong> kcal/ngày
-                  </span>
-                  <span>
-                    Trung bình <strong>{formatKcal(perPersonTarget)}</strong> kcal/người/ngày
-                  </span>
-                  <span>
-                    Chia {meals} bữa: <strong>{formatKcal(perMealHousehold)}</strong> kcal/bữa cho cả nhà
-                    {' ≈ '}
-                    <strong>{formatKcal(perMealPerPerson)}</strong> kcal/người/bữa
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span>
-                    <strong>{formatKcal(perPersonTarget)}</strong> kcal/ngày
-                  </span>
-                  <span>
-                    Chia {meals} bữa: <strong>{formatKcal(perMealPerPerson)}</strong> kcal/bữa
-                  </span>
-                </>
-              )
-            ) : (
-              <span>Nhập mục tiêu calo cho từng người để xem tổng cả nhà.</span>
-            )}
-          </div>
-        </fieldset>
-
-        <Checkbox
-          checked={replace}
-          disabled={isRunning}
-          onChange={(checked) => onChange({ replace: checked, error: '' })}
-          hint="Bỏ trống: chỉ điền vào các bữa còn trống, giữ món đã chọn."
-        >
-          Xóa món hiện có trước khi random
-        </Checkbox>
+            <Checkbox
+              checked={replace}
+              disabled={isRunning}
+              onChange={(checked) => onChange({ replace: checked, error: '' })}
+              hint="Bỏ trống: chỉ điền vào các bữa còn trống, giữ món đã chọn."
+            >
+              Xóa món hiện có trước khi random
+            </Checkbox>
+          </>
+        )}
 
         {error ? <p className={styles.randomDaysError} role="alert">{error}</p> : null}
       </div>
@@ -589,6 +652,8 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const [selectedDate, setSelectedDate] = useState(() => getVietnamDateKey(new Date()));
   const [days, setDays] = useState([]);
   const [healthProfile, setHealthProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [savingKey, setSavingKey] = useState('');
   const [removingId, setRemovingId] = useState('');
@@ -602,7 +667,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const randomizingRef = useRef(false);
   const [randomModalOpen, setRandomModalOpen] = useState(false);
   const [randomForm, setRandomForm] = useState({
-    days: [], household: 1, sameTarget: true, targets: [], replace: false, error: '',
+    days: [], others: 0, sameTarget: true, targets: [], replace: false, error: '',
   });
   const toast = useToast();
 
@@ -617,9 +682,13 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const selectedPlan = selectedDay.plan;
   const planItems = useMemo(() => selectedPlan?.items ?? [], [selectedPlan]);
   const totalCalories = sumCalories(planItems);
-  const rawTargetCalories = selectedPlan?.targetCaloriesKcal
-    ?? healthProfile?.targetCalories
-    ?? healthProfile?.targetCaloriesKcal;
+
+  // Mục tiêu lấy từ hồ sơ sức khỏe: chưa điền hồ sơ ⇒ không có mục tiêu ⇒ không random được.
+  const rawProfileTarget = healthProfile?.targetCalories ?? healthProfile?.targetCaloriesKcal;
+  const profileTargetValue = Number(rawProfileTarget);
+  const profileTarget = Number.isFinite(profileTargetValue) && profileTargetValue > 0 ? profileTargetValue : null;
+
+  const rawTargetCalories = selectedPlan?.targetCaloriesKcal ?? profileTarget;
   const targetCaloriesValue = Number(rawTargetCalories);
   const targetCalories = Number.isFinite(targetCaloriesValue) && targetCaloriesValue > 0
     ? targetCaloriesValue
@@ -637,9 +706,12 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     : targetCalories;
   // Món lưu kcal mỗi suất → tổng đã chọn của cả nhà = mỗi suất × số người.
   const householdConsumedKcal = totalCalories * householdSize;
-  const perMealHouseholdKcal = householdTargetKcal ? householdTargetKcal / mealsPerDay : null;
   const perMealPerPersonKcal = perPersonTargetKcal ? perPersonTargetKcal / mealsPerDay : null;
+  // BR-09 (Google Sheet, ID19): mục tiêu lấy từ thực đơn, không có mới lấy từ hồ sơ
+  // → chỉ chặn random khi CẢ HAI đều không có mục tiêu calo.
+  const canRandomize = Boolean(targetCalories);
   const canEditSelectedDate = !isPastDate(selectedDate);
+  const remainingKcal = perPersonTargetKcal ? perPersonTargetKcal - totalCalories : null;
   const caloriePercentage = perPersonTargetKcal && totalCalories > 0 && planItems.length
     ? (totalCalories / perPersonTargetKcal) * 100
     : null;
@@ -693,12 +765,20 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
 
   useEffect(() => {
     const controller = new AbortController();
+    setProfileLoading(true);
+    setProfileError('');
     getHealthProfile({ signal: controller.signal })
       .then(({ profile }) => {
         if (!controller.signal.aborted) setHealthProfile(profile);
       })
       .catch((error) => {
-        if (error.name !== 'AbortError') setNotice({ tone: 'alert', message: error.message || 'Không tải được hồ sơ sức khỏe.' });
+        if (error.name !== 'AbortError') {
+          setProfileError(error.message || 'Không tải được hồ sơ sức khỏe.');
+          setNotice({ tone: 'alert', message: error.message || 'Không tải được hồ sơ sức khỏe.' });
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setProfileLoading(false);
       });
     return () => controller.abort();
   }, []);
@@ -827,7 +907,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
   const openRandomModal = () => {
     setRandomForm({
       days: [],
-      household: 1,
+      others: 0,
       sameTarget: true,
       targets: defaultTarget ? [defaultTarget] : [''],
       replace: false,
@@ -845,8 +925,11 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
 
   const handleRandomize = async () => {
     if (randomizingRef.current || isSaving) return;
+    // Không có mục tiêu calo nào (hồ sơ lẫn thực đơn) → modal đang hiện thông báo + link, không submit.
+    if (!canRandomize) return;
 
-    const { days: pickedDates, household, sameTarget, targets, replace } = randomForm;
+    const { days: pickedDates, others, sameTarget, targets, replace } = randomForm;
+    const household = Number(others) + 1;
     const selectedDates = pickedDates.filter((date) => randomWeekDays.some((day) => day.date === date && !day.isPast));
 
     if (selectedDates.length === 0) {
@@ -855,13 +938,17 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     }
 
     const finalTargets = Array.from({ length: household }, (_, index) => (
-      sameTarget || household === 1 ? defaultTarget : Number(targets[index])
+      household === 1
+        ? Number(targets[0] ?? defaultTarget)
+        : (sameTarget ? Number(defaultTarget) : Number(targets[index]))
     ));
 
-    if (finalTargets.some((value) => !Number.isInteger(value) || value < MIN_PERSON_TARGET || value > MAX_PERSON_TARGET)) {
-      patchRandomForm({ error: `Mục tiêu calo mỗi người phải từ ${formatKcal(MIN_PERSON_TARGET)} đến ${formatKcal(MAX_PERSON_TARGET)} kcal.` });
+    if (finalTargets.some((value) => !Number.isFinite(value) || value <= 0)) {
+      patchRandomForm({ error: 'Nhập mục tiêu calo cho từng người trước khi random.' });
       return;
     }
+
+    const clampedTargets = finalTargets.map((value) => clampPersonTarget(value));
 
     randomizingRef.current = true;
     setIsRandomizing(true);
@@ -879,7 +966,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
 
           const response = await mealPlanService.randomize(plan.id, {
             householdSize: household,
-            personTargets: finalTargets,
+            personTargets: clampedTargets,
             replace,
           });
           const newItems = (response.items ?? []).map(normalizeItem).filter(Boolean);
@@ -893,7 +980,7 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
               planDate: date,
               targetCaloriesKcal: response.targetCaloriesKcal ?? planToUpdate.targetCaloriesKcal ?? null,
               householdSize: Number(response.householdSize ?? household) || 1,
-              personTargets: Array.isArray(response.personTargets) ? response.personTargets : finalTargets,
+              personTargets: Array.isArray(response.personTargets) ? response.personTargets : clampedTargets,
               items: sortItems([...base, ...newItems]),
             };
           });
@@ -919,53 +1006,67 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
     }
   };
 
+  const todayKey = getVietnamDateKey(new Date());
+  const selectedDateLabel = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(parseDateKey(selectedDate));
+
   return (
     <MemberLayout activeKey="meal-plan" user={user} accountMenu={accountMenu}>
       <main className={styles.page}>
-        <header className={styles.pageHeader}>
-          <div className={styles.headerRow}>
-            <div>
-              <p className={styles.headerEyebrow}>Thực đơn AI</p>
-              <h1>Hôm nay bạn ăn gì?</h1>
-            </div>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="primary"
-              icon="calendar2-check"
-              disabled={isSaving}
-              onClick={openRandomModal}
-            >
-              Random món ăn theo ngày
-            </Button>
-          </div>
-
-          <div className={styles.summaryStrip}>
-            <span>{new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(parseDateKey(selectedDate))}</span>
-            {householdSize > 1 ? (
-              <span className={styles.householdChip}>
-                <i className="bi bi-people" aria-hidden="true" /> {householdSize} người
+        <header className={styles.hero}>
+          <div className={styles.heroText}>
+            <p className={styles.eyebrow}>
+              <i className="bi bi-calendar2-week" aria-hidden="true" /> Thực đơn
+            </p>
+            <h1 className={styles.heroTitle}>Hôm nay bạn ăn gì?</h1>
+            <div className={styles.heroMeta}>
+              <span><i className="bi bi-calendar3" aria-hidden="true" /> {selectedDateLabel}</span>
+              <span className={styles.heroDivider} aria-hidden="true" />
+              <span>
+                <i className="bi bi-people" aria-hidden="true" />{' '}
+                {householdSize > 1 ? `${householdSize} người ăn chung` : 'Chỉ mình bạn'}
               </span>
-            ) : null}
+            </div>
           </div>
+
+          <Button
+            type="button"
+            variant="primary"
+            icon="shuffle"
+            disabled={isSaving}
+            onClick={openRandomModal}
+          >
+            Random món ăn theo ngày
+          </Button>
         </header>
 
         <WeekPicker
           weekStart={weekStart}
           selectedDate={selectedDate}
+          todayKey={todayKey}
           dayHasItems={(key) => Boolean(days.find((day) => day.date === key)?.plan?.items?.length)}
           onWeekChange={setWeekStart}
           onSelectDate={setSelectedDate}
         />
 
         <section className={styles.calorieCard} aria-label="Tổng calo trong ngày">
+          <div className={styles.calorieHead}>
+            <span className={styles.sectionLabel}>
+              <i className="bi bi-fire" aria-hidden="true" /> Calo đã chọn
+            </span>
+            <span className={styles.chip}>
+              <i className="bi bi-people" aria-hidden="true" /> {householdSize} người
+            </span>
+          </div>
+
           <div className={styles.calorieMain}>
             <span className={styles.calorieNow}>{formatKcal(totalCalories)}</span>
             <span className={styles.calorieTarget}>
               / {perPersonTargetKcal ? formatKcal(perPersonTargetKcal) : '—'} kcal/người/ngày
             </span>
           </div>
+
           <div
             className={styles.calorieTrack}
             role="progressbar"
@@ -979,28 +1080,43 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
               style={{ width: `${Math.min(100, caloriePercentage ?? 0)}%` }}
             />
           </div>
-          <div className={styles.calorieMeta}>
-            <span>
-              {perPersonTargetKcal
-                ? (totalCalories > perPersonTargetKcal
-                  ? `Vượt ${formatKcal(totalCalories - perPersonTargetKcal)} kcal/người`
-                  : `Còn ${formatKcal(perPersonTargetKcal - totalCalories)} kcal/người`)
-                : 'Chưa có mục tiêu calo'}
-            </span>
-            {householdSize > 1 && householdTargetKcal ? (
-              <span>
-                Cả nhà: {formatKcal(householdConsumedKcal)} / {formatKcal(householdTargetKcal)} kcal/ngày
+
+          <div className={styles.calorieStats}>
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Còn lại / người</span>
+              <span className={`${styles.statValue} ${remainingKcal !== null && remainingKcal < 0 ? styles.statValueOver : ''}`}>
+                {remainingKcal === null
+                  ? '—'
+                  : remainingKcal < 0
+                    ? `Vượt ${formatKcal(Math.abs(remainingKcal))}`
+                    : formatKcal(remainingKcal)}
+                <small> kcal</small>
               </span>
-            ) : null}
+            </div>
+
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>Mỗi bữa / người</span>
+              <span className={styles.statValue}>
+                {perMealPerPersonKcal ? formatKcal(perMealPerPersonKcal) : '—'}
+                <small> kcal · {mealsPerDay} bữa</small>
+              </span>
+            </div>
+
+            <div className={styles.stat}>
+              <span className={styles.statLabel}>{householdSize > 1 ? 'Cả nhà / ngày' : 'Mục tiêu / ngày'}</span>
+              <span className={styles.statValue}>
+                {householdSize > 1 && householdTargetKcal
+                  ? <>{formatKcal(householdConsumedKcal)}<small> / {formatKcal(householdTargetKcal)} kcal</small></>
+                  : <>{perPersonTargetKcal ? formatKcal(perPersonTargetKcal) : '—'}<small> kcal</small></>}
+              </span>
+            </div>
           </div>
-          {perMealHouseholdKcal ? (
-            <p className={styles.calorieSplit}>
-              <i className="bi bi-pie-chart" aria-hidden="true" />
-              Chia {mealsPerDay} bữa:{' '}
-              <strong>{formatKcal(perMealHouseholdKcal)} kcal/bữa</strong>
-              {householdSize > 1 ? (
-                <> cho cả nhà ≈ <strong>{formatKcal(perMealPerPersonKcal)} kcal/người/bữa</strong></>
-              ) : null}
+
+          {!canRandomize && !profileLoading ? (
+            <p className={styles.calorieHint}>
+              <i className="bi bi-info-circle" aria-hidden="true" />
+              Chưa có mục tiêu calo.{' '}
+              <a href={HEALTH_PROFILE_HREF}>Điền hồ sơ sức khỏe</a> để hệ thống tính mục tiêu mỗi ngày.
             </p>
           ) : null}
         </section>
@@ -1018,7 +1134,10 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
         ) : null}
 
         {isLoading ? (
-          <div className={styles.loading}>Đang tải thực đơn…</div>
+          <div className={styles.loading}>
+            <span className={styles.loadingDot} aria-hidden="true" />
+            Đang tải thực đơn…
+          </div>
         ) : (
           <section className={styles.slotGrid} aria-label="Các bữa ăn trong ngày" aria-busy={isSaving}>
             {SLOT_ORDER.map((slot) => (
@@ -1062,6 +1181,9 @@ export default function MealPlanPage({ user = null, accountMenu = [] }) {
         form={randomForm}
         weekDays={randomWeekDays}
         defaultTarget={defaultTarget}
+        canRandomize={canRandomize}
+        profileLoading={profileLoading}
+        profileError={profileError}
         mealsPerDay={mealsPerDay}
         isRunning={isRandomizing}
         onChange={patchRandomForm}
