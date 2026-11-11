@@ -321,6 +321,8 @@ async function turnV3(req, res) {
   let aiGenerated = false;
   // Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn nhãn AI tạo.
   let recipeExcludedByAllergy = false;
+  // Khoi's code (11/11/2026): tên công thức bị loại + nguyên liệu trùng dị ứng để AI nói đúng, không kết luận "không có".
+  let excludedRecipe = null;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -532,6 +534,8 @@ async function turnV3(req, res) {
               ?? await chatContextModel.findRecipeSourceByQuestion(scoped.allowedText);
             if (found && chatContextModel.excludeAllergens([found], health?.allergies ?? []).length === 0) {
               recipeExcludedByAllergy = true;
+              excludedRecipe = { title: found.title,
+                allergens: chatContextModel.matchedAllergens(found, health?.allergies ?? []) };
               found = null;
             }
           }
@@ -577,6 +581,10 @@ async function turnV3(req, res) {
       const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
         greenBowl, recipeSource: recipeSourceNote, // Khoi's code (06/11/2026): khối công thức nguồn cho câu "cách làm"
         recipeExcludedByAllergy, // Khoi's code (06/11/2026): công thức có nhưng chứa nguyên liệu dị ứng
+        excludedRecipe,
+        // Khoi's code (11/11/2026): danh sách công thức chỉ là vài món liên quan, đã lọc theo dị ứng trong hồ sơ.
+        greenBowlInfo: greenBowl?.kind === 'recipes'
+          ? { partialList: true, allergyFiltered: Boolean(health?.allergies?.length) } : null,
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);

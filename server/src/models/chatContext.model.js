@@ -23,6 +23,15 @@ function excludeAllergens(items = [], allergies = []) {
   });
 }
 
+// Khoi's code (11/11/2026): tên các nguyên liệu của MỘT công thức trùng dị ứng (cùng cách so khớp với excludeAllergens),
+// để Mầm nói được "công thức này có Hành lá" thay vì chỉ biết là bị loại.
+function matchedAllergens(item, allergies = []) {
+  const needles = [...new Set((Array.isArray(allergies) ? allergies : []).map(plain).filter(Boolean))];
+  if (!needles.length) return [];
+  return [...new Set((item?.ingredientNames ?? []).map((name) => String(name ?? '').trim())
+    .filter((name) => name && needles.some((needle) => plain(name).includes(needle))))];
+}
+
 /**
  * Công thức đã duyệt (món active) khớp không dấu theo tiêu đề / tên món / tên nguyên liệu.
  * Không có keyword → trả công thức nhiều tim nhất. Dị ứng: loại ở JS trước khi cắt `limit`.
@@ -169,4 +178,4 @@ async function findTodayMealPlan(accountId) {
 }
 
 module.exports = { findRecipesForChat, findRecipeSourceByQuestion, findRecipeDetailForChat, findOpenShops,
-  findTodayMealPlan, excludeAllergens, plain };
+  findTodayMealPlan, excludeAllergens, matchedAllergens, plain };

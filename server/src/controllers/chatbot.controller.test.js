@@ -626,9 +626,23 @@ test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAlle
     .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
   assert.equal(data.recipeExcludedByAllergy, true);
   assert.equal(data.recipeSource, null);
+  // Khoi's code (11/11/2026): AI nhận tên công thức + nguyên liệu trùng dị ứng, không chỉ một cờ true/false.
+  assert.deepEqual(data.excludedRecipe, { title: 'Đậu hũ sốt cà chua', allergens: ['Đậu nành'] });
+  assert.deepEqual(data.greenBowlInfo, { partialList: true, allergyFiltered: true });
   const frames = events(res);
   assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
   assert.ok(frames.find((frame) => frame.name === 'done'));
+});
+
+test('turnV3 không bị loại do dị ứng: excludedRecipe là null', async () => {
+  const stub = stubHowTo({ cookDish: null });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
+  const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.equal(data.excludedRecipe, null);
+  assert.equal(data.greenBowlInfo.partialList, true);
 });
 
 // Khoi's code (06/11/2026): câu không có chữ "làm/nấu" — classifier trả cookDish, tìm nguồn bằng tên món trước.
