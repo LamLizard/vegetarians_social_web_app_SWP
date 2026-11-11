@@ -25,14 +25,10 @@
 .brand:hover { text-decoration: none; }
 .brand { display: inline-flex; flex: 1; align-items: center; gap: 10px; min-width: 0; padding-left: 6px; color: var(--v-text); text-decoration: none; }
 .mark {
-  display: grid;
   flex: none;
-  place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 11px 4px 11px 4px;
-  background: var(--v-accent);
-  color: var(--v-surface);
+  object-fit: cover;
 }
 .name { overflow: hidden; font-size: 1.1rem; font-weight: 800; letter-spacing: -0.03em; white-space: nowrap; }
 .toggle, .closeMobile {

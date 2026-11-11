@@ -29,7 +29,7 @@
   border-bottom: 1px solid var(--mam-line);
 }
 .identity { display: flex; align-items: center; gap: var(--mam-space-sm); min-width: 0; }
-.identityMark { flex: none; width: 46px; height: 46px; }
+.identityMark { flex: none; width: 46px; height: 46px; object-fit: cover; }
 .header h1 { margin: 0; color: var(--mam-ink); font-size: 1.05rem; font-weight: 700; line-height: 1.25; overflow-wrap: break-word; min-width: 0; }
 .header p { margin: 4px 0 0; color: var(--mam-muted); font-size: .8rem; }
 .quota { flex: none; color: var(--mam-muted); font-size: .8rem; font-variant-numeric: tabular-nums; }
@@ -38,7 +38,7 @@
 .thread { flex: 1; width: 100%; min-height: 0; max-height: none; }
 .sessionStatus { margin: auto; color: var(--mam-muted); text-align: center; }
 .empty { display: flex; flex: 1 0 auto; flex-direction: column; justify-content: center; align-items: center; max-width: 680px; margin: auto; padding: var(--mam-space-lg) 0; text-align: center; }
-.illustration { width: 82px; height: 82px; margin-bottom: var(--mam-space-lg); }
+.illustration { width: 82px; height: 82px; margin-bottom: var(--mam-space-lg); object-fit: cover; }
 .empty h2 { margin: 0; color: var(--mam-ink); font-size: clamp(1.35rem, 2vw, 1.8rem); font-weight: 700; line-height: 1.25; text-wrap: balance; overflow-wrap: break-word; min-width: 0; }
 .empty p { max-width: 32rem; margin: var(--mam-space-sm) 0 var(--mam-space-lg); color: var(--mam-muted); line-height: 1.6; }
 .empty > small { margin-top: var(--mam-space-md); color: var(--mam-muted); }
@@ -48,7 +48,7 @@
 .suggestions button:active, .retry:active { transform: translateY(1px); }
 .messageBot { display: flex; align-items: flex-end; gap: var(--mam-space-xs); width: min(100%, 880px); margin-inline: auto; }
 .messageUser { width: min(100%, 880px); margin-inline: auto; }
-.messageAvatar { flex: none; width: 34px; height: 34px; margin-bottom: 2px; }
+.messageAvatar { flex: none; width: 34px; height: 34px; margin-bottom: 2px; object-fit: cover; }
 .messageBody { position: relative; flex: 1; min-width: 0; }
 .botBubble > span:first-child { display: none; }
 .replyText { white-space: normal; }
