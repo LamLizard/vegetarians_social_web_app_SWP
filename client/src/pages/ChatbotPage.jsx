@@ -13,6 +13,7 @@ import ChatDiscoveryResult from './ChatDiscoveryResult';
 import ChatSourceCard from './ChatSourceCard';
 import ChatResultCards from './ChatResultCards';
 import { AI_NAME } from '../constants/domain';
+import logo from '../assets/logo-for-all.png';
 import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
 import { AUTH_TOKEN_KEY } from '../services/api';
@@ -111,16 +112,7 @@ function rememberClock(ref, availability) {
 }
 
 function MamAvatar({ className = '' }) {
-  return (
-    <svg className={className} viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-      <circle cx="32" cy="32" r="31" fill="var(--v-accent-soft)" />
-      <path d="M15 33c0-9.4 7.6-17 17-17s17 7.6 17 17v4c0 9.4-7.6 17-17 17s-17-7.6-17-17z" fill="var(--v-accent)" />
-      <path d="M32 17c-1-8-7-10-12-9 0 7 4 11 12 11m0-2c1-7 6-10 12-9 0 6-4 10-12 11" fill="var(--v-accent)" />
-      <circle cx="25.5" cy="34" r="1.8" fill="var(--ac-on-accent)" />
-      <circle cx="38.5" cy="34" r="1.8" fill="var(--ac-on-accent)" />
-      <path d="M27.5 41c2.7 2.4 6.3 2.4 9 0" fill="none" stroke="var(--ac-on-accent)" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+  return <img className={className} src={logo} alt="" />;
 }
 
 // Khoi's code (01/11/2026): mở từ khối "Hỏi Mầm" ở Bảng tin (/chatbot?ask=<câu hỏi>) → điền sẵn câu vào ô chat, chỉ cần Enter để gửi.

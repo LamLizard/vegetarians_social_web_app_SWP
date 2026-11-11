@@ -13,7 +13,7 @@
 
 /* ================= Logo ================= */
 .logo { display: inline-flex; flex: none; align-items: center; gap: 0.55rem; color: var(--ac-ink); text-decoration: none; }
-.logoMark { display: grid; place-items: center; border-radius: 14px 5px 14px 5px; background: var(--ac-moss); color: var(--ac-logo-leaf); }
+.logoMark { object-fit: cover; }
 .logoName { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; }
 
 /* ================= Dock trái ================= */
