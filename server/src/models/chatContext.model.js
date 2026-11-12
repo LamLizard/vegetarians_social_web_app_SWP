@@ -34,29 +34,41 @@ function matchedAllergens(item, allergies = []) {
 
 /**
  * Công thức đã duyệt (món active) khớp không dấu theo tiêu đề / tên món / tên nguyên liệu.
- * Không có keyword → trả công thức nhiều tim nhất. Dị ứng: loại ở JS trước khi cắt `limit`.
+ * Không có keyword ("cho tôi 3 món bất kì") → chọn ngẫu nhiên trong công thức đã duyệt. Dị ứng: loại ở JS trước khi cắt `limit`.
  */
 // Khoi's code (11/11/2026): withIngredients=true giữ lại ingredientNames để Mầm tự đối chiếu dị ứng (mặc định vẫn bỏ).
-async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies = [], withIngredients = false } = {}) {
+// Khoi's code (13/11/2026): fillToLimit=true → món khớp từ khoá đứng trước, thiếu thì bù công thức khác (ngẫu nhiên)
+// cho đủ `limit` ứng viên; Mầm chọn trong danh sách này theo câu hỏi + mục tiêu.
+async function findRecipesForChat(keywords = [], {
+  limit = 3, excludeAllergies = [], withIngredients = false, fillToLimit = false,
+} = {}) {
   // Khoi's code (06/11/2026): khớp MAX_RECIPE_TERMS bên controller (tối đa 6 term).
+  // Khoi's code (13/11/2026): chỉ giữ chữ/số/khoảng trắng để term dùng an toàn trong regex bên dưới.
   const terms = [...new Set((Array.isArray(keywords) ? keywords : [keywords])
-    .map((keyword) => String(keyword ?? '').trim()).filter(Boolean))].slice(0, 6);
+    .map((keyword) => String(keyword ?? '').replace(/[^\p{L}\p{N}\s]+/gu, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean))].slice(0, 6);
   const params = [];
+  // Khoi's code (13/11/2026): khớp TRỌN TỪ thay vì chuỗi con — "hiện" bỏ dấu là "hien" từng khớp nhầm "Cơm cHIEN".
+  const hasWord = (haystack, needle) => `${fold(haystack)} ~ ('(^|[^a-z0-9])' || ${needle} || '([^a-z0-9]|$)')`;
   const conditions = terms.map((term) => {
     params.push(term);
     const index = params.length;
     const needle = fold(`$${index}`);
-    return `(position(${needle} in ${fold('r.title')}) > 0
-        OR position(${needle} in ${fold('d.name')}) > 0
+    return `(${hasWord('r.title', needle)}
+        OR ${hasWord('d.name', needle)}
         OR EXISTS (SELECT 1 FROM public.recipe_ingredient ri
             JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
-          WHERE ri.recipe_id = r.recipe_id AND position(${needle} in ${fold('ing.name')}) > 0))`;
+          WHERE ri.recipe_id = r.recipe_id AND ${hasWord('ing.name', needle)}))`;
   });
-  const match = conditions.length ? `AND (${conditions.join(' OR ')})` : '';
+  const match = conditions.length && !fillToLimit ? `AND (${conditions.join(' OR ')})` : '';
   // Khoi's code (06/11/2026): xếp theo SỐ term khớp (nhiều hơn đứng trước) rồi mới tới lượt thích.
   const score = conditions.length
     ? `(${conditions.map((condition) => `(CASE WHEN ${condition} THEN 1 ELSE 0 END)`).join(' + ')})`
-    : '0';
+    : null;
+  // Khoi's code (12/11/2026): "ORDER BY 0" bị Postgres hiểu là cột thứ 0 → lỗi, nên nhánh không từ khoá chưa từng chạy được.
+  // Không từ khoá = người dùng xin món bất kì → ngẫu nhiên để mỗi lần hỏi ra món khác.
+  const order = !score ? 'random()'
+    : fillToLimit ? `${score} DESC, random()` : `${score} DESC, "likeCount" DESC, r.recipe_id DESC`;
   const { rows } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, d.name AS "dishName",
       r.thumbnail_url AS "thumbnailUrl", r.calories_kcal AS "caloriesKcal",
@@ -68,7 +80,7 @@ async function findRecipesForChat(keywords = [], { limit = 3, excludeAllergies =
     FROM public.recipe r
     JOIN public.dish d ON d.dish_id = r.dish_id AND d.status = 'active'
     WHERE r.status = 'approved' ${match}
-    ORDER BY ${score} DESC, "likeCount" DESC, r.recipe_id DESC
+    ORDER BY ${order}
     LIMIT ${RECIPE_SCAN_LIMIT}
   `, params);
   return excludeAllergens(rows, excludeAllergies)

@@ -76,3 +76,23 @@ test('findRecipesForChat: nhận tối đa 6 term, tham số SQL khớp số ter
   assert.ok(captured.sql.includes('$6'));
   assert.equal(captured.sql.includes('$7'), false);
 });
+
+// Khoi's code (13/11/2026): khớp trọn từ (không còn "hien" khớp "chien"); fillToLimit bỏ điều kiện lọc để bù món khác.
+test('findRecipesForChat: khớp trọn từ; fillToLimit không lọc mà xếp món khớp trước', async () => {
+  const pool = require('../config/db');
+  const original = pool.query;
+  const calls = [];
+  pool.query = async (sql, params) => { calls.push({ sql, params }); return { rows: [] }; };
+  try {
+    await findRecipesForChat(['đậu hũ (non)'], { limit: 3 });
+    await findRecipesForChat(['đậu hũ'], { limit: 10, fillToLimit: true });
+  } finally {
+    pool.query = original;
+  }
+  assert.equal(calls[0].params[0], 'đậu hũ non');
+  assert.ok(calls[0].sql.includes("'(^|[^a-z0-9])'"));
+  assert.equal(calls[0].sql.includes('position('), false);
+  assert.ok(/WHERE r\.status = 'approved' AND \(/.test(calls[0].sql));
+  assert.equal(/WHERE r\.status = 'approved' AND \(/.test(calls[1].sql), false);
+  assert.ok(calls[1].sql.includes('DESC, random()'));
+});

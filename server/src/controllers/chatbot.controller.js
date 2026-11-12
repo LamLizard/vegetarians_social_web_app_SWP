@@ -39,15 +39,37 @@ const RECIPE_STOPWORDS = new Set(['mon', 'chay', 'minh', 'nen', 'an', 'gi', 'cho
   // Khoi's code (06/11/2026): tính từ khen chung không phải tên món ("hủ tiếu ăn với gì ngon").
   'ngon',
   // Khoi's code (06/11/2026): từ hỏi định lượng/khẩu phần — "định" bỏ dấu thành "dinh" khớp nhầm "Men dinh dưỡng".
-  'dinh', 'luong', 'ntn', 'khau', 'phan', 'gram', 'kcal']);
+  'dinh', 'luong', 'ntn', 'khau', 'phan', 'gram', 'kcal',
+  // Khoi's code (12/11/2026): câu xin món chung ("3 món bất kì trong green bowl", "món ngẫu nhiên có công thức")
+  // không chứa tên món → không được thành từ khoá, để server chọn ngẫu nhiên công thức đã duyệt.
+  // Không thêm từ trùng tên nguyên liệu khi bỏ dấu: "dua" (dừa), "tim" (khoai tím), "ma" (rau má).
+  'green', 'bowl', 'cong', 'thuc', 'ngau', 'nhien', 'bat', 'ki', 'ky', 'thoi', 'di', 'xin', 'ngay', 'luon', 'nua', 'khac']);
 const MAX_RECIPE_TERMS = 6;
+// Khoi's code (13/11/2026): cụm nói về mục tiêu/hồ sơ, không phải tên món ("…hồ sơ sức khoẻ… để giảm cân").
+// So trên chữ CÓ dấu nên không đụng tên nguyên liệu trùng khi bỏ dấu (giảm cân ≠ giấm, cần tây).
+const GOAL_PHRASES = ['hồ sơ sức khoẻ', 'hồ sơ sức khỏe', 'hồ sơ', 'sức khoẻ', 'sức khỏe', 'hiện tại', 'mục tiêu',
+  'giảm cân', 'tăng cân', 'giữ cân', 'tăng cơ', 'giảm mỡ', 'ăn kiêng'];
+const RECIPE_CANDIDATES = 10; // số công thức ứng viên gửi Mầm chọn
+const MAX_RECIPE_CARDS = 3;
+// Khoi's code (13/11/2026): thẻ chỉ gồm công thức Mầm thật sự nhắc tên, theo thứ tự xuất hiện trong câu trả lời,
+// để người dùng không thấy món được nói tới mà không có thẻ (hoặc thẻ của món không được nói tới).
+function mentionedRecipes(answer, items = []) {
+  const text = chatContextModel.plain(answer).replace(/\s+/g, ' ');
+  return items
+    .map((item) => ({ item, at: text.indexOf(chatContextModel.plain(item.title).replace(/\s+/g, ' ').trim()) }))
+    .filter(({ item, at }) => at >= 0 && String(item.title ?? '').trim())
+    .sort((a, b) => a.at - b.at)
+    .slice(0, MAX_RECIPE_CARDS)
+    .map(({ item }) => item);
+}
 // Khoi's code (06/11/2026): ưu tiên cụm món của classifier, rồi cụm 2 từ liền nhau (vd "nước dừa"), rồi từ đơn.
 function recipeKeywords(intent, text) {
   const fromIntent = [intent.cookDish, intent.subject, ...(Array.isArray(intent.nearTerms) ? intent.nearTerms : [])]
     .filter((value) => typeof value === 'string' && value.trim());
   // Khoi's code (06/11/2026): hỏi cách làm một món → chỉ tách từ khoá từ TÊN MÓN, bỏ phần còn lại của câu
   // (khẩu phần, "định lượng", "làm ntn"… không phải tên món và dễ khớp nhầm nguyên liệu).
-  const source = typeof intent.cookDish === 'string' && intent.cookDish.trim() ? intent.cookDish : text;
+  let source = typeof intent.cookDish === 'string' && intent.cookDish.trim() ? intent.cookDish : text;
+  source = GOAL_PHRASES.reduce((value, phrase) => value.split(phrase).join(' '), String(source ?? '').toLowerCase());
   const tokens = String(source ?? '').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const usable = (token) => token.length >= 3 && !RECIPE_STOPWORDS.has(chatContextModel.plain(token));
   // Khoi's code (06/11/2026): cụm 2 từ nhận cả từ 2 chữ cái (hủ tiếu, mì xào, cá kho) — tên món tiếng Việt hay có;
@@ -517,12 +539,13 @@ async function turnV3(req, res) {
     if (expired()) return undefined;
     // Khoi's code (05/11/2026): dữ liệu thật của Green Bowl; lỗi DB thì bỏ qua dữ liệu, vẫn trả lời.
     let greenBowl = null;
+    let pickRecipeCards = false;
     if (answerNeeded && intent.needsGreenBowlData !== 'none') {
       try {
         phase = 'greenbowl_data';
         if (intent.needsGreenBowlData === 'recipes') {
-          const items = await chatContextModel.findRecipesForChat(recipeKeywords(intent, scoped.allowedText),
-            { limit: 3, excludeAllergies: health?.allergies ?? [], withIngredients: true });
+          const keywords = recipeKeywords(intent, scoped.allowedText);
+          const recipeOptions = { excludeAllergies: health?.allergies ?? [], withIngredients: true };
           // Khoi's code (06/11/2026): "cách làm món X" → tìm công thức của X trong TOÀN BỘ recipe đã duyệt,
           // không phụ thuộc 3 thẻ gợi ý; công thức bị loại do dị ứng thì không gắn nhãn "do AI tạo".
           // Khoi's code (06/11/2026): classifier trả cookDish (món cần cách làm) thay cho dò chữ trong câu hỏi.
@@ -554,12 +577,17 @@ async function turnV3(req, res) {
                 'Các bước:',
                 detail.instructions || '(chưa có)'].join('\n');
               // Thẻ "Công thức trên Green Bowl" của cùng lượt không chứa lại recipe nguồn.
-              const rest = items.filter((item) => item.id !== detail.id);
+              const items = await chatContextModel.findRecipesForChat(keywords, { ...recipeOptions, limit: 4 });
+              const rest = items.filter((item) => item.id !== detail.id).slice(0, 3);
               if (rest.length) greenBowl = { kind: 'recipes', items: rest };
             }
           }
           if (!recipeSourceCard) {
-            if (items.length) greenBowl = { kind: 'recipes', items };
+            // Khoi's code (13/11/2026): gửi ~10 ứng viên (khớp từ khoá trước, bù món khác), Mầm chọn tối đa 3 món hợp
+            // câu hỏi/mục tiêu; thẻ hiện đúng các món được nhắc tên (pickRecipeCards).
+            const items = await chatContextModel.findRecipesForChat(keywords,
+              { ...recipeOptions, limit: RECIPE_CANDIDATES, fillToLimit: true });
+            if (items.length) { greenBowl = { kind: 'recipes', items }; pickRecipeCards = true; }
             // Khoi's code (06/11/2026): chỉ gắn "do AI tạo" khi thật sự KHÔNG có công thức nào khớp.
             if (howToCook && !found && !recipeExcludedByAllergy) aiGenerated = true;
           }
@@ -584,7 +612,10 @@ async function turnV3(req, res) {
         excludedRecipe,
         // Khoi's code (11/11/2026): danh sách công thức chỉ là vài món liên quan, đã lọc theo dị ứng trong hồ sơ.
         greenBowlInfo: greenBowl?.kind === 'recipes'
-          ? { partialList: true, allergyFiltered: Boolean(health?.allergies?.length) } : null,
+          ? { partialList: true, allergyFiltered: Boolean(health?.allergies?.length),
+            ...(pickRecipeCards ? { pickUpTo: MAX_RECIPE_CARDS } : {}) } : null,
+        // Khoi's code (12/11/2026): có tìm công thức mà không thấy món nào khớp → Mầm nói ngắn rồi vẫn gợi ý, không đòi link.
+        recipesNotFound: intent.needsGreenBowlData === 'recipes' && !greenBowl && !recipeSourceCard,
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
@@ -615,8 +646,11 @@ async function turnV3(req, res) {
       // Khoi's code (05/11/2026): thẻ công thức/quán hiện dưới câu trả lời (qua lớp duyệt như mọi event khác).
       // Khoi's code (11/11/2026): ingredientNames chỉ dành cho AI; thẻ gửi về trình duyệt giữ đúng các trường cũ.
       if (greenBowl && greenBowl.kind !== 'mealplan') {
-        queueEvent('result', { kind: greenBowl.kind,
-          items: greenBowl.items.map(({ ingredientNames, ...item }) => item) });
+        const shown = pickRecipeCards ? mentionedRecipes(answerText, greenBowl.items) : greenBowl.items;
+        if (shown.length) {
+          queueEvent('result', { kind: greenBowl.kind,
+            items: shown.map(({ ingredientNames, ...item }) => item) });
+        }
       }
     }
     if (expired()) return undefined;
@@ -724,5 +758,5 @@ function startRequestCleanup() {
 
 module.exports = { availability, getDiscoveryPost, getMemberPost, verifyChatSession, verifySimpleChatSession, getQuota, getSimpleQuota, getGuestQuota, turnV3,
   // Khoi's code (06/11/2026): export để test phần chọn từ khoá tìm công thức.
-  recipeKeywords,
+  recipeKeywords, mentionedRecipes,
   startRequestCleanup };

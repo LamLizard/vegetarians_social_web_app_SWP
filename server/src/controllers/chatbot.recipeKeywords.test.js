@@ -62,3 +62,22 @@ test('không có cookDish: "định lượng"/"ntn" không thành từ khoá', (
   for (const stop of ['dinh', 'luong', 'dinh luong', 'ntn']) assert.equal(folded.includes(stop), false, stop);
   assert.ok(folded.includes('dau hu'), folded.join(' | '));
 });
+
+// Khoi's code (12/11/2026): câu xin món chung không sinh từ khoá → server chọn ngẫu nhiên công thức đã duyệt.
+test('câu xin món chung (green bowl, bất kì, ngẫu nhiên, công thức) → không có từ khoá', () => {
+  const none = { cookDish: null, subject: null, nearTerms: [] };
+  for (const text of ['cho tôi 3 món bất kì trong green bowl thôi mà', 'cho tôi 3 món ăn ngẫu nhiên đi',
+    'cho tôi gợi ý 3 món ăn có công thức trong green bowl để tôi nấu ăn']) {
+    assert.deepEqual(recipeKeywords(none, text), [], text);
+  }
+  // Tên món thật vẫn giữ: dừa, khoai tím, rau má.
+  assert.ok(recipeKeywords(none, 'chè khoai tím nước cốt dừa').includes('khoai tím'));
+  assert.ok(recipeKeywords(none, 'nước rau má').includes('rau má'));
+});
+
+// Khoi's code (13/11/2026): cụm mục tiêu/hồ sơ không thành từ khoá món; so trên chữ có dấu nên "giấm", "cần tây" vẫn giữ.
+test('cụm mục tiêu (hồ sơ sức khoẻ, giảm cân, hiện tại) không thành từ khoá món', () => {
+  const none = { cookDish: null, subject: null, nearTerms: [] };
+  assert.deepEqual(recipeKeywords(none, 'hiện tại với hồ sơ sức khoẻ của tôi thì tôi nên ăn những món nào để giảm cân'), []);
+  assert.ok(folds(recipeKeywords(none, 'gỏi cần tây trộn giấm')).includes('can tay'));
+});

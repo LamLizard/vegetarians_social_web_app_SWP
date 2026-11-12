@@ -257,7 +257,8 @@ test('turnV3: dữ liệu Green Bowl có thật → thẻ kết quả + dữ li�
   stubModel();
   chatContextModel.findRecipesForChat = async (keywords, options) => {
     // Khoi's code (11/11/2026): xin kèm nguyên liệu để AI đối chiếu dị ứng.
-    assert.deepEqual(options, { limit: 3, excludeAllergies: [], withIngredients: true });
+    // Khoi's code (13/11/2026): gửi ~10 ứng viên (bù món khác cho đủ), Mầm chọn tối đa 3.
+    assert.deepEqual(options, { limit: 10, excludeAllergies: [], withIngredients: true, fillToLimit: true });
     // Khoi's code (06/11/2026): "đậu hũ" giờ là một cụm (từ 2 chữ cái được ghép cụm), không tách "đậu" đứng riêng.
     assert.ok(keywords.includes('đậu hũ'), keywords.join(' | '));
     return [{ id: '40', title: 'Đậu hũ sốt cà chua', dishName: 'Đậu hũ', thumbnailUrl: 'https://x/y.png',
@@ -600,7 +601,7 @@ test('turnV3 "cách làm món X" bị lớp duyệt gạt: không phát thẻ ng
 });
 
 test('turnV3 câu gợi ý món (cookDish null): không có thẻ nguồn', async () => {
-  stubHowTo({ cookDish: null });
+  stubHowTo({ cookDish: null, answer: 'Bạn thử **Đậu hũ sốt cà chua** nhé.' });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
     body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
@@ -629,7 +630,7 @@ test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAlle
   assert.equal(data.recipeSource, null);
   // Khoi's code (11/11/2026): AI nhận tên công thức + nguyên liệu trùng dị ứng, không chỉ một cờ true/false.
   assert.deepEqual(data.excludedRecipe, { title: 'Đậu hũ sốt cà chua', allergens: ['Đậu nành'] });
-  assert.deepEqual(data.greenBowlInfo, { partialList: true, allergyFiltered: true });
+  assert.deepEqual(data.greenBowlInfo, { partialList: true, allergyFiltered: true, pickUpTo: 3 });
   const frames = events(res);
   assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
   assert.ok(frames.find((frame) => frame.name === 'done'));
@@ -637,7 +638,8 @@ test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAlle
 
 // Khoi's code (11/11/2026): AI nhận nguyên liệu từng món gợi ý; thẻ gửi về trình duyệt không có trường này.
 test('turnV3 gợi ý món: ingredientNames tới AI nhưng không nằm trong frame result', async () => {
-  const stub = stubHowTo({ cookDish: null, items: [{ ...RECIPE_40, ingredientNames: ['Đậu hũ', 'Cà chua'] }] });
+  const stub = stubHowTo({ cookDish: null, items: [{ ...RECIPE_40, ingredientNames: ['Đậu hũ', 'Cà chua'] }],
+    answer: 'Gợi ý: Đậu hũ sốt cà chua.' });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
     body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
@@ -681,4 +683,23 @@ test('turnV3 cookDish khớp công thức: chỉ tìm 1 lần bằng tên món',
     body: memberBody({ text: 'đậu hũ sốt cà chua gồm những gì' }) }), res);
   assert.deepEqual(sourceCalls, ['đậu hũ sốt cà chua']);
   assert.ok(events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipe-source'));
+});
+
+// Khoi's code (13/11/2026): thẻ chỉ gồm công thức Mầm nhắc đúng tên, theo thứ tự trong câu trả lời, tối đa 3.
+test('mentionedRecipes: chỉ món được nhắc tên, đúng thứ tự, không phân biệt dấu/hoa thường, tối đa 3', () => {
+  const items = ['Đậu hũ sốt cà chua', 'Cơm chiên rau củ đậu hũ', 'Súp bí đỏ nước cốt dừa', 'Gỏi cuốn chay', 'Chả nấm chay']
+    .map((title, index) => ({ id: String(index + 1), title }));
+  const answer = '- **Súp bí đỏ nước cốt dừa** (180 kcal)\n- **DAU HU SOT CA CHUA** ít béo\n- **Gỏi cuốn chay**\n- **Chả nấm chay**';
+  assert.deepEqual(controller.mentionedRecipes(answer, items).map((item) => item.id), ['3', '1', '4']);
+  assert.deepEqual(controller.mentionedRecipes('Ăn nhiều rau xanh và đậu hũ.', items), []);
+});
+
+test('turnV3 gợi ý món: món ứng viên không được nhắc tên thì không có thẻ', async () => {
+  stubHowTo({ cookDish: null, items: [RECIPE_40, { ...RECIPE_40, id: '41', title: 'Chả nấm chay' }],
+    answer: 'Bạn thử **Chả nấm chay** cho bữa tối nhé.' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'tôi nên ăn món nào để giảm cân' }) }), res);
+  const result = events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
+  assert.deepEqual(result.data.items.map((item) => item.title), ['Chả nấm chay']);
 });
