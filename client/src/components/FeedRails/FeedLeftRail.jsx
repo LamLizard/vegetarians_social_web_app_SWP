@@ -52,7 +52,7 @@ function CalorieBlock({ plan }) {
         <div className={s.emptyPlan}>
           <i className="bi bi-stars" aria-hidden="true" />
           <p>{plan.status === 'error' ? 'Chưa tải được thực đơn hôm nay.' : 'Bạn chưa có thực đơn hôm nay. Để AI gợi ý các bữa vừa đủ calo cho bạn.'}</p>
-          <a className={s.cta} href="/meal-plan">{plan.status === 'error' ? 'Mở Thực đơn AI' : 'Tạo thực đơn với AI'}</a>
+          <a className={s.cta} href="/meal-plan">{plan.status === 'error' ? 'Mở Thực đơn' : 'Tạo thực đơn'}</a>
         </div>
       </section>
     );
