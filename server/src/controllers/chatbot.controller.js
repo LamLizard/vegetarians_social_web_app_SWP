@@ -27,6 +27,10 @@ let cleanupRunning = false;
 // Khoi's code (05/11/2026): gom câu báo cố định về một nguồn; ngoài phạm vi ≠ chưa trả lời được.
 const REPLY_OUTSIDE = 'Mình chỉ hỗ trợ câu hỏi về ăn chay, món chay, dinh dưỡng và cách dùng Green Bowl nhé.';
 const REPLY_UNKNOWN = 'Mình chưa trả lời được câu này. Bạn thử hỏi lại ngắn gọn, tập trung vào món chay hoặc dinh dưỡng nhé.';
+// Khoi's code (14/11/2026): hỏi lại khi đã gợi ý hết công thức Green Bowl và lượt trước Mầm đã tự gợi ý thêm.
+const REPLY_EXHAUSTED = 'Bạn ơi, Mầm đã gợi ý hết các công thức Green Bowl phù hợp với yêu cầu này, và cũng đã '
+  + 'gợi ý thêm vài món ở trên rồi. Bạn có thể hỏi cách nấu một món ở trên, thử tìm món với nguyên liệu khác, '
+  + 'xem thêm ở trang Công thức, hoặc bấm “Cuộc trò chuyện mới” để Mầm gợi ý lại từ đầu nhé.';
 const REPLY_SCOPE_NOTE = 'Mình chỉ hỗ trợ phần câu hỏi liên quan đến ăn chay, món chay, dinh dưỡng và cách dùng Green Bowl nhé.';
 
 // Khoi's code (05/11/2026): từ khoá tìm công thức — subject/nearTerms của classifier trước, rồi từ có nghĩa trong câu.
@@ -651,6 +655,13 @@ async function turnV3(req, res) {
       }
     }
     if (expired()) return undefined;
+    // Khoi's code (14/11/2026): đã hết công thức phù hợp và lượt trước Mầm đã tự gợi ý → báo hết bằng câu cố định,
+    // không gọi AI viết câu trả lời và hoàn lượt (người dùng hỏi lại nhiều lần không bị mất lượt).
+    if (recipesExhausted && input.aiSuggestedLast && scoped.scope === 'allowed' && !reply && !pendingEvents.length) {
+      await refundAdmissions();
+      finishFixed(REPLY_EXHAUSTED);
+      return undefined;
+    }
     if (answerNeeded) {
       // Tùng: hướng dẫn trả lời hữu ích và giải nghĩa trạng thái hồ sơ theo yêu cầu đã chốt.
       // Khoi's code (05/11/2026): kèm cờ alreadyWarned + dữ liệu Green Bowl đã lọc dị ứng.
