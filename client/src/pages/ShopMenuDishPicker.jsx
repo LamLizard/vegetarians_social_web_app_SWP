@@ -69,7 +69,7 @@ export default function ShopMenuDishPicker({ value, onChange, disabled, error, o
                   className={`${styles.dishOption} ${index === active ? styles.dishOptionActive : ''}`}
                   onMouseDown={event => event.preventDefault()} onMouseEnter={() => setActive(item.selectable ? index : -1)} onClick={() => pick(item)}>
                   <span>{item.name}</span>{item.alreadyLinked && <small>Đã dùng phân loại này</small>}
-                </li>) : <li role="presentation" className={styles.dishEmpty}>Không tìm thấy phân loại. Thử tên nhóm món khác.</li>}
+                </li>) : <li role="presentation" className={styles.dishEmpty}>Tạm thời không có món này.</li>}
           </ul>
           {!loading && resource.data?.active.totalPages > 1 && <div className={styles.dishResultsFooter}>
             <Pagination page={resource.data.active.page} totalPages={resource.data.active.totalPages} pageSize={resource.data.active.pageSize}
@@ -80,9 +80,6 @@ export default function ShopMenuDishPicker({ value, onChange, disabled, error, o
       </div>
     </Field>
     {resource.error && !waiting && <Notice tone="alert" action={{ label: 'Thử lại', onClick: resource.reload }}>{resource.error.message}</Notice>}
-    {!loading && !resource.error && resource.data?.active.total === 0 && <div>
-      <Button variant="outline" size="sm" disabled title="Chức năng tạo Dish sẽ được tích hợp sau.">Tạo Dish</Button>
-    </div>}
     {!loading && resource.data?.ownPending.total > 0 && <details className={styles.pendingGroup}>
       <summary>Phân loại tôi đề xuất đang chờ duyệt ({resource.data.ownPending.total})</summary>
       <p className={styles.muted}>Sau khi được duyệt, tải lại danh mục rồi chọn phân loại để thêm món.</p>
