@@ -4,7 +4,9 @@
 const cardKey = (cards) => {
   const items = Array.isArray(cards?.items) ? cards.items : [];
   if (!items.length || (cards.kind !== 'recipes' && cards.kind !== 'shops')) return null;
-  return `${cards.kind}:${items.map((item) => String(item.id)).sort().join(',')}`;
+  // Khoi's code (13/11/2026): tính cả dòng món của thẻ quán — cùng quán nhưng món khớp khác thì vẫn hiện.
+  return `${cards.kind}:${items.map((item) => `${item.id}${item.menuHighlight ? `#${JSON.stringify(item.menuHighlight)}` : ''}`)
+    .sort().join(',')}`;
 };
 
 /** Hai hàng thẻ giống nhau khi cùng loại và cùng tập id (không xét thứ tự). */

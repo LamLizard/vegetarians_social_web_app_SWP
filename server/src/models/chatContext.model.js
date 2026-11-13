@@ -159,6 +159,60 @@ async function findOpenShops({ limit = 3, now = new Date() } = {}) {
     .slice(0, limit);
 }
 
+// Khoi's code (13/11/2026): tìm quán theo TÊN (trả menu) hoặc theo MÓN (quán có món đó) cho Mầm.
+// Chỉ quán verified chưa inactive và món đang bán (is_available); so khớp không dấu, trọn từ, mọi từ đều phải có.
+const SHOP_NAME_FILLERS = new Set(['quan', 'nha', 'hang', 'chay', 'an']);
+const DISH_FILLERS = new Set(['mon', 'chay']);
+const MENU_FOR_AI = 30; // số món tối đa gửi Mầm khi hỏi menu một quán
+const wordsOf = (value, fillers) => plain(value).split(/[^a-z0-9]+/).filter((word) => word && !fillers.has(word));
+const hasAllWords = (haystack, words) => {
+  const own = new Set(plain(haystack).split(/[^a-z0-9]+/).filter(Boolean));
+  return words.length > 0 && words.every((word) => own.has(word));
+};
+
+async function findShopsForChat({ shopName = null, dish = null, limit = 3, now = new Date() } = {}) {
+  const nameWords = shopName ? wordsOf(shopName, SHOP_NAME_FILLERS) : [];
+  const dishWords = dish ? wordsOf(dish, DISH_FILLERS) : [];
+  if (!nameWords.length && !dishWords.length) return [];
+  const { rows } = await pool.query(`
+    SELECT s.shop_id::text AS id, s.name, s.address, s.avt_shop_url AS "avatarUrl",
+      COALESCE((SELECT json_agg(json_build_object('dayOfWeek', ss.day_of_week, 'isClosed', ss.is_closed,
+          'openTime', to_char(ss.open_time, 'HH24:MI'), 'closeTime', to_char(ss.close_time, 'HH24:MI'))
+          ORDER BY ss.day_of_week, ss.slot_no)
+        FROM public.shop_schedule ss WHERE ss.shop_id = s.shop_id), '[]'::json) AS schedule,
+      COALESCE((SELECT json_agg(json_build_object('name', COALESCE(NULLIF(btrim(sd.display_name), ''), d.name),
+          'price', sd.price, 'ingredientNote', left(sd.ingredient_note, 200)) ORDER BY sd.shop_dish_id)
+        FROM public.shop_dish sd JOIN public.dish d ON d.dish_id = sd.dish_id
+        WHERE sd.shop_id = s.shop_id AND sd.is_available), '[]'::json) AS menu
+    FROM public.shop s
+    WHERE s.verification_status = 'verified' AND s.status <> 'inactive'
+    ORDER BY s.name
+    LIMIT ${SHOP_SCAN_LIMIT}
+  `);
+  return rows
+    .filter((row) => !nameWords.length || hasAllWords(row.name, nameWords))
+    .map((row) => {
+      const menu = (Array.isArray(row.menu) ? row.menu : [])
+        .map((item) => ({ name: String(item.name ?? '').trim(), price: item.price === null ? null : Number(item.price),
+          ingredientNote: item.ingredientNote ?? null }))
+        .filter((item) => item.name);
+      const matched = dishWords.length ? menu.filter((item) => hasAllWords(item.name, dishWords)) : [];
+      const info = shopOpenInfo(groupScheduleRows(row.schedule ?? []), now);
+      const prices = menu.map((item) => item.price).filter((price) => Number.isFinite(price) && price > 0);
+      return { id: row.id, name: row.name, address: row.address, avatarUrl: row.avatarUrl,
+        isOpen: info.isOpen, closeAt: info.closeAt, statusText: shopStatusText(info),
+        minutesToOpen: Number.isFinite(info.minutesToOpen) ? info.minutesToOpen : null,
+        menu: nameWords.length ? menu.slice(0, MENU_FOR_AI) : [], menuCount: menu.length,
+        minPrice: prices.length ? Math.min(...prices) : null, matchedDishes: matched };
+    })
+    // Hỏi theo món: chỉ giữ quán có món đó (kể cả khi đã nêu tên quán).
+    .filter((shop) => !dishWords.length || shop.matchedDishes.length > 0)
+    .sort((a, b) => (Number(b.isOpen) - Number(a.isOpen))
+      || ((a.minutesToOpen ?? Number.MAX_SAFE_INTEGER) - (b.minutesToOpen ?? Number.MAX_SAFE_INTEGER))
+      || a.name.localeCompare(b.name))
+    .slice(0, limit);
+}
+
 /** Thực đơn hôm nay (giờ VN) của thành viên: tổng calo theo bữa. */
 async function findTodayMealPlan(accountId) {
   const { rows: [plan] } = await pool.query(`
@@ -192,4 +246,4 @@ async function findTodayMealPlan(accountId) {
 }
 
 module.exports = { findRecipesForChat, findRecipeSourceByQuestion, findRecipeDetailForChat, findOpenShops,
-  findTodayMealPlan, excludeAllergens, matchedAllergens, plain };
+  findShopsForChat, findTodayMealPlan, excludeAllergens, matchedAllergens, plain };

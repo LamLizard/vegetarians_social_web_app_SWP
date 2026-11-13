@@ -106,18 +106,27 @@ function parseScopedV3Intent(raw, text) {
   let value;
   try { value = JSON.parse(raw); } catch { throw invalid(); }
   // Khoi's code (06/11/2026): khoá thứ 12 cookDish — món người dùng muốn cách làm (null nếu không).
+  // Khoi's code (13/11/2026): khoá 13–14 shopName (tên quán được hỏi) và shopDish (món muốn tìm ở quán).
   const keys = ['intent', 'subject', 'hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide',
-    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts', 'cookDish'];
+    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts', 'cookDish',
+    'shopName', 'shopDish'];
   if (!validKeys(value, keys) || Object.keys(value).length !== keys.length
     || !['allowed', 'outside', 'mixed', 'uncertain'].includes(value.scope)
     || !Array.isArray(value.allowedParts) || value.allowedParts.length > 8) throw invalid();
-  const { scope, allowedParts, cookDish: rawCookDish, ...intentValue } = value;
+  const { scope, allowedParts, cookDish: rawCookDish, shopName: rawShopName, shopDish: rawShopDish,
+    ...intentValue } = value;
   const cookDish = parseCookDish(rawCookDish);
-  if (cookDish === undefined) throw invalid();
+  const shopName = parseCookDish(rawShopName);
+  const shopDish = parseCookDish(rawShopDish);
+  if (cookDish === undefined || shopName === undefined || shopDish === undefined) throw invalid();
   const parsed = parseV3Intent(JSON.stringify(intentValue));
+  const chat = parsed.intent === 'chat';
   // Khoi's code (06/11/2026): có món cần cách làm thì luôn lấy dữ liệu công thức (model đôi khi quên đặt recipes).
-  const intent = { ...parsed, cookDish: parsed.intent === 'chat' ? cookDish : null,
-    needsGreenBowlData: parsed.intent === 'chat' && cookDish ? 'recipes' : parsed.needsGreenBowlData };
+  // Khoi's code (13/11/2026): hỏi quán cụ thể / quán có món X thì lấy dữ liệu quán (cách làm món vẫn ưu tiên).
+  const needsGreenBowlData = chat && cookDish ? 'recipes'
+    : chat && (shopName || shopDish) ? 'shops' : parsed.needsGreenBowlData;
+  const intent = { ...parsed, cookDish: chat ? cookDish : null, shopName: chat ? shopName : null,
+    shopDish: chat ? shopDish : null, needsGreenBowlData };
   if (scope !== 'mixed') {
     if (allowedParts.length) throw invalid();
     return { scope, intent, allowedText: text };

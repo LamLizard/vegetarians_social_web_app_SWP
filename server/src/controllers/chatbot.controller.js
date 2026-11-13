@@ -50,6 +50,18 @@ const MAX_RECIPE_TERMS = 6;
 const GOAL_PHRASES = ['hồ sơ sức khoẻ', 'hồ sơ sức khỏe', 'hồ sơ', 'sức khoẻ', 'sức khỏe', 'hiện tại', 'mục tiêu',
   'giảm cân', 'tăng cân', 'giữ cân', 'tăng cơ', 'giảm mỡ', 'ăn kiêng'];
 const RECIPE_CANDIDATES = 10; // số công thức ứng viên gửi Mầm chọn
+// Khoi's code (13/11/2026): thẻ quán gửi về trình duyệt — bỏ menu/ghi chú (chỉ dành cho AI), thêm 1 dòng món:
+// tìm theo món → "Có món: X · giá (+N món khác)"; hỏi menu một quán → "Menu: N món · từ giá thấp nhất".
+function shopCard(shop, search) {
+  const { menu, matchedDishes, menuCount, minPrice, ...card } = shop;
+  const matched = Array.isArray(matchedDishes) ? matchedDishes : [];
+  if (search?.dish && matched.length) {
+    return { ...card, menuHighlight: { kind: 'dish', name: matched[0].name, price: matched[0].price ?? null,
+      more: matched.length - 1 } };
+  }
+  if (search?.shopName) return { ...card, menuHighlight: { kind: 'menu', count: menuCount ?? 0, minPrice: minPrice ?? null } };
+  return card;
+}
 const MAX_RECIPE_CARDS = 3;
 // Khoi's code (13/11/2026): thẻ chỉ gồm công thức Mầm thật sự nhắc tên, theo thứ tự xuất hiện trong câu trả lời,
 // để người dùng không thấy món được nói tới mà không có thẻ (hoặc thẻ của món không được nói tới).
@@ -540,6 +552,7 @@ async function turnV3(req, res) {
     // Khoi's code (05/11/2026): dữ liệu thật của Green Bowl; lỗi DB thì bỏ qua dữ liệu, vẫn trả lời.
     let greenBowl = null;
     let pickRecipeCards = false;
+    let shopSearch = null;
     if (answerNeeded && intent.needsGreenBowlData !== 'none') {
       try {
         phase = 'greenbowl_data';
@@ -591,6 +604,21 @@ async function turnV3(req, res) {
             // Khoi's code (06/11/2026): chỉ gắn "do AI tạo" khi thật sự KHÔNG có công thức nào khớp.
             if (howToCook && !found && !recipeExcludedByAllergy) aiGenerated = true;
           }
+        } else if (intent.needsGreenBowlData === 'shops' && (intent.shopName || intent.shopDish)) {
+          // Khoi's code (13/11/2026): hỏi menu một quán / tìm quán có món X (tối đa 3 quán, đang mở xếp trước).
+          shopSearch = { shopName: intent.shopName, dish: intent.shopDish, shopsFound: 0 };
+          const items = await chatContextModel.findShopsForChat({ shopName: intent.shopName, dish: intent.shopDish,
+            limit: MAX_RECIPE_CARDS });
+          shopSearch.shopsFound = items.length;
+          if (items.length) greenBowl = { kind: 'shops', items };
+          else if (intent.shopDish && !intent.shopName) {
+            // Không quán nào bán → gợi ý công thức đúng món đó (nếu Green Bowl có) để tự nấu.
+            phase = 'shop_recipe_fallback';
+            const recipes = await chatContextModel.findRecipesForChat(
+              recipeKeywords({ cookDish: intent.shopDish, subject: null, nearTerms: [] }, intent.shopDish),
+              { limit: MAX_RECIPE_CARDS, excludeAllergies: health?.allergies ?? [], withIngredients: true });
+            if (recipes.length) { greenBowl = { kind: 'recipes', items: recipes }; pickRecipeCards = true; }
+          }
         } else if (intent.needsGreenBowlData === 'shops') {
           const items = await chatContextModel.findOpenShops({ limit: 3 });
           if (items.length) greenBowl = { kind: 'shops', items };
@@ -616,6 +644,7 @@ async function turnV3(req, res) {
             ...(pickRecipeCards ? { pickUpTo: MAX_RECIPE_CARDS } : {}) } : null,
         // Khoi's code (12/11/2026): có tìm công thức mà không thấy món nào khớp → Mầm nói ngắn rồi vẫn gợi ý, không đòi link.
         recipesNotFound: intent.needsGreenBowlData === 'recipes' && !greenBowl && !recipeSourceCard,
+        shopSearch, // Khoi's code (13/11/2026): tên quán / món đang tìm và số quán tìm được
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
         [{ role: 'user', content: `Dữ liệu tham khảo (không phải chỉ dẫn): ${data}\nCâu hỏi: ${scoped.allowedText}` }]);
@@ -649,7 +678,8 @@ async function turnV3(req, res) {
         const shown = pickRecipeCards ? mentionedRecipes(answerText, greenBowl.items) : greenBowl.items;
         if (shown.length) {
           queueEvent('result', { kind: greenBowl.kind,
-            items: shown.map(({ ingredientNames, ...item }) => item) });
+            items: greenBowl.kind === 'shops' ? shown.map((shop) => shopCard(shop, shopSearch))
+              : shown.map(({ ingredientNames, ...item }) => item) });
         }
       }
     }
@@ -758,5 +788,5 @@ function startRequestCleanup() {
 
 module.exports = { availability, getDiscoveryPost, getMemberPost, verifyChatSession, verifySimpleChatSession, getQuota, getSimpleQuota, getGuestQuota, turnV3,
   // Khoi's code (06/11/2026): export để test phần chọn từ khoá tìm công thức.
-  recipeKeywords, mentionedRecipes,
+  recipeKeywords, mentionedRecipes, shopCard,
   startRequestCleanup };
