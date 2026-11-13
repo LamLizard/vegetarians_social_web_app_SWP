@@ -32,6 +32,19 @@ function MenuHighlight({ value }) {
   return null;
 }
 
+// Khoi's code (14/11/2026): cảnh báo dị ứng (mockup B) — nhãn "Dị ứng" ở góc ảnh, viền đỏ, 1 dòng tên nguyên liệu.
+const allergyNames = (value) => (Array.isArray(value)
+  ? value.filter((name) => typeof name === 'string' && name.trim()).map((name) => name.trim()) : []);
+
+function allergyText(item, isRecipe) {
+  const names = allergyNames(isRecipe ? item.allergens : item.menuHighlight?.allergens);
+  if (!names.length) return null;
+  if (isRecipe) return `Có ${names.join(', ')}`;
+  return item.menuHighlight?.kind === 'menu'
+    ? `Có món chứa ${names.join(', ')}`
+    : `Món có ${names.join(', ')} – hỏi lại quán`;
+}
+
 // Khoi's code (06/11/2026): lượt có thẻ nguồn/AI tạo thì đổi tiêu đề để nói rõ đây là món KHÁC.
 // Khoi's code (13/11/2026): khách bấm thẻ → đăng nhập rồi vào thẳng quán/công thức (trang chi tiết cần đăng nhập).
 export default function ChatResultCards({ cards, title, isGuest = false }) {
@@ -45,10 +58,20 @@ export default function ChatResultCards({ cards, title, isGuest = false }) {
         ? (title || 'Công thức trên Green Bowl')
         : 'Quán chay trên Green Bowl'}</p>
       <ul className={styles.list}>
-        {items.map((item) => (
+        {items.map((item) => {
+          const allergy = allergyText(item, isRecipe);
+          return (
           <li key={item.id} className={styles.card}>
-            <a className={styles.link} href={detailHref(`${isRecipe ? '/recipes' : '/shops'}/${encodeURIComponent(item.id)}`, isGuest)}>
-              <Photo src={isRecipe ? item.thumbnailUrl : item.avatarUrl} ratio="4/3" className={styles.thumb} />
+            <a className={`${styles.link} ${allergy ? styles.allergic : ''}`}
+              href={detailHref(`${isRecipe ? '/recipes' : '/shops'}/${encodeURIComponent(item.id)}`, isGuest)}>
+              <span className={styles.thumbWrap}>
+                <Photo src={isRecipe ? item.thumbnailUrl : item.avatarUrl} ratio="4/3" className={styles.thumb} />
+                {allergy && (
+                  <span className={styles.allergyChip}>
+                    <i className="bi bi-exclamation-triangle-fill" aria-hidden="true" /> Dị ứng
+                  </span>
+                )}
+              </span>
               <span className={styles.title}>{isRecipe ? item.title : item.name}</span>
               {isRecipe ? (
                 <span className={styles.meta}>
@@ -62,9 +85,11 @@ export default function ChatResultCards({ cards, title, isGuest = false }) {
                   <MenuHighlight value={item.menuHighlight} />
                 </>
               )}
+              {allergy && <span className={styles.allergyText}>{allergy}</span>}
             </a>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );

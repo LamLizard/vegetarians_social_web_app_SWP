@@ -261,3 +261,14 @@ test('parseScopedV3Intent: shopName/shopDish hợp lệ, ép shops; cookDish v�
   delete withoutKeys.shopName;
   assert.throws(() => parseScopedV3Intent(JSON.stringify(withoutKeys), 'x'));
 });
+
+// Khoi's code (14/11/2026): seenRecipeIds — mảng id công thức (≤ 60, không trùng), không bắt buộc.
+test('validateV3: seenRecipeIds hợp lệ / sai kiểu / trùng / quá 60', () => {
+  const base = { protocol: 3, turnId: '11111111-1111-4111-8111-111111111111', text: 'thêm món', history: [] };
+  const member = { id: 7, role: 'member' };
+  assert.ok(validateV3({ ...base, seenRecipeIds: ['40', '61'] }, member));
+  assert.ok(validateV3(base, member));
+  assert.equal(validateV3({ ...base, seenRecipeIds: [40] }, member), null);
+  assert.equal(validateV3({ ...base, seenRecipeIds: ['40', '40'] }, member), null);
+  assert.equal(validateV3({ ...base, seenRecipeIds: Array.from({ length: 61 }, (_, i) => String(i + 1)) }, member), null);
+});

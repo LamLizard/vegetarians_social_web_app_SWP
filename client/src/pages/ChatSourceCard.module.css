@@ -16,6 +16,11 @@
 .ai { align-items: flex-start; background: var(--ac-warn-bg); border-color: var(--ac-warn-fg); }
 .aiIcon { color: var(--ac-warn-fg); font-size: 1rem; line-height: 1.4; }
 .aiText { margin: 0; font-size: .82rem; color: var(--mam-ink); overflow-wrap: anywhere; }
+/* Khoi's code (14/11/2026): cảnh báo dị ứng trên thẻ nguồn (cùng kiểu thẻ gợi ý). */
+.allergic { border-color: color-mix(in srgb, var(--ac-alert) 55%, transparent); }
+.thumbWrap { position: relative; flex: 0 0 64px; }
+.allergyChip { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; background: var(--ac-alert); color: #fff; font-size: .66rem; font-weight: 600; white-space: nowrap; }
+.allergyText { margin: 0; color: var(--ac-alert); font-size: .8rem; font-weight: 600; overflow-wrap: anywhere; }
 @media (max-width: 480px) {
   .card { flex-direction: column; }
   .link { align-self: stretch; text-align: center; }

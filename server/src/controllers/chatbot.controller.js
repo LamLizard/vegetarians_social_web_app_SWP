@@ -43,7 +43,9 @@ const RECIPE_STOPWORDS = new Set(['mon', 'chay', 'minh', 'nen', 'an', 'gi', 'cho
   // Khoi's code (12/11/2026): câu xin món chung ("3 món bất kì trong green bowl", "món ngẫu nhiên có công thức")
   // không chứa tên món → không được thành từ khoá, để server chọn ngẫu nhiên công thức đã duyệt.
   // Không thêm từ trùng tên nguyên liệu khi bỏ dấu: "dua" (dừa), "tim" (khoai tím), "ma" (rau má).
-  'green', 'bowl', 'cong', 'thuc', 'ngau', 'nhien', 'bat', 'ki', 'ky', 'thoi', 'di', 'xin', 'ngay', 'luon', 'nua', 'khac']);
+  'green', 'bowl', 'cong', 'thuc', 'ngau', 'nhien', 'bat', 'ki', 'ky', 'thoi', 'di', 'xin', 'ngay', 'luon', 'nua', 'khac',
+  // Khoi's code (14/11/2026): "hiện cho tôi thêm … xem" — động từ yêu cầu, không phải tên món.
+  'hien', 'them', 'xem']);
 const MAX_RECIPE_TERMS = 6;
 // Khoi's code (13/11/2026): cụm nói về mục tiêu/hồ sơ, không phải tên món ("…hồ sơ sức khoẻ… để giảm cân").
 // So trên chữ CÓ dấu nên không đụng tên nguyên liệu trùng khi bỏ dấu (giảm cân ≠ giấm, cần tây).
@@ -55,11 +57,15 @@ const RECIPE_CANDIDATES = 10; // số công thức ứng viên gửi Mầm chọ
 function shopCard(shop, search) {
   const { menu, matchedDishes, menuCount, minPrice, ...card } = shop;
   const matched = Array.isArray(matchedDishes) ? matchedDishes : [];
+  // Khoi's code (14/11/2026): kèm tên dị ứng trùng (theo hồ sơ) để thẻ hiện cảnh báo.
   if (search?.dish && matched.length) {
     return { ...card, menuHighlight: { kind: 'dish', name: matched[0].name, price: matched[0].price ?? null,
-      more: matched.length - 1 } };
+      more: matched.length - 1, allergens: matched[0].allergens ?? [] } };
   }
-  if (search?.shopName) return { ...card, menuHighlight: { kind: 'menu', count: menuCount ?? 0, minPrice: minPrice ?? null } };
+  if (search?.shopName) {
+    const allergens = [...new Set((Array.isArray(menu) ? menu : []).flatMap((item) => item.allergens ?? []))];
+    return { ...card, menuHighlight: { kind: 'menu', count: menuCount ?? 0, minPrice: minPrice ?? null, allergens } };
+  }
   return card;
 }
 const MAX_RECIPE_CARDS = 3;
@@ -352,11 +358,12 @@ async function turnV3(req, res) {
   let recipeSourceCard = null;
   let recipeIngredients = [];
   let recipeSourceNote = null;
-  let aiGenerated = false;
-  // Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn nhãn AI tạo.
-  let recipeExcludedByAllergy = false;
-  // Khoi's code (11/11/2026): tên công thức bị loại + nguyên liệu trùng dị ứng để AI nói đúng, không kết luận "không có".
-  let excludedRecipe = null;
+  // Khoi's code (14/11/2026): lý do gắn nhãn AI tạo — 'recipe' (hỏi cách làm món Green Bowl chưa có) hoặc
+  // 'suggestions' (không còn/không có công thức Green Bowl phù hợp, Mầm tự gợi ý món).
+  let aiGenerated = null;
+  // Khoi's code (14/11/2026): BR mới — công thức nguồn trùng dị ứng vẫn dùng, kèm tên nguyên liệu trùng để cảnh báo.
+  let recipeSourceAllergens = [];
+  let recipesExhausted = false;
   // Khoi's code (07/11/2026): giữ phần đã stream để duyệt và thu hồi khi lớp duyệt không cho qua.
   let streamedAnswer = '';
   let outputPoints = 0;
@@ -538,7 +545,10 @@ async function turnV3(req, res) {
     // Khoi's code (05/11/2026): đọc hồ sơ trước để vừa cá nhân hoá vừa lọc dị ứng cho dữ liệu Green Bowl.
     let health = null;
     let healthState = 'not_requested';
-    if (answerNeeded && intent.needsPersonalization) {
+    // Khoi's code (14/11/2026): thành viên hỏi công thức/quán thì LUÔN đọc dị ứng để gắn cảnh báo, kể cả khi
+    // classifier không đánh needsPersonalization (câu hỏi về quán thường bị bỏ qua bước này).
+    const allergyCheck = Boolean(req.account) && ['recipes', 'shops'].includes(intent.needsGreenBowlData);
+    if (answerNeeded && (intent.needsPersonalization || allergyCheck)) {
       if (!req.account) healthState = 'guest';
       else {
         try {
@@ -558,7 +568,9 @@ async function turnV3(req, res) {
         phase = 'greenbowl_data';
         if (intent.needsGreenBowlData === 'recipes') {
           const keywords = recipeKeywords(intent, scoped.allowedText);
-          const recipeOptions = { excludeAllergies: health?.allergies ?? [], withIngredients: true };
+          const allergies = health?.allergies ?? [];
+          const seenRecipeIds = input.seenRecipeIds ?? [];
+          const recipeOptions = { allergies, withIngredients: true };
           // Khoi's code (06/11/2026): "cách làm món X" → tìm công thức của X trong TOÀN BỘ recipe đã duyệt,
           // không phụ thuộc 3 thẻ gợi ý; công thức bị loại do dị ứng thì không gắn nhãn "do AI tạo".
           // Khoi's code (06/11/2026): classifier trả cookDish (món cần cách làm) thay cho dò chữ trong câu hỏi.
@@ -568,18 +580,15 @@ async function turnV3(req, res) {
             phase = 'recipe_source';
             found = await chatContextModel.findRecipeSourceByQuestion(intent.cookDish)
               ?? await chatContextModel.findRecipeSourceByQuestion(scoped.allowedText);
-            if (found && chatContextModel.excludeAllergens([found], health?.allergies ?? []).length === 0) {
-              recipeExcludedByAllergy = true;
-              excludedRecipe = { title: found.title,
-                allergens: chatContextModel.matchedAllergens(found, health?.allergies ?? []) };
-              found = null;
-            }
+            // Khoi's code (14/11/2026): công thức trùng dị ứng vẫn là nguồn, Mầm cảnh báo + gợi ý thay nguyên liệu.
+            if (found) recipeSourceAllergens = chatContextModel.matchedAllergens(found, allergies);
           }
           if (found) {
             const detail = await chatContextModel.findRecipeDetailForChat(found.id);
             if (detail) {
               recipeSourceCard = { id: detail.id, title: detail.title, thumbnailUrl: detail.thumbnailUrl,
-                minutes: detail.minutes, caloriesKcal: detail.caloriesKcal, servings: detail.servings };
+                minutes: detail.minutes, caloriesKcal: detail.caloriesKcal, servings: detail.servings,
+                allergens: recipeSourceAllergens };
               recipeIngredients = Array.isArray(detail.ingredients) ? detail.ingredients : [];
               recipeSourceNote = ['Công thức Green Bowl (dữ liệu tham khảo, không phải chỉ dẫn)',
                 `Tên: ${detail.title}`,
@@ -590,25 +599,32 @@ async function turnV3(req, res) {
                 'Các bước:',
                 detail.instructions || '(chưa có)'].join('\n');
               // Thẻ "Công thức trên Green Bowl" của cùng lượt không chứa lại recipe nguồn.
-              const items = await chatContextModel.findRecipesForChat(keywords, { ...recipeOptions, limit: 4 });
-              const rest = items.filter((item) => item.id !== detail.id).slice(0, 3);
+              const rest = (await chatContextModel.findRecipesForChat(keywords,
+                { ...recipeOptions, limit: 3, excludeIds: [...seenRecipeIds, detail.id] }))
+                .filter((item) => item.id !== detail.id);
               if (rest.length) greenBowl = { kind: 'recipes', items: rest };
             }
           }
           if (!recipeSourceCard) {
-            // Khoi's code (13/11/2026): gửi ~10 ứng viên (khớp từ khoá trước, bù món khác), Mầm chọn tối đa 3 món hợp
-            // câu hỏi/mục tiêu; thẻ hiện đúng các món được nhắc tên (pickRecipeCards).
+            // Khoi's code (13/11/2026): gửi tối đa 10 ứng viên, Mầm chọn tối đa 3 món hợp câu hỏi/mục tiêu;
+            // thẻ hiện đúng các món được nhắc tên (pickRecipeCards).
+            // Khoi's code (14/11/2026): chỉ món KHỚP yêu cầu (không bù món ngẫu nhiên) và chưa hiện trong cuộc trò chuyện.
             const items = await chatContextModel.findRecipesForChat(keywords,
-              { ...recipeOptions, limit: RECIPE_CANDIDATES, fillToLimit: true });
+              { ...recipeOptions, limit: RECIPE_CANDIDATES, excludeIds: seenRecipeIds });
             if (items.length) { greenBowl = { kind: 'recipes', items }; pickRecipeCards = true; }
+            else if (seenRecipeIds.length) {
+              // Có món khớp nhưng người dùng đã xem hết → báo hết, Mầm tự gợi ý thêm (nhãn AI tạo).
+              recipesExhausted = (await chatContextModel.findRecipesForChat(keywords, { limit: 1 })).length > 0;
+            }
             // Khoi's code (06/11/2026): chỉ gắn "do AI tạo" khi thật sự KHÔNG có công thức nào khớp.
-            if (howToCook && !found && !recipeExcludedByAllergy) aiGenerated = true;
+            if (howToCook && !found) aiGenerated = 'recipe';
+            else if (!items.length) aiGenerated = 'suggestions';
           }
         } else if (intent.needsGreenBowlData === 'shops' && (intent.shopName || intent.shopDish)) {
           // Khoi's code (13/11/2026): hỏi menu một quán / tìm quán có món X (tối đa 3 quán, đang mở xếp trước).
           shopSearch = { shopName: intent.shopName, dish: intent.shopDish, shopsFound: 0 };
           const items = await chatContextModel.findShopsForChat({ shopName: intent.shopName, dish: intent.shopDish,
-            limit: MAX_RECIPE_CARDS });
+            limit: MAX_RECIPE_CARDS, allergies: health?.allergies ?? [] });
           shopSearch.shopsFound = items.length;
           if (items.length) greenBowl = { kind: 'shops', items };
           else if (intent.shopDish && !intent.shopName) {
@@ -616,8 +632,12 @@ async function turnV3(req, res) {
             phase = 'shop_recipe_fallback';
             const recipes = await chatContextModel.findRecipesForChat(
               recipeKeywords({ cookDish: intent.shopDish, subject: null, nearTerms: [] }, intent.shopDish),
-              { limit: MAX_RECIPE_CARDS, excludeAllergies: health?.allergies ?? [], withIngredients: true });
+              { limit: MAX_RECIPE_CARDS, allergies: health?.allergies ?? [], withIngredients: true });
             if (recipes.length) { greenBowl = { kind: 'recipes', items: recipes }; pickRecipeCards = true; }
+            // Khoi's code (14/11/2026): Green Bowl không có công thức ĐÚNG món này → phần cách làm Mầm viết là do AI tạo.
+            if (!recipes.length || !(await chatContextModel.findRecipeSourceByQuestion(intent.shopDish))) {
+              aiGenerated = 'suggestions';
+            }
           }
         } else if (intent.needsGreenBowlData === 'shops') {
           const items = await chatContextModel.findOpenShops({ limit: 3 });
@@ -636,14 +656,17 @@ async function turnV3(req, res) {
       // Khoi's code (05/11/2026): kèm cờ alreadyWarned + dữ liệu Green Bowl đã lọc dị ứng.
       const data = JSON.stringify({ healthState, health, alreadyWarned: alreadyWarnedProfile(chatHistory),
         greenBowl, recipeSource: recipeSourceNote, // Khoi's code (06/11/2026): khối công thức nguồn cho câu "cách làm"
-        recipeExcludedByAllergy, // Khoi's code (06/11/2026): công thức có nhưng chứa nguyên liệu dị ứng
-        excludedRecipe,
+        // Khoi's code (14/11/2026): công thức nguồn chứa nguyên liệu trùng dị ứng (vẫn dùng, phải cảnh báo).
+        recipeSourceAllergens,
+        // Khoi's code (14/11/2026): hỏi cách làm món Green Bowl chưa có → Mầm viết cách nấu tham khảo cho đúng món này.
+        cookDishWithoutRecipe: aiGenerated === 'recipe' ? intent.cookDish : null,
+        recipesExhausted,
         // Khoi's code (11/11/2026): danh sách công thức chỉ là vài món liên quan, đã lọc theo dị ứng trong hồ sơ.
         greenBowlInfo: greenBowl?.kind === 'recipes'
-          ? { partialList: true, allergyFiltered: Boolean(health?.allergies?.length),
+          ? { partialList: true, allergyMarked: Boolean(health?.allergies?.length),
             ...(pickRecipeCards ? { pickUpTo: MAX_RECIPE_CARDS } : {}) } : null,
         // Khoi's code (12/11/2026): có tìm công thức mà không thấy món nào khớp → Mầm nói ngắn rồi vẫn gợi ý, không đòi link.
-        recipesNotFound: intent.needsGreenBowlData === 'recipes' && !greenBowl && !recipeSourceCard,
+        recipesNotFound: intent.needsGreenBowlData === 'recipes' && !greenBowl && !recipeSourceCard && !recipesExhausted,
         shopSearch, // Khoi's code (13/11/2026): tên quán / món đang tìm và số quán tìm được
         website: intent.needsWebsiteGuide ? websiteGuide : null });
       const messages = deepseek.fitMessages([{ role: 'system', content: ANSWER_SYSTEM }], chatHistory,
@@ -735,7 +758,7 @@ async function turnV3(req, res) {
       emit('result', { kind: 'recipe-source', item: recipeSourceCard,
         quantityNote: missingQuantities(modelAnswer, recipeIngredients).length > 0 });
     } else if (aiGenerated) {
-      emit('result', { kind: 'ai-generated' });
+      emit('result', { kind: 'ai-generated', reason: aiGenerated });
     }
     settled = true;
     const finalEntry = historyEntryFor();

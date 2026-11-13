@@ -1,7 +1,7 @@
 // Khoi's code (11/11/2026): chạy bằng node --test src/utils/chatCards.test.js
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { repeatedCardIndexes, sameCards } from './chatCards.js';
+import { repeatedCardIndexes, sameCards, seenRecipeIds } from './chatCards.js';
 
 const recipes = (...ids) => ({ kind: 'recipes', items: ids.map((id) => ({ id: String(id), title: `Món ${id}` })) });
 const bot = (cards) => ({ sender: 'bot', content: 'x', ...(cards ? { cards } : {}) });
@@ -38,4 +38,13 @@ test('sameCards: thẻ quán cùng id nhưng menuHighlight khác thì không tr�
   const dish = { kind: 'shops', items: [{ id: '39', menuHighlight: { kind: 'dish', name: 'Cơm chiên', price: 60000, more: 0 } }] };
   assert.equal(sameCards(menu, dish), false);
   assert.equal(sameCards(dish, { ...dish }), true);
+});
+
+// Khoi's code (14/11/2026): id công thức đã hiện (thẻ gợi ý + thẻ nguồn), không trùng, giới hạn số lượng.
+test('seenRecipeIds: gom thẻ công thức + thẻ nguồn của Mầm, bỏ quán/tin người dùng, giữ mới nhất', () => {
+  const messages = [user, bot(recipes(40, 61)), bot({ kind: 'shops', items: [{ id: '39' }] }),
+    { sender: 'bot', content: 'x', source: { kind: 'recipe-source', item: { id: '12' } } }, bot(recipes(61, 70))];
+  assert.deepEqual(seenRecipeIds(messages), ['40', '12', '61', '70']);
+  assert.deepEqual(seenRecipeIds(messages, 2), ['61', '70']);
+  assert.deepEqual(seenRecipeIds([]), []);
 });
