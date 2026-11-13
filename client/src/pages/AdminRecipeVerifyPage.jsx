@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Panel, Photo, Spinner, StatusBadge } from '../components';
+import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Panel, Photo, Spinner, StatusBadge, useToast } from '../components';
 import useAuth from '../hooks/useAuth';
 import recipeService from '../services/recipe.service';
 import YouTubeEmbed from '../components/YouTubeEmbed/YouTubeEmbed';
@@ -20,6 +20,7 @@ const STATUS_TABS = [
 // Duy's Code : Gom hàng chờ và lịch sử công thức; phần chi tiết chỉ mở khi Admin yêu cầu.
 export default function AdminRecipeVerifyPage() {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -77,6 +78,7 @@ export default function AdminRecipeVerifyPage() {
     setError('');
     try {
       await recipeService.decideAdminRecipe(decision.id, decision.action, note);
+      toast(decision.action === 'approve' ? 'Đã duyệt công thức.' : 'Đã từ chối công thức.');
       await load();
       setDecision(null);
       // Duy's Code: Sau khi duyệt, ở lại danh sách Đang chờ để tiếp tục xử lý.
@@ -105,6 +107,7 @@ export default function AdminRecipeVerifyPage() {
     try {
       const renamed = await recipeService.renameRecipeDish(item.id, name);
       setItems((current) => current.map((row) => row.id === item.id ? { ...row, proposedDishName: renamed.name } : row));
+      toast('Đã cập nhật tên món đề xuất.');
     } catch (e) { setError(e.message); }
     finally { setDishBusy(''); }
   };
@@ -114,6 +117,9 @@ export default function AdminRecipeVerifyPage() {
     try {
       const linked = await recipeService.linkRecipeDish(item.id, dish.id);
       setItems((current) => current.map((row) => row.id === item.id ? { ...row, dishId: linked.dishId, dishName: linked.dishName, proposedDishName: null } : row));
+      toast(linked.dishName
+        ? `Đã liên kết công thức với món “${linked.dishName}”.`
+        : 'Đã liên kết công thức với món.');
     } catch (e) { setError(e.message); }
     finally { setDishBusy(''); }
   };

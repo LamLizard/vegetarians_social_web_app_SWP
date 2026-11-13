@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, ErrorDialog, PageHeader, Pagination, Panel, SearchInput, StatusBadge } from '../components'; // Duy's code: bổ sung filter và phân trang tài khoản.
+import { AdminLayout, Button, Checkbox, ConfirmDialog, DataTable, ErrorDialog, PageHeader, Pagination, Panel, SearchInput, StatusBadge, useToast } from '../components'; // Duy's code: bổ sung filter và phân trang tài khoản.
 import useAuth from '../hooks/useAuth';
 import { REPORT_ACCOUNT_REASON } from '../constants/domain'; // Duy's code: nhãn lý do báo cáo tài khoản.
 import { decideAccountReport, getAccountReports, getMembers, setMemberStatus } from '../services/admin-member.service';
@@ -20,6 +20,7 @@ const REPORTED_ACCOUNT_PAGE_SIZE = 5; // Duy's code: giới hạn 5 tài khoản
 // Duy's code: Giao diện quản lý thành viên dùng component và theme token chung.
 export default function AdminMemberManagementPage() {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const handleLogout = () => { logout(); window.location.assign('/'); };
   const [memberSearch, setMemberSearch] = useState(''); // Duy's code: tìm tên/email ở bảng thành viên.
   const [showLockedOnly, setShowLockedOnly] = useState(false); // Duy's code: chỉ lọc tài khoản đang khóa khi bật.
@@ -99,6 +100,7 @@ export default function AdminMemberManagementPage() {
     setRequestError(''); // Duy's code: xóa lỗi cũ trước request.
     try { // Duy's code: gọi API và chỉ ẩn dòng khi server thành công.
       await setMemberStatus(memberToDelete.id, 'deleted'); // Duy's code: lưu status deleted trong DB.
+      toast('Đã xóa tài khoản.');
       setMembersState((current) => current.filter((row) => row.id !== memberToDelete.id)); // Duy's code: ẩn tài khoản khỏi bảng.
       setMemberToDelete(null); // Duy's code: đóng hộp xác nhận sau khi xóa thành công.
     } catch (error) { // Duy's code: giữ nguyên dữ liệu nếu API thất bại.
@@ -117,6 +119,9 @@ export default function AdminMemberManagementPage() {
     setRequestError('');
     try {
       const result = await decideAccountReport(reportCase.caseId, action);
+      toast(action === 'accept'
+        ? 'Đã chấp nhận báo cáo; tài khoản đã bị khóa.'
+        : 'Đã từ chối báo cáo.');
       setMembersState((current) => current.map((row) => (
         row.id === result.accountId ? { ...row, status: result.status } : row
       )));
