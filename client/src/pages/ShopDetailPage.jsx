@@ -17,6 +17,8 @@ import { getHoursForDay, getTodayHours, todayDayOfWeek } from '../utils/time';
 import styles from './ShopDetailPage.module.css';
 
 const WEEKDAY_SHORT = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+// Món chưa được xếp danh mục nào (dish_category rỗng) vẫn phải hiện, gom vào nhóm này.
+const FALLBACK_GROUP = 'Khác';
 
 export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAction }) {
   const [status, setStatus] = useState('loading');
@@ -71,12 +73,17 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAct
     return () => { ignore = true; };
   }, [reloadKey, shopId]);
 
+  // Một món có thể thuộc nhiều danh mục -> món xuất hiện ở mọi nhóm của nó (yêu cầu 2).
   const groupedMenu = useMemo(() => {
     const map = new Map();
     menu.forEach((item) => {
-      const key = item.category || 'Khác';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(item);
+      const groups = Array.isArray(item.categories) && item.categories.length
+        ? item.categories
+        : [item.category || FALLBACK_GROUP];
+      groups.forEach((category) => {
+        if (!map.has(category)) map.set(category, []);
+        map.get(category).push(item);
+      });
     });
     return Array.from(map.entries());
   }, [menu]);
@@ -179,7 +186,7 @@ export default function ShopDetailPage({ shopId, user, accountMenu = [], shopAct
                           <h3 className={styles.groupTitle}>{category}<span>{items.length} món</span></h3>
                           <ul className={styles.menuList}>
                             {items.map((item) => (
-                              <li key={item.id} className={`${styles.dishCard} ${item.isAvailable === false ? styles.unavailable : ''} ${item.imageUrl ? '' : styles.dishCardNoPhoto}`}>
+                              <li key={`${category}-${item.id}`} className={`${styles.dishCard} ${item.isAvailable === false ? styles.unavailable : ''} ${item.imageUrl ? '' : styles.dishCardNoPhoto}`}>
                                 {item.imageUrl && (
                                   <Photo src={item.imageUrl} alt={item.name} ratio="1/1" shape="leaf" className={styles.dishPhoto} />
                                 )}
