@@ -140,13 +140,24 @@ async function findShopDetail(shopId) {
     return null;
   }
 
+  // Nhóm món = danh mục thật của Dish (bảng nối dish_category + category đang bật),
+  // không phải cột text shop_dish.dish_category (cột đó không có đường ghi nên luôn NULL).
+  // Một món thuộc nhiều danh mục -> trả cả mảng, FE hiển thị món ở mọi nhóm của nó.
   const menuResult = await pool.query(`
     SELECT sd.shop_dish_id, sd.dish_id, COALESCE(sd.display_name, d.name) AS name, sd.price,
-           sd.ingredient_note, sd.is_available, sd.dish_category, sd.img_url
+           sd.ingredient_note, sd.is_available, sd.img_url,
+           COALESCE(cat.names, ARRAY[]::text[]) AS categories,
+           cat.first_id
     FROM shop_dish sd
     JOIN dish d ON d.dish_id = sd.dish_id AND d.status = 'active'
+    LEFT JOIN LATERAL (
+      SELECT array_agg(c.name ORDER BY c.category_id) AS names, min(c.category_id) AS first_id
+      FROM dish_category dc
+      JOIN category c ON c.category_id = dc.category_id AND c.is_active
+      WHERE dc.dish_id = d.dish_id
+    ) cat ON true
     WHERE sd.shop_id = $1
-    ORDER BY sd.dish_category NULLS LAST, sd.is_available DESC, d.name
+    ORDER BY cat.first_id NULLS LAST, sd.is_available DESC, d.name
   `, [shopId]);
 
   let schedule = [];
