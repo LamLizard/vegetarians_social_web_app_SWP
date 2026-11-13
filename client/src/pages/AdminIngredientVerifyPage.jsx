@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Pagination, Panel, Spinner } from '../components';
+import { AdminLayout, Button, ConfirmDialog, EmptyState, ErrorDialog, Notice, PageHeader, Pagination, Panel, Spinner, useToast } from '../components';
 import useAuth from '../hooks/useAuth';
 import {
   decideIngredientProposal,
@@ -31,6 +31,7 @@ function getPageFromUrl() {
 // Duy's Code: Chia hàng đợi theo nguồn; lịch sử và từ khóa được tải riêng khi mở trang tương ứng.
 export default function AdminIngredientVerifyPage() {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [items, setItems] = useState([]);
   const [activePage, setActivePage] = useState(getPageFromUrl);
   const [loading, setLoading] = useState(true);
@@ -112,6 +113,11 @@ export default function AdminIngredientVerifyPage() {
         note,
         ...classificationForItem,
       });
+      if (decision.action === 'approve') {
+        toast(`Đã duyệt nguyên liệu “${decision.item.name}”.`);
+      } else if (decision.item.sourceType === 'health_profile') {
+        toast(`Đã từ chối nguyên liệu “${decision.item.name}”.`);
+      }
       await load();
       setResolvedRecipeLinks(linkedRecipes);
       setDecision(null);
