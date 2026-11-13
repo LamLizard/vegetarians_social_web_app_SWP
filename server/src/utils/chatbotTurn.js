@@ -16,8 +16,15 @@ function validKeys(value, keys) {
 }
 
 // Tùng: chỉ nhận các trường v3 và lịch sử theo cặp để admission không tin dữ liệu thừa.
+const MAX_SEEN_RECIPES = 60;
 function validateV3(body, account) {
-  if (!validKeys(body, ['protocol', 'turnId', 'text', 'history', 'sessionToken', 'deviceId', 'expectedDay', 'postContext'])
+  // Khoi's code (14/11/2026): seenRecipeIds = công thức đã hiện thẻ trong cuộc trò chuyện (để không gợi ý lặp lại).
+  if (!validKeys(body, ['protocol', 'turnId', 'text', 'history', 'sessionToken', 'deviceId', 'expectedDay', 'postContext',
+    'seenRecipeIds', 'aiSuggestedLast'])
+    || (body.aiSuggestedLast !== undefined && body.aiSuggestedLast !== true)
+    || (body.seenRecipeIds !== undefined && (!Array.isArray(body.seenRecipeIds) || body.seenRecipeIds.length > MAX_SEEN_RECIPES
+      || !body.seenRecipeIds.every((id) => typeof id === 'string' && /^[1-9]\d{0,17}$/.test(id))
+      || new Set(body.seenRecipeIds).size !== body.seenRecipeIds.length))
     || body.protocol !== 3 || typeof body.turnId !== 'string' || !UUID.test(body.turnId)
     || (!account && (typeof body.deviceId !== 'string' || !UUID.test(body.deviceId)
       || typeof body.expectedDay !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.expectedDay)))
@@ -106,18 +113,27 @@ function parseScopedV3Intent(raw, text) {
   let value;
   try { value = JSON.parse(raw); } catch { throw invalid(); }
   // Khoi's code (06/11/2026): khoá thứ 12 cookDish — món người dùng muốn cách làm (null nếu không).
+  // Khoi's code (13/11/2026): khoá 13–14 shopName (tên quán được hỏi) và shopDish (món muốn tìm ở quán).
   const keys = ['intent', 'subject', 'hasOtherAllowedQuestion', 'needsPersonalization', 'needsWebsiteGuide',
-    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts', 'cookDish'];
+    'needsGreenBowlData', 'postMode', 'postOrder', 'nearTerms', 'scope', 'allowedParts', 'cookDish',
+    'shopName', 'shopDish'];
   if (!validKeys(value, keys) || Object.keys(value).length !== keys.length
     || !['allowed', 'outside', 'mixed', 'uncertain'].includes(value.scope)
     || !Array.isArray(value.allowedParts) || value.allowedParts.length > 8) throw invalid();
-  const { scope, allowedParts, cookDish: rawCookDish, ...intentValue } = value;
+  const { scope, allowedParts, cookDish: rawCookDish, shopName: rawShopName, shopDish: rawShopDish,
+    ...intentValue } = value;
   const cookDish = parseCookDish(rawCookDish);
-  if (cookDish === undefined) throw invalid();
+  const shopName = parseCookDish(rawShopName);
+  const shopDish = parseCookDish(rawShopDish);
+  if (cookDish === undefined || shopName === undefined || shopDish === undefined) throw invalid();
   const parsed = parseV3Intent(JSON.stringify(intentValue));
+  const chat = parsed.intent === 'chat';
   // Khoi's code (06/11/2026): có món cần cách làm thì luôn lấy dữ liệu công thức (model đôi khi quên đặt recipes).
-  const intent = { ...parsed, cookDish: parsed.intent === 'chat' ? cookDish : null,
-    needsGreenBowlData: parsed.intent === 'chat' && cookDish ? 'recipes' : parsed.needsGreenBowlData };
+  // Khoi's code (13/11/2026): hỏi quán cụ thể / quán có món X thì lấy dữ liệu quán (cách làm món vẫn ưu tiên).
+  const needsGreenBowlData = chat && cookDish ? 'recipes'
+    : chat && (shopName || shopDish) ? 'shops' : parsed.needsGreenBowlData;
+  const intent = { ...parsed, cookDish: chat ? cookDish : null, shopName: chat ? shopName : null,
+    shopDish: chat ? shopDish : null, needsGreenBowlData };
   if (scope !== 'mixed') {
     if (allowedParts.length) throw invalid();
     return { scope, intent, allowedText: text };

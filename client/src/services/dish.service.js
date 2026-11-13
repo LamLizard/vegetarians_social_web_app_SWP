@@ -13,6 +13,13 @@ export async function createAdminDish(payload) {
   });
 }
 
+export async function updateAdminDish(dishId, payload) {
+  return apiFetch(`/dishes/admin/${encodeURIComponent(dishId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function createAdminDishWithRecipe(payload) {
   return apiFetch('/dishes/admin/with-recipe', {
     method: 'POST',

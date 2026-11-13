@@ -31,7 +31,7 @@ function classifierJson(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
     needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
-    scope: 'allowed', allowedParts: [], cookDish: null, ...overrides,
+    scope: 'allowed', allowedParts: [], cookDish: null, shopName: null, shopDish: null, ...overrides,
   });
 }
 
@@ -258,7 +258,8 @@ test('turnV3: dữ liệu Green Bowl có thật → thẻ kết quả + dữ li�
   chatContextModel.findRecipesForChat = async (keywords, options) => {
     // Khoi's code (11/11/2026): xin kèm nguyên liệu để AI đối chiếu dị ứng.
     // Khoi's code (13/11/2026): gửi ~10 ứng viên (bù món khác cho đủ), Mầm chọn tối đa 3.
-    assert.deepEqual(options, { limit: 10, excludeAllergies: [], withIngredients: true, fillToLimit: true });
+    // Khoi's code (14/11/2026): chỉ món khớp, chưa hiện; dị ứng được đánh dấu (không loại).
+    assert.deepEqual(options, { limit: 10, allergies: [], withIngredients: true, excludeIds: [] });
     // Khoi's code (06/11/2026): "đậu hũ" giờ là một cụm (từ 2 chữ cái được ghép cụm), không tách "đậu" đứng riêng.
     assert.ok(keywords.includes('đậu hũ'), keywords.join(' | '));
     return [{ id: '40', title: 'Đậu hũ sốt cà chua', dishName: 'Đậu hũ', thumbnailUrl: 'https://x/y.png',
@@ -564,7 +565,7 @@ test('turnV3 "cách làm món X": prompt giữ định lượng DB, phát thẻ 
   const source = frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipe-source');
   assert.ok(source);
   assert.deepEqual(source.data.item, { id: '40', title: 'Đậu hũ sốt cà chua', thumbnailUrl: null,
-    minutes: 25, caloriesKcal: 300, servings: 2 });
+    minutes: 25, caloriesKcal: 300, servings: 2, allergens: [] });
   assert.equal(source.data.quantityNote, false);
   const cards = frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
   assert.ok(cards);
@@ -610,8 +611,8 @@ test('turnV3 câu gợi ý món (cookDish null): không có thẻ nguồn', asyn
   assert.ok(frames.find((frame) => frame.name === 'result' && frame.data.kind === 'recipes'));
 });
 
-// Khoi's code (06/11/2026): công thức có thật nhưng chứa nguyên liệu dị ứng → không gắn "do AI tạo".
-test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAllergy, không ai-generated', async () => {
+// Khoi's code (14/11/2026): BR mới — công thức nguồn chứa nguyên liệu dị ứng vẫn hiện, kèm cảnh báo; không gắn "do AI tạo".
+test('turnV3 "cách làm món X" trùng dị ứng: vẫn có thẻ nguồn kèm allergens, không ai-generated', async () => {
   const stub = stubHowTo({ source: { id: '40', title: 'Đậu hũ sốt cà chua', ingredientNames: ['Đậu nành'] } });
   healthModel.getHealthProfile = async () => ({ allergies: [{ name: 'đậu nành' }] });
   let call = 0;
@@ -626,13 +627,12 @@ test('turnV3 "cách làm món X" bị loại do dị ứng: recipeExcludedByAlle
 
   const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
     .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
-  assert.equal(data.recipeExcludedByAllergy, true);
-  assert.equal(data.recipeSource, null);
-  // Khoi's code (11/11/2026): AI nhận tên công thức + nguyên liệu trùng dị ứng, không chỉ một cờ true/false.
-  assert.deepEqual(data.excludedRecipe, { title: 'Đậu hũ sốt cà chua', allergens: ['Đậu nành'] });
-  assert.deepEqual(data.greenBowlInfo, { partialList: true, allergyFiltered: true, pickUpTo: 3 });
+  assert.deepEqual(data.recipeSourceAllergens, ['Đậu nành']);
+  assert.ok(data.recipeSource.includes('Công thức Green Bowl'));
   const frames = events(res);
-  assert.equal(frames.some((frame) => ['recipe-source', 'ai-generated'].includes(frame.data?.kind)), false);
+  const source = frames.find((frame) => frame.data?.kind === 'recipe-source');
+  assert.deepEqual(source.data.item.allergens, ['Đậu nành']);
+  assert.equal(frames.some((frame) => frame.data?.kind === 'ai-generated'), false);
   assert.ok(frames.find((frame) => frame.name === 'done'));
 });
 
@@ -652,14 +652,14 @@ test('turnV3 gợi ý món: ingredientNames tới AI nhưng không nằm trong f
   assert.deepEqual(Object.keys(result.data.items[0]).sort(), Object.keys(RECIPE_40).sort());
 });
 
-test('turnV3 không bị loại do dị ứng: excludedRecipe là null', async () => {
+test('turnV3 gợi ý món không trùng dị ứng: recipeSourceAllergens rỗng', async () => {
   const stub = stubHowTo({ cookDish: null });
   const res = fakeRes();
   await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
     body: memberBody({ text: 'gợi ý món chay với đậu hũ' }) }), res);
   const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
     .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
-  assert.equal(data.excludedRecipe, null);
+  assert.deepEqual(data.recipeSourceAllergens, []);
   assert.equal(data.greenBowlInfo.partialList, true);
 });
 
@@ -702,4 +702,144 @@ test('turnV3 gợi ý món: món ứng viên không được nhắc tên thì kh
     body: memberBody({ text: 'tôi nên ăn món nào để giảm cân' }) }), res);
   const result = events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
   assert.deepEqual(result.data.items.map((item) => item.title), ['Chả nấm chay']);
+});
+
+// Khoi's code (13/11/2026): thẻ quán — dòng món khớp / tóm tắt menu, không lộ menu và ghi chú ra trình duyệt.
+test('shopCard: tìm theo món → menuHighlight dish; hỏi tên quán → menu; bỏ menu/matchedDishes', () => {
+  const shop = { id: '39', name: 'Mộc Nhiên', address: 'a', statusText: 'Mở đến 22:00', menu: [{ name: 'x' }],
+    matchedDishes: [{ name: 'Cơm chiên rau củ', price: 60000, ingredientNote: 'hành' }, { name: 'Cơm chiên nấm', price: 50000 }],
+    menuCount: 4, minPrice: 49000 };
+  const byDish = controller.shopCard(shop, { dish: 'cơm chiên', shopName: null });
+  assert.deepEqual(byDish.menuHighlight, { kind: 'dish', name: 'Cơm chiên rau củ', price: 60000, more: 1, allergens: [] });
+  for (const key of ['menu', 'matchedDishes', 'menuCount', 'minPrice']) assert.equal(key in byDish, false, key);
+  assert.deepEqual(controller.shopCard(shop, { shopName: 'Mộc Nhiên', dish: null }).menuHighlight,
+    { kind: 'menu', count: 4, minPrice: 49000, allergens: [] });
+  assert.equal('menuHighlight' in controller.shopCard(shop, null), false);
+});
+
+test('turnV3 tìm quán theo món: không quán nào bán → gợi ý công thức món đó, thẻ công thức được nhắc tên', async () => {
+  stubModel();
+  let shopArgs = null;
+  chatContextModel.findShopsForChat = async (args) => { shopArgs = args; return []; };
+  chatContextModel.findRecipesForChat = async () => [{ ...RECIPE_40, id: '9', title: 'Súp bí đỏ nước cốt dừa' }];
+  // Khoi's code (14/11/2026): có công thức đúng món → không gắn nhãn AI tạo.
+  chatContextModel.findRecipeSourceByQuestion = async () => ({ id: '9', title: 'Súp bí đỏ nước cốt dừa', ingredientNames: [] });
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ shopDish: 'súp bí đỏ' }) : '{"verdict":"allow"}'; };
+  let captured = null;
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta('Chưa có quán nào bán. Bạn thử tự nấu **Súp bí đỏ nước cốt dừa** nhé.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody({ text: 'tôi thèm súp bí đỏ, quán nào có?' }) }), res);
+  assert.deepEqual(shopArgs, { shopName: null, dish: 'súp bí đỏ', limit: 3, allergies: [] });
+  const data = JSON.parse(captured[captured.length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.deepEqual(data.shopSearch, { shopName: null, dish: 'súp bí đỏ', shopsFound: 0 });
+  const result = events(res).find((frame) => frame.name === 'result');
+  assert.equal(result.data.kind, 'recipes');
+  assert.deepEqual(result.data.items.map((item) => item.title), ['Súp bí đỏ nước cốt dừa']);
+  assert.equal(events(res).some((frame) => frame.data?.kind === 'ai-generated'), false);
+});
+
+// Khoi's code (14/11/2026): công thức đã hiện → loại khỏi gợi ý; khớp nhưng đã xem hết → recipesExhausted + nhãn AI gợi ý.
+test('turnV3 xin thêm món: gửi seenRecipeIds để loại; hết món khớp → recipesExhausted, ai-generated suggestions', async () => {
+  stubModel();
+  const calls = [];
+  chatContextModel.findRecipesForChat = async (keywords, options) => {
+    calls.push(options);
+    return options.excludeIds ? [] : [RECIPE_40];
+  };
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  let captured = null;
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta('Bạn đã xem hết công thức cà chua trên Green Bowl. Mầm gợi ý thêm: canh cà chua đậu hũ non.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'hiện thêm món có cà chua', seenRecipeIds: ['40', '61', '70'] }) }), res);
+  assert.deepEqual(calls[0].excludeIds, ['40', '61', '70']);
+  const data = JSON.parse(captured[captured.length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.equal(data.recipesExhausted, true);
+  assert.equal(data.recipesNotFound, false);
+  const frames = events(res);
+  assert.equal(frames.some((frame) => frame.data?.kind === 'recipes'), false);
+  assert.equal(frames.find((frame) => frame.data?.kind === 'ai-generated').data.reason, 'suggestions');
+});
+
+test('turnV3 cách làm món Green Bowl chưa có: cookDishWithoutRecipe + ai-generated reason recipe', async () => {
+  const stub = stubHowTo({ items: [RECIPE_40], detail: null, source: null, cookDish: 'mì quảng nấm',
+    answer: 'Green Bowl chưa có công thức mì quảng nấm. Cách nấu tham khảo: ...' });
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'cho tôi công thức món mì quảng nấm' }) }), res);
+  const data = JSON.parse(stub.captured()[stub.captured().length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.equal(data.cookDishWithoutRecipe, 'mì quảng nấm');
+  assert.deepEqual(events(res).find((frame) => frame.data?.kind === 'ai-generated').data.reason, 'recipe');
+});
+
+test('turnV3 hỏi quán của thành viên: luôn đọc dị ứng dù classifier không cần cá nhân hoá', async () => {
+  stubModel();
+  let read = 0;
+  healthModel.getHealthProfile = async () => { read += 1; return { allergies: [{ name: 'Mì sợi' }] }; };
+  let shopArgs = null;
+  chatContextModel.findShopsForChat = async (args) => { shopArgs = args; return []; };
+  chatContextModel.findRecipesForChat = async () => [];
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ shopDish: 'mì quảng', needsPersonalization: false }) : '{"verdict":"allow"}'; };
+  deepseek.streamAnswer = async (messages, options) => { options.onDelta('Chưa có quán nào.'); return { complete: true, limited: false }; };
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'quán nào có mì quảng' }) }), fakeRes());
+  assert.equal(read, 1);
+  assert.deepEqual(shopArgs.allergies, ['Mì sợi']);
+});
+
+// Khoi's code (14/11/2026): đã hết công thức và lượt trước Mầm đã tự gợi ý → câu cố định, không gọi AI trả lời, hoàn lượt.
+test('turnV3 hỏi lại khi đã hết món (aiSuggestedLast): câu cố định, không stream, refunded', async () => {
+  stubModel();
+  let released = 0;
+  chatbotModel.releaseTurn = async () => { released += 1; };
+  chatContextModel.findRecipesForChat = async (keywords, options) => (options.excludeIds ? [] : [RECIPE_40]);
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  let streamed = false;
+  deepseek.streamAnswer = async () => { streamed = true; return { complete: true, limited: false }; };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'cho tôi món ăn có cà chua', seenRecipeIds: ['40'], aiSuggestedLast: true }) }), res);
+  assert.equal(streamed, false);
+  assert.equal(call, 1); // chỉ gọi bộ phân loại
+  assert.equal(released, 1);
+  const frames = events(res);
+  assert.ok(frames.filter((frame) => frame.name === 'delta').map((frame) => frame.data.text).join('').includes('gợi ý hết'));
+  const done = frames.find((frame) => frame.name === 'done');
+  assert.equal(done.data.refunded, true);
+  assert.ok(done.data.historyEntry);
+});
+
+test('turnV3 hết món lần đầu (chưa có aiSuggestedLast): vẫn để Mầm tự gợi ý, tính lượt', async () => {
+  stubModel();
+  let released = 0;
+  chatbotModel.releaseTurn = async () => { released += 1; };
+  chatContextModel.findRecipesForChat = async (keywords, options) => (options.excludeIds ? [] : [RECIPE_40]);
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  deepseek.streamAnswer = async (messages, options) => { options.onDelta('Gợi ý thêm: canh cà chua.'); return { complete: true, limited: false }; };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'cho tôi món ăn có cà chua', seenRecipeIds: ['40'] }) }), res);
+  assert.equal(released, 0);
+  assert.equal(events(res).find((frame) => frame.name === 'done').data.refunded, undefined);
 });

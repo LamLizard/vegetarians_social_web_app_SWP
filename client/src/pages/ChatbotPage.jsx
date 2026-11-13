@@ -18,7 +18,7 @@ import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
 import { AUTH_TOKEN_KEY } from '../services/api';
 import { readChatSession, writeChatSession, clearChatSession } from '../utils/chatSession';
-import { repeatedCardIndexes } from '../utils/chatCards';
+import { aiSuggestedSinceCards, repeatedCardIndexes, seenRecipeIds } from '../utils/chatCards';
 import styles from './ChatbotPage.module.css';
 
 // Khoi's code (05/11/2026): chỉ giữ deviceId trên máy khách; số lượt hỏi thử do server đếm.
@@ -408,14 +408,24 @@ export default function ChatbotPage({ user }) {
       const expectedDay = availability.quotaDay;
       scope = user?.id ? actor : `device:${deviceId}`;
       const priorSession = sessionRef.current;
-      if (priorSession && !readChatSession(scope)) postContextRef.current = emptyPostContext();
+      // Khoi's code (14/11/2026): phiên lưu trên trình duyệt bị hỏng thì xoá đi và gửi tiếp như cuộc trò chuyện mới,
+      // không báo lỗi mãi (lượt sau sẽ ghi lại phiên mới).
+      let storedSession = null;
+      try { storedSession = readChatSession(scope); } catch { clearChatSession(scope); }
+      if (priorSession && !storedSession) postContextRef.current = emptyPostContext();
       const postContext = postContextRef.current;
       const topic = postContext.topics.find((entry) => postContext.activeSubject
         && subjectKey(entry.subject) === subjectKey(postContext.activeSubject));
       const searchContext = { state: postContext.state, subject: postContext.activeSubject,
         seenIds: postContext.state === 'known' ? (topic?.seenIds ?? []) : [] };
+      // Khoi's code (14/11/2026): công thức đã hiện trong cuộc trò chuyện → server không gợi ý lại.
+      const seenRecipes = seenRecipeIds(messagesRef.current);
+      // Khoi's code (14/11/2026): Mầm đã tự gợi ý món (nhãn "Gợi ý do AI tạo") kể từ lần cuối có thẻ công thức →
+      // server biết để lần hỏi lại khi đã hết công thức thì báo hết, không gọi AI viết câu trả lời và hoàn lượt.
+      const aiSuggestedLast = aiSuggestedSinceCards(messagesRef.current);
       const payload = { protocol: 3, turnId, text: question, history,
-        postContext: searchContext,
+        postContext: searchContext, ...(seenRecipes.length ? { seenRecipeIds: seenRecipes } : {}),
+        ...(aiSuggestedLast ? { aiSuggestedLast: true } : {}),
         ...(deviceId ? { deviceId, expectedDay } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) };
       if (new TextEncoder().encode(JSON.stringify(payload)).length > 2 * 1024 * 1024) {
         postContextRef.current = { ...postContextRef.current, state: 'unknown' };
@@ -464,7 +474,7 @@ export default function ChatbotPage({ user }) {
           if (value.kind === 'recipe-source' || value.kind === 'ai-generated') {
             updateTurn({ source: value.kind === 'recipe-source'
               ? { kind: 'recipe-source', item: value.item, quantityNote: value.quantityNote }
-              : { kind: 'ai-generated' } });
+              : { kind: 'ai-generated', ...(value.reason ? { reason: value.reason } : {}) } });
             return;
           }
           // Khoi's code (05/11/2026): thẻ công thức/quán thật của Green Bowl.
@@ -516,6 +526,7 @@ export default function ChatbotPage({ user }) {
       const nextMessages = updateMessages((current) => current.map((message) => (
         message.turnId === turnId ? { ...message, status: 'complete',
           ...(message.sender === 'bot' ? { content: reply, result: resultCard, cards: resultCards, limited: response.limited,
+            ...(response.refunded ? { refunded: true } : {}), // Khoi's code (14/11/2026): lượt hoàn tất nhưng không tính
             // Khoi's code (08/11/2026): lưu chữ ký cạnh nội dung để lượt sau gửi lại đúng cặp đã ký.
             ...(entry ? { at: entry.at, sig: entry.sig } : {}) } : {}) } : message
       )));
@@ -694,10 +705,12 @@ export default function ChatbotPage({ user }) {
                         {message.sender === 'bot' && message.source && <ChatSourceCard source={message.source} />}
                         {/* Khoi's code (11/11/2026): hàng thẻ y hệt lượt trả lời ngay trước thì không vẽ lại. */}
                         {message.sender === 'bot' && message.cards && !repeatedCards.has(index) && (
-                          <ChatResultCards cards={message.cards}
+                          <ChatResultCards cards={message.cards} isGuest={!user}
                             title={message.source ? 'Món khác trên Green Bowl bạn có thể thích' : undefined} />
                         )}
                         {message.sender === 'bot' && message.limited && <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>}
+                        {message.sender === 'bot' && message.status === 'complete' && message.refunded
+                          && <p className={styles.messageNotice}>Lượt này không bị tính.</p>}
                         {message.sender === 'bot' && message.status === 'failed' && <div className={styles.messageNotice}>
                           <p>{message.error}</p>
                           {/* Khoi's code (05/11/2026): lượt lỗi đã được server hoàn thì nói rõ để khách yên tâm. */}

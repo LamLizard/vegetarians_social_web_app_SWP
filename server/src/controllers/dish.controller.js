@@ -32,6 +32,20 @@ async function createAdminDish(req, res, next) {
   }
 }
 
+async function updateAdminDish(req, res, next) {
+  try {
+    const dishId = Number(req.params.dishId);
+    if (!Number.isSafeInteger(dishId) || dishId < 1) {
+      return res.status(400).json({ message: 'Mã món ăn không hợp lệ.' });
+    }
+    const input = normalizeDishInput(req.body);
+    const result = await dishModel.updateDish(dishId, input, { id: req.account.id, ip: req.ip });
+    return res.json(result);
+  } catch (error) {
+    return respondWithError(error, res, next);
+  }
+}
+
 async function createAdminDishWithRecipe(req, res, next) {
   try {
     const dish = normalizeDishInput(req.body);
@@ -67,4 +81,4 @@ async function searchAdminDishes(req, res, next) {
   }
 }
 
-module.exports = { createAdminDish, createAdminDishWithRecipe, getAdminDishes, getCategories, searchAdminDishes };
+module.exports = { createAdminDish, createAdminDishWithRecipe, getAdminDishes, getCategories, searchAdminDishes, updateAdminDish };

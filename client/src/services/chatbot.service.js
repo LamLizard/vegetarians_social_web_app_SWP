@@ -93,7 +93,9 @@ function validResult(payload) {
   if (payload.kind === 'recipes') return isCardList(payload.items, isRecipeCard);
   if (payload.kind === 'shops') return isCardList(payload.items, isShopCard);
   if (payload.kind === 'recipe-source') return isRecipeSourceCard(payload.item) && typeof payload.quantityNote === 'boolean';
-  if (payload.kind === 'ai-generated') return payload.item === undefined;
+  // Khoi's code (14/11/2026): reason 'recipe' (cách làm món chưa có) | 'suggestions' (Mầm tự gợi ý món).
+  if (payload.kind === 'ai-generated') return payload.item === undefined
+    && (payload.reason === undefined || ['recipe', 'suggestions'].includes(payload.reason));
   return false;
 }
 

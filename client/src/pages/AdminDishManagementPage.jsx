@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AdminLayout, Button, EmptyState, ErrorDialog, PageHeader, Panel, Photo, SearchInput, Spinner } from '../components';
+import {
+  AdminLayout, Button, CategoryPicker, EmptyState, ErrorDialog, Modal, PageHeader, Panel, Photo,
+  SearchInput, Spinner, TextArea, TextField, useToast,
+} from '../components';
 import useAuth from '../hooks/useAuth';
-import { getAdminDishes } from '../services/dish.service';
+import { getAdminDishes, getDishCategories, searchAdminDishes, updateAdminDish } from '../services/dish.service';
 import { RecipeSteps } from '../components/RecipeView/RecipeView';
 import { filterAdminDishes } from '../utils/dishSearch';
 import styles from './AdminDishManagementPage.module.css';
@@ -15,12 +18,20 @@ const formatDate = (value) => {
 // Mỗi bản ghi Dish trong DB là một món riêng; Recipe được tải từ quan hệ recipe.dish_id.
 export default function AdminDishManagementPage() {
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [dishes, setDishes] = useState([]);
+  const [activeCategories, setActiveCategories] = useState([]);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedDishes, setExpandedDishes] = useState({});
   const [expandedRecipes, setExpandedRecipes] = useState({});
+  const [editorDish, setEditorDish] = useState(null);
+  const [form, setForm] = useState({ name: '', description: '', categoryIds: [] });
+  const [nameError, setNameError] = useState('');
+  const [nameMatches, setNameMatches] = useState([]);
+  const [searchingName, setSearchingName] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -35,6 +46,107 @@ export default function AdminDishManagementPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    getDishCategories()
+      .then((items) => { if (active) setActiveCategories(items); })
+      .catch((e) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const query = form.name.trim();
+    if (!editorDish || !query) {
+      setNameMatches([]);
+      setSearchingName(false);
+      return undefined;
+    }
+    let active = true;
+    setSearchingName(true);
+    const timer = window.setTimeout(() => {
+      searchAdminDishes(query)
+        .then((items) => {
+          if (active) setNameMatches(items.filter((item) => String(item.id) !== String(editorDish.id)));
+        })
+        .catch(() => { if (active) setNameMatches([]); })
+        .finally(() => { if (active) setSearchingName(false); });
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [editorDish, form.name]);
+
+  const openEditor = (dish) => {
+    setForm({
+      name: dish.name,
+      description: dish.description ?? '',
+      categoryIds: (dish.categories || []).map((category) => Number(category.id)),
+    });
+    setNameError('');
+    setNameMatches([]);
+    setEditorDish(dish);
+  };
+  const closeEditor = () => { if (!saving) setEditorDish(null); };
+  const exactMatch = nameMatches.find((item) => item.name.trim().toLocaleLowerCase('vi') === form.name.trim().toLocaleLowerCase('vi'));
+  const updateField = (field) => (value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    if (field === 'name') setNameError('');
+  };
+  const originalCategoryIds = (editorDish?.categories || []).map((category) => Number(category.id)).sort((a, b) => a - b);
+  const nextCategoryIds = [...form.categoryIds].map(Number).sort((a, b) => a - b);
+  const normalizedName = String(form.name).normalize('NFC').trim().replace(/\s+/gu, ' ');
+  const normalizedDescription = String(form.description).normalize('NFC').trim();
+  const hasChanges = Boolean(editorDish) && (
+    normalizedName !== String(editorDish.name).normalize('NFC').trim().replace(/\s+/gu, ' ')
+    || normalizedDescription !== String(editorDish.description ?? '').normalize('NFC').trim()
+    || originalCategoryIds.length !== nextCategoryIds.length
+    || originalCategoryIds.some((id, index) => id !== nextCategoryIds[index])
+  );
+  const formValid = Boolean(normalizedName)
+    && [...normalizedName].length <= 200
+    && [...normalizedDescription].length <= 500
+    && form.categoryIds.length >= 1
+    && form.categoryIds.length <= 20;
+
+  const saveDish = async (event) => {
+    event.preventDefault();
+    if (!editorDish || saving || !hasChanges || !formValid || exactMatch || searchingName) return;
+    setSaving(true);
+    setNameError('');
+    try {
+      const result = await updateAdminDish(editorDish.id, {
+        name: form.name,
+        description: form.description,
+        categoryIds: form.categoryIds,
+      });
+      if (result.unchanged) {
+        toast('Không có thay đổi nào để lưu.', { tone: 'info' });
+        setEditorDish(null);
+        return;
+      }
+      toast(`Đã cập nhật món “${result.name}”.`);
+      setEditorDish(null);
+      await load();
+    } catch (saveError) {
+      if (saveError.status === 409 && saveError.message.startsWith('Tên món này đã có trong Database.')) {
+        setNameError('Tên món này đã có trong Database. Hãy tìm và liên kết Recipe với món đang có.');
+      } else {
+        await load();
+        setError(saveError.message);
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const categoryOptions = [
+    ...activeCategories.map((category) => ({ value: Number(category.id), label: category.name })),
+    ...(editorDish?.categories || [])
+      .filter((category) => !activeCategories.some((active) => String(active.id) === String(category.id)))
+      .map((category) => ({
+        value: Number(category.id),
+        label: category.isActive === false ? `${category.name} (đã tắt)` : category.name,
+      })),
+  ];
 
   const visibleDishes = useMemo(() => {
     return filterAdminDishes(dishes, query);
@@ -75,25 +187,30 @@ export default function AdminDishManagementPage() {
                 const dishOpen = Boolean(expandedDishes[dish.id]);
                 return (
                   <Panel className={styles.dish} key={dish.id}>
-                    <button
-                      type="button"
-                      className={styles.dishHeader}
-                      aria-expanded={dishOpen}
-                      onClick={() => setExpandedDishes((current) => ({ ...current, [dish.id]: !current[dish.id] }))}
-                    >
-                      <span className={styles.dishIcon}><i className="bi bi-egg-fried" aria-hidden="true" /></span>
-                      <span className={styles.dishText}>
-                        <span className={styles.dishTitle}>{dish.name}</span>
-                        {dish.description && <span className={styles.description}>{dish.description}</span>}
-                        <span className={styles.categories}>
-                          {(dish.categories || []).length
-                            ? dish.categories.map((category) => <span key={category.id}>{category.name}</span>)
-                            : <span className={styles.noCategory}>Chưa gắn danh mục</span>}
+                    <div className={styles.dishHeaderRow}>
+                      <button
+                        type="button"
+                        className={styles.dishHeader}
+                        aria-expanded={dishOpen}
+                        onClick={() => setExpandedDishes((current) => ({ ...current, [dish.id]: !current[dish.id] }))}
+                      >
+                        <span className={styles.dishIcon}><i className="bi bi-egg-fried" aria-hidden="true" /></span>
+                        <span className={styles.dishText}>
+                          <span className={styles.dishTitle}>{dish.name}</span>
+                          {dish.description && <span className={styles.description}>{dish.description}</span>}
+                          <span className={styles.categories}>
+                            {(dish.categories || []).length
+                              ? dish.categories.map((category) => <span key={category.id}>{category.name}</span>)
+                              : <span className={styles.noCategory}>Chưa gắn danh mục</span>}
+                          </span>
                         </span>
-                      </span>
-                      <span className={styles.recipeCount}>{recipes.length} công thức</span>
-                      <i className={`bi bi-chevron-${dishOpen ? 'up' : 'down'} ${styles.chevron}`} aria-hidden="true" />
-                    </button>
+                        <span className={styles.recipeCount}>{recipes.length} công thức</span>
+                        <i className={`bi bi-chevron-${dishOpen ? 'up' : 'down'} ${styles.chevron}`} aria-hidden="true" />
+                      </button>
+                      <div className={styles.dishActions}>
+                        <Button size="sm" variant="outline" icon="pencil" onClick={(event) => { event.stopPropagation(); openEditor(dish); }}>Sửa</Button>
+                      </div>
+                    </div>
 
                     {dishOpen && <div className={styles.recipeList}>
                       {recipes.length === 0 ? <p className={styles.noRecipes}>Dish này chưa có công thức nào được duyệt.</p>
@@ -138,6 +255,56 @@ export default function AdminDishManagementPage() {
               })}
         </div>
       </div>
+      <Modal
+        open={Boolean(editorDish)}
+        onClose={closeEditor}
+        title="Sửa món ăn"
+        size="md"
+        dismissible={!saving}
+        footer={(
+          <>
+            <Button variant="subtle" onClick={closeEditor} disabled={saving}>Huỷ</Button>
+            <Button type="submit" form="admin-dish-edit-form" loading={saving} disabled={
+              saving || !hasChanges || !formValid || searchingName || Boolean(exactMatch)
+            }>Lưu</Button>
+          </>
+        )}
+      >
+        <form id="admin-dish-edit-form" onSubmit={saveDish} className="d-grid gap-3">
+          <div>
+            <TextField
+              label="Tên món"
+              value={form.name}
+              onChange={updateField('name')}
+              maxLength={200}
+              required
+              hint={`Tên món (${[...form.name].length}/200)`}
+              error={nameError || (exactMatch ? 'Dish này đã tồn tại.' : undefined)}
+              disabled={saving}
+            />
+            {searchingName && <small className="text-body-secondary">Đang kiểm tra tên đã có…</small>}
+          </div>
+          <TextArea
+            label="Mô tả"
+            value={form.description}
+            onChange={updateField('description')}
+            maxLength={500}
+            rows={4}
+            hint={`Mô tả (${[...form.description].length}/500)`}
+            disabled={saving}
+          />
+          <CategoryPicker
+            label="Category phân loại"
+            options={categoryOptions}
+            value={form.categoryIds}
+            onChange={updateField('categoryIds')}
+            max={20}
+            required
+            hint="Danh mục đã tắt vẫn được giữ hoặc có thể bỏ."
+            disabled={saving}
+          />
+        </form>
+      </Modal>
     </AdminLayout>
   );
 }
