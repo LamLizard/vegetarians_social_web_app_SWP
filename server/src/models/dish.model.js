@@ -80,7 +80,7 @@ async function listPendingDishes() {
 async function listAdminDishes() {
   const { rows } = await pool.query(`
     SELECT d.dish_id::text AS id, d.name, d.description,
-      COALESCE((SELECT json_agg(json_build_object('id', c.category_id, 'name', c.name) ORDER BY c.name)
+      COALESCE((SELECT json_agg(json_build_object('id', c.category_id, 'name', c.name, 'isActive', c.is_active) ORDER BY c.name)
         FROM public.dish_category dc JOIN public.category c ON c.category_id = dc.category_id
         WHERE dc.dish_id = d.dish_id), '[]'::json) AS categories,
       COALESCE((
@@ -218,6 +218,96 @@ async function createDish(input, actor, status) {
 
     const result = await client.query(`SELECT ${DISH_FIELDS} FROM public.dish d WHERE d.dish_id = $1`, [dish.id]);
     return result.rows[0];
+  });
+}
+
+// Update an active Admin Dish, its categories, and audit record atomically.
+async function updateDish(dishId, input, admin) {
+  return withTransaction(async (client) => {
+    const { rows: [before] } = await client.query(`
+      SELECT ${DISH_FIELDS}
+      FROM public.dish d
+      WHERE d.dish_id = $1
+      FOR UPDATE OF d
+    `, [dishId]);
+    if (!before) throw new DishModelError(404, 'Không tìm thấy món ăn.');
+    if (before.status !== 'active') throw new DishModelError(409, 'Chỉ sửa được món đang hoạt động.');
+
+    const nameChanged = input.name !== before.name;
+    const { rows: [nameComparison] } = await client.query(`
+      SELECT lower(btrim($1)) <> lower(btrim($2)) AS is_different
+    `, [input.name, before.name]);
+    if (nameComparison.is_different) {
+      const { rows: [existing] } = await client.query(`
+        SELECT dish_id FROM public.dish
+        WHERE lower(btrim(name)) = lower(btrim($1)) AND dish_id <> $2
+        LIMIT 1 FOR SHARE
+      `, [input.name, dishId]);
+      if (existing) throw new DishModelError(409, 'Tên món này đã có trong Database. Hãy tìm và liên kết Recipe với món đang có.');
+    }
+
+    const { rows: currentCategoryRows } = await client.query(`
+      SELECT category_id FROM public.dish_category WHERE dish_id = $1
+    `, [dishId]);
+    const currentCategoryIds = currentCategoryRows.map((row) => Number(row.category_id));
+    const currentCategorySet = new Set(currentCategoryIds);
+    const addedCategoryIds = input.categoryIds.filter((id) => !currentCategorySet.has(id));
+    if (addedCategoryIds.length) {
+      const { rows: activeCategories } = await client.query(`
+        SELECT category_id FROM public.category
+        WHERE is_active = true AND category_id = ANY($1::bigint[])
+        FOR SHARE
+      `, [addedCategoryIds]);
+      if (activeCategories.length !== addedCategoryIds.length) {
+        throw new DishModelError(400, 'Một hoặc nhiều danh mục không còn hoạt động. Hãy tải lại danh sách.');
+      }
+    }
+
+    const currentDescription = before.description ?? null;
+    const descriptionChanged = input.description !== currentDescription;
+    const sortedCurrentIds = [...currentCategoryIds].sort((a, b) => a - b);
+    const sortedNextIds = [...input.categoryIds].sort((a, b) => a - b);
+    const categoriesChanged = sortedCurrentIds.length !== sortedNextIds.length
+      || sortedCurrentIds.some((id, index) => id !== sortedNextIds[index]);
+    if (!nameChanged && !descriptionChanged && !categoriesChanged) {
+      return { ...before, unchanged: true };
+    }
+
+    await client.query(`
+      UPDATE public.dish SET name = $2, description = $3 WHERE dish_id = $1
+    `, [dishId, input.name, input.description]);
+    const removedCategoryIds = currentCategoryIds.filter((id) => !input.categoryIds.includes(id));
+    if (removedCategoryIds.length) {
+      await client.query(`
+        DELETE FROM public.dish_category
+        WHERE dish_id = $1 AND category_id = ANY($2::bigint[])
+      `, [dishId, removedCategoryIds]);
+    }
+    for (const categoryId of addedCategoryIds) {
+      await client.query(
+        'INSERT INTO public.dish_category (dish_id, category_id) VALUES ($1, $2)',
+        [dishId, categoryId],
+      );
+    }
+
+    const beforeValue = {};
+    const afterValue = {};
+    if (nameChanged) { beforeValue.name = before.name; afterValue.name = input.name; }
+    if (descriptionChanged) { beforeValue.description = currentDescription; afterValue.description = input.description; }
+    if (categoriesChanged) {
+      beforeValue.categoryIds = sortedCurrentIds;
+      afterValue.categoryIds = sortedNextIds;
+    }
+    await client.query(`
+      INSERT INTO public.admin_log
+        (admin_id, action, target_type, target_id, before_value, after_value, ip_address)
+      VALUES ($1, 'dish_updated', 'dish', $2, $3::jsonb, $4::jsonb, $5)
+    `, [admin.id, dishId, JSON.stringify(beforeValue), JSON.stringify(afterValue), admin.ip]);
+
+    const { rows: [updated] } = await client.query(`
+      SELECT ${DISH_FIELDS} FROM public.dish d WHERE d.dish_id = $1
+    `, [dishId]);
+    return updated;
   });
 }
 
@@ -367,6 +457,7 @@ async function decideDish(dishId, action, note, admin) {
 module.exports = {
   DishModelError,
   createDish,
+  updateDish,
   createAdminDishWithRecipe,
   decideDish,
   listActiveCategories,
