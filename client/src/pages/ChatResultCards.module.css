@@ -15,4 +15,10 @@
 .dish b { font-weight: 600; }
 .price { color: var(--mam-accent-text); font-weight: 600; white-space: nowrap; }
 .more { color: var(--v-muted); }
+/* Khoi's code (14/11/2026): thẻ có nguyên liệu trùng dị ứng (mockup B) — viền đỏ + nhãn góc ảnh + 1 dòng chữ đỏ. */
+.thumbWrap { position: relative; display: block; }
+.allergic { border-color: color-mix(in srgb, var(--ac-alert) 55%, transparent); }
+.allergic:hover { border-color: var(--ac-alert); }
+.allergyChip { position: absolute; top: 6px; left: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--ac-alert); color: #fff; font-size: .7rem; font-weight: 600; line-height: 1.5; }
+.allergyText { color: var(--ac-alert); font-size: .76rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .card { flex-basis: 168px; } }

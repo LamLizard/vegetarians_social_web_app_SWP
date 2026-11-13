@@ -77,15 +77,16 @@ test('findRecipesForChat: nhận tối đa 6 term, tham số SQL khớp số ter
   assert.equal(captured.sql.includes('$7'), false);
 });
 
-// Khoi's code (13/11/2026): khớp trọn từ (không còn "hien" khớp "chien"); fillToLimit bỏ điều kiện lọc để bù món khác.
-test('findRecipesForChat: khớp trọn từ; fillToLimit không lọc mà xếp món khớp trước', async () => {
+// Khoi's code (13/11/2026): khớp trọn từ (không còn "hien" khớp "chien").
+// Khoi's code (14/11/2026): bỏ chế độ bù món; excludeIds loại công thức đã hiện.
+test('findRecipesForChat: khớp trọn từ; luôn lọc theo từ khoá; excludeIds thành tham số mảng', async () => {
   const pool = require('../config/db');
   const original = pool.query;
   const calls = [];
   pool.query = async (sql, params) => { calls.push({ sql, params }); return { rows: [] }; };
   try {
     await findRecipesForChat(['đậu hũ (non)'], { limit: 3 });
-    await findRecipesForChat(['đậu hũ'], { limit: 10, fillToLimit: true });
+    await findRecipesForChat(['đậu hũ'], { limit: 10, excludeIds: ['40', '40', 'x', '41'] });
   } finally {
     pool.query = original;
   }
@@ -93,8 +94,10 @@ test('findRecipesForChat: khớp trọn từ; fillToLimit không lọc mà xếp
   assert.ok(calls[0].sql.includes("'(^|[^a-z0-9])'"));
   assert.equal(calls[0].sql.includes('position('), false);
   assert.ok(/WHERE r\.status = 'approved' AND \(/.test(calls[0].sql));
-  assert.equal(/WHERE r\.status = 'approved' AND \(/.test(calls[1].sql), false);
-  assert.ok(calls[1].sql.includes('DESC, random()'));
+  assert.ok(/WHERE r\.status = 'approved' AND \(/.test(calls[1].sql));
+  assert.deepEqual(calls[1].params, ['đậu hũ', ['40', '41']]);
+  assert.ok(calls[1].sql.includes('<> ALL($2::text[])'));
+  assert.equal(calls[0].sql.includes('<> ALL('), false);
 });
 
 // Khoi's code (13/11/2026): tìm quán theo tên (kèm menu) và theo món (mọi từ của món đều phải có, trọn từ).
@@ -130,4 +133,32 @@ test('findShopsForChat: theo tên trả menu; theo món chỉ giữ quán có m�
   } finally {
     pool.query = original;
   }
+});
+
+// Khoi's code (14/11/2026): BR mới — công thức trùng dị ứng không bị loại mà gắn allergens, món an toàn xếp trước.
+test('findRecipesForChat: gắn allergens, món an toàn đứng trước (giữ thứ hạng), không loại món', async () => {
+  const pool = require('../config/db');
+  const original = pool.query;
+  pool.query = async () => ({ rows: [
+    { id: '61', title: 'Cà Tím Cuộn Đậu Hũ Sốt Cà Chua Húng Quế', ingredientNames: ['Cà chua', 'Húng quế'] },
+    { id: '40', title: 'Đậu hũ sốt cà chua', ingredientNames: ['Cà chua', 'Đậu hũ'] },
+    { id: '70', title: 'Bún riêu chay', ingredientNames: ['Cà chua', 'Bún'] },
+  ] });
+  try {
+    const items = await findRecipesForChat(['cà chua'], { limit: 3, allergies: ['húng quế'], withIngredients: true });
+    assert.deepEqual(items.map((item) => item.id), ['40', '70', '61']);
+    assert.deepEqual(items[2].allergens, ['Húng quế']);
+    assert.deepEqual(items[0].allergens, []);
+    const plainItems = await findRecipesForChat(['cà chua'], { limit: 2 });
+    assert.deepEqual(plainItems.map((item) => item.id), ['61', '40']);
+    assert.equal('ingredientNames' in plainItems[0], false);
+  } finally {
+    pool.query = original;
+  }
+});
+
+test('allergiesIn: trả TÊN dị ứng trong hồ sơ xuất hiện ở tên món / ghi chú (không dấu)', () => {
+  const { allergiesIn } = require('./chatContext.model');
+  assert.deepEqual(allergiesIn(['Mì Quảng nấm', 'sợi mì Quảng, đậu phộng rang'], ['Đậu phộng', 'Húng quế']), ['Đậu phộng']);
+  assert.deepEqual(allergiesIn(['Cháo nấm', null], ['Mì sợi']), []);
 });

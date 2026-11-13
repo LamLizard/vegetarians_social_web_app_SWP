@@ -34,13 +34,14 @@ function matchedAllergens(item, allergies = []) {
 
 /**
  * Công thức đã duyệt (món active) khớp không dấu theo tiêu đề / tên món / tên nguyên liệu.
- * Không có keyword ("cho tôi 3 món bất kì") → chọn ngẫu nhiên trong công thức đã duyệt. Dị ứng: loại ở JS trước khi cắt `limit`.
+ * Không có keyword ("cho tôi 3 món bất kì") → chọn ngẫu nhiên trong công thức đã duyệt.
  */
 // Khoi's code (11/11/2026): withIngredients=true giữ lại ingredientNames để Mầm tự đối chiếu dị ứng (mặc định vẫn bỏ).
-// Khoi's code (13/11/2026): fillToLimit=true → món khớp từ khoá đứng trước, thiếu thì bù công thức khác (ngẫu nhiên)
-// cho đủ `limit` ứng viên; Mầm chọn trong danh sách này theo câu hỏi + mục tiêu.
+// Khoi's code (14/11/2026): BR mới — công thức trùng dị ứng KHÔNG bị loại mà được gắn `allergens` (tên nguyên liệu
+// trùng) để thẻ hiện cảnh báo; món an toàn xếp trước. excludeIds = công thức đã hiện trong cuộc trò chuyện.
+// Bỏ chế độ bù món ngẫu nhiên: có từ khoá thì chỉ trả món khớp (tránh món không liên quan).
 async function findRecipesForChat(keywords = [], {
-  limit = 3, excludeAllergies = [], withIngredients = false, fillToLimit = false,
+  limit = 3, allergies = [], withIngredients = false, excludeIds = [],
 } = {}) {
   // Khoi's code (06/11/2026): khớp MAX_RECIPE_TERMS bên controller (tối đa 6 term).
   // Khoi's code (13/11/2026): chỉ giữ chữ/số/khoảng trắng để term dùng an toàn trong regex bên dưới.
@@ -60,15 +61,20 @@ async function findRecipesForChat(keywords = [], {
             JOIN public.ingredient ing ON ing.ingredient_id = ri.ingredient_id
           WHERE ri.recipe_id = r.recipe_id AND ${hasWord('ing.name', needle)}))`;
   });
-  const match = conditions.length && !fillToLimit ? `AND (${conditions.join(' OR ')})` : '';
+  const match = conditions.length ? `AND (${conditions.join(' OR ')})` : '';
+  const seen = [...new Set((Array.isArray(excludeIds) ? excludeIds : []).map(String).filter((id) => /^[1-9]\d{0,17}$/.test(id)))];
+  let notSeen = '';
+  if (seen.length) {
+    params.push(seen);
+    notSeen = `AND r.recipe_id::text <> ALL($${params.length}::text[])`;
+  }
   // Khoi's code (06/11/2026): xếp theo SỐ term khớp (nhiều hơn đứng trước) rồi mới tới lượt thích.
   const score = conditions.length
     ? `(${conditions.map((condition) => `(CASE WHEN ${condition} THEN 1 ELSE 0 END)`).join(' + ')})`
     : null;
   // Khoi's code (12/11/2026): "ORDER BY 0" bị Postgres hiểu là cột thứ 0 → lỗi, nên nhánh không từ khoá chưa từng chạy được.
   // Không từ khoá = người dùng xin món bất kì → ngẫu nhiên để mỗi lần hỏi ra món khác.
-  const order = !score ? 'random()'
-    : fillToLimit ? `${score} DESC, random()` : `${score} DESC, "likeCount" DESC, r.recipe_id DESC`;
+  const order = score ? `${score} DESC, "likeCount" DESC, r.recipe_id DESC` : 'random()';
   const { rows } = await pool.query(`
     SELECT r.recipe_id::text AS id, r.title, d.name AS "dishName",
       r.thumbnail_url AS "thumbnailUrl", r.calories_kcal AS "caloriesKcal",
@@ -79,11 +85,13 @@ async function findRecipesForChat(keywords = [], {
         WHERE ri.recipe_id = r.recipe_id), '[]'::json) AS "ingredientNames"
     FROM public.recipe r
     JOIN public.dish d ON d.dish_id = r.dish_id AND d.status = 'active'
-    WHERE r.status = 'approved' ${match}
+    WHERE r.status = 'approved' ${match} ${notSeen}
     ORDER BY ${order}
     LIMIT ${RECIPE_SCAN_LIMIT}
   `, params);
-  return excludeAllergens(rows, excludeAllergies)
+  return rows
+    .map((row) => ({ ...row, allergens: matchedAllergens(row, allergies) }))
+    .sort((a, b) => Number(a.allergens.length > 0) - Number(b.allergens.length > 0)) // sort ổn định: giữ thứ hạng
     .slice(0, limit)
     .map(({ ingredientNames, ...item }) => (withIngredients
       ? { ...item, ingredientNames: Array.isArray(ingredientNames) ? ingredientNames : [] } : item));
@@ -170,7 +178,14 @@ const hasAllWords = (haystack, words) => {
   return words.length > 0 && words.every((word) => own.has(word));
 };
 
-async function findShopsForChat({ shopName = null, dish = null, limit = 3, now = new Date() } = {}) {
+// Khoi's code (14/11/2026): tên dị ứng (theo hồ sơ) xuất hiện trong tên món / ghi chú nguyên liệu của quán.
+function allergiesIn(texts = [], allergies = []) {
+  const haystack = texts.map(plain).join(' | ');
+  return [...new Set((Array.isArray(allergies) ? allergies : []).map((name) => String(name ?? '').trim())
+    .filter((name) => name && plain(name) && haystack.includes(plain(name))))];
+}
+
+async function findShopsForChat({ shopName = null, dish = null, limit = 3, now = new Date(), allergies = [] } = {}) {
   const nameWords = shopName ? wordsOf(shopName, SHOP_NAME_FILLERS) : [];
   const dishWords = dish ? wordsOf(dish, DISH_FILLERS) : [];
   if (!nameWords.length && !dishWords.length) return [];
@@ -194,7 +209,8 @@ async function findShopsForChat({ shopName = null, dish = null, limit = 3, now =
     .map((row) => {
       const menu = (Array.isArray(row.menu) ? row.menu : [])
         .map((item) => ({ name: String(item.name ?? '').trim(), price: item.price === null ? null : Number(item.price),
-          ingredientNote: item.ingredientNote ?? null }))
+          ingredientNote: item.ingredientNote ?? null,
+          allergens: allergiesIn([item.name, item.ingredientNote], allergies) }))
         .filter((item) => item.name);
       const matched = dishWords.length ? menu.filter((item) => hasAllWords(item.name, dishWords)) : [];
       const info = shopOpenInfo(groupScheduleRows(row.schedule ?? []), now);
@@ -246,4 +262,4 @@ async function findTodayMealPlan(accountId) {
 }
 
 module.exports = { findRecipesForChat, findRecipeSourceByQuestion, findRecipeDetailForChat, findOpenShops,
-  findShopsForChat, findTodayMealPlan, excludeAllergens, matchedAllergens, plain };
+  findShopsForChat, findTodayMealPlan, excludeAllergens, matchedAllergens, allergiesIn, plain };

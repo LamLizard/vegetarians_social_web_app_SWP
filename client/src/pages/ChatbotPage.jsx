@@ -18,7 +18,7 @@ import { useAuthContext } from '../context/AuthContext';
 import chatbotService from '../services/chatbot.service';
 import { AUTH_TOKEN_KEY } from '../services/api';
 import { readChatSession, writeChatSession, clearChatSession } from '../utils/chatSession';
-import { repeatedCardIndexes } from '../utils/chatCards';
+import { repeatedCardIndexes, seenRecipeIds } from '../utils/chatCards';
 import styles from './ChatbotPage.module.css';
 
 // Khoi's code (05/11/2026): chỉ giữ deviceId trên máy khách; số lượt hỏi thử do server đếm.
@@ -414,8 +414,10 @@ export default function ChatbotPage({ user }) {
         && subjectKey(entry.subject) === subjectKey(postContext.activeSubject));
       const searchContext = { state: postContext.state, subject: postContext.activeSubject,
         seenIds: postContext.state === 'known' ? (topic?.seenIds ?? []) : [] };
+      // Khoi's code (14/11/2026): công thức đã hiện trong cuộc trò chuyện → server không gợi ý lại.
+      const seenRecipes = seenRecipeIds(messagesRef.current);
       const payload = { protocol: 3, turnId, text: question, history,
-        postContext: searchContext,
+        postContext: searchContext, ...(seenRecipes.length ? { seenRecipeIds: seenRecipes } : {}),
         ...(deviceId ? { deviceId, expectedDay } : {}), ...(priorSession?.token ? { sessionToken: priorSession.token } : {}) };
       if (new TextEncoder().encode(JSON.stringify(payload)).length > 2 * 1024 * 1024) {
         postContextRef.current = { ...postContextRef.current, state: 'unknown' };
@@ -464,7 +466,7 @@ export default function ChatbotPage({ user }) {
           if (value.kind === 'recipe-source' || value.kind === 'ai-generated') {
             updateTurn({ source: value.kind === 'recipe-source'
               ? { kind: 'recipe-source', item: value.item, quantityNote: value.quantityNote }
-              : { kind: 'ai-generated' } });
+              : { kind: 'ai-generated', ...(value.reason ? { reason: value.reason } : {}) } });
             return;
           }
           // Khoi's code (05/11/2026): thẻ công thức/quán thật của Green Bowl.
