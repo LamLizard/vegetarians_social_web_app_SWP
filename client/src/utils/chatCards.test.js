@@ -31,3 +31,11 @@ test('repeatedCardIndexes: ba lượt liên tiếp giống nhau → ẩn lượt
   assert.deepEqual([...repeatedCardIndexes(messages)], [3, 5]);
   assert.deepEqual([...repeatedCardIndexes([])], []);
 });
+
+// Khoi's code (13/11/2026): cùng quán nhưng dòng món khác (hỏi menu rồi hỏi một món) → không coi là lặp.
+test('sameCards: thẻ quán cùng id nhưng menuHighlight khác thì không trùng', () => {
+  const menu = { kind: 'shops', items: [{ id: '39', menuHighlight: { kind: 'menu', count: 4, minPrice: 49000 } }] };
+  const dish = { kind: 'shops', items: [{ id: '39', menuHighlight: { kind: 'dish', name: 'Cơm chiên', price: 60000, more: 0 } }] };
+  assert.equal(sameCards(menu, dish), false);
+  assert.equal(sameCards(dish, { ...dish }), true);
+});

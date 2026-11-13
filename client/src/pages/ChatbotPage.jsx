@@ -694,7 +694,7 @@ export default function ChatbotPage({ user }) {
                         {message.sender === 'bot' && message.source && <ChatSourceCard source={message.source} />}
                         {/* Khoi's code (11/11/2026): hàng thẻ y hệt lượt trả lời ngay trước thì không vẽ lại. */}
                         {message.sender === 'bot' && message.cards && !repeatedCards.has(index) && (
-                          <ChatResultCards cards={message.cards}
+                          <ChatResultCards cards={message.cards} isGuest={!user}
                             title={message.source ? 'Món khác trên Green Bowl bạn có thể thích' : undefined} />
                         )}
                         {message.sender === 'bot' && message.limited && <p className={styles.messageNotice}>Câu trả lời đã đạt giới hạn độ dài.</p>}

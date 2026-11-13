@@ -96,3 +96,38 @@ test('findRecipesForChat: khớp trọn từ; fillToLimit không lọc mà xếp
   assert.equal(/WHERE r\.status = 'approved' AND \(/.test(calls[1].sql), false);
   assert.ok(calls[1].sql.includes('DESC, random()'));
 });
+
+// Khoi's code (13/11/2026): tìm quán theo tên (kèm menu) và theo món (mọi từ của món đều phải có, trọn từ).
+test('findShopsForChat: theo tên trả menu; theo món chỉ giữ quán có món; bỏ chữ "quán", "chay"', async () => {
+  const { findShopsForChat } = require('./chatContext.model');
+  const pool = require('../config/db');
+  const original = pool.query;
+  const rows = [
+    { id: '39', name: 'Nhà hàng chay Mộc Nhiên', address: '535 QL13', avatarUrl: null, schedule: [],
+      menu: [{ name: 'Cơm chiên rau củ ngũ sắc', price: '60000.00' }, { name: 'Bánh canh nấm Việt', price: '65000.00' },
+        { name: 'Bánh brownie thuần chay', price: '49000.00' }] },
+    { id: '48', name: 'Buffet lẩu chay Tịnh Yên', address: '14 THĐ', avatarUrl: null, schedule: [],
+      menu: [{ name: 'Cơm chiên cá mặn chay', price: '15000.00' }] },
+    { id: '42', name: 'Quán chay Hoa Khai', address: 'x', avatarUrl: null, schedule: [],
+      menu: [{ name: 'Cháo Nấm', price: '15000.00' }] },
+  ];
+  pool.query = async () => ({ rows });
+  try {
+    const byName = await findShopsForChat({ shopName: 'quán Mộc Nhiên' });
+    assert.deepEqual(byName.map((shop) => shop.id), ['39']);
+    assert.equal(byName[0].menuCount, 3);
+    assert.equal(byName[0].minPrice, 49000);
+    assert.equal(byName[0].menu[1].name, 'Bánh canh nấm Việt');
+
+    const byDish = await findShopsForChat({ dish: 'cơm chiên chay' });
+    assert.deepEqual(byDish.map((shop) => shop.id).sort(), ['39', '48']);
+    assert.deepEqual(byDish.find((shop) => shop.id === '48').matchedDishes.map((item) => item.price), [15000]);
+    assert.equal(byDish[0].menu.length, 0); // tìm theo món không gửi cả menu
+
+    assert.deepEqual(await findShopsForChat({ dish: 'bánh mì' }), []); // "bánh" có nhưng "mì" không
+    assert.deepEqual(await findShopsForChat({ dish: 'nấm' }).then((list) => list.map((shop) => shop.id).sort()), ['39', '42']);
+    assert.deepEqual(await findShopsForChat({}), []);
+  } finally {
+    pool.query = original;
+  }
+});

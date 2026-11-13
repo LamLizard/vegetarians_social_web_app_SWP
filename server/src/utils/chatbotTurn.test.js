@@ -24,7 +24,7 @@ function classifierRaw(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
     needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
-    scope: 'allowed', allowedParts: [], cookDish: null, ...overrides,
+    scope: 'allowed', allowedParts: [], cookDish: null, shopName: null, shopDish: null, ...overrides,
   });
 }
 
@@ -244,4 +244,20 @@ test('alreadyWarnedProfile: chỉ tính tin của bot có nhắc cập nhật h�
   assert.equal(alreadyWarnedProfile([{ sender: 'user', content: 'cập nhật hồ sơ ở đâu?' }]), false);
   assert.equal(alreadyWarnedProfile([{ sender: 'bot', content: 'Bạn cập nhật hồ sơ để Mầm tư vấn chính xác hơn nhé.' }]), true);
   assert.equal(alreadyWarnedProfile([{ sender: 'user', content: 'chào' }, { sender: 'bot', content: 'Chào bạn.' }]), false);
+});
+
+// Khoi's code (13/11/2026): shopName/shopDish — hỏi quán cụ thể hoặc quán có món → needsGreenBowlData = shops.
+test('parseScopedV3Intent: shopName/shopDish hợp lệ, ép shops; cookDish vẫn ưu tiên recipes', () => {
+  const byName = parseScopedV3Intent(classifierRaw({ shopName: ' Mộc Nhiên ' }), 'quán Mộc Nhiên có món gì');
+  assert.equal(byName.intent.shopName, 'Mộc Nhiên');
+  assert.equal(byName.intent.needsGreenBowlData, 'shops');
+  const byDish = parseScopedV3Intent(classifierRaw({ shopDish: 'bánh mì' }), 'quán nào có bánh mì chay');
+  assert.equal(byDish.intent.shopDish, 'bánh mì');
+  assert.equal(byDish.intent.needsGreenBowlData, 'shops');
+  const both = parseScopedV3Intent(classifierRaw({ cookDish: 'bánh canh', shopDish: 'bánh canh' }), 'x');
+  assert.equal(both.intent.needsGreenBowlData, 'recipes');
+  assert.throws(() => parseScopedV3Intent(classifierRaw({ shopDish: 7 }), 'x'));
+  const withoutKeys = JSON.parse(classifierRaw());
+  delete withoutKeys.shopName;
+  assert.throws(() => parseScopedV3Intent(JSON.stringify(withoutKeys), 'x'));
 });

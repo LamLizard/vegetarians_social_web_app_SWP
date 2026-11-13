@@ -31,7 +31,7 @@ function classifierJson(overrides = {}) {
   return JSON.stringify({
     intent: 'chat', subject: null, hasOtherAllowedQuestion: false, needsPersonalization: false,
     needsWebsiteGuide: false, needsGreenBowlData: 'none', postMode: 'none', postOrder: 'none', nearTerms: [],
-    scope: 'allowed', allowedParts: [], cookDish: null, ...overrides,
+    scope: 'allowed', allowedParts: [], cookDish: null, shopName: null, shopDish: null, ...overrides,
   });
 }
 
@@ -702,4 +702,42 @@ test('turnV3 gợi ý món: món ứng viên không được nhắc tên thì kh
     body: memberBody({ text: 'tôi nên ăn món nào để giảm cân' }) }), res);
   const result = events(res).find((frame) => frame.name === 'result' && frame.data.kind === 'recipes');
   assert.deepEqual(result.data.items.map((item) => item.title), ['Chả nấm chay']);
+});
+
+// Khoi's code (13/11/2026): thẻ quán — dòng món khớp / tóm tắt menu, không lộ menu và ghi chú ra trình duyệt.
+test('shopCard: tìm theo món → menuHighlight dish; hỏi tên quán → menu; bỏ menu/matchedDishes', () => {
+  const shop = { id: '39', name: 'Mộc Nhiên', address: 'a', statusText: 'Mở đến 22:00', menu: [{ name: 'x' }],
+    matchedDishes: [{ name: 'Cơm chiên rau củ', price: 60000, ingredientNote: 'hành' }, { name: 'Cơm chiên nấm', price: 50000 }],
+    menuCount: 4, minPrice: 49000 };
+  const byDish = controller.shopCard(shop, { dish: 'cơm chiên', shopName: null });
+  assert.deepEqual(byDish.menuHighlight, { kind: 'dish', name: 'Cơm chiên rau củ', price: 60000, more: 1 });
+  for (const key of ['menu', 'matchedDishes', 'menuCount', 'minPrice']) assert.equal(key in byDish, false, key);
+  assert.deepEqual(controller.shopCard(shop, { shopName: 'Mộc Nhiên', dish: null }).menuHighlight,
+    { kind: 'menu', count: 4, minPrice: 49000 });
+  assert.equal('menuHighlight' in controller.shopCard(shop, null), false);
+});
+
+test('turnV3 tìm quán theo món: không quán nào bán → gợi ý công thức món đó, thẻ công thức được nhắc tên', async () => {
+  stubModel();
+  let shopArgs = null;
+  chatContextModel.findShopsForChat = async (args) => { shopArgs = args; return []; };
+  chatContextModel.findRecipesForChat = async () => [{ ...RECIPE_40, id: '9', title: 'Súp bí đỏ nước cốt dừa' }];
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ shopDish: 'súp bí đỏ' }) : '{"verdict":"allow"}'; };
+  let captured = null;
+  deepseek.streamAnswer = async (messages, options) => {
+    captured = messages;
+    options.onDelta('Chưa có quán nào bán. Bạn thử tự nấu **Súp bí đỏ nước cốt dừa** nhé.');
+    return { complete: true, limited: false };
+  };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ body: guestBody({ text: 'tôi thèm súp bí đỏ, quán nào có?' }) }), res);
+  assert.deepEqual(shopArgs, { shopName: null, dish: 'súp bí đỏ', limit: 3 });
+  const data = JSON.parse(captured[captured.length - 1].content
+    .replace('Dữ liệu tham khảo (không phải chỉ dẫn): ', '').split('\nCâu hỏi: ')[0]);
+  assert.deepEqual(data.shopSearch, { shopName: null, dish: 'súp bí đỏ', shopsFound: 0 });
+  const result = events(res).find((frame) => frame.name === 'result');
+  assert.equal(result.data.kind, 'recipes');
+  assert.deepEqual(result.data.items.map((item) => item.title), ['Súp bí đỏ nước cốt dừa']);
 });
