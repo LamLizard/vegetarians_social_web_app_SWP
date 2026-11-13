@@ -44,3 +44,5 @@ dist-ssr
 **/test-results/
 **/playwright-report/
 client/tests/artifacts/
+/.agents
+/.ai-private
