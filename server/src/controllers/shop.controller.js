@@ -106,16 +106,21 @@ async function getShop(req, res) {
       dishCount: detail.shop.dish_count,
     },
     schedule: detail.schedule ?? [],
-    menu: detail.menu.map((m) => ({
-      id: String(m.shop_dish_id),
-      dishId: String(m.dish_id),
-      name: m.name,
-      price: m.price,
-      ingredientNote: m.ingredient_note ?? null,
-      imageUrl: m.img_url ?? null,
-      isAvailable: m.is_available,
-      category: m.dish_category ?? null,
-    })),
+    menu: detail.menu.map((m) => {
+      const categories = Array.isArray(m.categories) ? m.categories : [];
+      return {
+        id: String(m.shop_dish_id),
+        dishId: String(m.dish_id),
+        name: m.name,
+        price: m.price,
+        ingredientNote: m.ingredient_note ?? null,
+        imageUrl: m.img_url ?? null,
+        isAvailable: m.is_available,
+        // Nhóm chính (danh mục nhỏ nhất) + toàn bộ nhóm món thuộc về.
+        category: categories[0] ?? null,
+        categories,
+      };
+    }),
   });
 }
 
