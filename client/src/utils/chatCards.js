@@ -24,6 +24,18 @@ export function seenRecipeIds(messages = [], max = 60) {
   return unique.reverse();
 }
 
+// Khoi's code (14/11/2026): kể từ lần cuối có thẻ công thức, Mầm đã từng tự gợi ý món (nhãn "Gợi ý do AI tạo") chưa.
+// Đúng → server trả câu "đã gợi ý hết" và hoàn lượt khi người dùng hỏi lại lúc đã hết công thức.
+export function aiSuggestedSinceCards(messages = []) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.sender !== 'bot' || message.status !== 'complete') continue;
+    if (message.cards?.kind === 'recipes' && message.cards.items?.length) return false;
+    if (message.source?.kind === 'ai-generated' && message.source.reason === 'suggestions') return true;
+  }
+  return false;
+}
+
 /** Hai hàng thẻ giống nhau khi cùng loại và cùng tập id (không xét thứ tự). */
 export function sameCards(a, b) {
   const key = cardKey(a);

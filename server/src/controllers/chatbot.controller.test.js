@@ -803,3 +803,43 @@ test('turnV3 hỏi quán của thành viên: luôn đọc dị ứng dù classif
   assert.equal(read, 1);
   assert.deepEqual(shopArgs.allergies, ['Mì sợi']);
 });
+
+// Khoi's code (14/11/2026): đã hết công thức và lượt trước Mầm đã tự gợi ý → câu cố định, không gọi AI trả lời, hoàn lượt.
+test('turnV3 hỏi lại khi đã hết món (aiSuggestedLast): câu cố định, không stream, refunded', async () => {
+  stubModel();
+  let released = 0;
+  chatbotModel.releaseTurn = async () => { released += 1; };
+  chatContextModel.findRecipesForChat = async (keywords, options) => (options.excludeIds ? [] : [RECIPE_40]);
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  let streamed = false;
+  deepseek.streamAnswer = async () => { streamed = true; return { complete: true, limited: false }; };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'cho tôi món ăn có cà chua', seenRecipeIds: ['40'], aiSuggestedLast: true }) }), res);
+  assert.equal(streamed, false);
+  assert.equal(call, 1); // chỉ gọi bộ phân loại
+  assert.equal(released, 1);
+  const frames = events(res);
+  assert.ok(frames.filter((frame) => frame.name === 'delta').map((frame) => frame.data.text).join('').includes('gợi ý hết'));
+  const done = frames.find((frame) => frame.name === 'done');
+  assert.equal(done.data.refunded, true);
+  assert.ok(done.data.historyEntry);
+});
+
+test('turnV3 hết món lần đầu (chưa có aiSuggestedLast): vẫn để Mầm tự gợi ý, tính lượt', async () => {
+  stubModel();
+  let released = 0;
+  chatbotModel.releaseTurn = async () => { released += 1; };
+  chatContextModel.findRecipesForChat = async (keywords, options) => (options.excludeIds ? [] : [RECIPE_40]);
+  let call = 0;
+  deepseek.classify = async () => { call += 1;
+    return call === 1 ? classifierJson({ needsGreenBowlData: 'recipes' }) : '{"verdict":"allow"}'; };
+  deepseek.streamAnswer = async (messages, options) => { options.onDelta('Gợi ý thêm: canh cà chua.'); return { complete: true, limited: false }; };
+  const res = fakeRes();
+  await controller.turnV3(fakeReq({ account: { id: 7, role: 'member' },
+    body: memberBody({ text: 'cho tôi món ăn có cà chua', seenRecipeIds: ['40'] }) }), res);
+  assert.equal(released, 0);
+  assert.equal(events(res).find((frame) => frame.name === 'done').data.refunded, undefined);
+});

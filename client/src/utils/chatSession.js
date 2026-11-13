@@ -28,7 +28,12 @@ function validResultItems(result) {
 // Khoi's code (06/11/2026): thẻ nguồn công thức lưu cùng tin bot — phải đọc lại được sau khi tải trang.
 function validChatSource(source) {
   if (!source || typeof source !== 'object' || Array.isArray(source)) return false;
-  if (source.kind === 'ai-generated') return Object.keys(source).length === 1;
+  // Khoi's code (14/11/2026): nhãn AI có thể kèm reason ('recipe' | 'suggestions') — trước chỉ nhận đúng 1 khoá nên
+  // phiên đã lưu bị coi là hỏng và mọi lượt sau báo "Phiên trò chuyện không hợp lệ".
+  if (source.kind === 'ai-generated') {
+    return Object.keys(source).every((key) => ['kind', 'reason'].includes(key))
+      && (source.reason === undefined || ['recipe', 'suggestions'].includes(source.reason));
+  }
   if (source.kind !== 'recipe-source' || Object.keys(source).length !== 3) return false;
   const item = source.item;
   return Boolean(item) && typeof item === 'object'

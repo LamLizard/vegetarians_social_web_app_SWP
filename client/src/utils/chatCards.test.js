@@ -1,7 +1,7 @@
 // Khoi's code (11/11/2026): chạy bằng node --test src/utils/chatCards.test.js
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { repeatedCardIndexes, sameCards, seenRecipeIds } from './chatCards.js';
+import { aiSuggestedSinceCards, repeatedCardIndexes, sameCards, seenRecipeIds } from './chatCards.js';
 
 const recipes = (...ids) => ({ kind: 'recipes', items: ids.map((id) => ({ id: String(id), title: `Món ${id}` })) });
 const bot = (cards) => ({ sender: 'bot', content: 'x', ...(cards ? { cards } : {}) });
@@ -47,4 +47,17 @@ test('seenRecipeIds: gom thẻ công thức + thẻ nguồn của Mầm, bỏ qu
   assert.deepEqual(seenRecipeIds(messages), ['40', '12', '61', '70']);
   assert.deepEqual(seenRecipeIds(messages, 2), ['61', '70']);
   assert.deepEqual(seenRecipeIds([]), []);
+});
+
+// Khoi's code (14/11/2026): đã tự gợi ý kể từ lần cuối có thẻ công thức (bỏ qua tin báo hết, tin lỗi).
+test('aiSuggestedSinceCards: true sau nhãn gợi ý AI, giữ qua tin báo hết; false khi có thẻ công thức mới hơn', () => {
+  const done = (extra) => ({ sender: 'bot', content: 'x', status: 'complete', ...extra });
+  const suggested = done({ source: { kind: 'ai-generated', reason: 'suggestions' } });
+  const cards = done({ cards: recipes(40) });
+  const notice = done({});
+  assert.equal(aiSuggestedSinceCards([cards, suggested]), true);
+  assert.equal(aiSuggestedSinceCards([cards, suggested, notice, { sender: 'bot', content: 'x', status: 'failed' }]), true);
+  assert.equal(aiSuggestedSinceCards([suggested, cards]), false);
+  assert.equal(aiSuggestedSinceCards([done({ source: { kind: 'ai-generated', reason: 'recipe' } })]), false);
+  assert.equal(aiSuggestedSinceCards([]), false);
 });

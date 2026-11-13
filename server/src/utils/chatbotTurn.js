@@ -20,7 +20,8 @@ const MAX_SEEN_RECIPES = 60;
 function validateV3(body, account) {
   // Khoi's code (14/11/2026): seenRecipeIds = công thức đã hiện thẻ trong cuộc trò chuyện (để không gợi ý lặp lại).
   if (!validKeys(body, ['protocol', 'turnId', 'text', 'history', 'sessionToken', 'deviceId', 'expectedDay', 'postContext',
-    'seenRecipeIds'])
+    'seenRecipeIds', 'aiSuggestedLast'])
+    || (body.aiSuggestedLast !== undefined && body.aiSuggestedLast !== true)
     || (body.seenRecipeIds !== undefined && (!Array.isArray(body.seenRecipeIds) || body.seenRecipeIds.length > MAX_SEEN_RECIPES
       || !body.seenRecipeIds.every((id) => typeof id === 'string' && /^[1-9]\d{0,17}$/.test(id))
       || new Set(body.seenRecipeIds).size !== body.seenRecipeIds.length))
